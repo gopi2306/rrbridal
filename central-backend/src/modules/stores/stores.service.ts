@@ -54,6 +54,14 @@ export class StoresService {
     return doc;
   }
 
+  async removeByCode(code: string) {
+    const doc = await this.storeModel
+      .findOneAndDelete({ code: code.trim().toLowerCase() })
+      .lean();
+    if (!doc) throw new NotFoundException(`Store '${code}' not found`);
+    return doc;
+  }
+
   async existsByCode(code: string): Promise<boolean> {
     const count = await this.storeModel.countDocuments({ code: code.trim().toLowerCase() });
     return count > 0;

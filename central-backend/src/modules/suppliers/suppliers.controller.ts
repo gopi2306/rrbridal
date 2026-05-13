@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { FilterSupplierDto } from './dto/filter-supplier.dto';
@@ -28,6 +28,11 @@ export class SuppliersController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateSupplierDto) {
     return await this.suppliersService.update(id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return await this.suppliersService.remove(id);
   }
 
   @Get()

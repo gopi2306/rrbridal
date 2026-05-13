@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { FilterBranchDto } from './dto/filter-branch.dto';
@@ -33,5 +33,10 @@ export class BranchesController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
     return await this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return await this.service.remove(id);
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { FilterLocationDto } from './dto/filter-location.dto';
@@ -33,5 +33,10 @@ export class LocationsController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateLocationDto) {
     return await this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return await this.service.remove(id);
   }
 }

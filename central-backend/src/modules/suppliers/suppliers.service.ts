@@ -30,6 +30,12 @@ export class SuppliersService {
     return doc;
   }
 
+  async remove(id: string) {
+    const doc = await this.supplierModel.findByIdAndDelete(id).lean();
+    if (!doc) throw new NotFoundException('Supplier not found');
+    return doc;
+  }
+
   async list(params: { search?: string; mobileNo?: string }) {
     const filter: FilterQuery<SupplierDocument> = {};
     if (params.mobileNo) filter.mobileNo = params.mobileNo;

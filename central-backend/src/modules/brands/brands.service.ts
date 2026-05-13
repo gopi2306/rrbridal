@@ -79,4 +79,10 @@ export class BrandsService {
     if (!doc) throw new NotFoundException('Not found');
     return doc;
   }
+
+  async remove(id: string) {
+    const doc = await this.model.findByIdAndDelete(id).lean();
+    if (!doc) throw new NotFoundException('Not found');
+    return doc;
+  }
 }

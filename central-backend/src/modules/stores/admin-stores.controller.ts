@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -39,5 +39,10 @@ export class AdminStoresController {
   @Patch(':code')
   async update(@Param('code') code: string, @Body() dto: UpdateStoreDto) {
     return await this.storesService.update(code, dto);
+  }
+
+  @Delete(':code')
+  async remove(@Param('code') code: string) {
+    return await this.storesService.removeByCode(code);
   }
 }
