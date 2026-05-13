@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { JwtPayload } from '../../common/jwt-payload';
 import { CreateUserDto } from './dto/create-user.dto';
+import { FilterUserDto } from './dto/filter-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -20,6 +21,11 @@ export class AdminUsersController {
   @Post()
   async create(@Body() dto: CreateUserDto) {
     return await this.usersService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterUserDto) {
+    return await this.usersService.filter(dto);
   }
 
   @Get()

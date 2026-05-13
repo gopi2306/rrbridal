@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { FilterPurchaseOrderDto } from './dto/filter-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { PurchaseOrdersService } from './purchase-orders.service';
 
@@ -12,6 +13,11 @@ export class PurchaseOrdersController {
   @Post()
   async create(@Body() dto: CreatePurchaseOrderDto) {
     return await this.poService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterPurchaseOrderDto) {
+    return await this.poService.filter(dto);
   }
 
   @Get(':id')

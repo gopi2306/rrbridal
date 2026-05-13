@@ -4,6 +4,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateStoreDto } from './dto/create-store.dto';
+import { FilterStoreDto } from './dto/filter-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { StoresService } from './stores.service';
 
@@ -18,6 +19,11 @@ export class AdminStoresController {
   @Post()
   async create(@Body() dto: CreateStoreDto) {
     return await this.storesService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterStoreDto) {
+    return await this.storesService.filter(dto);
   }
 
   @Get()

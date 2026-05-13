@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcryptjs';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { StoresService } from '../stores/stores.service';
 import { AuthSettingsService } from './auth-settings.service';
 import { BootstrapAdminDto } from './dto/bootstrap-admin.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { FilterUserDto } from './dto/filter-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserDocument, UserRole, UserStatus } from './schemas/user.schema';
 
@@ -169,5 +170,47 @@ export class UsersService {
 
   async disable(id: string): Promise<PublicUser> {
     return await this.update(id, { status: 'disabled' });
+  }
+
+  async filter(dto: FilterUserDto) {
+    const filter: FilterQuery<UserDocument> = {};
+
+    if (dto.email) filter.email = dto.email.trim().toLowerCase();
+    if (dto.name) filter.name = dto.name;
+    if (dto.role) filter.role = dto.role;
+    if (dto.locationKind) filter.locationKind = dto.locationKind;
+    if (dto.storeId) filter.storeId = dto.storeId;
+    if (dto.status) filter.status = dto.status;
+
+    if (dto.search) {
+      filter.$or = [
+        { name: { $regex: dto.search, $options: 'i' } },
+        { email: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'createdAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [docs, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.userModel.countDocuments(filter),
+    ]);
+
+    return {
+      data: docs.map((d) => this.toPublic(d as Record<string, unknown>)!),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }

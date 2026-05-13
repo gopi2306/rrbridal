@@ -1,8 +1,9 @@
 import { ConflictException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { ResourceLimitsService } from '../resource-limits/resource-limits.service';
 import { CreateStoreDto } from './dto/create-store.dto';
+import { FilterStoreDto } from './dto/filter-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { Store, StoreDocument } from './schemas/store.schema';
 
@@ -56,5 +57,47 @@ export class StoresService {
   async existsByCode(code: string): Promise<boolean> {
     const count = await this.storeModel.countDocuments({ code: code.trim().toLowerCase() });
     return count > 0;
+  }
+
+  async filter(dto: FilterStoreDto) {
+    const filter: FilterQuery<StoreDocument> = {};
+
+    if (dto.code) filter.code = dto.code.trim().toLowerCase();
+    if (dto.name) filter.name = dto.name;
+    if (dto.phone) filter.phone = dto.phone;
+    if (dto.status) filter.status = dto.status;
+
+    if (dto.search) {
+      filter.$or = [
+        { code: { $regex: dto.search, $options: 'i' } },
+        { name: { $regex: dto.search, $options: 'i' } },
+        { address: { $regex: dto.search, $options: 'i' } },
+        { phone: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'code';
+    const sortOrder: SortOrder = dto.sortOrder === 'desc' ? -1 : 1;
+
+    const [data, total] = await Promise.all([
+      this.storeModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.storeModel.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }
