@@ -1,7 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { CreateDivisionDto } from './dto/create-division.dto';
+import { FilterDivisionDto } from './dto/filter-division.dto';
 import { UpdateDivisionDto } from './dto/update-division.dto';
 import { Division, DivisionDocument } from './schemas/division.schema';
 
@@ -23,6 +24,45 @@ export class DivisionsService {
 
   async findAll() {
     return await this.model.find().sort({ name: 1 }).lean();
+  }
+
+  async filter(dto: FilterDivisionDto) {
+    const filter: FilterQuery<DivisionDocument> = {};
+
+    if (dto.code !== undefined && dto.code !== '') {
+      filter.code = dto.code.trim().toLowerCase();
+    }
+
+    if (dto.isActive !== undefined && dto.isActive !== null) {
+      filter.isActive = dto.isActive;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { code: { $regex: dto.search, $options: 'i' } },
+        { name: { $regex: dto.search, $options: 'i' } },
+        { description: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'name';
+    const sortOrder: SortOrder = dto.sortOrder === 'desc' ? -1 : 1;
+
+    const [data, total] = await Promise.all([
+      this.model.find(filter).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit).lean(),
+      this.model.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string) {

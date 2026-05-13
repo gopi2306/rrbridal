@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateLocationDto } from './dto/create-location.dto';
+import { FilterLocationDto } from './dto/filter-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { LocationsService } from './locations.service';
 
@@ -17,6 +18,11 @@ export class LocationsController {
   @Get()
   async list() {
     return await this.service.findAll();
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterLocationDto) {
+    return await this.service.filter(dto);
   }
 
   @Get(':id')
