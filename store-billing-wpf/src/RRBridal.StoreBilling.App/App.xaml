@@ -1,0 +1,18 @@
+﻿<Application x:Class="RRBridal.StoreBilling.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:RRBridal.StoreBilling.App"
+             xmlns:conv="clr-namespace:RRBridal.StoreBilling.App.Converters"
+>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/ThemeColors.xaml"/>
+                <ResourceDictionary Source="Resources/ControlStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+            <conv:InvertBoolConverter x:Key="InvertBool"/>
+            <conv:EnumBoolConverter x:Key="EnumBoolConverter"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

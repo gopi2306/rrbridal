@@ -1,0 +1,55 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.ProductSearchDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pick product"
+        Width="640"
+        Height="480"
+        MinHeight="360"
+        MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BrushBackground}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Search SKU, barcode, or name (store cache + central)" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+
+        <Grid Grid.Row="1" Margin="0,10,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" Style="{StaticResource RoundedTextBox}" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,0,8,0"/>
+            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" Width="100"/>
+        </Grid>
+
+        <ListView Grid.Row="2"
+                  ItemsSource="{Binding Results}"
+                  SelectedItem="{Binding SelectedProduct}"
+                  MouseDoubleClick="Results_OnMouseDoubleClick"
+                  BorderBrush="{StaticResource BrushBorder}"
+                  Background="{StaticResource BrushSurface}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="SKU" DisplayMemberBinding="{Binding Sku}" Width="120"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="280"/>
+                    <GridViewColumn Header="Rate" Width="80" DisplayMemberBinding="{Binding SuggestedRate, StringFormat=₹ {0:N2}}"/>
+                    <GridViewColumn Header="GST %" Width="60" DisplayMemberBinding="{Binding SuggestedTaxPercent, StringFormat={}{0:N0}}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="90" IsCancel="True" Click="Cancel_OnClick"/>
+                <Button Content="Add to bill" Style="{StaticResource PrimaryButton}" Width="120" Click="Add_OnClick"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

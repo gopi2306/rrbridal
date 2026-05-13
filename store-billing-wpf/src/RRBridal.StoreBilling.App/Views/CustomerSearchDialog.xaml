@@ -1,0 +1,64 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.CustomerSearchDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Find Customer"
+        Width="680"
+        Height="500"
+        MinHeight="380"
+        MinWidth="540"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BrushBackground}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Search by name, phone, or email (local + central)" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+
+        <Grid Grid.Row="1" Margin="0,10,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Grid.Column="0" Style="{StaticResource RoundedTextBox}"
+                     Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="SearchBox_OnKeyDown"
+                     Margin="0,0,8,0"/>
+            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Click="Search_OnClick" Width="100"/>
+        </Grid>
+
+        <ListView Grid.Row="2"
+                  x:Name="ResultsList"
+                  ItemsSource="{Binding Results}"
+                  SelectedItem="{Binding SelectedItem}"
+                  MouseDoubleClick="Results_OnMouseDoubleClick"
+                  BorderBrush="{StaticResource BrushBorder}"
+                  Background="{StaticResource BrushSurface}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Source" DisplayMemberBinding="{Binding Source}" Width="60"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="200"/>
+                    <GridViewColumn Header="Phone" DisplayMemberBinding="{Binding Phone}" Width="130"/>
+                    <GridViewColumn Header="City" DisplayMemberBinding="{Binding City}" Width="100"/>
+                    <GridViewColumn Header="Address" DisplayMemberBinding="{Binding FullAddress}" Width="140"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Register New Customer" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Click="RegisterNew_OnClick"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="80" IsCancel="True" Click="Cancel_OnClick"/>
+                <Button Content="Select" Style="{StaticResource PrimaryButton}" Width="100" Click="Select_OnClick"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

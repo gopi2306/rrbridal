@@ -1,0 +1,139 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.AdjustmentBillView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900"
+             Background="{StaticResource BrushBackground}">
+    <Grid Background="{StaticResource BrushBackground}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="320"/>
+        </Grid.ColumnDefinitions>
+
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" FontSize="15" Text="Adjustment Bill" Margin="0,0,0,12"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Original Bill No" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                            <Button Grid.Column="2" Content="Load Bill" Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding LookupBillCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0"
+                        Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="15" Text="Adjustment Lines" Margin="0,0,0,10"/>
+                        <DataGrid ItemsSource="{Binding AdjustmentLines}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  RowHeight="36"
+                                  BorderThickness="1"
+                                  BorderBrush="{StaticResource BrushBorder}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="45"/>
+                                <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="100"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="65"/>
+                                <DataGridTextColumn Header="Orig Rate" Binding="{Binding OriginalRate, StringFormat=N2}" IsReadOnly="True" Width="75"/>
+                                <DataGridTextColumn Header="Orig Amt" Binding="{Binding OriginalAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Adj Qty" Binding="{Binding AdjustedQty, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
+                                <DataGridTextColumn Header="Adj Rate" Binding="{Binding AdjustedRate, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
+                                <DataGridTextColumn Header="Adj Amt" Binding="{Binding AdjustedAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Diff" Binding="{Binding DiffAmount, StringFormat=N2}" IsReadOnly="True" Width="70"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0"
+                Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                    <StackPanel>
+                        <TextBlock Text="ADJUSTMENT SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
+                        <TextBlock Text="{Binding AdjustmentNo, StringFormat=ADJ NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Original payable" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding OriginalPayableFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Adjusted payable" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding AdjustedPayableFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+
+                        <Separator Margin="0,8,0,12"/>
+
+                        <TextBlock Text="Difference" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Sub total diff" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding DiffSubTotalFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="CGST diff" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            <TextBlock Text="{Binding DiffCgstFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="SGST diff" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            <TextBlock Text="{Binding DiffSgstFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="IGST diff" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="{Binding DiffIgstFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+
+                        <Separator Margin="0,8,0,12"/>
+
+                        <TextBlock Text="Reason" Margin="0,0,0,4"/>
+                        <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button Content="Clear" Style="{StaticResource OutlineButton}" Command="{Binding ClearFormCommand}" Margin="0,0,8,0"/>
+                            <Button Content="Post Adjustment" Style="{StaticResource PrimaryButton}" Command="{Binding PostAdjustmentCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                    <Grid>
+                        <TextBlock Text="Diff Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding DiffPayableFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

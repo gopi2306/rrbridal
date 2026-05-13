@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+bin/
+obj/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vs/
+*.suo
+*.user
+*.userosscache
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.nupkg

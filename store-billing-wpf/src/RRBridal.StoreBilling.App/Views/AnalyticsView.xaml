@@ -1,0 +1,54 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.AnalyticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,0,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="240"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Analytics" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="Store: " Foreground="{StaticResource BrushTextMuted}"/>
+                    <TextBlock Text="{Binding StoreIdDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                </StackPanel>
+            </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Content="Refresh" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding RefreshCommand}" Width="120"/>
+        </Grid>
+
+        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock Text="{Binding PeriodSummary}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding TotalsSummary}" Margin="0,6,0,0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" TextWrapping="Wrap"/>
+            <TextBlock Margin="0,8,0,0" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                       Text="Daily breakdown uses posted bills in local MongoDB (store_bills), keyed by posted time in UTC."/>
+        </StackPanel>
+
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+            <DataGrid ItemsSource="{Binding DailyRows}"
+                      Style="{StaticResource ThemedDataGrid}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      HeadersVisibility="Column"
+                      VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Day (UTC)" Binding="{Binding DayLabel}" Width="*"/>
+                    <DataGridTextColumn Header="Bills" Binding="{Binding BillsCount}" Width="80"/>
+                    <DataGridTextColumn Header="Revenue" Binding="{Binding Revenue, StringFormat=₹ {0:N2}}" Width="130"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

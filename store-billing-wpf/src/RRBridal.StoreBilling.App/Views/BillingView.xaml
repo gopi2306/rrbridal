@@ -1,0 +1,225 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.BillingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900"
+             Background="{StaticResource BrushBackground}">
+    <Grid Background="{StaticResource BrushBackground}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="340"/>
+        </Grid.ColumnDefinitions>
+
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" FontSize="15" Text="Customer profiles" VerticalAlignment="Center"/>
+                                <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
+                                        Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <ComboBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedComboBox}" Text="{Binding Salesman, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer name" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Phone" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Door no." VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding DoorNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="3" Text="Street" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="3" Grid.Column="4" Style="{StaticResource RoundedTextBox}" Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Full address" VerticalAlignment="Center" Margin="0,12,0,0"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}" Margin="0,12,0,0"
+                                     Text="{Binding FullAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0">
+                    <DockPanel LastChildFill="True">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="Line items" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Import CSV" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding ImportCsvCommand}"/>
+                                <Button Content="Add manual" Style="{StaticResource PrimaryButton}" Command="{Binding AddManualLineCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                        <DataGrid ItemsSource="{Binding Lines}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  RowHeight="36"
+                                  BorderThickness="1"
+                                  BorderBrush="{StaticResource BrushBorder}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"/>
+                                <DataGridTextColumn Header="Product code" Binding="{Binding ProductCode, UpdateSourceTrigger=PropertyChanged}" Width="110">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                <DataGridTextColumn Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" IsReadOnly="True" Width="100"/>
+                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                <DataGridTextColumn Header="CGST%" Binding="{Binding CgstPercent}" IsReadOnly="True" Width="60"/>
+                                <DataGridTextColumn Header="SGST%" Binding="{Binding SgstPercent}" IsReadOnly="True" Width="60"/>
+                                <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
+                                   Text="F3: search box — Enter: pick product from catalog. Use TAB to move between cells."/>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                    <StackPanel>
+                        <TextBlock Text="INVOICE PREVIEW" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Border Background="#33FFFFFF" CornerRadius="4" Padding="6,2">
+                                <TextBlock Text="{Binding DraftLabel}" Foreground="White" FontSize="11"/>
+                            </Border>
+                            <TextBlock Text="{Binding BillNo, StringFormat=BILL NO: {0}}" Foreground="White" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding BillDateDisplay}" Foreground="White" Opacity="0.9" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding SubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="CGST" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            <TextBlock Text="{Binding CgstTotalFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="SGST" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            <TextBlock Text="{Binding SgstTotalFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="IGST" Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="{Binding IgstTotalFormatted}" HorizontalAlignment="Right"
+                                       Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Tax total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding TaxTotalFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Gross total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding GrossTotalFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushText}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Item discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding ItemDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+
+                        <Separator Margin="0,8,0,12"/>
+
+                        <CheckBox Content="Inter-state (IGST)" Style="{StaticResource ThemedCheckBox}"
+                                  IsChecked="{Binding IsInterState}" Margin="0,0,0,10"/>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="110"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Item discount (₹)" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding ItemDiscount, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="110"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Cash disc amt" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CashDiscAmount, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="110"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Round off" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding RoundOff, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                    <Grid>
+                        <TextBlock Text="Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

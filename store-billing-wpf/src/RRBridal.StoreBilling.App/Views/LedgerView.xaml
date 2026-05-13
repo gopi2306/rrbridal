@@ -1,0 +1,77 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.LedgerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             Background="{StaticResource BrushBackground}">
+    <!-- Grid + * row: TabControl inside ScrollViewer/StackPanel often measures to zero height and hides grids. -->
+    <Grid Margin="0,0,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="320"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Ledger" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="Store: " Foreground="{StaticResource BrushTextMuted}"/>
+                    <TextBlock Text="{Binding StoreIdDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                </StackPanel>
+            </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Content="Refresh" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding RefreshCommand}" Width="120"/>
+        </Grid>
+
+        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch">
+            <TabItem Header="Posted bills">
+                <Border Style="{StaticResource CardBorder}" Margin="0,8,0,0" Padding="8" VerticalAlignment="Stretch">
+                    <DataGrid ItemsSource="{Binding Bills}"
+                              Style="{StaticResource ThemedDataGrid}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              HeadersVisibility="Column"
+                              VerticalScrollBarVisibility="Auto"
+                              VerticalAlignment="Stretch">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="110"/>
+                            <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
+                            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                            <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
+                            <DataGridTextColumn Header="Posted UTC" Binding="{Binding PostedAtUtc}" Width="160"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </TabItem>
+            <TabItem Header="Payments">
+                <Border Style="{StaticResource CardBorder}" Margin="0,8,0,0" Padding="8" VerticalAlignment="Stretch">
+                    <DataGrid ItemsSource="{Binding Payments}"
+                              Style="{StaticResource ThemedDataGrid}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              HeadersVisibility="Column"
+                              VerticalScrollBarVisibility="Auto"
+                              VerticalAlignment="Stretch">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time UTC" Binding="{Binding CreatedAtDisplay}" Width="160"/>
+                            <DataGridTextColumn Header="Invoice no" Binding="{Binding InvoiceNo}" Width="120"/>
+                            <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" Width="100"/>
+                            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N2}}" Width="100"/>
+                            <DataGridTextColumn Header="Currency" Binding="{Binding Currency}" Width="70"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                            <DataGridTextColumn Header="Reference" Binding="{Binding ProviderReference}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

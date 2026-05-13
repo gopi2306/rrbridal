@@ -1,0 +1,89 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings &amp; sync"
+        Width="520"
+        Height="720"
+        Loaded="SettingsDialog_OnLoaded"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BrushBackground}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+        <StackPanel>
+            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Central connection" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Margin="0,4,0,12" Text="Login, sync, and developer test actions." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+
+            <TextBlock Text="Email" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding LoginEmail, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+            <TextBlock Text="Password" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding LoginPassword, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <Button Content="Login" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Command="{Binding LoginCentralCommand}" Width="100"/>
+                <Button Content="Logout" Style="{StaticResource OutlineButton}" Command="{Binding LogoutCentralCommand}" Width="100"/>
+            </StackPanel>
+
+            <TextBlock Text="{Binding AuthStatusText}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+            <Separator Margin="0,8,0,16"/>
+
+            <TextBlock FontWeight="SemiBold" Text="Sync"/>
+            <Button Content="Refresh status" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left" Margin="0,8,0,8" Command="{Binding RefreshStatusCommand}"/>
+            <TextBlock Text="{Binding PendingOutboxText}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding CursorText}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <Button Content="Run sync once" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding RunSyncOnceCommand}" Margin="0,0,0,16"/>
+
+            <Separator Margin="0,8,0,16"/>
+
+            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Invoice / receipt (thermal)" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Margin="0,4,0,12" Text="Printed bill header, footer, and default Windows printer for F10 print." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+
+            <TextBlock Text="Store name" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptStoreName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="Address" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptAddress, UpdateSourceTrigger=PropertyChanged}" MinHeight="48" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,8"/>
+            <TextBlock Text="Customer care phone" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCustomerCarePhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="GSTIN" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptGstin, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="FSSAI no." Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptFssaiNo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="Branch code" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptBranchCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="Website" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptWebsite, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+            <TextBlock Text="Terms (paragraph)" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptTerms, UpdateSourceTrigger=PropertyChanged}" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,8"/>
+            <TextBlock Text="Policy lines (one per line)" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptPolicyLinesText, UpdateSourceTrigger=PropertyChanged}" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,8"/>
+            <TextBlock Text="Thank-you line" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptThankYouLine, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+
+            <TextBlock FontWeight="SemiBold" Text="Printer" Margin="0,0,0,4"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <Button Content="Refresh printer list" Style="{StaticResource OutlineButton}" Command="{Binding RefreshPrintersCommand}" Margin="0,0,8,0"/>
+                <CheckBox Content="Always use Windows print dialog" IsChecked="{Binding ReceiptAlwaysUsePrintDialog}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="Default bill printer" Margin="0,0,0,4"/>
+            <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PrinterOptions}" DisplayMemberPath="Display"
+                      SelectedValuePath="FullName" SelectedValue="{Binding SelectedPrinterFullName, Mode=TwoWay}" Margin="0,0,0,8"/>
+            <TextBlock Text="Receipt width (characters)" Margin="0,0,0,4"/>
+            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCharWidth, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+
+            <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsAsyncCommand}" Margin="0,0,0,16"/>
+
+            <Separator Margin="0,8,0,16"/>
+
+            <TextBlock FontWeight="SemiBold" Text="Developer tests"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
+                <Button Content="PineLabs" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding TestPineLabsPaymentCommand}"/>
+                <Button Content="Razorpay" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding TestRazorpayPaymentCommand}"/>
+                <Button Content="Purchase intent" Style="{StaticResource OutlineButton}" Command="{Binding TestPurchaseIntentCommand}"/>
+            </StackPanel>
+
+            <TextBlock Text="{Binding LastActionText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,8,0,16"/>
+
+            <Button Content="Close" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Width="100" IsCancel="True" IsDefault="True" Click="Close_Click"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>
