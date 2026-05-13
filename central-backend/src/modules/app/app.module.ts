@@ -42,6 +42,10 @@ import { SkuOrderGroupsModule } from '../sku-order-groups/sku-order-groups.modul
 import { IndentTypesModule } from '../indent-types/indent-types.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
+import { BranchesModule } from '../branches/branches.module';
+import { DivisionsModule } from '../divisions/divisions.module';
+import { LocationsModule } from '../locations/locations.module';
+import { SeedModule } from '../seed/seed.module';
 
 @Module({
   imports: [
@@ -91,6 +95,10 @@ import { ResourceLimitsModule } from '../resource-limits/resource-limits.module'
     IndentTypesModule,
     DashboardModule,
     ResourceLimitsModule,
+    BranchesModule,
+    DivisionsModule,
+    LocationsModule,
+    SeedModule,
   ],
   controllers: [AppController],
 })
