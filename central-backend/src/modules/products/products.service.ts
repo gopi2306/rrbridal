@@ -122,6 +122,31 @@ export class ProductsService {
     const [data, total] = await Promise.all([
       this.productModel
         .find(filter)
+        .populate([
+          'manufacturerNameId',
+          'supplierNameId',
+          'departmentId',
+          'categoryId',
+          'subCategoryId',
+          'brandId',
+          'weightAndSizeId',
+          'weightPerGmOrMlId',
+          'offerGroupId',
+          'productStatusId',
+          'colourId',
+          'hsnCodeId',
+          'gstUomId',
+          'uomSubId',
+          'batchExpiryDetailId',
+          'itemPrepStatusId',
+          'packedConfirmationId',
+          'poQtyPolicyId',
+          'sellById',
+          'batchSelectionId',
+          'skuTypeId',
+          'skuOrderGroupId',
+          'indentTypeId',
+        ])
         .sort({ [sortBy]: sortOrder })
         .skip(skip)
         .limit(limit)
