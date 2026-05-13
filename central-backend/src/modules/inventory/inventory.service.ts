@@ -47,17 +47,33 @@ export class InventoryService {
   /**
    * Centralized warehouse + store quantities per SKU, merged with product master (MRP, store price, names).
    */
-  async getWarehouseStoreGrid(params: { search?: string; storeId?: string; limit: number }) {
+  async getWarehouseStoreGrid(params: { search?: string; storeId?: string; page?: number; limit?: number }) {
     const listParams: { search?: string } = {};
     if (params.search !== undefined && params.search !== '') listParams.search = params.search;
-    const products = await this.productsService.list(listParams);
-    const limited = products.slice(0, params.limit);
-    if (limited.length === 0) return [];
 
-    const skus = limited.map((p) => p.sku);
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(500, Math.max(1, params.limit ?? 200));
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.productsService.list({ ...listParams, skip, limit }),
+      this.productsService.countForListFilter(listParams),
+    ]);
+
+    if (products.length === 0) {
+      return {
+        data: [],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
+
+    const skus = products.map((p) => p.sku);
     const balanceMap = await this.aggregateBalancesForSkus(skus);
 
-    return limited.map((p) => {
+    const data = products.map((p) => {
       const b = balanceMap.get(p.sku) ?? { warehouseQty: 0, inTransitQty: 0, storeById: new Map<string, number>() };
       const storeQty = this.sumStoreQty(b.storeById, params.storeId);
       return {
@@ -71,6 +87,14 @@ export class InventoryService {
         storePrice: p.storePrice ?? p.sellingPrice,
       };
     });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   private sumStoreQty(storeById: Map<string, number>, filterStoreId?: string): number {

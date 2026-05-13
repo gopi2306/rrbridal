@@ -18,14 +18,18 @@ public sealed class InventoryGridClient
         _products = localDb.GetCollection<BsonDocument>("local_products_cache");
     }
 
-    public async Task<IReadOnlyList<InventoryGridRow>> SearchAsync(
+    public async Task<InventoryGridPageResult> SearchAsync(
         string search,
         string storeId,
+        int page = 1,
         int limit = 100,
         CancellationToken ct = default)
     {
+        _ = storeId;
         var q = search?.Trim() ?? "";
+        page = Math.Max(1, page);
         limit = Math.Clamp(limit, 1, 500);
+        var skip = (page - 1) * limit;
 
         var filters = new List<FilterDefinition<BsonDocument>>
         {
@@ -43,17 +47,33 @@ public sealed class InventoryGridClient
         }
 
         var filter = Builders<BsonDocument>.Filter.And(filters);
+
+        var totalLong = await _products.CountDocumentsAsync(filter, cancellationToken: ct);
+        var total = totalLong > int.MaxValue ? int.MaxValue : (int)totalLong;
+
         var docs = await _products
             .Find(filter)
             .Sort(Builders<BsonDocument>.Sort.Descending("stockQty").Ascending("sku"))
+            .Skip(skip)
             .Limit(limit)
             .ToListAsync(ct);
 
-        return docs
+        var data = docs
             .Select(MapFromBson)
             .Where(static r => r != null)
             .Cast<InventoryGridRow>()
             .ToList();
+
+        var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)limit);
+
+        return new InventoryGridPageResult
+        {
+            Data = data,
+            Total = total,
+            Page = page,
+            Limit = limit,
+            TotalPages = totalPages,
+        };
     }
 
     private static InventoryGridRow? MapFromBson(BsonDocument d)

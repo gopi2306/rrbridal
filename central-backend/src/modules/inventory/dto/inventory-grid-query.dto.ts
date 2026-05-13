@@ -16,6 +16,13 @@ export class InventoryGridQueryDto {
   @IsOptional()
   storeId?: string;
 
+  @ApiProperty({ required: false, default: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number;
+
   @ApiProperty({ required: false, default: 200 })
   @Type(() => Number)
   @IsInt()
