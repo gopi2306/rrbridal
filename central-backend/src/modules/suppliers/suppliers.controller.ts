@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { FilterSupplierDto } from './dto/filter-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SuppliersService } from './suppliers.service';
 
@@ -12,6 +13,11 @@ export class SuppliersController {
   @Post()
   async create(@Body() dto: CreateSupplierDto) {
     return await this.suppliersService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterSupplierDto) {
+    return await this.suppliersService.filter(dto);
   }
 
   @Get(':id')

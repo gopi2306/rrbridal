@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreateProductDto } from './dto/create-product.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
@@ -34,6 +35,11 @@ export class ProductsController {
     if (categoryId) params.categoryId = categoryId;
     if (supplierNameId) params.supplierNameId = supplierNameId;
     return await this.productsService.list(params);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterProductDto) {
+    return await this.productsService.filter(dto);
   }
 
   @Get(':id')

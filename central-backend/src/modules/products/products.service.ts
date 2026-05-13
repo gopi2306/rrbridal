@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { CreateProductDto } from './dto/create-product.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product, ProductDocument } from './schemas/product.schema';
 
@@ -47,6 +48,94 @@ export class ProductsService {
     }
 
     return await this.productModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+  }
+
+  async filter(dto: FilterProductDto) {
+    const filter: FilterQuery<ProductDocument> = {};
+
+    const exactMatchFields = [
+      'sku',
+      'upcEanCode',
+      'manufacturerNameId',
+      'supplierNameId',
+      'departmentId',
+      'categoryId',
+      'subCategoryId',
+      'brandId',
+      'weightAndSizeId',
+      'weightPerGmOrMlId',
+      'offerGroupId',
+      'productStatusId',
+      'colourId',
+      'hsnCodeId',
+      'gstUomId',
+      'uomSubId',
+      'batchExpiryDetailId',
+      'itemPrepStatusId',
+      'packedConfirmationId',
+      'poQtyPolicyId',
+      'sellById',
+      'batchSelectionId',
+      'skuTypeId',
+      'skuOrderGroupId',
+      'indentTypeId',
+    ] as const;
+
+    for (const field of exactMatchFields) {
+      if (dto[field] !== undefined && dto[field] !== null) {
+        filter[field] = dto[field];
+      }
+    }
+
+    if (dto.isActive !== undefined && dto.isActive !== null) {
+      filter.isActive = dto.isActive;
+    }
+
+    if (dto.mrpMin !== undefined || dto.mrpMax !== undefined) {
+      filter.mrp = {};
+      if (dto.mrpMin !== undefined) filter.mrp.$gte = dto.mrpMin;
+      if (dto.mrpMax !== undefined) filter.mrp.$lte = dto.mrpMax;
+    }
+
+    if (dto.sellingPriceMin !== undefined || dto.sellingPriceMax !== undefined) {
+      filter.sellingPrice = {};
+      if (dto.sellingPriceMin !== undefined) filter.sellingPrice.$gte = dto.sellingPriceMin;
+      if (dto.sellingPriceMax !== undefined) filter.sellingPrice.$lte = dto.sellingPriceMax;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { itemName: { $regex: dto.search, $options: 'i' } },
+        { shortName: { $regex: dto.search, $options: 'i' } },
+        { alias: { $regex: dto.search, $options: 'i' } },
+        { sku: { $regex: dto.search, $options: 'i' } },
+        { upcEanCode: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'updatedAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async listDeltas(cursorFilter: Record<string, unknown>, limit: number) {
