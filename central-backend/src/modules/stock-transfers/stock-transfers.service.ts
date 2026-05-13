@@ -164,6 +164,42 @@ export class StockTransfersService {
       .lean();
   }
 
+  /**
+   * Completed transfers for store sync pull (other POS devices that missed awaiting_intake).
+   * - Bootstrap (invalid / "0" cursor): last 90 days by updatedAt, capped.
+   * - Incremental: _id greater than sinceTransferCursor.
+   */
+  async listCompletedForStorePullWindow(storeId: string, sinceTransferCursor: string, limit: number) {
+    const cap = Math.max(1, Math.min(200, limit));
+    const validSince =
+      sinceTransferCursor &&
+      sinceTransferCursor !== '0' &&
+      Types.ObjectId.isValid(sinceTransferCursor);
+
+    if (!validSince) {
+      const since = new Date(Date.now() - 90 * 86400000);
+      return await this.model
+        .find({
+          toStoreId: storeId,
+          status: 'completed',
+          updatedAt: { $gte: since },
+        })
+        .sort({ _id: 1 })
+        .limit(cap)
+        .lean();
+    }
+
+    return await this.model
+      .find({
+        toStoreId: storeId,
+        status: 'completed',
+        _id: { $gt: new Types.ObjectId(sinceTransferCursor) },
+      })
+      .sort({ _id: 1 })
+      .limit(cap)
+      .lean();
+  }
+
   async receiveFromSync(storeId: string, payload: Record<string, unknown>) {
     const transferId = this.readPayloadString(payload, 'transferId');
     const transferNo = this.readPayloadString(payload, 'transferNo');

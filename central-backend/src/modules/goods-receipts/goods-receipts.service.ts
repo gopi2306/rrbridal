@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { InventoryService } from '../inventory/inventory.service';
 import { CreateGoodsReceiptDto } from './dto/create-goods-receipt.dto';
+import { FilterGoodsReceiptDto } from './dto/filter-goods-receipt.dto';
 import { UpdateGoodsReceiptDto } from './dto/update-goods-receipt.dto';
 import { GoodsReceipt, GoodsReceiptDocument } from './schemas/goods-receipt.schema';
 
@@ -58,6 +59,56 @@ export class GoodsReceiptsService {
       ];
     }
     return await this.grModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+  }
+
+  async filter(dto: FilterGoodsReceiptDto) {
+    const filter: FilterQuery<GoodsReceiptDocument> = {};
+
+    if (dto.receiptNo) filter.receiptNo = dto.receiptNo;
+    if (dto.poId) filter.poId = dto.poId;
+    if (dto.poNo) filter.poNo = dto.poNo;
+    if (dto.invoiceNo) filter.invoiceNo = dto.invoiceNo;
+    if (dto.supplierId) filter['supplier.supplierId'] = dto.supplierId;
+    if (dto.status) filter.status = dto.status;
+
+    if (dto.invoiceDateFrom || dto.invoiceDateTo) {
+      filter.invoiceDate = {};
+      if (dto.invoiceDateFrom) filter.invoiceDate.$gte = dto.invoiceDateFrom;
+      if (dto.invoiceDateTo) filter.invoiceDate.$lte = dto.invoiceDateTo;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { receiptNo: { $regex: dto.search, $options: 'i' } },
+        { poNo: { $regex: dto.search, $options: 'i' } },
+        { invoiceNo: { $regex: dto.search, $options: 'i' } },
+        { 'supplier.name': { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'updatedAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      this.grModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.grModel.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async postToInventory(id: string) {

@@ -9,5 +9,10 @@ public interface ISyncEngine
     Task RunOnceAsync(CancellationToken ct);
 }
 
-public sealed record SyncStatus(int PendingOutbox, string LastCursor, string? LastError);
+public sealed record SyncStatus(
+    int PendingOutbox,
+    string LastCursor,
+    string? LastError,
+    string LastTransferCursor,
+    string? DiagnosticsSummary);
 

@@ -2,12 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-const roles = ['admin', 'warehouse', 'store', 'procurement'] as const;
-const locations = ['all', 'warehouse', 'store'] as const;
-const statuses = ['active', 'invited', 'disabled'] as const;
+const statuses = ['draft', 'posted'] as const;
 
-export class FilterUserDto {
-  @ApiProperty({ required: false, description: 'Search across name, email' })
+export class FilterGoodsReceiptDto {
+  @ApiProperty({ required: false, description: 'Search across receipt number, PO number, invoice number, supplier name' })
   @IsString()
   @IsOptional()
   search?: string;
@@ -15,39 +13,42 @@ export class FilterUserDto {
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
-  email?: string;
+  receiptNo?: string;
 
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
-  name?: string;
-
-  @ApiProperty({ required: false, enum: roles })
-  @IsIn(roles)
-  @IsOptional()
-  role?: (typeof roles)[number];
-
-  @ApiProperty({ required: false, enum: locations })
-  @IsIn(locations)
-  @IsOptional()
-  locationKind?: (typeof locations)[number];
+  poId?: string;
 
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
-  storeId?: string;
+  poNo?: string;
 
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
-  warehouseLocationCode?: string;
+  invoiceNo?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  supplierId?: string;
 
   @ApiProperty({ required: false, enum: statuses })
   @IsIn(statuses)
   @IsOptional()
   status?: (typeof statuses)[number];
 
-  // ── Pagination ──
+  @ApiProperty({ required: false, description: 'Invoice date from (inclusive)' })
+  @IsString()
+  @IsOptional()
+  invoiceDateFrom?: string;
+
+  @ApiProperty({ required: false, description: 'Invoice date to (inclusive)' })
+  @IsString()
+  @IsOptional()
+  invoiceDateTo?: string;
 
   @ApiProperty({ required: false, default: 1, minimum: 1 })
   @Type(() => Number)
@@ -64,9 +65,7 @@ export class FilterUserDto {
   @IsOptional()
   limit?: number;
 
-  // ── Sorting ──
-
-  @ApiProperty({ required: false, default: 'createdAt', description: 'Field to sort by' })
+  @ApiProperty({ required: false, default: 'updatedAt', description: 'Field to sort by' })
   @IsString()
   @IsOptional()
   sortBy?: string;

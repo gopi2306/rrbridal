@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { CreatePurchaseReturnDto } from './dto/create-purchase-return.dto';
+import { FilterPurchaseReturnDto } from './dto/filter-purchase-return.dto';
 import { UpdatePurchaseReturnDto } from './dto/update-purchase-return.dto';
 import { PurchaseReturn, PurchaseReturnDocument } from './schemas/purchase-return.schema';
 
@@ -53,6 +54,61 @@ export class PurchaseReturnsService {
       ];
     }
     return await this.prModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+  }
+
+  async filter(dto: FilterPurchaseReturnDto) {
+    const filter: FilterQuery<PurchaseReturnDocument> = {};
+
+    if (dto.purchaseReturnNo) filter.purchaseReturnNo = dto.purchaseReturnNo;
+    if (dto.supplierId) filter['supplier.supplierId'] = dto.supplierId;
+    if (dto.branchId) filter.branchId = dto.branchId;
+    if (dto.mainDivisionId) filter.mainDivisionId = dto.mainDivisionId;
+    if (dto.mainLocationId) filter.mainLocationId = dto.mainLocationId;
+    if (dto.pucOutSlipNo) filter.pucOutSlipNo = dto.pucOutSlipNo;
+
+    if (dto.purchaseReturnDateFrom || dto.purchaseReturnDateTo) {
+      filter.purchaseReturnDate = {};
+      if (dto.purchaseReturnDateFrom) filter.purchaseReturnDate.$gte = dto.purchaseReturnDateFrom;
+      if (dto.purchaseReturnDateTo) filter.purchaseReturnDate.$lte = dto.purchaseReturnDateTo;
+    }
+
+    if (dto.netAmountMin !== undefined || dto.netAmountMax !== undefined) {
+      filter.netAmount = {};
+      if (dto.netAmountMin !== undefined) filter.netAmount.$gte = dto.netAmountMin;
+      if (dto.netAmountMax !== undefined) filter.netAmount.$lte = dto.netAmountMax;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { purchaseReturnNo: { $regex: dto.search, $options: 'i' } },
+        { 'supplier.name': { $regex: dto.search, $options: 'i' } },
+        { pucOutSlipNo: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'updatedAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      this.prModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.prModel.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }
 

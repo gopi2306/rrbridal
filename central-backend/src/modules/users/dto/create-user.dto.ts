@@ -44,6 +44,15 @@ export class CreateUserDto {
   @IsNotEmpty()
   storeId?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Location.code of an active warehouse; required when role is warehouse and locationKind is warehouse',
+  })
+  @ValidateIf((o: CreateUserDto) => o.role === 'warehouse' && o.locationKind === 'warehouse')
+  @IsString()
+  @IsNotEmpty()
+  warehouseLocationCode?: string;
+
   @ApiProperty({ required: false, enum: statuses })
   @IsIn(statuses)
   @IsOptional()

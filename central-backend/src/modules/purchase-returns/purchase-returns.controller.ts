@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreatePurchaseReturnDto } from './dto/create-purchase-return.dto';
+import { FilterPurchaseReturnDto } from './dto/filter-purchase-return.dto';
 import { UpdatePurchaseReturnDto } from './dto/update-purchase-return.dto';
 import { PurchaseReturnsService } from './purchase-returns.service';
 
@@ -12,6 +13,11 @@ export class PurchaseReturnsController {
   @Post()
   async create(@Body() dto: CreatePurchaseReturnDto) {
     return await this.prService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterPurchaseReturnDto) {
+    return await this.prService.filter(dto);
   }
 
   @Get(':id')

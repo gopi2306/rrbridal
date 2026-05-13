@@ -30,7 +30,9 @@
             <Button Content="Refresh status" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left" Margin="0,8,0,8" Command="{Binding RefreshStatusCommand}"/>
             <TextBlock Text="{Binding PendingOutboxText}" Margin="0,0,0,4"/>
             <TextBlock Text="{Binding CursorText}" Margin="0,0,0,4"/>
-            <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+            <TextBlock Text="Sync diagnostics (last pull)" FontWeight="SemiBold" Margin="0,4,0,2"/>
+            <TextBlock Text="{Binding SyncDiagnosticsText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
             <Button Content="Run sync once" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding RunSyncOnceCommand}" Margin="0,0,0,16"/>
 
             <Separator Margin="0,8,0,16"/>
@@ -70,7 +72,7 @@
             <TextBlock Text="Receipt width (characters)" Margin="0,0,0,4"/>
             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCharWidth, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12"/>
 
-            <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsAsyncCommand}" Margin="0,0,0,16"/>
+            <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsCommand}" Margin="0,0,0,16"/>
 
             <Separator Margin="0,8,0,16"/>
 

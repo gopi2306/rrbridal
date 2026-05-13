@@ -41,6 +41,7 @@ import { SkuTypesModule } from '../sku-types/sku-types.module';
 import { SkuOrderGroupsModule } from '../sku-order-groups/sku-order-groups.module';
 import { IndentTypesModule } from '../indent-types/indent-types.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
+import { CompanyProfileModule } from '../company-profile/company-profile.module';
 import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
 import { BranchesModule } from '../branches/branches.module';
 import { DivisionsModule } from '../divisions/divisions.module';
@@ -94,6 +95,7 @@ import { SeedModule } from '../seed/seed.module';
     SkuOrderGroupsModule,
     IndentTypesModule,
     DashboardModule,
+    CompanyProfileModule,
     ResourceLimitsModule,
     BranchesModule,
     DivisionsModule,

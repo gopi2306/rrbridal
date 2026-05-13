@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreateGoodsReceiptDto } from './dto/create-goods-receipt.dto';
+import { FilterGoodsReceiptDto } from './dto/filter-goods-receipt.dto';
 import { UpdateGoodsReceiptDto } from './dto/update-goods-receipt.dto';
 import { GoodsReceiptsService } from './goods-receipts.service';
 
@@ -12,6 +13,11 @@ export class GoodsReceiptsController {
   @Post()
   async create(@Body() dto: CreateGoodsReceiptDto) {
     return await this.grService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterGoodsReceiptDto) {
+    return await this.grService.filter(dto);
   }
 
   @Get(':id')

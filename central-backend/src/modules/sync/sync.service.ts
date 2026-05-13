@@ -74,7 +74,7 @@ export class SyncService {
     return results;
   }
 
-  async pull(storeId: string, sinceCursor: string, limit: number) {
+  async pull(storeId: string, sinceCursor: string, limit: number, sinceTransferCursor = '0') {
     // Upgrade: for now, sync pull delivers ProductUpserted deltas from central products.
     // Cursor is an ObjectId string corresponding to the last product _id sent.
     const cursorFilter =
@@ -84,6 +84,11 @@ export class SyncService {
 
     const products = await this.productsService.listDeltas(cursorFilter, limit);
     const transfers = await this.stockTransfersService.listAwaitingIntakeForStore(storeId, limit);
+    const completedTransfers = await this.stockTransfersService.listCompletedForStorePullWindow(
+      storeId,
+      sinceTransferCursor,
+      limit,
+    );
     const last = products.length > 0 ? products[products.length - 1] : undefined;
     const cursor = last?._id ? String(last._id) : sinceCursor ?? '0';
 
@@ -114,13 +119,43 @@ export class SyncService {
       };
     });
 
+    const completedTransferUpdates = completedTransfers.map((transfer) => {
+      const row = transfer as typeof transfer & { _id?: unknown; updatedAt?: Date };
+      return {
+        type: 'StockTransferCompleted',
+        storeId,
+        createdAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date().toISOString(),
+        payload: {
+          transfer: {
+            transferId: String(row._id),
+            transferNo: transfer.transferNo,
+            toStoreId: transfer.toStoreId,
+            status: transfer.status,
+            transferDate: transfer.transferDate,
+            remarks: transfer.remarks,
+            lines: transfer.lines,
+          },
+        },
+      };
+    });
+
+    let transferCursor = sinceTransferCursor ?? '0';
+    if (completedTransfers.length > 0) {
+      const lastT = completedTransfers[completedTransfers.length - 1] as { _id?: unknown };
+      transferCursor = lastT._id ? String(lastT._id) : transferCursor;
+    }
+
     await this.syncCursorModel.updateOne(
       { storeId },
       { $setOnInsert: { storeId }, $set: { cursor, lastSuccessAt: new Date().toISOString() } },
       { upsert: true },
     );
 
-    return { cursor, updates: [...productUpdates, ...transferUpdates] };
+    return {
+      cursor,
+      transferCursor,
+      updates: [...productUpdates, ...transferUpdates, ...completedTransferUpdates],
+    };
   }
 }
 

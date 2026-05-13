@@ -89,6 +89,22 @@ export class PurchaseOrderLine {
 
   @ApiProperty({ required: false })
   @Prop()
+  cgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
   surchargePercent?: number;
 
   @ApiProperty({ required: false })
@@ -173,6 +189,14 @@ export class PurchaseOrder {
   @ApiProperty({ required: false })
   @Prop()
   taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstAmount?: number;
 
   @ApiProperty({ required: false })
   @Prop()

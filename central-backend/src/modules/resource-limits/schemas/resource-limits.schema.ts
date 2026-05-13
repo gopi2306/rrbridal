@@ -17,8 +17,23 @@ export class ResourceLimits {
   maxStores!: number;
 
   @ApiProperty({ description: 'Maximum number of warehouse locations allowed' })
-  @Prop({ required: true, default: 1 })
+  @Prop({ required: true, default: 5 })
   maxWarehouses!: number;
+
+  @ApiProperty({ description: 'Maximum number of active products (SKUs) allowed' })
+  @Prop({ required: true, default: 100000 })
+  maxProducts!: number;
+
+  @ApiProperty({ description: 'Maximum users assigned to a single store (role store, active/invited)' })
+  @Prop({ required: true, default: 20 })
+  maxUsersPerStore!: number;
+
+  @ApiProperty({
+    description:
+      'Maximum warehouse users per warehouse location (role warehouse, locationKind warehouse, active/invited)',
+  })
+  @Prop({ required: true, default: 20 })
+  maxUsersPerWarehouse!: number;
 }
 
 export const ResourceLimitsSchema = SchemaFactory.createForClass(ResourceLimits);

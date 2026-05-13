@@ -31,6 +31,8 @@ export class PurchaseOrdersService {
       cashDiscPercent: dto.cashDiscPercent,
       cashDiscount: dto.cashDiscount,
       taxAmount: dto.taxAmount,
+      cgstAmount: dto.cgstAmount,
+      sgstAmount: dto.sgstAmount,
       surchargeAmount: dto.surchargeAmount,
       netAmount: dto.netAmount,
       status: (dto.status as any) ?? 'open',

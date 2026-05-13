@@ -24,6 +24,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _pendingOutboxText = "";
     [ObservableProperty] private string _cursorText = "";
     [ObservableProperty] private string _lastErrorText = "";
+
+    [ObservableProperty] private string _syncDiagnosticsText = "";
     [ObservableProperty] private string _lastActionText = "";
 
     [ObservableProperty] private string _receiptStoreName = "";
@@ -173,8 +175,11 @@ public partial class SettingsViewModel : ObservableObject
     {
         var status = await _services.SyncEngine.GetStatusAsync(CancellationToken.None);
         PendingOutboxText = $"Pending outbox: {status.PendingOutbox}";
-        CursorText = $"Cursor: {status.LastCursor}";
+        CursorText = $"Product cursor: {status.LastCursor} | Transfer cursor: {status.LastTransferCursor}";
         LastErrorText = status.LastError ?? "(none)";
+        SyncDiagnosticsText = string.IsNullOrWhiteSpace(status.DiagnosticsSummary)
+            ? "(run sync once to load diagnostics)"
+            : status.DiagnosticsSummary;
         LastActionText = "Status refreshed.";
     }
 

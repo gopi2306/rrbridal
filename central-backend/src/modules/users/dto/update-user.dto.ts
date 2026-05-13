@@ -33,6 +33,14 @@ export class UpdateUserDto {
   @IsNotEmpty()
   storeId?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Warehouse location code when role is warehouse and locationKind is warehouse',
+  })
+  @IsString()
+  @IsOptional()
+  warehouseLocationCode?: string;
+
   @ApiProperty({ required: false, enum: statuses })
   @IsIn(statuses)
   @IsOptional()

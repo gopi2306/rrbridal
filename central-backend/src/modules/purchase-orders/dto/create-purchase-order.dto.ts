@@ -111,6 +111,26 @@ export class CreatePurchaseOrderLineDto {
   @ApiProperty({ required: false })
   @IsNumber()
   @IsOptional()
+  cgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
   surchargePercent?: number;
 
   @ApiProperty({ required: false })
@@ -209,6 +229,16 @@ export class CreatePurchaseOrderDto {
   @IsNumber()
   @IsOptional()
   taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstAmount?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()

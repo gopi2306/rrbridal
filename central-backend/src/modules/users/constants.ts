@@ -14,7 +14,7 @@ export const SEED_ROLE_DEFINITIONS: Array<{
   sortOrder: number;
 }> = [
   { code: 'admin', displayName: 'Admin', description: 'Full access', sortOrder: 0 },
-  { code: 'warehouse', displayName: 'Warehouse', description: 'Warehouse operations', sortOrder: 1 },
-  { code: 'store', displayName: 'Store', description: 'Store / branch operations', sortOrder: 2 },
+  { code: 'warehouse', displayName: 'Warehouse Manager', description: 'Warehouse operations', sortOrder: 1 },
+  { code: 'store', displayName: 'Store Manager', description: 'Store / branch operations', sortOrder: 2 },
   { code: 'procurement', displayName: 'Procurement', description: 'Purchasing', sortOrder: 3 },
 ];

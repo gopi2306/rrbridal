@@ -18,4 +18,22 @@ export class PatchResourceLimitsDto {
   @IsInt()
   @Min(1)
   warehouses?: number;
+
+  @ApiProperty({ required: false, description: 'Maximum number of active products' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  products?: number;
+
+  @ApiProperty({ required: false, description: 'Maximum users per store (same storeId, role store)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxUsersPerStore?: number;
+
+  @ApiProperty({ required: false, description: 'Maximum warehouse users per warehouse location code' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxUsersPerWarehouse?: number;
 }

@@ -3,12 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcryptjs';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { StoresService } from '../stores/stores.service';
+import { ResourceLimitsService } from '../resource-limits/resource-limits.service';
 import { AuthSettingsService } from './auth-settings.service';
 import { BootstrapAdminDto } from './dto/bootstrap-admin.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User, UserDocument, UserRole, UserStatus } from './schemas/user.schema';
+import { User, UserDocument, UserLocationKind, UserRole, UserStatus } from './schemas/user.schema';
 
 type PublicUser = Omit<User, 'passwordHash'> & { _id: Types.ObjectId };
 
@@ -18,6 +19,7 @@ export class UsersService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly authSettingsService: AuthSettingsService,
     private readonly storesService: StoresService,
+    private readonly resourceLimitsService: ResourceLimitsService,
   ) {}
 
   async countAll(): Promise<number> {
@@ -44,6 +46,58 @@ export class UsersService {
     if (alreadyInSlot) return;
     if (n >= cap) {
       throw new BadRequestException(`Role quota reached for '${targetRole}' (maximum ${cap})`);
+    }
+  }
+
+  private async assertWarehouseAssignment(
+    role: UserRole,
+    locationKind: string,
+    warehouseLocationCode: string | undefined,
+    status: UserStatus,
+  ): Promise<void> {
+    if (role !== 'warehouse' || locationKind !== 'warehouse') return;
+    const counts = status === 'active' || status === 'invited';
+    const c = warehouseLocationCode?.trim();
+    if (!c) {
+      if (counts) {
+        throw new BadRequestException(
+          'warehouseLocationCode is required when role is warehouse and locationKind is warehouse',
+        );
+      }
+      return;
+    }
+    if (counts) {
+      await this.resourceLimitsService.assertActiveWarehouseLocationCode(c);
+    }
+  }
+
+  private async assertPerSiteUserLimits(
+    params: {
+      role: UserRole;
+      locationKind: string;
+      storeId?: string;
+      warehouseLocationCode?: string;
+      status: UserStatus;
+      excludeUserId?: string;
+    },
+  ): Promise<void> {
+    const counts = params.status === 'active' || params.status === 'invited';
+    if (!counts) return;
+    if (params.role === 'store' && params.storeId) {
+      await this.resourceLimitsService.assertUsersPerStoreLimit(
+        String(params.storeId).trim().toLowerCase(),
+        params.excludeUserId,
+      );
+    }
+    if (
+      params.role === 'warehouse' &&
+      params.locationKind === 'warehouse' &&
+      params.warehouseLocationCode
+    ) {
+      await this.resourceLimitsService.assertUsersPerWarehouseLimit(
+        params.warehouseLocationCode,
+        params.excludeUserId,
+      );
     }
   }
 
@@ -85,8 +139,24 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<PublicUser> {
+    const status = (dto.status ?? 'active') as UserStatus;
     await this.assertStoreLocation(dto.locationKind, dto.storeId);
+    await this.assertWarehouseAssignment(
+      dto.role as UserRole,
+      dto.locationKind,
+      dto.warehouseLocationCode,
+      status,
+    );
     await this.assertCanAssignRole(dto.role as UserRole);
+    await this.assertPerSiteUserLimits({
+      role: dto.role as UserRole,
+      locationKind: dto.locationKind,
+      status,
+      ...(dto.storeId?.trim() ? { storeId: dto.storeId.trim().toLowerCase() } : {}),
+      ...(dto.warehouseLocationCode?.trim()
+        ? { warehouseLocationCode: dto.warehouseLocationCode.trim().toLowerCase() }
+        : {}),
+    });
     const normalized = dto.email.trim().toLowerCase();
     const existing = await this.userModel.findOne({ email: normalized }).lean();
     if (existing) throw new ConflictException('Email already registered');
@@ -97,9 +167,12 @@ export class UsersService {
       name: dto.name.trim(),
       role: dto.role,
       locationKind: dto.locationKind,
-      status: dto.status ?? 'active',
+      status,
     };
-    if (dto.locationKind === 'store' && dto.storeId) row.storeId = dto.storeId.trim();
+    if (dto.locationKind === 'store' && dto.storeId) row.storeId = dto.storeId.trim().toLowerCase();
+    if (dto.role === 'warehouse' && dto.locationKind === 'warehouse' && dto.warehouseLocationCode) {
+      row.warehouseLocationCode = dto.warehouseLocationCode.trim().toLowerCase();
+    }
     const created = await this.userModel.create(row);
     return this.toPublic(created.toObject() as unknown as Record<string, unknown>)!;
   }
@@ -123,10 +196,18 @@ export class UsersService {
 
     const nextRole = (dto.role ?? prev.role) as UserRole;
     const nextStatus = (dto.status ?? prev.status) as UserStatus;
-    const nextLocation = dto.locationKind ?? prev.locationKind;
+    const nextLocation = (dto.locationKind ?? prev.locationKind) as UserLocationKind;
     const nextStoreId = dto.storeId !== undefined ? dto.storeId : prev.storeId;
+    const prevWarehouse = (prev as { warehouseLocationCode?: string }).warehouseLocationCode;
+    const nextWarehouseLocationCode =
+      dto.warehouseLocationCode !== undefined
+        ? String(dto.warehouseLocationCode).trim() === ''
+          ? undefined
+          : String(dto.warehouseLocationCode).trim().toLowerCase()
+        : prevWarehouse;
 
     await this.assertStoreLocation(nextLocation, nextStoreId);
+    await this.assertWarehouseAssignment(nextRole, nextLocation, nextWarehouseLocationCode, nextStatus);
 
     const prevCounts = prev.status === 'active' || prev.status === 'invited';
     const nextCounts = nextStatus === 'active' || nextStatus === 'invited';
@@ -138,6 +219,14 @@ export class UsersService {
       } else {
         await this.assertCanAssignRole(nextRole);
       }
+      await this.assertPerSiteUserLimits({
+        role: nextRole,
+        locationKind: nextLocation,
+        status: nextStatus,
+        excludeUserId: id,
+        ...(nextStoreId ? { storeId: String(nextStoreId).trim().toLowerCase() } : {}),
+        ...(nextWarehouseLocationCode ? { warehouseLocationCode: nextWarehouseLocationCode } : {}),
+      });
     }
 
     const set: Record<string, unknown> = {};
@@ -146,11 +235,18 @@ export class UsersService {
     if (dto.locationKind !== undefined) set.locationKind = dto.locationKind;
     if (dto.status !== undefined) set.status = dto.status;
     if (dto.password !== undefined) set.passwordHash = await bcrypt.hash(dto.password, 10);
-    if (nextLocation === 'store' && nextStoreId) set.storeId = String(nextStoreId).trim();
+    if (nextLocation === 'store' && nextStoreId) set.storeId = String(nextStoreId).trim().toLowerCase();
+    if (nextRole === 'warehouse' && nextLocation === 'warehouse' && nextWarehouseLocationCode) {
+      set.warehouseLocationCode = nextWarehouseLocationCode;
+    }
+
+    const unset: Record<string, string> = {};
+    if (nextLocation !== 'store') unset.storeId = '';
+    if (!(nextRole === 'warehouse' && nextLocation === 'warehouse')) unset.warehouseLocationCode = '';
 
     const updateOps: { $set?: Record<string, unknown>; $unset?: Record<string, string> } = {};
     if (Object.keys(set).length > 0) updateOps.$set = set;
-    if (nextLocation !== 'store') updateOps.$unset = { storeId: '' };
+    if (Object.keys(unset).length > 0) updateOps.$unset = unset;
     if (!updateOps.$set && !updateOps.$unset) {
       return this.toPublic(prev as Record<string, unknown>)!;
     }
@@ -179,7 +275,8 @@ export class UsersService {
     if (dto.name) filter.name = dto.name;
     if (dto.role) filter.role = dto.role;
     if (dto.locationKind) filter.locationKind = dto.locationKind;
-    if (dto.storeId) filter.storeId = dto.storeId;
+    if (dto.storeId) filter.storeId = dto.storeId.trim().toLowerCase();
+    if (dto.warehouseLocationCode) filter.warehouseLocationCode = dto.warehouseLocationCode.trim().toLowerCase();
     if (dto.status) filter.status = dto.status;
 
     if (dto.search) {

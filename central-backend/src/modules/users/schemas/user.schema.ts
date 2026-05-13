@@ -33,6 +33,10 @@ export class User {
   @Prop({ index: true })
   storeId?: string;
 
+  @ApiProperty({ required: false, description: 'Location.code when role is warehouse and locationKind is warehouse' })
+  @Prop({ trim: true, lowercase: true, index: true })
+  warehouseLocationCode?: string;
+
   @ApiProperty({ enum: ['active', 'invited', 'disabled'] })
   @Prop({ required: true, default: 'active', index: true })
   status!: UserStatus;

@@ -4,6 +4,7 @@ import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { StoresModule } from '../stores/stores.module';
+import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
 import { AdminAuthSettingsController } from './admin-auth-settings.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AuthSettingsService } from './auth-settings.service';
@@ -20,6 +21,7 @@ import { UsersService } from './users.service';
   imports: [
     JwtAuthModule,
     StoresModule,
+    ResourceLimitsModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: AuthSettings.name, schema: AuthSettingsSchema },

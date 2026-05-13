@@ -48,7 +48,7 @@ Typical flow:
 3. `awaiting_intake` — goods arrived; store confirmation pending.
 4. `completed` — intake confirmed by the store WPF sync event.
 
-When a transfer is `awaiting_intake`, central sync pull sends it to the destination store as `StockTransferAwaitingStoreIntake`. The WPF app saves the transfer locally, increments `local_products_cache.stockQty` once, and enqueues `StockTransferReceived`. Central then validates the receipt and completes the transfer.
+When a transfer is `awaiting_intake`, central sync pull sends it to the destination store as `StockTransferAwaitingStoreIntake`. The WPF app saves the transfer locally, increments `local_products_cache.stockQty` once, and enqueues `StockTransferReceived`. On the same **Run sync once**, the app **pulls first then pushes**, so that receipt is sent immediately and central validates it and moves the transfer to **`completed`**.
 
 ## HTTP API summary
 
