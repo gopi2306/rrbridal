@@ -1,7 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { CreateBranchDto } from './dto/create-branch.dto';
+import { FilterBranchDto } from './dto/filter-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { Branch, BranchDocument } from './schemas/branch.schema';
 
@@ -24,6 +25,46 @@ export class BranchesService {
 
   async findAll() {
     return await this.model.find().sort({ name: 1 }).lean();
+  }
+
+  async filter(dto: FilterBranchDto) {
+    const filter: FilterQuery<BranchDocument> = {};
+
+    if (dto.code !== undefined && dto.code !== '') {
+      filter.code = dto.code.trim().toLowerCase();
+    }
+
+    if (dto.isActive !== undefined && dto.isActive !== null) {
+      filter.isActive = dto.isActive;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { code: { $regex: dto.search, $options: 'i' } },
+        { name: { $regex: dto.search, $options: 'i' } },
+        { address: { $regex: dto.search, $options: 'i' } },
+        { phone: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'name';
+    const sortOrder: SortOrder = dto.sortOrder === 'desc' ? -1 : 1;
+
+    const [data, total] = await Promise.all([
+      this.model.find(filter).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit).lean(),
+      this.model.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string) {
