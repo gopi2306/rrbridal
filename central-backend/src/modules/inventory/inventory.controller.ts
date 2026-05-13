@@ -10,10 +10,7 @@ export class InventoryController {
 
   @Get('grid')
   async grid(@Query() query: InventoryGridQueryDto) {
-    const params: { search?: string; storeId?: string; page: number; limit: number } = {
-      page: query.page ?? 1,
-      limit: query.limit ?? 200,
-    };
+    const params: { search?: string; storeId?: string; limit: number } = { limit: query.limit ?? 200 };
     if (query.search !== undefined && query.search !== '') params.search = query.search;
     if (query.storeId !== undefined && query.storeId !== '') params.storeId = query.storeId;
     return await this.inventoryService.getWarehouseStoreGrid(params);

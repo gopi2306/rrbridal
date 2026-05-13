@@ -93,16 +93,7 @@
                         Command="{Binding SearchInventoryCommand}"/>
             </Grid>
 
-            <TextBlock Text="{Binding InventoryHint}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,4"/>
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
-                <Button Content="← Previous" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
-                        Command="{Binding InventoryPreviousPageCommand}"/>
-                <TextBlock Text="{Binding InventoryPagerLabel}" VerticalAlignment="Center" Margin="0,0,8,0"
-                           MinWidth="160" TextAlignment="Center" Foreground="{StaticResource BrushText}"/>
-                <Button Content="Next →" Style="{StaticResource OutlineButton}" Padding="12,6"
-                        Command="{Binding InventoryNextPageCommand}"/>
-            </StackPanel>
+            <TextBlock Text="{Binding InventoryHint}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
             <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0">
                 <DataGrid ItemsSource="{Binding InventoryRows}"

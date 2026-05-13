@@ -29,39 +29,7 @@ export class ProductsService {
     return doc;
   }
 
-  async list(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-    skip?: number;
-    limit?: number;
-  }) {
-    const filter = this.buildProductListFilter(params);
-    const skip = params.skip !== undefined ? Math.max(0, params.skip) : 0;
-    const limit = params.limit !== undefined ? Math.min(500, Math.max(1, params.limit)) : 200;
-    return await this.productModel.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean();
-  }
-
-  /** Same filter rules as {@link list}, without pagination — for counts. */
-  async countForListFilter(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-  }) {
-    return await this.productModel.countDocuments(this.buildProductListFilter(params));
-  }
-
-  private buildProductListFilter(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-  }): FilterQuery<ProductDocument> {
+  async list(params: { search?: string; sku?: string; upcEanCode?: string; categoryId?: string; supplierNameId?: string }) {
     const filter: FilterQuery<ProductDocument> = {};
 
     if (params.sku) filter.sku = params.sku;
@@ -79,7 +47,7 @@ export class ProductsService {
       ];
     }
 
-    return filter;
+    return await this.productModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
   }
 
   async filter(dto: FilterProductDto) {

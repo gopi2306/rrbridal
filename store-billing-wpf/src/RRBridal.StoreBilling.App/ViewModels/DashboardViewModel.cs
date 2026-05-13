@@ -36,16 +36,6 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in local store inventory.";
 
-    [ObservableProperty] private int _inventoryPage = 1;
-
-    [ObservableProperty] private int _inventoryPageSize = 100;
-
-    [ObservableProperty] private int _inventoryTotal;
-
-    [ObservableProperty] private int _inventoryTotalPages;
-
-    [ObservableProperty] private string _inventoryPagerLabel = "";
-
     public ObservableCollection<DashboardRecentBill> RecentBills { get; } = new();
 
     public ObservableCollection<InventoryGridRow> InventoryRows { get; } = new();
@@ -91,60 +81,24 @@ public partial class DashboardViewModel : ObservableObject
     [RelayCommand]
     private async Task SearchInventory()
     {
-        InventoryPage = 1;
-        await LoadInventoryGridAsync();
-    }
-
-    [RelayCommand]
-    private async Task InventoryNextPage()
-    {
-        if (InventoryTotalPages == 0 || InventoryPage >= InventoryTotalPages)
-            return;
-        InventoryPage++;
-        await LoadInventoryGridAsync();
-    }
-
-    [RelayCommand]
-    private async Task InventoryPreviousPage()
-    {
-        if (InventoryPage <= 1)
-            return;
-        InventoryPage--;
-        await LoadInventoryGridAsync();
-    }
-
-    private async Task LoadInventoryGridAsync()
-    {
         InventoryRows.Clear();
-        InventoryHint = "Loading…";
-        InventoryPagerLabel = "";
+        InventoryHint = "Searching…";
         try
         {
             var storeId = _storeContext.StoreId;
-            var result = await _inventoryClient.SearchAsync(InventorySearchText, storeId, InventoryPage, InventoryPageSize);
+            var rows = await _inventoryClient.SearchAsync(InventorySearchText, storeId, 100);
 
-            foreach (var r in result.Data)
+            foreach (var r in rows)
                 InventoryRows.Add(r);
 
-            InventoryTotal = result.Total;
-            InventoryTotalPages = result.TotalPages;
-
-            if (result.Total == 0)
-            {
-                InventoryHint = "No local inventory rows. Sync products/transfers or try another search.";
-                InventoryPagerLabel = "";
-            }
-            else
-            {
-                InventoryPagerLabel = $"Page {result.Page} of {result.TotalPages} ({result.Total} matches)";
-                InventoryHint =
-                    $"{result.Data.Count} row(s) on this page · local store «{storeId}».";
-            }
+            InventoryHint = rows.Count == 0
+                ? "No local inventory rows. Sync products/transfers or try another search."
+                : $"{rows.Count} local row(s) for store «{storeId}».";
         }
         catch (Exception ex)
         {
-            InventoryHint = "Could not read local store inventory. " + ex.Message;
-            InventoryPagerLabel = "";
+            InventoryHint =
+                "Could not read local store inventory. " + ex.Message;
         }
     }
 
