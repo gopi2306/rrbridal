@@ -1,7 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { CreateLocationDto } from './dto/create-location.dto';
+import { FilterLocationDto } from './dto/filter-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { Location, LocationDocument } from './schemas/location.schema';
 
@@ -24,6 +25,50 @@ export class LocationsService {
 
   async findAll() {
     return await this.model.find().sort({ name: 1 }).lean();
+  }
+
+  async filter(dto: FilterLocationDto) {
+    const filter: FilterQuery<LocationDocument> = {};
+
+    if (dto.code !== undefined && dto.code !== '') {
+      filter.code = dto.code.trim().toLowerCase();
+    }
+
+    if (dto.type !== undefined && dto.type !== '') {
+      filter.type = dto.type.trim();
+    }
+
+    if (dto.isActive !== undefined && dto.isActive !== null) {
+      filter.isActive = dto.isActive;
+    }
+
+    if (dto.search) {
+      filter.$or = [
+        { code: { $regex: dto.search, $options: 'i' } },
+        { name: { $regex: dto.search, $options: 'i' } },
+        { address: { $regex: dto.search, $options: 'i' } },
+        { type: { $regex: dto.search, $options: 'i' } },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'name';
+    const sortOrder: SortOrder = dto.sortOrder === 'desc' ? -1 : 1;
+
+    const [data, total] = await Promise.all([
+      this.model.find(filter).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit).lean(),
+      this.model.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string) {

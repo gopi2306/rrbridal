@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateBrandDto } from './dto/create-brand.dto';
+import { FilterBrandDto } from './dto/filter-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { BrandsService } from './brands.service';
 
@@ -17,6 +18,11 @@ export class BrandsController {
   @Get()
   async list() {
     return await this.service.findAll();
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterBrandDto) {
+    return await this.service.filter(dto);
   }
 
   @Get(':id')

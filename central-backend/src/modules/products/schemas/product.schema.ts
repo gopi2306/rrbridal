@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type ProductDocument = HydratedDocument<Product>;
 
@@ -25,12 +25,12 @@ export class Product {
   sku!: string;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  manufacturerNameId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Manufacturer', index: true })
+  manufacturerNameId?: Types.ObjectId;
 
   @ApiProperty()
-  @Prop({ required: true, index: true })
-  supplierNameId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Supplier', required: true, index: true })
+  supplierNameId!: Types.ObjectId;
 
   // ── Category Information ──
 
@@ -39,46 +39,46 @@ export class Product {
   itemProductType?: string;
 
   @ApiProperty()
-  @Prop({ required: true, index: true })
-  departmentId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Department', required: true, index: true })
+  departmentId!: Types.ObjectId;
 
   @ApiProperty()
-  @Prop({ required: true, index: true })
-  categoryId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Category', required: true, index: true })
+  categoryId!: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  subCategoryId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'SubCategory', index: true })
+  subCategoryId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  brandId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Brand', index: true })
+  brandId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  weightAndSizeId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'WeightSize', index: true })
+  weightAndSizeId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  weightPerGmOrMlId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'WeightUnit', index: true })
+  weightPerGmOrMlId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  offerGroupId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'OfferGroup', index: true })
+  offerGroupId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  productStatusId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'ProductStatus', index: true })
+  productStatusId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  colourId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Colour', index: true })
+  colourId?: Types.ObjectId;
 
   // ── Tax Information ──
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  hsnCodeId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'HsnCode', index: true })
+  hsnCodeId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -89,8 +89,8 @@ export class Product {
   gstPercent?: number;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  gstUomId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'GstUom', index: true })
+  gstUomId?: Types.ObjectId;
 
   // ── EAN Code / Barcode ──
 
@@ -105,20 +105,20 @@ export class Product {
   subUomConversion?: number;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  uomSubId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'UomSub', index: true })
+  uomSubId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  batchExpiryDetailId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'BatchExpiryDetail', index: true })
+  batchExpiryDetailId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  itemPrepStatusId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'ItemPrepStatus', index: true })
+  itemPrepStatusId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  packedConfirmationId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'PackedConfirmation', index: true })
+  packedConfirmationId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -141,20 +141,20 @@ export class Product {
   // ── Pricing ──
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  poQtyPolicyId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'PoQtyPolicy', index: true })
+  poQtyPolicyId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  sellById?: string;
+  @Prop({ type: Types.ObjectId, ref: 'SellByType', index: true })
+  sellById?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop()
   itemPerUnit?: number;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  batchSelectionId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'BatchSelection', index: true })
+  batchSelectionId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -187,16 +187,16 @@ export class Product {
   // ── Reorder Configurations ──
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  skuTypeId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'SkuType', index: true })
+  skuTypeId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  skuOrderGroupId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'SkuOrderGroup', index: true })
+  skuOrderGroupId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
-  @Prop({ index: true })
-  indentTypeId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'IndentType', index: true })
+  indentTypeId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop()

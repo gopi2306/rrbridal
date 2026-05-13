@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateBranchDto } from './dto/create-branch.dto';
+import { FilterBranchDto } from './dto/filter-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchesService } from './branches.service';
 
@@ -17,6 +18,11 @@ export class BranchesController {
   @Get()
   async list() {
     return await this.service.findAll();
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterBranchDto) {
+    return await this.service.filter(dto);
   }
 
   @Get(':id')

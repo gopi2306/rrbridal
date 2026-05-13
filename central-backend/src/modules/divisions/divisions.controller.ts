@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateDivisionDto } from './dto/create-division.dto';
+import { FilterDivisionDto } from './dto/filter-division.dto';
 import { UpdateDivisionDto } from './dto/update-division.dto';
 import { DivisionsService } from './divisions.service';
 
@@ -17,6 +18,11 @@ export class DivisionsController {
   @Get()
   async list() {
     return await this.service.findAll();
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterDivisionDto) {
+    return await this.service.filter(dto);
   }
 
   @Get(':id')
