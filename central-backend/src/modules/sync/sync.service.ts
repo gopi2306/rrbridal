@@ -7,6 +7,7 @@ import { SyncCursor, SyncCursorDocument } from './schemas/sync-cursor.schema';
 import { SyncEventDto } from './dto/sync-push.dto';
 import { ProductsService } from '../products/products.service';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
+import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
 
 @Injectable()
 export class SyncService {
@@ -16,6 +17,7 @@ export class SyncService {
     private readonly productsService: ProductsService,
     private readonly purchaseIntentsService: PurchaseIntentsService,
     private readonly storesService: StoresService,
+    private readonly stockTransfersService: StockTransfersService,
   ) {}
 
   async push(events: SyncEventDto[]) {
@@ -40,6 +42,8 @@ export class SyncService {
             { eventId: ev.eventId, storeId: ev.storeId, deviceId: ev.deviceId },
             ev.payload,
           );
+        } else if (ev.type === 'StockTransferReceived') {
+          await this.stockTransfersService.receiveFromSync(ev.storeId, ev.payload);
         }
 
         await this.syncEventModel.create({
@@ -79,15 +83,36 @@ export class SyncService {
         : {};
 
     const products = await this.productsService.listDeltas(cursorFilter, limit);
+    const transfers = await this.stockTransfersService.listAwaitingIntakeForStore(storeId, limit);
     const last = products.length > 0 ? products[products.length - 1] : undefined;
     const cursor = last?._id ? String(last._id) : sinceCursor ?? '0';
 
-    const updates = products.map((p) => ({
+    const productUpdates = products.map((p) => ({
       type: 'ProductUpserted',
       storeId,
       createdAt: new Date().toISOString(),
       payload: { product: p },
     }));
+
+    const transferUpdates = transfers.map((transfer) => {
+      const row = transfer as typeof transfer & { _id?: unknown; updatedAt?: Date };
+      return {
+        type: 'StockTransferAwaitingStoreIntake',
+        storeId,
+        createdAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date().toISOString(),
+        payload: {
+          transfer: {
+            transferId: String(row._id),
+            transferNo: transfer.transferNo,
+            toStoreId: transfer.toStoreId,
+            status: transfer.status,
+            transferDate: transfer.transferDate,
+            remarks: transfer.remarks,
+            lines: transfer.lines,
+          },
+        },
+      };
+    });
 
     await this.syncCursorModel.updateOne(
       { storeId },
@@ -95,7 +120,7 @@ export class SyncService {
       { upsert: true },
     );
 
-    return { cursor, updates };
+    return { cursor, updates: [...productUpdates, ...transferUpdates] };
   }
 }
 

@@ -40,8 +40,20 @@ public partial class MainWindow : Window, IFocusSearchService
         if (e.Key != Key.Enter)
             return;
         e.Handled = true;
-        if (DataContext is ShellViewModel shell && shell.CurrentPage == ShellPage.Billing)
+        if (DataContext is not ShellViewModel shell)
+            return;
+
+        if (shell.CurrentPage == ShellPage.Billing)
+        {
+            shell.Billing.SearchText = shell.GlobalSearchText;
             await shell.Billing.OpenProductSearchAsync();
+            shell.GlobalSearchText = shell.Billing.SearchText;
+        }
+        else if (shell.CurrentPage == ShellPage.SaleReturn)
+        {
+            await shell.SaleReturn.AddExchangeProductFromSearchAsync(shell.GlobalSearchText);
+            shell.GlobalSearchText = "";
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)

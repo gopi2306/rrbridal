@@ -27,10 +27,26 @@ public partial class SaleReturnLineItem : ObservableObject
     public decimal IgstAmount => Math.Round(ReturnAmount * IgstPercent / 100m, 2);
     public decimal TaxAmount => CgstAmount + SgstAmount + IgstAmount;
 
+    partial void OnIsSelectedChanged(bool value)
+    {
+        ReturnQty = value
+            ? ReturnQty <= 0 ? OriginalQty : Math.Min(ReturnQty, OriginalQty)
+            : 0;
+    }
+
     partial void OnReturnQtyChanged(decimal value)
     {
+        if (value < 0)
+        {
+            ReturnQty = 0;
+            return;
+        }
+
         if (value > OriginalQty)
+        {
             ReturnQty = OriginalQty;
+            return;
+        }
 
         OnPropertyChanged(nameof(ReturnAmount));
         OnPropertyChanged(nameof(CgstAmount));

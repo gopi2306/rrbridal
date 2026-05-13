@@ -65,6 +65,33 @@ Store rules:
 - Store only marks an outbox event as **synced** if central returns `applied` or `duplicate`.
 - If `rejected`, store keeps it as **failed** and shows the reason.
 
+### Event: `StockTransferReceived`
+
+Raised by the **Store WPF** app after it receives a central stock transfer into the local MongoDB inventory cache.
+
+`payload` shape:
+
+```json
+{
+  "transferId": "central Mongo ObjectId",
+  "transferNo": "TR-1234",
+  "receivedAt": "2026-05-13T10:00:00.000Z",
+  "lines": [
+    {
+      "sku": "SKU-123",
+      "qty": 2
+    }
+  ]
+}
+```
+
+Rules:
+
+- The event `storeId` must match the transfer `toStoreId`.
+- Lines must match the central transfer lines by SKU and quantity.
+- Central treats a transfer that is already `completed` as applied and does not post inventory ledger entries again.
+- For a transfer in `awaiting_intake`, central moves it to `completed`, which records `in_transit -qty` and `store +qty` through the existing stock transfer ledger flow.
+
 ## Central → Store (pull)
 Endpoint: `GET /sync/pull?storeId=...&sinceCursor=...&limit=...`
 
@@ -80,6 +107,18 @@ Response:
 Cursor rules:
 - Store persists `cursor` in `sync_state`.
 - On next pull, store sends `sinceCursor=<lastCursor>`.
+
+### Update: `StockTransferAwaitingStoreIntake`
+
+Central includes store-bound transfers whose status is `awaiting_intake`. The store applies these idempotently:
+
+- Save the transfer into local `local_stock_transfers`.
+- Increment `local_products_cache.stockQty` once per transfer line.
+- Create a pending `StockTransferReceived` outbox event so central can complete the transfer on the next push.
+
+### Sales stock rule
+
+WPF billing uses `local_products_cache.stockQty` as the sales availability gate. Products with quantity below one are not added to a bill; the store creates a `PurchaseIntentCreated` reference requisition instead.
 
 ## Recommended indexes
 Central:

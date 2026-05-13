@@ -18,6 +18,7 @@ public sealed class SyncEngine : ISyncEngine
     private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly IMongoCollection<BsonDocument> _syncState;
     private readonly IMongoCollection<BsonDocument> _products;
+    private readonly IMongoCollection<BsonDocument> _transfers;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
     private readonly MasterDataService _masterData;
@@ -27,6 +28,7 @@ public sealed class SyncEngine : ISyncEngine
         _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
         _products = localDb.GetCollection<BsonDocument>("local_products_cache");
+        _transfers = localDb.GetCollection<BsonDocument>("local_stock_transfers");
         _centralApi = centralApi;
         _storeContext = storeContext;
         _masterData = masterData;
@@ -116,6 +118,11 @@ public sealed class SyncEngine : ISyncEngine
                     var product = upd.GetProperty("payload").GetProperty("product");
                     await UpsertProductAsync(product, ct);
                 }
+                else if (type == "StockTransferAwaitingStoreIntake")
+                {
+                    var transfer = upd.GetProperty("payload").GetProperty("transfer");
+                    await ApplyStockTransferAsync(transfer, ct);
+                }
             }
         }
 
@@ -188,7 +195,133 @@ public sealed class SyncEngine : ISyncEngine
 
         await _products.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
     }
+
+    private async Task ApplyStockTransferAsync(JsonElement transfer, CancellationToken ct)
+    {
+        var transferId = transfer.TryGetProperty("transferId", out var idEl) ? idEl.GetString() ?? "" : "";
+        var transferNo = transfer.TryGetProperty("transferNo", out var noEl) ? noEl.GetString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(transferId) && string.IsNullOrWhiteSpace(transferNo))
+            return;
+
+        var filter = !string.IsNullOrWhiteSpace(transferId)
+            ? Builders<BsonDocument>.Filter.Eq("transferId", transferId)
+            : Builders<BsonDocument>.Filter.Eq("transferNo", transferNo);
+
+        var existing = await _transfers.Find(filter).FirstOrDefaultAsync(ct);
+        if (existing?.TryGetValue("stockApplied", out var appliedVal) == true && appliedVal.IsBoolean && appliedVal.AsBoolean)
+            return;
+
+        var lines = ReadTransferLines(transfer);
+        if (lines.Count == 0)
+            return;
+
+        var storeId = _storeContext.StoreId;
+        var now = DateTime.UtcNow.ToString("O");
+
+        if (existing == null)
+        {
+            var transferDoc = new BsonDocument
+            {
+                { "transferId", transferId },
+                { "transferNo", transferNo },
+                { "storeId", storeId },
+                { "status", "receiving" },
+                { "stockApplied", false },
+                { "createdAtUtc", now },
+                { "lines", new BsonArray(lines.Select(l => new BsonDocument
+                    {
+                        { "sku", l.Sku },
+                        { "description", l.Description },
+                        { "qty", (double)l.Qty },
+                    })) },
+            };
+            await _transfers.InsertOneAsync(transferDoc, cancellationToken: ct);
+        }
+
+        foreach (var line in lines)
+        {
+            var productFilter = Builders<BsonDocument>.Filter.Eq("sku", line.Sku);
+            var productUpdate = Builders<BsonDocument>.Update
+                .Inc("stockQty", (double)line.Qty)
+                .SetOnInsert("sku", line.Sku)
+                .SetOnInsert("itemName", string.IsNullOrWhiteSpace(line.Description) ? line.Sku : line.Description)
+                .Set("lastStockUpdatedAt", now);
+            await _products.UpdateOneAsync(productFilter, productUpdate, new UpdateOptions { IsUpsert = true }, ct);
+        }
+
+        var eventId = Guid.NewGuid().ToString();
+        var payload = new BsonDocument
+        {
+            { "transferId", transferId },
+            { "transferNo", transferNo },
+            { "receivedAt", now },
+            { "lines", new BsonArray(lines.Select(l => new BsonDocument
+                {
+                    { "sku", l.Sku },
+                    { "qty", (double)l.Qty },
+                })) },
+        };
+
+        var hash = JsonSerializer.Serialize(new
+        {
+            transferId,
+            transferNo,
+            lines = lines.Select(l => new { sku = l.Sku, qty = l.Qty }),
+        });
+
+        var outboxEvent = new BsonDocument
+        {
+            { "eventId", eventId },
+            { "storeId", storeId },
+            { "deviceId", _storeContext.DeviceId },
+            { "type", "StockTransferReceived" },
+            { "createdAt", now },
+            { "payload", payload },
+            { "hash", hash },
+            { "status", "pending" },
+        };
+        await _outbox.InsertOneAsync(outboxEvent, cancellationToken: ct);
+
+        var update = Builders<BsonDocument>.Update
+            .Set("status", "received")
+            .Set("stockApplied", true)
+            .Set("receivedAtUtc", now)
+            .Set("receiptEventId", eventId);
+        await _transfers.UpdateOneAsync(filter, update, cancellationToken: ct);
+    }
+
+    private static IReadOnlyList<TransferLine> ReadTransferLines(JsonElement transfer)
+    {
+        if (!transfer.TryGetProperty("lines", out var linesEl) || linesEl.ValueKind != JsonValueKind.Array)
+            return Array.Empty<TransferLine>();
+
+        var lines = new List<TransferLine>();
+        foreach (var lineEl in linesEl.EnumerateArray())
+        {
+            var sku = lineEl.TryGetProperty("sku", out var skuEl) ? skuEl.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(sku))
+                continue;
+
+            var qty = 0m;
+            if (lineEl.TryGetProperty("qty", out var qtyEl))
+            {
+                if (qtyEl.ValueKind == JsonValueKind.Number)
+                    qtyEl.TryGetDecimal(out qty);
+                else if (qtyEl.ValueKind == JsonValueKind.String)
+                    decimal.TryParse(qtyEl.GetString(), out qty);
+            }
+            if (qty <= 0)
+                continue;
+
+            var description = lineEl.TryGetProperty("description", out var descEl) ? descEl.GetString() ?? "" : "";
+            lines.Add(new TransferLine(sku.Trim(), description.Trim(), qty));
+        }
+
+        return lines;
+    }
 }
+
+internal readonly record struct TransferLine(string Sku, string Description, decimal Qty);
 
 internal static class ObjectExtensions
 {

@@ -36,6 +36,8 @@ public partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private StoreUserRecord? _selectedBillingUser;
 
+    [ObservableProperty] private string _globalSearchText = "";
+
     partial void OnSelectedBillingUserChanged(StoreUserRecord? value)
     {
         if (_services.UserSession is not null && value is not null)
@@ -106,6 +108,13 @@ public partial class ShellViewModel : ObservableObject
             _ = Analytics.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
+        GlobalSearchText = value == ShellPage.Billing ? Billing.SearchText : "";
+    }
+
+    partial void OnGlobalSearchTextChanged(string value)
+    {
+        if (CurrentPage == ShellPage.Billing)
+            Billing.SearchText = value;
     }
 
     [RelayCommand]

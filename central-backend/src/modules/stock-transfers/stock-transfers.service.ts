@@ -156,6 +156,42 @@ export class StockTransfersService {
     return await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
   }
 
+  async listAwaitingIntakeForStore(storeId: string, limit: number) {
+    return await this.model
+      .find({ toStoreId: storeId, status: 'awaiting_intake' })
+      .sort({ updatedAt: 1, _id: 1 })
+      .limit(limit)
+      .lean();
+  }
+
+  async receiveFromSync(storeId: string, payload: Record<string, unknown>) {
+    const transferId = this.readPayloadString(payload, 'transferId');
+    const transferNo = this.readPayloadString(payload, 'transferNo');
+    if (!transferId && !transferNo) {
+      throw new BadRequestException('transferId or transferNo is required');
+    }
+
+    const doc = transferId && Types.ObjectId.isValid(transferId)
+      ? await this.model.findById(transferId)
+      : await this.model.findOne({ transferNo });
+
+    if (!doc) throw new NotFoundException('Stock transfer not found');
+    if (doc.toStoreId !== storeId) {
+      throw new BadRequestException(`Transfer '${doc.transferNo}' is not assigned to store '${storeId}'`);
+    }
+
+    this.assertReceiptLinesMatch(doc.lines ?? [], payload.lines);
+
+    if (doc.status === 'completed') {
+      return doc.toObject();
+    }
+    if (doc.status !== 'awaiting_intake') {
+      throw new BadRequestException(`Cannot receive transfer '${doc.transferNo}' from status '${doc.status}'`);
+    }
+
+    return await this.setStatus(String(doc._id), 'completed');
+  }
+
   async setStatus(id: string, status: StockTransferStatus) {
     const doc = await this.model.findById(id);
     if (!doc) throw new NotFoundException('Stock transfer not found');
@@ -243,6 +279,47 @@ export class StockTransfersService {
           locationKind: 'warehouse' as const,
         })),
       ]);
+    }
+  }
+
+  private readPayloadString(payload: Record<string, unknown>, key: string) {
+    const value = payload[key];
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  private assertReceiptLinesMatch(expected: StockTransferLine[], actual: unknown) {
+    if (!Array.isArray(actual) || actual.length === 0) {
+      throw new BadRequestException('lines must contain at least one item');
+    }
+
+    const expectedBySku = new Map<string, number>();
+    for (const line of expected) {
+      const sku = line.sku.trim();
+      expectedBySku.set(sku, (expectedBySku.get(sku) ?? 0) + line.qty);
+    }
+
+    const actualBySku = new Map<string, number>();
+    for (const raw of actual) {
+      if (!raw || typeof raw !== 'object') {
+        throw new BadRequestException('Each receipt line must be an object');
+      }
+      const line = raw as Record<string, unknown>;
+      const sku = typeof line.sku === 'string' ? line.sku.trim() : '';
+      const qty = typeof line.qty === 'number' ? line.qty : Number(line.qty);
+      if (!sku || !Number.isFinite(qty) || qty <= 0) {
+        throw new BadRequestException('Each receipt line needs sku and qty > 0');
+      }
+      actualBySku.set(sku, (actualBySku.get(sku) ?? 0) + qty);
+    }
+
+    if (actualBySku.size !== expectedBySku.size) {
+      throw new BadRequestException('Receipt lines do not match transfer lines');
+    }
+
+    for (const [sku, qty] of expectedBySku) {
+      if ((actualBySku.get(sku) ?? 0) !== qty) {
+        throw new BadRequestException(`Receipt quantity mismatch for sku ${sku}`);
+      }
     }
   }
 }

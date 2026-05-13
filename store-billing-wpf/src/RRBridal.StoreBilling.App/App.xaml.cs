@@ -13,6 +13,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        DotEnvLoader.Load();
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Services = AppServices.CreateDefault();
 

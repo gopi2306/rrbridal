@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
         xmlns:pay="clr-namespace:RRBridal.StoreBilling.App.Services.Payments"
-        Title="Payment" SizeToContent="Height" Width="560"
+        Title="Payment" SizeToContent="Height" Width="600"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource BrushBackground}">
 
@@ -56,10 +56,10 @@
         </Border>
 
         <!-- Mode-specific panels -->
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12" MinHeight="100">
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12" MinHeight="118">
             <Grid>
                 <!-- Cash Panel -->
-                <StackPanel Visibility="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}">
+                <StackPanel>
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed"/>

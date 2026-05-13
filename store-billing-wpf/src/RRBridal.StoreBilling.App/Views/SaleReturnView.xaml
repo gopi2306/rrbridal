@@ -58,6 +58,46 @@
                         </DataGrid>
                     </DockPanel>
                 </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0,12,0,0"
+                        Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="New Exchange Items"/>
+                            <TextBlock Text="Use the top search box to add replacement products from local inventory."
+                                       Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding ExchangeLines}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  RowHeight="36"
+                                  BorderThickness="1"
+                                  BorderBrush="{StaticResource BrushBorder}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="110"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                <DataGridTextColumn Header="Avail" Binding="{Binding AvailableQty, StringFormat=N2}" IsReadOnly="True" Width="70"/>
+                                <DataGridTextColumn Header="New Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTemplateColumn Header="" Width="70">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Remove"
+                                                    Style="{StaticResource OutlineButton}"
+                                                    Padding="6,2"
+                                                    Command="{Binding DataContext.RemoveExchangeLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
 
@@ -104,6 +144,25 @@
 
                         <Separator Margin="0,8,0,12"/>
 
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Old return value" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding ReturnTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="New product value" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding ReplacementTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Amount to collect" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding AmountToCollectFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Credit balance" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding CreditBalanceFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+
+                        <Separator Margin="0,8,0,12"/>
+
                         <TextBlock Text="Return Mode" FontWeight="SemiBold" Margin="0,0,0,6"/>
                         <RadioButton Content="Credit Note" GroupName="ReturnMode"
                                      IsChecked="{Binding ReturnMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CreditNote}"
@@ -120,7 +179,7 @@
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                             <Button Content="Clear" Style="{StaticResource OutlineButton}" Command="{Binding ClearFormCommand}" Margin="0,0,8,0"/>
-                            <Button Content="Post Return" Style="{StaticResource PrimaryButton}" Command="{Binding PostReturnCommand}"/>
+                            <Button Content="Post Return / Exchange" Style="{StaticResource PrimaryButton}" Command="{Binding PostReturnCommand}"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

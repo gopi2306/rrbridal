@@ -167,4 +167,59 @@ public sealed class ProductCatalogService
         }
         catch { }
     }
+
+    public async Task DecrementStockBySkuAsync(string sku, decimal qty, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return;
+        try
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("sku", sku.Trim());
+            var update = Builders<BsonDocument>.Update
+                .Inc("stockQty", -(double)qty)
+                .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O"));
+            await _cache.UpdateOneAsync(filter, update, cancellationToken: ct);
+        }
+        catch { }
+    }
+
+    public async Task<decimal> GetAvailableStockAsync(string? centralProductId, string? sku, CancellationToken ct = default)
+    {
+        try
+        {
+            FilterDefinition<BsonDocument>? filter = null;
+            if (!string.IsNullOrWhiteSpace(centralProductId))
+                filter = Builders<BsonDocument>.Filter.Eq("centralProductId", centralProductId.Trim());
+            if (!string.IsNullOrWhiteSpace(sku))
+            {
+                var skuFilter = Builders<BsonDocument>.Filter.Eq("sku", sku.Trim());
+                filter = filter == null ? skuFilter : Builders<BsonDocument>.Filter.Or(filter, skuFilter);
+            }
+
+            if (filter == null) return 0m;
+            var doc = await _cache.Find(filter).FirstOrDefaultAsync(ct);
+            return doc == null ? 0m : ReadDecimalBson(doc, "stockQty") ?? 0m;
+        }
+        catch
+        {
+            return 0m;
+        }
+    }
+
+    public async Task IncrementStockBySkuAsync(string sku, decimal qty, string? description = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return;
+        try
+        {
+            var normalizedSku = sku.Trim();
+            var filter = Builders<BsonDocument>.Filter.Eq("sku", normalizedSku);
+            var update = Builders<BsonDocument>.Update
+                .Inc("stockQty", (double)qty)
+                .SetOnInsert("sku", normalizedSku)
+                .SetOnInsert("itemName", string.IsNullOrWhiteSpace(description) ? normalizedSku : description.Trim())
+                .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O"));
+
+            await _cache.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, ct);
+        }
+        catch { }
+    }
 }

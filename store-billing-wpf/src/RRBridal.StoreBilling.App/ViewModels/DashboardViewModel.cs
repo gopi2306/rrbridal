@@ -34,7 +34,7 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _inventorySearchText = "";
 
-    [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name (central inventory).";
+    [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in local store inventory.";
 
     public ObservableCollection<DashboardRecentBill> RecentBills { get; } = new();
 
@@ -92,13 +92,13 @@ public partial class DashboardViewModel : ObservableObject
                 InventoryRows.Add(r);
 
             InventoryHint = rows.Count == 0
-                ? "No rows. Try another search or ensure products/ledger exist in central."
-                : $"{rows.Count} row(s) for store «{storeId}».";
+                ? "No local inventory rows. Sync products/transfers or try another search."
+                : $"{rows.Count} local row(s) for store «{storeId}».";
         }
         catch (Exception ex)
         {
             InventoryHint =
-                "Inventory requires central API. Check CENTRAL_API_BASE and login in Settings. " + ex.Message;
+                "Could not read local store inventory. " + ex.Message;
         }
     }
 

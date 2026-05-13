@@ -46,7 +46,9 @@ Typical flow:
 1. `draft` — after `POST /stock-transfers` or `POST /stock-transfers/from-purchase-intent/...`; editable via `PATCH /stock-transfers/:id` (remarks, date, lines).
 2. `in_transit` — dispatched from warehouse.
 3. `awaiting_intake` — goods arrived; store confirmation pending.
-4. `completed` — intake confirmed.
+4. `completed` — intake confirmed by the store WPF sync event.
+
+When a transfer is `awaiting_intake`, central sync pull sends it to the destination store as `StockTransferAwaitingStoreIntake`. The WPF app saves the transfer locally, increments `local_products_cache.stockQty` once, and enqueues `StockTransferReceived`. Central then validates the receipt and completes the transfer.
 
 ## HTTP API summary
 
@@ -64,7 +66,11 @@ Typical flow:
 Stock transfers **post to the inventory ledger** (see [inventory.md](./inventory.md)):
 
 - **Dispatch** (`draft` → `in_transit`): warehouse decreases by line quantities.
-- **Complete intake** (`awaiting_intake` → `completed`): destination store increases by line quantities (`toStoreId`).
+- **Complete intake** (`awaiting_intake` → `completed`): destination store increases by line quantities (`toStoreId`). In the store app, the same transfer also increases local MongoDB stock for billing availability.
 - **Cancel** from `in_transit` or `awaiting_intake`: warehouse is increased again to reverse dispatch.
 
 Goods receipts posted to inventory increase **warehouse** stock only.
+
+## Store sales availability
+
+Store billing uses only the local WPF MongoDB cache for sales availability. If a scanned or searched product has `stockQty < 1`, WPF does not add it to the bill. Instead, it creates a `PurchaseIntentCreated` reference requisition so central can review and transfer stock to the store.

@@ -66,7 +66,7 @@ public sealed class AppServices
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var productCatalog = new ProductCatalogService(localDb, http);
-        var inventoryGrid = new InventoryGridClient(http);
+        var inventoryGrid = new InventoryGridClient(localDb);
         var receiptConfig = new ReceiptConfigStore();
 
         return new AppServices

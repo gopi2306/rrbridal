@@ -16,6 +16,7 @@ using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.Products;
+using RRBridal.StoreBilling.App.Services.PurchaseIntents;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -252,6 +253,11 @@ public partial class BillingViewModel : ObservableObject
     {
         try
         {
+            var eventId = await _services.PurchaseIntentPublisher.SubmitAsync(
+                new[] { new PurchaseIntentLineInput(sku, 1, "Reference intent from local stock shortage") },
+                "Reference intent created from WPF billing because local stock was unavailable.",
+                ct);
+
             var coll = _services.LocalDb.GetCollection<BsonDocument>("indent_requests");
             var doc = new BsonDocument
             {
@@ -260,6 +266,7 @@ public partial class BillingViewModel : ObservableObject
                 { "centralProductId", centralProductId ?? "" },
                 { "storeId", _services.StoreContext.StoreId },
                 { "requestedQty", 1 },
+                { "sourceEventId", eventId },
                 { "status", "pending" },
                 { "createdAtUtc", DateTime.UtcNow.ToString("O") },
             };
@@ -334,6 +341,21 @@ public partial class BillingViewModel : ObservableObject
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
+        }
+
+        foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.ProductCode)))
+        {
+            var available = await _services.ProductCatalog.GetAvailableStockAsync(line.CentralProductId, line.ProductCode);
+            if (available < line.Qty || available < 1)
+            {
+                await AddIndentRequestAsync(line.ProductCode, line.Description, line.CentralProductId, ct: default);
+                MessageBox.Show(
+                    $"Product \"{line.Description}\" (SKU: {line.ProductCode}) has only {available:N2} available locally.\nA reference indent request has been created.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
         }
 
         var sub = Lines.Sum(l => l.Amount);

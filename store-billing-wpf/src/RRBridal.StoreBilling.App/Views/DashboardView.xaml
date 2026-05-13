@@ -77,8 +77,8 @@
                 </DataGrid>
             </Border>
 
-            <TextBlock Text="Store stock lookup (central)" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{StaticResource BrushText}"/>
-            <TextBlock Text="Uses STORE_ID for store quantity. Requires central API running." FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Text="Store inventory lookup (local)" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Text="Shows only local MongoDB store inventory used for billing." FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
 
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
@@ -108,9 +108,7 @@
                         <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="100"/>
                         <DataGridTextColumn Header="UPC/EAN" Binding="{Binding UpcEanCode}" Width="100"/>
                         <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*"/>
-                        <DataGridTextColumn Header="Store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="85"/>
-                        <DataGridTextColumn Header="In Transit" Binding="{Binding InTransitQty, StringFormat={}{0:N2}}" Width="85"/>
-                        <DataGridTextColumn Header="Warehouse qty" Binding="{Binding WarehouseQty, StringFormat={}{0:N2}}" Width="100"/>
+                        <DataGridTextColumn Header="Local store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="120"/>
                         <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N2}}" Width="85"/>
                         <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N2}}" Width="95"/>
                     </DataGrid.Columns>
