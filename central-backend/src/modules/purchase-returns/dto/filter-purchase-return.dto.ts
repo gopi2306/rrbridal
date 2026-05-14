@@ -8,7 +8,7 @@ export class FilterPurchaseReturnDto {
   @IsOptional()
   search?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Exact purchase return number (case-insensitive), e.g. PR-001' })
   @IsString()
   @IsOptional()
   purchaseReturnNo?: string;
