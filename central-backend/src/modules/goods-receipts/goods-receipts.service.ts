@@ -25,6 +25,7 @@ export class GoodsReceiptsService {
       receiptNo,
       poId: dto.poId,
       poNo: dto.poNo,
+      grnNumber: dto.grnNumber,
       supplier: dto.supplier,
       invoiceNo: dto.invoiceNo,
       invoiceDate: dto.invoiceDate,
@@ -46,13 +47,15 @@ export class GoodsReceiptsService {
     return doc;
   }
 
-  async list(params: { search?: string; poNo?: string; status?: string }) {
+  async list(params: { search?: string; poNo?: string; grnNumber?: string; status?: string }) {
     const filter: Record<string, unknown> = {};
     if (params.poNo) filter.poNo = params.poNo;
+    if (params.grnNumber) filter.grnNumber = params.grnNumber;
     if (params.status) filter.status = params.status;
     if (params.search) {
       filter.$or = [
         { receiptNo: { $regex: params.search, $options: 'i' } },
+        { grnNumber: { $regex: params.search, $options: 'i' } },
         { poNo: { $regex: params.search, $options: 'i' } },
         { invoiceNo: { $regex: params.search, $options: 'i' } },
         { 'supplier.name': { $regex: params.search, $options: 'i' } },
@@ -67,6 +70,7 @@ export class GoodsReceiptsService {
     if (dto.receiptNo) filter.receiptNo = dto.receiptNo;
     if (dto.poId) filter.poId = dto.poId;
     if (dto.poNo) filter.poNo = dto.poNo;
+    if (dto.grnNumber) filter.grnNumber = dto.grnNumber;
     if (dto.invoiceNo) filter.invoiceNo = dto.invoiceNo;
     if (dto.supplierId) filter['supplier.supplierId'] = dto.supplierId;
     if (dto.status) filter.status = dto.status;
@@ -80,6 +84,7 @@ export class GoodsReceiptsService {
     if (dto.search) {
       filter.$or = [
         { receiptNo: { $regex: dto.search, $options: 'i' } },
+        { grnNumber: { $regex: dto.search, $options: 'i' } },
         { poNo: { $regex: dto.search, $options: 'i' } },
         { invoiceNo: { $regex: dto.search, $options: 'i' } },
         { 'supplier.name': { $regex: dto.search, $options: 'i' } },

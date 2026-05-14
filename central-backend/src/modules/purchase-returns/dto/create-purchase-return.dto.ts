@@ -92,6 +92,14 @@ export class CreatePurchaseReturnLineDto {
 }
 
 export class CreatePurchaseReturnDto {
+  @ApiProperty({
+    required: false,
+    description: 'Business return number (e.g. PR-0001). If omitted, a unique PR-#### number is generated.',
+  })
+  @IsString()
+  @IsOptional()
+  purchaseReturnNo?: string;
+
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

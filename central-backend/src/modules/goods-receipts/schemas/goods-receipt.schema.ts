@@ -55,6 +55,10 @@ export class GoodsReceipt {
   @Prop({ index: true })
   poNo?: string;
 
+  @ApiProperty({ required: false, description: 'GRN number' })
+  @Prop({ index: true })
+  grnNumber?: string;
+
   @ApiProperty({ required: false })
   @Prop({ type: GoodsReceiptSupplierSnapshot })
   supplier?: GoodsReceiptSupplierSnapshot;
