@@ -10,7 +10,7 @@ import { PatchAuthSettingsDto } from './dto/patch-auth-settings.dto';
 @ApiBearerAuth()
 @Controller('admin/auth-settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('super_admin')
 export class AdminAuthSettingsController {
   constructor(private readonly authSettingsService: AuthSettingsService) {}
 

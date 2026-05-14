@@ -31,6 +31,13 @@ export class StockTransfer {
   @Prop({ required: true, default: 'warehouse' })
   fromKind!: 'warehouse';
 
+  @ApiProperty({
+    required: false,
+    description: 'Mongo _id of the source warehouse Location (type warehouse, active)',
+  })
+  @Prop({ type: Types.ObjectId, index: true })
+  fromLocationId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true, index: true })
   toStoreId!: string;
@@ -50,6 +57,14 @@ export class StockTransfer {
   @ApiProperty({ required: false })
   @Prop()
   remarks?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Stock classification label (e.g. Normal Stock); defaults on create when omitted',
+    example: 'Normal Stock',
+  })
+  @Prop({ trim: true })
+  stockClassification?: string;
 
   @ApiProperty({ type: [StockTransferLine] })
   @Prop({ type: [StockTransferLine], default: [] })

@@ -113,6 +113,10 @@ export class SyncService {
             status: transfer.status,
             transferDate: transfer.transferDate,
             remarks: transfer.remarks,
+            stockClassification: (transfer as { stockClassification?: string }).stockClassification ?? 'Normal Stock',
+            ...((transfer as { fromLocationId?: unknown }).fromLocationId != null
+              ? { fromLocationId: String((transfer as { fromLocationId: unknown }).fromLocationId) }
+              : {}),
             lines: transfer.lines,
           },
         },
@@ -133,6 +137,10 @@ export class SyncService {
             status: transfer.status,
             transferDate: transfer.transferDate,
             remarks: transfer.remarks,
+            stockClassification: (transfer as { stockClassification?: string }).stockClassification ?? 'Normal Stock',
+            ...((transfer as { fromLocationId?: unknown }).fromLocationId != null
+              ? { fromLocationId: String((transfer as { fromLocationId: unknown }).fromLocationId) }
+              : {}),
             lines: transfer.lines,
           },
         },

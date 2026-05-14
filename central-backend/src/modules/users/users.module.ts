@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { StoresModule } from '../stores/stores.module';
 import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
 import { AdminAuthSettingsController } from './admin-auth-settings.controller';
+import { AdminOnboardingController } from './admin-onboarding.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AuthSettingsService } from './auth-settings.service';
 import { RolesController } from './roles.controller';
@@ -29,7 +30,13 @@ import { UsersService } from './users.service';
       { name: Store.name, schema: StoreSchema },
     ]),
   ],
-  controllers: [AdminUsersController, AdminAuthSettingsController, RolesController, StoreUsersController],
+  controllers: [
+    AdminUsersController,
+    AdminOnboardingController,
+    AdminAuthSettingsController,
+    RolesController,
+    StoreUsersController,
+  ],
   providers: [UsersService, AuthSettingsService, UsersSeedService, JwtAuthGuard, RolesGuard],
   exports: [UsersService],
 })

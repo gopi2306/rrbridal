@@ -10,7 +10,7 @@ import { PatchCompanyProfileDto } from './dto/patch-company-profile.dto';
 @ApiBearerAuth()
 @Controller('admin/company-profile')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('super_admin')
 export class AdminCompanyProfileController {
   constructor(private readonly companyProfileService: CompanyProfileService) {}
 

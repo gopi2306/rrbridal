@@ -34,6 +34,8 @@ export class CompanyProfileService {
     if (dto.pinCode !== undefined) set.pinCode = this.trimOrUndef(dto.pinCode);
     if (dto.phone !== undefined) set.phone = this.trimOrUndef(dto.phone);
     if (dto.email !== undefined) set.email = this.trimOrUndef(dto.email);
+    if (dto.companyLogo !== undefined) set.companyLogo = this.trimOrUndef(dto.companyLogo);
+    if (dto.extraFields !== undefined) set.extraFields = dto.extraFields;
 
     if (Object.keys(set).length === 0) {
       return await this.get();

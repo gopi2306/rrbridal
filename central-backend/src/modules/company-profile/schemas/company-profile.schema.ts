@@ -47,6 +47,18 @@ export class CompanyProfile {
   @ApiProperty({ required: false })
   @Prop({ trim: true })
   email?: string;
+
+  @ApiProperty({ required: false, description: 'URL of the company logo image' })
+  @Prop({ trim: true })
+  companyLogo?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Additional company metadata as arbitrary key-value pairs',
+    example: { website: 'https://example.com', tagline: 'Since 1990' },
+  })
+  @Prop({ type: Object })
+  extraFields?: Record<string, unknown>;
 }
 
 export const CompanyProfileSchema = SchemaFactory.createForClass(CompanyProfile);

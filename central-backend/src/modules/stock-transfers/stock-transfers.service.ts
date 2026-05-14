@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, UpdateQuery } from 'mongoose';
 import { InventoryService } from '../inventory/inventory.service';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StoresService } from '../stores/stores.service';
+import { LocationsService } from '../locations/locations.service';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
@@ -31,11 +32,36 @@ export class StockTransfersService {
     private readonly purchaseIntentsService: PurchaseIntentsService,
     private readonly inventoryService: InventoryService,
     private readonly storesService: StoresService,
+    private readonly locationsService: LocationsService,
   ) {}
 
   private async nextTransferNo() {
     const suffix = Math.floor(1000 + Math.random() * 9000);
     return `TR-${suffix}`;
+  }
+
+  private normalizeStockClassification(value: string | undefined): string {
+    const t = value?.trim();
+    if (!t) return 'Normal Stock';
+    return t.length > 80 ? t.slice(0, 80) : t;
+  }
+
+  /** Resolves DTO `locationId` to an ObjectId after validating active warehouse location. */
+  private async resolveFromLocationId(locationId: string | undefined): Promise<Types.ObjectId | undefined> {
+    if (locationId === undefined || String(locationId).trim() === '') return undefined;
+    const id = String(locationId).trim();
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('locationId must be a valid Mongo ObjectId');
+    }
+    const loc = await this.locationsService.findById(id);
+    const type = (loc.type ?? '').toString().trim().toLowerCase();
+    if (type !== 'warehouse') {
+      throw new BadRequestException('locationId must reference a location with type warehouse');
+    }
+    if (loc.isActive !== true) {
+      throw new BadRequestException('locationId must reference an active location');
+    }
+    return new Types.ObjectId(id);
   }
 
   private assertTransition(from: StockTransferStatus, to: StockTransferStatus) {
@@ -55,14 +81,17 @@ export class StockTransfersService {
     }
     const storeExists = await this.storesService.existsByCode(dto.toStoreId);
     if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${dto.toStoreId}'`);
+    const fromLocationId = await this.resolveFromLocationId(dto.locationId);
     const transferNo = await this.nextTransferNo();
     return await this.model.create({
       transferNo,
       fromKind: 'warehouse' as const,
+      ...(fromLocationId ? { fromLocationId } : {}),
       toStoreId: dto.toStoreId,
       status: 'draft',
       transferDate: dto.transferDate,
       remarks: dto.remarks,
+      stockClassification: this.normalizeStockClassification(dto.stockClassification),
       lines: dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty })),
     });
   }
@@ -102,13 +131,16 @@ export class StockTransfersService {
     });
 
     const transferNo = await this.nextTransferNo();
+    const fromLocationId = await this.resolveFromLocationId(dto.locationId);
     return await this.model.create({
       transferNo,
       fromKind: 'warehouse' as const,
+      ...(fromLocationId ? { fromLocationId } : {}),
       toStoreId: intent.storeId,
       purchaseIntentId: new Types.ObjectId(intentId),
       status: 'draft',
       remarks: intent.remarks,
+      stockClassification: this.normalizeStockClassification(dto.stockClassification),
       lines,
     });
   }
@@ -127,13 +159,30 @@ export class StockTransfersService {
       throw new BadRequestException('Only draft transfers can be updated');
     }
     const set: Record<string, unknown> = {};
+    const unset: Record<string, 1> = {};
     if (dto.transferDate !== undefined) set.transferDate = dto.transferDate;
     if (dto.remarks !== undefined) set.remarks = dto.remarks;
+    if (dto.locationId !== undefined) {
+      const raw = String(dto.locationId).trim();
+      if (!raw) {
+        unset.fromLocationId = 1;
+      } else {
+        set.fromLocationId = await this.resolveFromLocationId(dto.locationId);
+      }
+    }
+    if (dto.stockClassification !== undefined) {
+      set.stockClassification = this.normalizeStockClassification(dto.stockClassification);
+    }
     if (dto.lines !== undefined) {
       if (!dto.lines.length) throw new BadRequestException('lines must contain at least one item');
       set.lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
     }
-    const doc = await this.model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
+    const updateOps: UpdateQuery<StockTransferDocument> = {};
+    if (Object.keys(set).length) updateOps.$set = set;
+    if (Object.keys(unset).length) updateOps.$unset = unset;
+    const doc = await this.model.findByIdAndUpdate(id, Object.keys(updateOps).length ? updateOps : { $set: set }, {
+      new: true,
+    }).lean();
     if (!doc) throw new NotFoundException('Stock transfer not found');
     return doc;
   }

@@ -513,23 +513,28 @@ export class TestDataSeedService implements OnModuleInit {
       this.logger.log('  + PINV-002 created (store-002: SKU-002 x1, SKU-005 x2)');
     }
 
-    // ── Stock Transfer 1: warehouse → store-001 ───────────────
+    const warehouseAId = this.refs['loc-001'];
+    const warehouseBId = this.refs['loc-002'];
+
+    // ── Stock Transfer 1: Warehouse A → store-001 (completed path) ─
     let st1: any = await stModel.findOne({ transferNo: 'TR-001' }).lean();
     if (!st1) {
       st1 = await stModel.create({
         transferNo: 'TR-001',
         fromKind: 'warehouse',
+        fromLocationId: new Types.ObjectId(warehouseAId),
         toStoreId: 'store-001',
         purchaseIntentId: new Types.ObjectId(String(pi1._id)),
         status: 'draft',
         transferDate: '2026-04-25',
-        remarks: 'Transfer against PINV-001',
+        remarks: 'Transfer against PINV-001 (seed: Warehouse A)',
+        stockClassification: 'Normal Stock',
         lines: [
           { sku: 'SKU-001', description: 'Bridal Red Lehenga', qty: 2 },
           { sku: 'SKU-004', description: 'Kundan Bridal Necklace Set', qty: 3 },
         ],
       });
-      this.logger.log('  + TR-001 created (draft)');
+      this.logger.log('  + TR-001 created (draft, fromLocationId=Warehouse A)');
 
       const st1Id = String(st1._id);
       await this.stockTransfersService.setStatus(st1Id, 'in_transit');
@@ -543,23 +548,25 @@ export class TestDataSeedService implements OnModuleInit {
       this.logger.log('  + PINV-001 -> fulfilled');
     }
 
-    // ── Stock Transfer 2: warehouse → store-002 ───────────────
+    // ── Stock Transfer 2: Warehouse B → store-002 (completed path) ─
     let st2: any = await stModel.findOne({ transferNo: 'TR-002' }).lean();
     if (!st2) {
       st2 = await stModel.create({
         transferNo: 'TR-002',
         fromKind: 'warehouse',
+        fromLocationId: new Types.ObjectId(warehouseBId),
         toStoreId: 'store-002',
         purchaseIntentId: new Types.ObjectId(String(pi2._id)),
         status: 'draft',
         transferDate: '2026-04-26',
-        remarks: 'Transfer against PINV-002',
+        remarks: 'Transfer against PINV-002 (seed: Warehouse B)',
+        stockClassification: 'Reserve / Seasonal',
         lines: [
           { sku: 'SKU-002', description: 'Gold Bridal Lehenga', qty: 1 },
           { sku: 'SKU-005', description: 'Kundan Maang Tikka', qty: 2 },
         ],
       });
-      this.logger.log('  + TR-002 created (draft)');
+      this.logger.log('  + TR-002 created (draft, fromLocationId=Warehouse B)');
 
       const st2Id = String(st2._id);
       await this.stockTransfersService.setStatus(st2Id, 'in_transit');
@@ -571,6 +578,23 @@ export class TestDataSeedService implements OnModuleInit {
 
       await piModel.updateOne({ _id: pi2._id }, { $set: { status: 'fulfilled' } });
       this.logger.log('  + PINV-002 -> fulfilled');
+    }
+
+    // ── Stock Transfer 3: draft, no PI — for list/filter & locationId API tests ─
+    let st3: any = await stModel.findOne({ transferNo: 'TR-003' }).lean();
+    if (!st3) {
+      await stModel.create({
+        transferNo: 'TR-003',
+        fromKind: 'warehouse',
+        fromLocationId: new Types.ObjectId(warehouseAId),
+        toStoreId: 'store-001',
+        status: 'draft',
+        transferDate: '2026-05-10',
+        remarks: 'Seed draft (no purchase intent) — safe to edit or ship in tests',
+        stockClassification: 'Normal Stock',
+        lines: [{ sku: 'SKU-003', description: 'Maroon Reception Lehenga', qty: 1 }],
+      });
+      this.logger.log('  + TR-003 created (draft, no PI, Warehouse A)');
     }
   }
 

@@ -5,7 +5,6 @@ import { AuthSettingsService } from '../users/auth-settings.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
-import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ResourceLimits, ResourceLimitsDocument, RESOURCE_LIMITS_KEY } from './schemas/resource-limits.schema';
 import { PatchResourceLimitsDto } from './dto/patch-resource-limits.dto';
 
@@ -16,7 +15,6 @@ export interface ResourceLimitUsage {
   users: Record<string, { limit: number; current: number }>;
   stores: { limit: number; current: number; maxUsersPerStore: number };
   warehouses: { limit: number; current: number; maxUsersPerWarehouse: number };
-  products: { limit: number; current: number };
 }
 
 @Injectable()
@@ -26,7 +24,6 @@ export class ResourceLimitsService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     @InjectModel(Location.name) private readonly locationModel: Model<LocationDocument>,
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly authSettingsService: AuthSettingsService,
   ) {}
 
@@ -37,16 +34,11 @@ export class ResourceLimitsService {
         settingsKey: RESOURCE_LIMITS_KEY,
         maxStores: 3,
         maxWarehouses: 5,
-        maxProducts: 100000,
         maxUsersPerStore: 20,
         maxUsersPerWarehouse: 20,
       });
     } else {
       let changed = false;
-      if (doc.maxProducts === undefined || doc.maxProducts === null) {
-        doc.maxProducts = 100000;
-        changed = true;
-      }
       if (doc.maxUsersPerStore === undefined || doc.maxUsersPerStore === null) {
         doc.maxUsersPerStore = 20;
         changed = true;
@@ -68,11 +60,10 @@ export class ResourceLimitsService {
   }
 
   async getUsage(): Promise<ResourceLimitUsage> {
-    const [limits, roleQuotas, activeWarehouseLocations, activeProducts] = await Promise.all([
+    const [limits, roleQuotas, activeWarehouseLocations] = await Promise.all([
       this.ensureDefaults(),
       this.authSettingsService.getQuotas(),
       this.countActiveWarehouseLocations(),
-      this.productModel.countDocuments({ isActive: true }),
     ]);
 
     const roles = Object.keys(roleQuotas);
@@ -105,7 +96,6 @@ export class ResourceLimitsService {
         current: activeWarehouseLocations,
         maxUsersPerWarehouse: limits.maxUsersPerWarehouse,
       },
-      products: { limit: limits.maxProducts, current: activeProducts },
     };
   }
 
@@ -117,9 +107,6 @@ export class ResourceLimitsService {
     }
     if (dto.warehouses !== undefined) {
       doc.maxWarehouses = dto.warehouses;
-    }
-    if (dto.products !== undefined) {
-      doc.maxProducts = dto.products;
     }
     if (dto.maxUsersPerStore !== undefined) {
       doc.maxUsersPerStore = dto.maxUsersPerStore;
@@ -175,16 +162,6 @@ export class ResourceLimitsService {
     if (others >= doc.maxWarehouses) {
       throw new BadRequestException(
         `Warehouse location limit reached (maximum ${doc.maxWarehouses}). Contact admin to increase the limit.`,
-      );
-    }
-  }
-
-  async assertProductLimit(): Promise<void> {
-    const doc = await this.ensureDefaults();
-    const n = await this.productModel.countDocuments({ isActive: true });
-    if (n >= doc.maxProducts) {
-      throw new BadRequestException(
-        `Product limit reached (maximum ${doc.maxProducts}). Contact admin to increase the limit.`,
       );
     }
   }

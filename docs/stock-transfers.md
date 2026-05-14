@@ -25,6 +25,7 @@ Central API support for **stock transfer** documents, aligned with a warehouse-t
 | `status` | See lifecycle below |
 | `transferDate` | Optional ISO date string |
 | `remarks` | Optional |
+| `stockClassification` | Optional label (e.g. `Normal Stock`); defaults on create when omitted; included in sync `payload.transfer` |
 | `lines[]` | `sku`, optional `description`, `qty` |
 
 ## Status lifecycle
@@ -48,13 +49,13 @@ Typical flow:
 3. `awaiting_intake` — goods arrived; store confirmation pending.
 4. `completed` — intake confirmed by the store WPF sync event.
 
-When a transfer is `awaiting_intake`, central sync pull sends it to the destination store as `StockTransferAwaitingStoreIntake`. The WPF app saves the transfer locally, increments `local_products_cache.stockQty` once, and enqueues `StockTransferReceived`. On the same **Run sync once**, the app **pulls first then pushes**, so that receipt is sent immediately and central validates it and moves the transfer to **`completed`**.
+When a transfer is `awaiting_intake`, central sync pull sends it to the destination store as `StockTransferAwaitingStoreIntake`. The payload `transfer` object includes `stockClassification` (string, defaults to `Normal Stock` for older rows). The WPF app saves the transfer locally, increments `local_products_cache.stockQty` once, and enqueues `StockTransferReceived`. On the same **Run sync once**, the app **pulls first then pushes**, so that receipt is sent immediately and central validates it and moves the transfer to **`completed`**.
 
 ## HTTP API summary
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/stock-transfers` | Ad-hoc transfer (`toStoreId`, `lines`, optional `transferDate`, `remarks`) |
+| `POST` | `/stock-transfers` | Ad-hoc transfer (`toStoreId`, `lines`, optional `transferDate`, `remarks`, `stockClassification`) |
 | `POST` | `/stock-transfers/from-purchase-intent/:intentId` | New **draft** transfer from a purchase intent |
 | `GET` | `/stock-transfers` | List; query: `toStoreId`, `status`, `purchaseIntentId`, `search` (transferNo) |
 | `GET` | `/stock-transfers/:id` | Detail |

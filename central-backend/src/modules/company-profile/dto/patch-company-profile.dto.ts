@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class PatchCompanyProfileDto {
   @ApiProperty({ required: false })
@@ -55,4 +55,19 @@ export class PatchCompanyProfileDto {
   @IsOptional()
   @MaxLength(200)
   email?: string;
+
+  @ApiProperty({ required: false, description: 'URL of the company logo image' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  companyLogo?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Additional company metadata (replaces the whole map when sent)',
+    additionalProperties: true,
+  })
+  @IsObject()
+  @IsOptional()
+  extraFields?: Record<string, unknown>;
 }

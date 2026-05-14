@@ -1,7 +1,6 @@
-import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
-import { ResourceLimitsService } from '../resource-limits/resource-limits.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -9,16 +8,9 @@ import { Product, ProductDocument } from './schemas/product.schema';
 
 @Injectable()
 export class ProductsService {
-  constructor(
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
-    @Inject(forwardRef(() => ResourceLimitsService)) private readonly resourceLimits: ResourceLimitsService,
-  ) {}
+  constructor(@InjectModel(Product.name) private readonly productModel: Model<ProductDocument>) {}
 
   async create(dto: CreateProductDto) {
-    const willBeActive = dto.isActive ?? true;
-    if (willBeActive) {
-      await this.resourceLimits.assertProductLimit();
-    }
     return await this.productModel.create({
       ...dto,
       isActive: dto.isActive ?? true,

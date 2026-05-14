@@ -20,10 +20,6 @@ export class ResourceLimits {
   @Prop({ required: true, default: 5 })
   maxWarehouses!: number;
 
-  @ApiProperty({ description: 'Maximum number of active products (SKUs) allowed' })
-  @Prop({ required: true, default: 100000 })
-  maxProducts!: number;
-
   @ApiProperty({ description: 'Maximum users assigned to a single store (role store, active/invited)' })
   @Prop({ required: true, default: 20 })
   maxUsersPerStore!: number;

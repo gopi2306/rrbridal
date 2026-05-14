@@ -10,7 +10,7 @@ import { ResourceLimitsService } from './resource-limits.service';
 @ApiBearerAuth()
 @Controller('admin/resource-limits')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('super_admin')
 export class ResourceLimitsController {
   constructor(private readonly resourceLimitsService: ResourceLimitsService) {}
 

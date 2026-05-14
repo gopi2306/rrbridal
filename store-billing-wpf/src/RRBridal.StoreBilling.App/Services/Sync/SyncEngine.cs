@@ -375,6 +375,7 @@ public sealed class SyncEngine : ISyncEngine
 
         var storeId = _storeContext.StoreId;
         var now = DateTime.UtcNow.ToString("O");
+        var stockClassification = ReadTransferStockClassification(transfer);
 
         if (existing == null)
         {
@@ -386,6 +387,7 @@ public sealed class SyncEngine : ISyncEngine
                 { "status", "receiving" },
                 { "stockApplied", false },
                 { "createdAtUtc", now },
+                { "stockClassification", stockClassification },
                 { "lines", new BsonArray(lines.Select(l => new BsonDocument
                     {
                         { "sku", l.Sku },
@@ -394,6 +396,13 @@ public sealed class SyncEngine : ISyncEngine
                     })) },
             };
             await _transfers.InsertOneAsync(transferDoc, cancellationToken: ct);
+        }
+        else
+        {
+            await _transfers.UpdateOneAsync(
+                filter,
+                Builders<BsonDocument>.Update.Set("stockClassification", stockClassification),
+                cancellationToken: ct);
         }
 
         foreach (var line in lines)
@@ -439,7 +448,8 @@ public sealed class SyncEngine : ISyncEngine
                 .Set("stockApplied", true)
                 .Set("receivedAtUtc", now)
                 .Set("receiptEventId", eventId)
-                .Set("intakeSource", "awaiting_intake_pull");
+                .Set("intakeSource", "awaiting_intake_pull")
+                .Set("stockClassification", stockClassification);
             await _transfers.UpdateOneAsync(filter, update, cancellationToken: ct);
         }
     }
@@ -480,6 +490,7 @@ public sealed class SyncEngine : ISyncEngine
 
         var storeId = _storeContext.StoreId;
         var now = DateTime.UtcNow.ToString("O");
+        var stockClassification = ReadTransferStockClassification(transfer);
 
         if (existing == null)
         {
@@ -491,6 +502,7 @@ public sealed class SyncEngine : ISyncEngine
                 { "status", "received" },
                 { "stockApplied", false },
                 { "createdAtUtc", now },
+                { "stockClassification", stockClassification },
                 { "lines", new BsonArray(lines.Select(l => new BsonDocument
                     {
                         { "sku", l.Sku },
@@ -500,6 +512,13 @@ public sealed class SyncEngine : ISyncEngine
             };
             await _transfers.InsertOneAsync(transferDoc, cancellationToken: ct);
         }
+        else
+        {
+            await _transfers.UpdateOneAsync(
+                filter,
+                Builders<BsonDocument>.Update.Set("stockClassification", stockClassification),
+                cancellationToken: ct);
+        }
 
         foreach (var line in lines)
             await IncrementLocalStockForTransferLineAsync(line, now, ct);
@@ -508,7 +527,8 @@ public sealed class SyncEngine : ISyncEngine
             .Set("status", "received")
             .Set("stockApplied", true)
             .Set("receivedAtUtc", now)
-            .Set("intakeSource", "central_completed_pull");
+            .Set("intakeSource", "central_completed_pull")
+            .Set("stockClassification", stockClassification);
         await _transfers.UpdateOneAsync(filter, update, cancellationToken: ct);
     }
 
@@ -598,6 +618,16 @@ public sealed class SyncEngine : ISyncEngine
             default:
                 return false;
         }
+    }
+
+    private static string ReadTransferStockClassification(JsonElement transfer, string whenMissing = "Normal Stock")
+    {
+        if (!transfer.TryGetProperty("stockClassification", out var el) || el.ValueKind == JsonValueKind.Null)
+            return whenMissing;
+        if (el.ValueKind != JsonValueKind.String)
+            return whenMissing;
+        var s = el.GetString()?.Trim();
+        return string.IsNullOrEmpty(s) ? whenMissing : s;
     }
 
     private static IReadOnlyList<TransferLine> ReadTransferLines(JsonElement transfer)

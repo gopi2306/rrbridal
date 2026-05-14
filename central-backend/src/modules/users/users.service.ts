@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcryptjs';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
@@ -8,6 +8,7 @@ import { AuthSettingsService } from './auth-settings.service';
 import { BootstrapAdminDto } from './dto/bootstrap-admin.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { FilterUserDto } from './dto/filter-user.dto';
+import { InitialAdminDto } from './dto/initial-admin.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserDocument, UserLocationKind, UserRole, UserStatus } from './schemas/user.schema';
 
@@ -131,6 +132,30 @@ export class UsersService {
       email: normalized,
       passwordHash,
       name: dto.name.trim(),
+      role: 'super_admin' as const,
+      locationKind: 'all' as const,
+      status: 'active' as const,
+    });
+    return this.toPublic(created.toObject() as unknown as Record<string, unknown>)!;
+  }
+
+  /** One-time: super_admin creates the single operational admin (enforced by caller + conflict checks). */
+  async createInitialAdmin(dto: InitialAdminDto): Promise<PublicUser> {
+    const adminExists = await this.userModel.exists({
+      role: 'admin',
+      status: { $in: ['active', 'invited'] },
+    });
+    if (adminExists) {
+      throw new ConflictException('An operational admin already exists. Only one admin is allowed at onboarding.');
+    }
+    const normalized = dto.email.trim().toLowerCase();
+    const dup = await this.userModel.findOne({ email: normalized }).lean();
+    if (dup) throw new ConflictException('Email already registered');
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const created = await this.userModel.create({
+      email: normalized,
+      passwordHash,
+      name: dto.name.trim(),
       role: 'admin' as const,
       locationKind: 'all' as const,
       status: 'active' as const,
@@ -193,6 +218,10 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException('User not found');
     const prev = await this.userModel.findById(id).lean();
     if (!prev) throw new NotFoundException('User not found');
+
+    if ((prev as { role: UserRole }).role === 'super_admin') {
+      throw new ForbiddenException('Operational admin cannot modify a super admin user');
+    }
 
     const nextRole = (dto.role ?? prev.role) as UserRole;
     const nextStatus = (dto.status ?? prev.status) as UserStatus;

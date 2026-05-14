@@ -4,7 +4,7 @@ import { HydratedDocument } from 'mongoose';
 
 export type UserDocument = HydratedDocument<User>;
 
-export type UserRole = 'admin' | 'warehouse' | 'store' | 'procurement';
+export type UserRole = 'super_admin' | 'admin' | 'warehouse' | 'store' | 'procurement';
 export type UserLocationKind = 'all' | 'warehouse' | 'store';
 export type UserStatus = 'active' | 'invited' | 'disabled';
 
@@ -21,7 +21,7 @@ export class User {
   @Prop({ required: true, trim: true })
   name!: string;
 
-  @ApiProperty({ enum: ['admin', 'warehouse', 'store', 'procurement'] })
+  @ApiProperty({ enum: ['super_admin', 'admin', 'warehouse', 'store', 'procurement'] })
   @Prop({ required: true, type: String, index: true })
   role!: UserRole;
 

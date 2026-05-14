@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-const roles = ['admin', 'warehouse', 'store', 'procurement'] as const;
+const roles = ['super_admin', 'admin', 'warehouse', 'store', 'procurement'] as const;
 const locations = ['all', 'warehouse', 'store'] as const;
 const statuses = ['active', 'invited', 'disabled'] as const;
 

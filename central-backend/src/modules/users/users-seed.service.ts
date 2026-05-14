@@ -12,6 +12,11 @@ const SEED_ADMIN_EMAIL = 'admin@gmail.com';
 const SEED_ADMIN_PASSWORD = '123456';
 const SEED_ADMIN_NAME = 'Admin';
 
+/** Seeded when no operational `admin` exists so local dev can use stores/locations APIs without calling onboarding. */
+const SEED_DEV_OPS_EMAIL = 'ops-admin@rrbridal.com';
+const SEED_DEV_OPS_PASSWORD = '123456';
+const SEED_DEV_OPS_NAME = 'Ops Admin';
+
 const SEED_STORES = [
   { code: 'store-001', name: 'RR Bridal - Main', address: 'Anna Nagar, Chennai', phone: '044-2600-1001' },
   { code: 'store-002', name: 'RR Bridal - T Nagar', address: 'T Nagar, Chennai', phone: '044-2600-1002' },
@@ -43,7 +48,9 @@ export class UsersSeedService implements OnModuleInit {
     await this.seedRoles();
     await this.authSettingsService.ensureDefault();
     await this.seedStores();
-    await this.seedAdmin();
+    await this.seedSuperAdmin();
+    await this.promoteOldestAdminIfNoSuperAdmin();
+    await this.seedDevAdminIfMissing();
     await this.seedStoreUsers();
   }
 
@@ -57,22 +64,78 @@ export class UsersSeedService implements OnModuleInit {
     }
   }
 
-  private async seedAdmin() {
-    const existing = await this.userModel.findOne({ email: SEED_ADMIN_EMAIL }).lean();
+  /**
+   * Ensures the canonical seed account exists as `super_admin` (creates or upgrades legacy `admin` row).
+   */
+  private async seedSuperAdmin() {
+    const normalized = SEED_ADMIN_EMAIL.trim().toLowerCase();
+    const existing = await this.userModel.findOne({ email: normalized }).lean();
     if (existing) {
-      this.logger.log(`Admin user (${SEED_ADMIN_EMAIL}) already exists — skipping seed`);
+      if (existing.role === 'super_admin') {
+        this.logger.log(`Super admin (${normalized}) already present — skipping`);
+        return;
+      }
+      await this.userModel.updateOne(
+        { _id: existing._id },
+        { $set: { role: 'super_admin', locationKind: 'all', status: 'active' } },
+      );
+      this.logger.log(`Upgraded seed user ${normalized} from '${existing.role}' to super_admin`);
       return;
     }
     const passwordHash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 10);
     await this.userModel.create({
-      email: SEED_ADMIN_EMAIL,
+      email: normalized,
       passwordHash,
       name: SEED_ADMIN_NAME,
+      role: 'super_admin',
+      locationKind: 'all',
+      status: 'active',
+    });
+    this.logger.log(`Seeded super admin user: ${normalized}`);
+  }
+
+  /** Legacy DBs: ensure at least one super_admin can reach company settings APIs. */
+  private async promoteOldestAdminIfNoSuperAdmin() {
+    const superCount = await this.userModel.countDocuments({ role: 'super_admin' });
+    if (superCount > 0) return;
+    const oldest = await this.userModel.findOne({ role: 'admin' }).sort({ createdAt: 1 }).lean();
+    if (!oldest) return;
+    await this.userModel.updateOne({ _id: oldest._id }, { $set: { role: 'super_admin' } });
+    this.logger.log(
+      `Promoted oldest admin (${oldest.email}) to super_admin — no super_admin user existed yet`,
+    );
+  }
+
+  /**
+   * Creates a fixed dev operational admin when none exists (so seeded store users work locally).
+   * Set `SEED_SKIP_DEV_OPS=true` to skip (production-like).
+   */
+  private async seedDevAdminIfMissing() {
+    const skip = ['1', 'true', 'yes'].includes(String(process.env.SEED_SKIP_DEV_OPS ?? '').toLowerCase());
+    if (skip) {
+      this.logger.log('SEED_SKIP_DEV_OPS set — skipping dev ops-admin seed');
+      return;
+    }
+    const adminCount = await this.userModel.countDocuments({
+      role: 'admin',
+      status: { $in: ['active', 'invited'] },
+    });
+    if (adminCount > 0) return;
+    const existing = await this.userModel.findOne({ email: SEED_DEV_OPS_EMAIL }).lean();
+    if (existing) {
+      this.logger.log(`Dev ops admin (${SEED_DEV_OPS_EMAIL}) already exists — skipping`);
+      return;
+    }
+    const passwordHash = await bcrypt.hash(SEED_DEV_OPS_PASSWORD, 10);
+    await this.userModel.create({
+      email: SEED_DEV_OPS_EMAIL,
+      passwordHash,
+      name: SEED_DEV_OPS_NAME,
       role: 'admin',
       locationKind: 'all',
       status: 'active',
     });
-    this.logger.log(`Seeded admin user: ${SEED_ADMIN_EMAIL}`);
+    this.logger.log(`Seeded dev operational admin: ${SEED_DEV_OPS_EMAIL} (for stores/locations APIs in local dev)`);
   }
 
   private async seedStores() {

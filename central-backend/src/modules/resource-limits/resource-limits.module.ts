@@ -8,7 +8,6 @@ import { AuthSettings, AuthSettingsSchema } from '../users/schemas/auth-settings
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Store, StoreSchema } from '../stores/schemas/store.schema';
 import { Location, LocationSchema } from '../locations/schemas/location.schema';
-import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { ResourceLimits, ResourceLimitsSchema } from './schemas/resource-limits.schema';
 import { ResourceLimitsController } from './resource-limits.controller';
 import { ResourceLimitsService } from './resource-limits.service';
@@ -22,7 +21,6 @@ import { ResourceLimitsService } from './resource-limits.service';
       { name: Store.name, schema: StoreSchema },
       { name: AuthSettings.name, schema: AuthSettingsSchema },
       { name: Location.name, schema: LocationSchema },
-      { name: Product.name, schema: ProductSchema },
     ]),
   ],
   controllers: [ResourceLimitsController],
