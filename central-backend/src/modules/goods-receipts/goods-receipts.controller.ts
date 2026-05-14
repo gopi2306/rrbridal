@@ -38,11 +38,18 @@ export class GoodsReceiptsController {
   @Get()
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'poNo', required: false })
+  @ApiQuery({ name: 'grnNumber', required: false })
   @ApiQuery({ name: 'status', required: false, enum: ['draft', 'posted'] })
-  async list(@Query('search') search?: string, @Query('poNo') poNo?: string, @Query('status') status?: string) {
-    const params: { search?: string; poNo?: string; status?: string } = {};
+  async list(
+    @Query('search') search?: string,
+    @Query('poNo') poNo?: string,
+    @Query('grnNumber') grnNumber?: string,
+    @Query('status') status?: string,
+  ) {
+    const params: { search?: string; poNo?: string; grnNumber?: string; status?: string } = {};
     if (search) params.search = search;
     if (poNo) params.poNo = poNo;
+    if (grnNumber) params.grnNumber = grnNumber;
     if (status) params.status = status;
     return await this.grService.list(params);
   }

@@ -5,7 +5,10 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 const statuses = ['draft', 'posted'] as const;
 
 export class FilterGoodsReceiptDto {
-  @ApiProperty({ required: false, description: 'Search across receipt number, PO number, invoice number, supplier name' })
+  @ApiProperty({
+    required: false,
+    description: 'Search across receipt number, GRN number, PO number, invoice number, supplier name',
+  })
   @IsString()
   @IsOptional()
   search?: string;
@@ -24,6 +27,11 @@ export class FilterGoodsReceiptDto {
   @IsString()
   @IsOptional()
   poNo?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  grnNumber?: string;
 
   @ApiProperty({ required: false })
   @IsString()

@@ -53,6 +53,11 @@ export class CreateGoodsReceiptDto {
   @IsOptional()
   poNo?: string;
 
+  @ApiProperty({ required: false, description: 'GRN number' })
+  @IsString()
+  @IsOptional()
+  grnNumber?: string;
+
   @ApiProperty({ required: false, type: CreateGoodsReceiptSupplierDto })
   @ValidateNested()
   @Type(() => CreateGoodsReceiptSupplierDto)
