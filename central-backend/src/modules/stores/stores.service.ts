@@ -58,7 +58,11 @@ export class StoresService {
 
   async removeByCode(code: string) {
     const doc = await this.storeModel
-      .findOneAndDelete({ code: code.trim().toLowerCase() })
+      .findOneAndUpdate(
+        { code: code.trim().toLowerCase() },
+        { $set: { status: 'inactive' } },
+        { new: true },
+      )
       .lean();
     if (!doc) throw new NotFoundException(`Store '${code}' not found`);
     return doc;
