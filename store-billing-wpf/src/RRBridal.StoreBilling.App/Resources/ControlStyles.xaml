@@ -15,9 +15,11 @@
 
     <Style x:Key="ThemedDataGridRow" TargetType="DataGridRow">
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="#1AFF6600"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
             </Trigger>
             <MultiTrigger>
                 <MultiTrigger.Conditions>
@@ -25,7 +27,32 @@
                     <Condition Property="IsMouseOver" Value="True"/>
                 </MultiTrigger.Conditions>
                 <Setter Property="Background" Value="#26FF6600"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
             </MultiTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ThemedDataGridCellText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}"
+                         Value="True">
+                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ThemedDataGridCellTextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}"
+                         Value="True">
+                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+            </DataTrigger>
         </Style.Triggers>
     </Style>
 
@@ -47,6 +74,7 @@
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="#1AFF6600"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
             </Trigger>
             <Trigger Property="IsKeyboardFocusWithin" Value="True">
                 <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>

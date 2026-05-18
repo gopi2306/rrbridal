@@ -35,6 +35,13 @@ export class CompanyProfileService {
     if (dto.phone !== undefined) set.phone = this.trimOrUndef(dto.phone);
     if (dto.email !== undefined) set.email = this.trimOrUndef(dto.email);
     if (dto.companyLogo !== undefined) set.companyLogo = this.trimOrUndef(dto.companyLogo);
+    if (dto.fssaiNo !== undefined) set.fssaiNo = this.trimOrUndef(dto.fssaiNo);
+    if (dto.website !== undefined) set.website = this.trimOrUndef(dto.website);
+    if (dto.termsAndConditions !== undefined) set.termsAndConditions = this.trimOrUndef(dto.termsAndConditions);
+    if (dto.thankYouLine !== undefined) set.thankYouLine = this.trimOrUndef(dto.thankYouLine);
+    if (dto.policyLines !== undefined) set.policyLines = dto.policyLines;
+    if (dto.receiptQrSlots !== undefined) set.receiptQrSlots = dto.receiptQrSlots.slice(0, 3);
+    if (dto.receiptBarcodeEnabled !== undefined) set.receiptBarcodeEnabled = dto.receiptBarcodeEnabled;
     if (dto.extraFields !== undefined) set.extraFields = dto.extraFields;
 
     if (Object.keys(set).length === 0) {

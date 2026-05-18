@@ -15,7 +15,7 @@
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="New customer registration" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                <TextBlock Text="Register a customer for retail and billing. Fields marked * are required for standard billing." FontSize="12"
+                <TextBlock Text="Only customer name and mobile number are required; other fields are optional." FontSize="12"
                            Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -50,7 +50,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="TELEPHONE NO. *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="TELEPHONE NO." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
                                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Telephone, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
@@ -58,7 +58,7 @@
                                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Mobile, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                             </Grid>
-                            <TextBlock Text="At least one of telephone or mobile is required." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,-8,0,12"/>
+                            <TextBlock Text="Mobile number is required for billing lookup." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,-8,0,12"/>
 
                             <TextBlock Text="EMAIL ADDRESS" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
                             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
@@ -96,7 +96,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <TextBlock Text="FULL ADDRESS *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                            <TextBlock Text="FULL ADDRESS" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
                             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FullAddress, UpdateSourceTrigger=PropertyChanged}"
                                      MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
 
@@ -136,7 +136,7 @@
                               ToolTip="Coming soon" Margin="0,0,24,0"/>
                     <CheckBox Content="Mark as credit customer" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding IsCreditCustomer}"/>
                 </StackPanel>
-                <TextBlock Text="* Required for standard billing" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" Margin="0,0,0,12"/>
+                <TextBlock Text="* Required fields" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" Margin="0,0,0,12"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>

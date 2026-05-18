@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,6 +14,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Views;
 
@@ -38,7 +40,10 @@ public partial class SaleReturnViewModel : ObservableObject
     [ObservableProperty] private string _returnNo = "";
     [ObservableProperty] private bool _isInterState;
 
-    [ObservableProperty] private string _subTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _returnDiscountFormatted = "₹ 0.00";
+    [ObservableProperty] private string _grossSubTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _taxableSubTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _taxTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _cgstTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _sgstTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _igstTotalFormatted = "₹ 0.00";
@@ -46,6 +51,9 @@ public partial class SaleReturnViewModel : ObservableObject
     [ObservableProperty] private string _replacementTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _amountToCollectFormatted = "₹ 0.00";
     [ObservableProperty] private string _creditBalanceFormatted = "₹ 0.00";
+    [ObservableProperty] private bool _hasExchangeLines;
+    [ObservableProperty] private string _footerLabel = "Return Total";
+    [ObservableProperty] private string _footerAmountFormatted = "₹ 0.00";
 
     public ObservableCollection<SaleReturnLineItem> ReturnLines { get; } = new();
     public ObservableCollection<SaleExchangeLineItem> ExchangeLines { get; } = new();
@@ -82,22 +90,72 @@ public partial class SaleReturnViewModel : ObservableObject
     [RelayCommand]
     private async Task LookupBill()
     {
-        var billNo = (OriginalBillNo ?? "").Trim();
-        if (string.IsNullOrEmpty(billNo))
+        var input = (OriginalBillNo ?? "").Trim();
+        if (string.IsNullOrEmpty(input))
         {
             MessageBox.Show("Enter a bill number to look up.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
-        var doc = await coll.Find(new BsonDocument("billNo", billNo)).FirstOrDefaultAsync();
+        var digits = new string(input.Where(char.IsDigit).ToArray());
+
+        BsonDocument? doc = null;
+
+        if (digits.Length is >= 3 and <= 4)
+        {
+            var regex = new BsonRegularExpression($"{Regex.Escape(digits)}$", "i");
+            var filter = Builders<BsonDocument>.Filter.Regex("billNo", regex);
+            var sort = Builders<BsonDocument>.Sort.Descending("createdAtUtc");
+            var matches = await coll.Find(filter).Sort(sort).Limit(20).ToListAsync();
+
+            if (matches.Count == 0)
+            {
+                MessageBox.Show($"No bill found ending with '{digits}'.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (matches.Count == 1)
+            {
+                doc = matches[0];
+            }
+            else
+            {
+                var dlg = new BillPickDialog(matches) { Owner = Application.Current.MainWindow };
+                if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
+                    return;
+
+                doc = matches.FirstOrDefault(m => m.GetValue("billNo", "").AsString == dlg.SelectedBillNo)
+                    ?? await coll.Find(new BsonDocument("billNo", dlg.SelectedBillNo)).FirstOrDefaultAsync();
+            }
+        }
+        else
+        {
+            doc = await coll.Find(new BsonDocument("billNo", input)).FirstOrDefaultAsync();
+            if (doc == null && digits.Length > 0)
+            {
+                var normalized = input.Replace(" ", "-", StringComparison.Ordinal);
+                if (!string.Equals(normalized, input, StringComparison.Ordinal))
+                    doc = await coll.Find(new BsonDocument("billNo", normalized)).FirstOrDefaultAsync();
+            }
+        }
+
         if (doc == null)
         {
-            MessageBox.Show($"Bill '{billNo}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"Bill '{input}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
+        LoadBillFromDocument(doc);
+    }
+
+    private void LoadBillFromDocument(BsonDocument doc)
+    {
+        foreach (var line in ReturnLines)
+            line.PropertyChanged -= OnReturnLinePropertyChanged;
+
         _originalBillDoc = doc;
+        OriginalBillNo = doc.GetValue("billNo", "").AsString;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ReturnLines.Clear();
 
@@ -114,6 +172,8 @@ public partial class SaleReturnViewModel : ObservableObject
                     Rate = (decimal)lineBson.GetValue("rate", 0).ToDouble(),
                     TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
                     IsIgst = IsInterState,
+                    OriginalItemDiscount = (decimal)lineBson.GetValue("discountAmount", 0).ToDouble(),
+                    OriginalCashDiscount = (decimal)lineBson.GetValue("cashDiscountAmount", 0).ToDouble(),
                 };
                 item.PropertyChanged += OnReturnLinePropertyChanged;
                 ReturnLines.Add(item);
@@ -129,6 +189,10 @@ public partial class SaleReturnViewModel : ObservableObject
         if (e.PropertyName is nameof(SaleReturnLineItem.ReturnQty)
             or nameof(SaleReturnLineItem.IsSelected)
             or nameof(SaleReturnLineItem.ReturnAmount)
+            or nameof(SaleReturnLineItem.ReturnDiscountAmount)
+            or nameof(SaleReturnLineItem.GrossReturnAmount)
+            or nameof(SaleReturnLineItem.TaxableReturnAmount)
+            or nameof(SaleReturnLineItem.LineReturnTotal)
             or nameof(SaleReturnLineItem.CgstAmount)
             or nameof(SaleReturnLineItem.SgstAmount)
             or nameof(SaleReturnLineItem.IgstAmount)
@@ -155,13 +219,19 @@ public partial class SaleReturnViewModel : ObservableObject
     private void RecalculateTotals()
     {
         var selected = ReturnLines.Where(l => l.IsSelected && l.ReturnQty > 0).ToList();
-        var sub = selected.Sum(l => l.ReturnAmount);
+        var grossSub = selected.Sum(l => l.GrossReturnAmount);
+        var taxableSub = selected.Sum(l => l.TaxableReturnAmount);
+        var returnDiscount = selected.Sum(l => l.ReturnDiscountAmount);
         var cgst = selected.Sum(l => l.CgstAmount);
         var sgst = selected.Sum(l => l.SgstAmount);
         var igst = selected.Sum(l => l.IgstAmount);
-        var total = sub + cgst + sgst + igst;
+        var taxTotal = cgst + sgst + igst;
+        var total = taxableSub + taxTotal;
 
-        SubTotalFormatted = FormatRupee(sub);
+        GrossSubTotalFormatted = FormatRupee(grossSub);
+        ReturnDiscountFormatted = FormatRupee(returnDiscount);
+        TaxableSubTotalFormatted = FormatRupee(taxableSub);
+        TaxTotalFormatted = FormatRupee(taxTotal);
         CgstTotalFormatted = FormatRupee(cgst);
         SgstTotalFormatted = FormatRupee(sgst);
         IgstTotalFormatted = FormatRupee(igst);
@@ -173,6 +243,11 @@ public partial class SaleReturnViewModel : ObservableObject
         ReplacementTotalFormatted = FormatRupee(replacementTotal);
         AmountToCollectFormatted = FormatRupee(amountToCollect);
         CreditBalanceFormatted = FormatRupee(creditBalance);
+
+        var hasExchange = ExchangeLines.Any(l => l.Qty > 0);
+        HasExchangeLines = hasExchange;
+        FooterLabel = hasExchange ? "Amount to collect" : "Return Total";
+        FooterAmountFormatted = hasExchange ? AmountToCollectFormatted : ReturnTotalFormatted;
     }
 
     public async Task AddExchangeProductFromSearchAsync(string query)
@@ -284,7 +359,10 @@ public partial class SaleReturnViewModel : ObservableObject
                     { "description", l.Description },
                     { "returnQty", (double)l.ReturnQty },
                     { "rate", (double)l.Rate },
-                    { "amount", (double)l.ReturnAmount },
+                    { "grossAmount", (double)l.GrossReturnAmount },
+                    { "discountAmount", (double)l.ReturnItemDiscount },
+                    { "cashDiscountAmount", (double)l.ReturnCashDiscount },
+                    { "amount", (double)l.TaxableReturnAmount },
                     { "taxPercent", (double)l.TaxPercent },
                     { "cgstAmt", (double)l.CgstAmount },
                     { "sgstAmt", (double)l.SgstAmount },
@@ -292,7 +370,8 @@ public partial class SaleReturnViewModel : ObservableObject
                 });
             }
 
-            var sub = selected.Sum(l => l.ReturnAmount);
+            var sub = selected.Sum(l => l.TaxableReturnAmount);
+            var returnDiscountTotal = selected.Sum(l => l.ReturnDiscountAmount);
             var cgst = selected.Sum(l => l.CgstAmount);
             var sgst = selected.Sum(l => l.SgstAmount);
             var igst = selected.Sum(l => l.IgstAmount);
@@ -361,6 +440,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "returnLines", linesArr },
                 { "exchangeLines", exchangeLinesArr },
                 { "subTotal", (double)sub },
+                { "returnDiscount", (double)returnDiscountTotal },
                 { "cgstTotal", (double)cgst },
                 { "sgstTotal", (double)sgst },
                 { "igstTotal", (double)igst },
@@ -388,6 +468,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "returnLines", linesArr },
                 { "exchangeLines", exchangeLinesArr },
                 { "subTotal", (double)sub },
+                { "returnDiscount", (double)returnDiscountTotal },
                 { "cgstTotal", (double)cgst },
                 { "sgstTotal", (double)sgst },
                 { "igstTotal", (double)igst },
@@ -469,7 +550,7 @@ public partial class SaleReturnViewModel : ObservableObject
         RecalculateTotals();
     }
 
-    private void ShowExchangeReceipt(
+    private async void ShowExchangeReceipt(
         System.Collections.Generic.IReadOnlyList<SaleReturnLineItem> returnLines,
         System.Collections.Generic.IReadOnlyList<SaleExchangeLineItem> exchangeLines,
         decimal returnTotal,
@@ -479,9 +560,17 @@ public partial class SaleReturnViewModel : ObservableObject
     {
         try
         {
-            _services.ReceiptConfig.Reload();
+            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+            var (profileOk, profileMsg) = await _services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
+            if (!profileOk)
+            {
+                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             var text = BuildExchangeReceiptText(returnLines, exchangeLines, returnTotal, replacementTotal, amountCollected, creditBalance);
-            var dlg = new InvoicePrintPreviewWindow(_services, text, printInvoiceEnabled: true)
+            var doc = BillPrintService.CreateFlowDocument(text);
+            var dlg = new InvoicePrintPreviewWindow(_services, doc, text, printInvoiceEnabled: true)
             {
                 Owner = Application.Current.MainWindow,
             };
@@ -522,8 +611,22 @@ public partial class SaleReturnViewModel : ObservableObject
         sb.AppendLine($"Amount collected : {amountCollected:0.00}");
         sb.AppendLine($"Credit balance   : {creditBalance:0.00}");
         sb.AppendLine("------------------------------------------");
-        sb.AppendLine("Thank you");
+        AppendStoreFooter(sb, store);
         return sb.ToString();
+    }
+
+    private static void AppendStoreFooter(StringBuilder sb, StoreProfile store)
+    {
+        if (!string.IsNullOrWhiteSpace(store.TermsAndConditions))
+            sb.AppendLine(store.TermsAndConditions);
+        foreach (var line in store.PolicyLines ?? Enumerable.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+                sb.AppendLine(line);
+        }
+        if (!string.IsNullOrWhiteSpace(store.Website))
+            sb.AppendLine(store.Website);
+        sb.AppendLine(string.IsNullOrWhiteSpace(store.ThankYouLine) ? "Thank you" : store.ThankYouLine);
     }
 
     private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);

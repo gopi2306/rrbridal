@@ -10,6 +10,11 @@ import { StoresService } from './stores.service';
 export class StoresController {
   constructor(private readonly storesService: StoresService) {}
 
+  @Get(':code/receipt-settings')
+  async getReceiptSettings(@Param('code') code: string) {
+    return await this.storesService.getReceiptPrintSettings(code);
+  }
+
   @Get(':code')
   async get(@Param('code') code: string) {
     return await this.storesService.findByCode(code);

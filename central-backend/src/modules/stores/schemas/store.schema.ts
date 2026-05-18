@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument } from 'mongoose';
+import { ReceiptPrintSettings, ReceiptPrintSettingsSchema } from './receipt-print-settings.schema';
 
 export type StoreDocument = HydratedDocument<Store>;
 export type StoreStatus = 'active' | 'inactive';
@@ -26,6 +27,10 @@ export class Store {
   @ApiProperty({ enum: ['active', 'inactive'], default: 'active' })
   @Prop({ required: true, default: 'active', index: true })
   status!: StoreStatus;
+
+  @ApiProperty({ required: false, type: ReceiptPrintSettings })
+  @Prop({ type: ReceiptPrintSettingsSchema })
+  receiptPrintSettings?: ReceiptPrintSettings;
 }
 
 export const StoreSchema = SchemaFactory.createForClass(Store);

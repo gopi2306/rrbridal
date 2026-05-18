@@ -16,13 +16,16 @@ public sealed class InvoiceLineSnap
     public decimal Rate { get; init; }
     public decimal Mrp { get; init; }
     public decimal Amount { get; init; }
+    public decimal LineDiscount { get; init; }
+    public decimal TaxableAmount { get; init; }
+    public decimal TaxAmount { get; init; }
 }
 
 public sealed class ThermalInvoiceInput
 {
     public required StoreProfile Store { get; init; }
 
-    public int CharWidth { get; init; } = 42;
+    public int CharWidth { get; init; } = 48;
 
     public required string BillNo { get; init; }
 
@@ -33,6 +36,10 @@ public sealed class ThermalInvoiceInput
     public required string Time { get; init; }
 
     public required string Counter { get; init; }
+
+    public string CustomerName { get; init; } = "";
+
+    public string CustomerPhone { get; init; } = "";
 
     public IReadOnlyList<InvoiceLineSnap> Lines { get; init; } = Array.Empty<InvoiceLineSnap>();
 
@@ -56,6 +63,8 @@ public sealed class ThermalInvoiceInput
 
     public decimal TotalLineAmount { get; init; }
 
+    public decimal TotalTaxableAmount { get; init; }
+
     public decimal Savings { get; init; }
 
     public bool IsInterState { get; init; }
@@ -65,6 +74,8 @@ public sealed class ThermalInvoiceInput
     public decimal SgstTotal { get; init; }
 
     public decimal IgstTotal { get; init; }
+
+    public PaymentReceiptSnap? Payments { get; init; }
 }
 
 /// <summary>Plain-text thermal receipt (fixed-width, dashed rules).</summary>
@@ -90,7 +101,7 @@ public static class ThermalInvoiceTextBuilder
         foreach (var line in Wrap(s.Address, w))
             sb.AppendLine(line);
         if (!string.IsNullOrWhiteSpace(s.CustomerCarePhone))
-            sb.AppendLine($"Care: {s.CustomerCarePhone}".TrimEnd());
+            sb.AppendLine($"Customer Care: {s.CustomerCarePhone}".TrimEnd());
         var reg = new List<string>();
         if (!string.IsNullOrWhiteSpace(s.FssaiNo)) reg.Add($"FSSAI: {s.FssaiNo}");
         if (!string.IsNullOrWhiteSpace(s.Gstin)) reg.Add($"GSTIN: {s.Gstin}");
@@ -102,33 +113,71 @@ public static class ThermalInvoiceTextBuilder
         AddCenter("TAX INVOICE");
         AddRule();
 
-        var left = $"Bill {input.BillNo}  {input.BillDate}";
-        var right = $"{input.UserName}  {input.Time}";
-        sb.AppendLine(TwoCols(left, right, w));
-        sb.AppendLine(TwoCols($"Counter {input.Counter}", "", w));
-        AddRule();
+        sb.AppendLine(LabeledRow("Bill No:", input.BillNo, "Bill Date:", input.BillDate, w));
+        sb.AppendLine(LabeledRow("User:", input.UserName, "Time:", input.Time, w));
+        sb.AppendLine(LabeledRow("Counter:", input.Counter, "", "", w));
 
-        foreach (var line in input.Lines.Where(l => l.Amount > 0))
+        if (!string.IsNullOrWhiteSpace(input.CustomerName) || !string.IsNullOrWhiteSpace(input.CustomerPhone))
+        {
+            if (!string.IsNullOrWhiteSpace(input.CustomerName))
+                sb.AppendLine(LabeledRow("Customer:", input.CustomerName, "", "", w));
+            if (!string.IsNullOrWhiteSpace(input.CustomerPhone))
+                sb.AppendLine(LabeledRow("Phone:", input.CustomerPhone, "", "", w));
+        }
+
+        AddRule();
+        sb.AppendLine(PadHeader(TruncateCols("HSN  GST%  Qty   Rate   MRP    Amt", w), w));
+
+        foreach (var line in input.Lines.Where(l => l.Amount > 0 || l.TaxableAmount > 0))
         {
             sb.AppendLine($"{line.LineNo} {Truncate(line.Description, w - 2)}");
             var hsn = string.IsNullOrWhiteSpace(line.Hsn) ? "—" : line.Hsn;
-            var row = $"{hsn}  {line.TaxPercent:0.##}%  {line.Qty:0.###}  {line.Rate:0.00}  {line.Mrp:0.00}  {line.Amount:0.00}";
+            var row =
+                $"{hsn} {line.TaxPercent,5:0.##}% {line.Qty,5:0.###} {line.Rate,7:0.00} {line.Mrp,7:0.00} {line.TaxableAmount,8:0.00}";
             sb.AppendLine(PadRowNumeric(row, w));
         }
 
         AddRule();
-        sb.AppendLine(TwoCols($"Items {input.ItemCount}", $"Qty {input.TotalQty:0.###}", w));
-        sb.AppendLine(TwoCols($"Total MRP {input.TotalMrp:0.00}", $"Amt {input.TotalLineAmount:0.00}", w));
-        sb.AppendLine(TwoCols("Other chg 0.00", $"Disc {input.ItemDiscount + input.CashDiscAmount:0.00}", w));
+        sb.AppendLine(TwoCols($"No. of items: {input.ItemCount}", $"Total qty: {input.TotalQty:0.###}", w));
+        sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.00}", $"Total amount: {input.TotalTaxableAmount:0.00}", w));
+
+        if (input.ItemDiscount > 0)
+            sb.AppendLine(TwoCols($"Item discount: {input.ItemDiscount:0.00}", "", w));
+        if (input.CashDiscAmount > 0)
+            sb.AppendLine(TwoCols($"Cash discount: {input.CashDiscAmount:0.00}", "", w));
+        if (input.RoundOff != 0)
+            sb.AppendLine(TwoCols($"Round off: {input.RoundOff:0.00}", "", w));
+
+        sb.AppendLine(TwoCols("Other charges:", "0.00", w));
         AddRule();
-        sb.AppendLine(Center($"BILL AMOUNT: {input.Payable:0.00}", w));
+        sb.AppendLine(Center($"Bill Amount .: {input.Payable:0.00}", w));
         AddRule();
-        sb.AppendLine(TwoCols("Cash paid", "0.00", w));
-        sb.AppendLine(TwoCols("Card paid", "0.00", w));
-        sb.AppendLine(TwoCols("Online paid", "0.00", w));
-        sb.AppendLine();
+
+        var pay = input.Payments;
+        if (pay?.IsPreview == true)
+            sb.AppendLine(Center("(Preview — payment not taken)", w));
+        else if (pay != null)
+        {
+            if (pay.CashReceived is > 0)
+                sb.AppendLine(TwoCols($"Cash Received: {pay.CashReceived:0.00}", "", w));
+            if (pay.BalanceReturn is > 0)
+                sb.AppendLine(TwoCols($"Balance Return: {pay.BalanceReturn:0.00}", "", w));
+            sb.AppendLine(TwoCols("Cash paid:", $"{pay.CashPaid:0.00}", w));
+            sb.AppendLine(TwoCols("Card paid:", $"{pay.CardPaid:0.00}", w));
+            sb.AppendLine(TwoCols("Online paid:", $"{pay.UpiPaid:0.00}", w));
+            sb.AppendLine(TwoCols("Credit Note paid:", $"{pay.CreditNotePaid:0.00}", w));
+        }
+        else
+        {
+            sb.AppendLine(TwoCols("Cash paid:", "0.00", w));
+            sb.AppendLine(TwoCols("Card paid:", "0.00", w));
+            sb.AppendLine(TwoCols("Online paid:", "0.00", w));
+            sb.AppendLine(TwoCols("Credit Note paid:", "0.00", w));
+        }
+
         if (input.Savings > 0)
-            sb.AppendLine(Center($"You saved (Rs.): {input.Savings:0.00}", w));
+            sb.AppendLine(Center($"You Have Saved (Rs.) : {input.Savings:0.00}", w));
+
         AddRule();
 
         if (input.IsInterState)
@@ -143,28 +192,28 @@ public static class ThermalInvoiceTextBuilder
         }
 
         var groups = input.Lines
-            .Where(l => l.Amount > 0)
+            .Where(l => l.TaxableAmount > 0)
             .GroupBy(l => Math.Round(l.TaxPercent, 2))
             .OrderBy(g => g.Key);
         decimal sumGoods = 0, sumCgst = 0, sumSgst = 0, sumIgst = 0, sumGst = 0;
         foreach (var g in groups)
         {
-            var goods = g.Sum(x => x.Amount);
-            var tax = g.Sum(x => x.Amount * (x.TaxPercent / 100m));
+            var goods = g.Sum(x => x.TaxableAmount);
+            var tax = g.Sum(x => x.TaxAmount);
             sumGoods += goods;
             sumGst += tax;
 
             if (input.IsInterState)
             {
                 sumIgst += tax;
-                sb.AppendLine(PadRowNumeric($"{g.Key:0.##}% {goods:0.00} {tax:0.00} {tax:0.00}", w));
+                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.00} {tax,0:0.00} {tax,0:0.00}", w));
             }
             else
             {
-                var half = Math.Round(tax / 2m, 2);
+                var half = Math.Round(tax / 2m, 2, MidpointRounding.AwayFromZero);
                 sumCgst += half;
                 sumSgst += half;
-                sb.AppendLine(PadRowNumeric($"{g.Key:0.##}% {goods:0.00} {half:0.00} {half:0.00} {tax:0.00}", w));
+                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.00} {half,0:0.00} {half,0:0.00} {tax,0:0.00}", w));
             }
         }
 
@@ -181,10 +230,15 @@ public static class ThermalInvoiceTextBuilder
         if (!string.IsNullOrWhiteSpace(s.Website))
             AddCenter(s.Website);
         AddCenter(s.ThankYouLine);
-        sb.AppendLine();
-        sb.AppendLine(Center("QR / barcode: not configured", w));
 
         return sb.ToString();
+    }
+
+    private static string LabeledRow(string l1, string v1, string l2, string v2, int w)
+    {
+        var left = string.IsNullOrEmpty(l2) ? $"{l1} {v1}".Trim() : $"{l1} {v1}";
+        var right = string.IsNullOrEmpty(l2) ? "" : $"{l2} {v2}".Trim();
+        return TwoCols(left, right, w);
     }
 
     private static string Center(string text, int w)
@@ -199,8 +253,8 @@ public static class ThermalInvoiceTextBuilder
     {
         right ??= "";
         if (left.Length + right.Length + 1 <= w)
-            return left + new string(' ', w - left.Length - right.Length) + right;
-        return left;
+            return left + new string(' ', Math.Max(1, w - left.Length - right.Length)) + right;
+        return left.Length > w ? left[..w] : left;
     }
 
     private static string Truncate(string s, int max)
@@ -208,6 +262,8 @@ public static class ThermalInvoiceTextBuilder
         if (string.IsNullOrEmpty(s)) return "";
         return s.Length <= max ? s : s[..Math.Max(0, max - 1)] + "…";
     }
+
+    private static string TruncateCols(string s, int w) => s.Length > w ? s[..w] : s;
 
     private static IEnumerable<string> Wrap(string text, int w)
     {

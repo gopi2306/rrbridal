@@ -105,6 +105,14 @@ public sealed class MasterDataService
                 { "lastSyncedAt", DateTime.UtcNow.ToString("O") },
             };
 
+            if (masterType == "hsn-codes")
+            {
+                if (el.TryGetProperty("hsnCode", out var hsn) && hsn.ValueKind == JsonValueKind.String)
+                    bsonDoc["hsnCode"] = hsn.GetString() ?? "";
+                if (el.TryGetProperty("gstPercent", out var gst) && gst.ValueKind == JsonValueKind.Number)
+                    bsonDoc["gstPercent"] = gst.GetDouble();
+            }
+
             var filter = Builders<BsonDocument>.Filter.Eq("centralId", id);
             await collection.ReplaceOneAsync(filter, bsonDoc, new ReplaceOptions { IsUpsert = true }, ct);
         }

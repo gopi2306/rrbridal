@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Documents;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -7,16 +8,16 @@ namespace RRBridal.StoreBilling.App.Views;
 public partial class InvoicePrintPreviewWindow : Window
 {
     private readonly AppServices _services;
-    private readonly string _invoiceText;
+    private readonly FlowDocument _document;
     private readonly bool _printInvoiceEnabled;
 
-    public InvoicePrintPreviewWindow(AppServices services, string invoiceText, bool printInvoiceEnabled)
+    public InvoicePrintPreviewWindow(AppServices services, FlowDocument document, string invoiceText, bool printInvoiceEnabled)
     {
         InitializeComponent();
         _services = services;
-        _invoiceText = invoiceText;
+        _document = document;
         _printInvoiceEnabled = printInvoiceEnabled;
-        BodyText.Text = invoiceText;
+        PreviewViewer.Document = document;
     }
 
     private void Print_OnClick(object sender, RoutedEventArgs e)
@@ -31,16 +32,15 @@ public partial class InvoicePrintPreviewWindow : Window
             return;
         }
 
-        var doc = BillPrintService.CreateFlowDocument(_invoiceText);
         var print = _services.ReceiptConfig.Current.Print;
 
         if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(print.BillPrinterFullName))
         {
-            BillPrintService.ShowPrintDialog(this, doc, "RR Bridal bill");
+            BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
             return;
         }
 
-        if (BillPrintService.TryPrintToQueue(doc, print.BillPrinterFullName!, "RR Bridal bill"))
+        if (BillPrintService.TryPrintToQueue(_document, print.BillPrinterFullName!, "RR Bridal bill"))
             return;
 
         var r = MessageBox.Show(
@@ -49,6 +49,6 @@ public partial class InvoicePrintPreviewWindow : Window
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (r == MessageBoxResult.Yes)
-            BillPrintService.ShowPrintDialog(this, doc, "RR Bridal bill");
+            BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
     }
 }

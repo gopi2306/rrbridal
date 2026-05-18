@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,6 +61,13 @@ public sealed class CustomerLookupService
                 results.Add(c);
         }
 
+        if (PhoneMatchHelper.IsPhoneLikeQuery(q))
+        {
+            var phoneMatches = results.Where(r => PhoneMatchHelper.PhoneMatches(r.Phone, q)).ToList();
+            if (phoneMatches.Count > 0)
+                return phoneMatches;
+        }
+
         return results;
     }
 
@@ -102,10 +109,17 @@ public sealed class CustomerLookupService
     {
         try
         {
-            var url = $"/customers?search={Uri.EscapeDataString(query)}";
+            var url = $"/api/customers?search={Uri.EscapeDataString(query)}";
             var response = await _centralApi.GetAsync(url, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                Trace.TraceWarning(
+                    "Central customer search failed: {StatusCode} {Reason} for query '{Query}'",
+                    (int)response.StatusCode,
+                    response.ReasonPhrase,
+                    query);
                 return [];
+            }
 
             var json = await response.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(json);
@@ -121,7 +135,7 @@ public sealed class CustomerLookupService
                 results.Add(new CustomerMatch
                 {
                     Source = "Central",
-                    Id = el.TryGetProperty("_id", out var idEl) ? idEl.GetString() ?? "" : "",
+                    Id = ReadJsonId(el),
                     Code = el.TryGetProperty("customerCode", out var cc) ? cc.GetString() ?? "" : "",
                     Name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
                     Phone = el.TryGetProperty("phone", out var p) ? p.GetString() ?? "" : "",
@@ -138,9 +152,27 @@ public sealed class CustomerLookupService
 
             return results;
         }
-        catch
+        catch (Exception ex)
         {
+            Trace.TraceWarning(
+                "Central customer search error for query '{0}': {1}",
+                query,
+                ex.Message);
             return [];
         }
+    }
+
+    private static string ReadJsonId(JsonElement el)
+    {
+        if (!el.TryGetProperty("_id", out var idEl))
+            return "";
+
+        if (idEl.ValueKind == JsonValueKind.String)
+            return idEl.GetString() ?? "";
+
+        if (idEl.ValueKind == JsonValueKind.Object && idEl.TryGetProperty("$oid", out var oid))
+            return oid.GetString() ?? "";
+
+        return idEl.ToString();
     }
 }

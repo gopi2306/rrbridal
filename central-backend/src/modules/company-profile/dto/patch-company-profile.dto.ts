@@ -1,5 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsEmail,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import { ReceiptQrSlotDto } from './receipt-qr-slot.dto';
 
 export class PatchCompanyProfileDto {
   @ApiProperty({ required: false })
@@ -61,6 +72,48 @@ export class PatchCompanyProfileDto {
   @IsOptional()
   @MaxLength(2000)
   companyLogo?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  fssaiNo?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  website?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  termsAndConditions?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  thankYouLine?: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  policyLines?: string[];
+
+  @ApiProperty({ required: false, type: [ReceiptQrSlotDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReceiptQrSlotDto)
+  @IsOptional()
+  receiptQrSlots?: ReceiptQrSlotDto[];
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  receiptBarcodeEnabled?: boolean;
 
   @ApiProperty({
     required: false,

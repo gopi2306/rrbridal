@@ -44,32 +44,23 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,8"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <ComboBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedComboBox}" Text="{Binding Salesman, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBox}" Text="{Binding Salesman}"
+                                     IsReadOnly="True" IsTabStop="False" Margin="0,0,0,8"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer name" VerticalAlignment="Center" Margin="0,0,0,8"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Phone" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Door no." VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding DoorNo, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="3" Text="Street" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="3" Grid.Column="4" Style="{StaticResource RoundedTextBox}" Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}"/>
-
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Full address" VerticalAlignment="Center" Margin="0,12,0,0"/>
-                            <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}" Margin="0,12,0,0"
-                                     Text="{Binding FullAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Phone" VerticalAlignment="Center"/>
+                            <TextBox x:Name="CustomerPhoneBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="CustomerPhoneBox_OnKeyDown"/>
                         </Grid>
                     </Grid>
                 </Border>
@@ -91,26 +82,59 @@
                                   BorderThickness="1"
                                   BorderBrush="{StaticResource BrushBorder}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"/>
-                                <DataGridTextColumn Header="Product code" Binding="{Binding ProductCode, UpdateSourceTrigger=PropertyChanged}" Width="110">
+                                <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Product code" Binding="{Binding ProductCode, UpdateSourceTrigger=PropertyChanged}" Width="110"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}">
                                     <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource ThemedDataGridCellText}">
                                             <Setter Property="FontWeight" Value="SemiBold"/>
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                <DataGridTextColumn Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
-                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
-                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
-                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" IsReadOnly="True" Width="100"/>
-                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
-                                <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
-                                <DataGridTextColumn Header="CGST%" Binding="{Binding CgstPercent}" IsReadOnly="True" Width="60"/>
-                                <DataGridTextColumn Header="SGST%" Binding="{Binding SgstPercent}" IsReadOnly="True" Width="60"/>
-                                <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="*"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged}" Width="90"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" IsReadOnly="True" Width="100"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="CGST%" Binding="{Binding CgstPercent}" IsReadOnly="True" Width="60"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="SGST%" Binding="{Binding SgstPercent}" IsReadOnly="True" Width="60"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTemplateColumn Header="" Width="70">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Remove"
+                                                    Style="{StaticResource OutlineButton}"
+                                                    Padding="6,2"
+                                                    Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
@@ -177,6 +201,14 @@
                             <TextBlock Text="Item discount" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding ItemDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
                         </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Cash discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding CashDiscAmountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Round off" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding RoundOffFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushText}"/>
+                        </Grid>
 
                         <Separator Margin="0,8,0,12"/>
 
@@ -188,9 +220,9 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="110"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Item discount (₹)" VerticalAlignment="Center"/>
+                            <TextBlock Text="Item discount (%)" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding ItemDiscount, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding ItemDiscountPercentText, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
@@ -199,7 +231,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Cash disc amt" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CashDiscAmount, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding CashDiscAmountText, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
@@ -208,7 +240,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Round off" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding RoundOff, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding RoundOffText, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>

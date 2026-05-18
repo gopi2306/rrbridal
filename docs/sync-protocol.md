@@ -181,6 +181,19 @@ Used when central is already **`completed`** (e.g. another till already pushed `
 
 WPF billing uses `local_products_cache.stockQty` as the sales availability gate. Products with quantity below one are not added to a bill; the store creates a `PurchaseIntentCreated` reference requisition instead.
 
+## Receipt settings pull (store billing)
+
+After each **Run sync once** (best-effort), the WPF app may refresh local thermal receipt configuration from central:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/company-profile` | Company-wide receipt header: trade/legal name, address, GSTIN, phone, logo URL, FSSAI, website, terms, policy lines, up to 3 `receiptQrSlots`, `receiptBarcodeEnabled` (also supported via `extraFields` for older admin payloads) |
+| `GET /api/stores/:code/receipt-settings` | Per-store printer defaults: `printerModel`, `billPrinterQueueName`, `receiptCharWidth` (e.g. 48 for 3-inch / 80mm), `alwaysUsePrintDialog`, `paperWidthMm` |
+
+Local file: `%LocalAppData%/RRBridal/StoreBilling/receipt_config.json`. Central overwrites branding fields; printer queue is applied only when the hinted name matches an installed Windows queue on the POS.
+
+Settings UI also exposes **Pull receipt settings from central** (same merge rules).
+
 ## Recommended indexes
 Central:
 - `sync_events.eventId` unique

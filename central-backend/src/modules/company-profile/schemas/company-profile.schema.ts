@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument } from 'mongoose';
+import { ReceiptQrSlot, ReceiptQrSlotSchema } from './receipt-qr-slot.schema';
 
 export type CompanyProfileDocument = HydratedDocument<CompanyProfile>;
 
@@ -51,6 +52,34 @@ export class CompanyProfile {
   @ApiProperty({ required: false, description: 'URL of the company logo image' })
   @Prop({ trim: true })
   companyLogo?: string;
+
+  @ApiProperty({ required: false })
+  @Prop({ trim: true })
+  fssaiNo?: string;
+
+  @ApiProperty({ required: false })
+  @Prop({ trim: true })
+  website?: string;
+
+  @ApiProperty({ required: false })
+  @Prop({ trim: true })
+  termsAndConditions?: string;
+
+  @ApiProperty({ required: false })
+  @Prop({ trim: true })
+  thankYouLine?: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @Prop({ type: [String] })
+  policyLines?: string[];
+
+  @ApiProperty({ required: false, type: [ReceiptQrSlot] })
+  @Prop({ type: [ReceiptQrSlotSchema] })
+  receiptQrSlots?: ReceiptQrSlot[];
+
+  @ApiProperty({ required: false, default: true })
+  @Prop({ default: true })
+  receiptBarcodeEnabled?: boolean;
 
   @ApiProperty({
     required: false,

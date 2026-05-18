@@ -14,6 +14,7 @@ public sealed class ReceiptConfigStore
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
@@ -45,11 +46,16 @@ public sealed class ReceiptConfigStore
             if (Current.Store.PolicyLines == null)
                 Current.Store.PolicyLines = new List<string>();
         }
-        catch
+        catch (Exception ex)
         {
-            Current = new ReceiptConfigDocument();
+            System.Diagnostics.Debug.WriteLine($"ReceiptConfigStore.Load failed ({_filePath}): {ex.Message}");
+            // Keep previous Current if re-read fails — do not wipe synced data.
+            if (Current.Store.StoreName == "RR Bridal" && string.IsNullOrWhiteSpace(Current.Store.Gstin))
+                Current = new ReceiptConfigDocument();
         }
     }
+
+    public string FilePath => _filePath;
 
     public async Task SaveAsync(CancellationToken ct = default)
     {

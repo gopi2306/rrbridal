@@ -78,18 +78,26 @@
             </Border>
 
             <TextBlock Text="Store inventory lookup (local)" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{StaticResource BrushText}"/>
-            <TextBlock Text="Shows only local MongoDB store inventory used for billing." FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Text="Filter by local store quantity. Billing search still shows in-stock items only."
+                       FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
 
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="InventorySearchBox" Grid.Column="0" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
                          Text="{Binding InventorySearchText, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="SKU, barcode, or name — Enter to search"
                          KeyDown="InventorySearchBox_OnKeyDown"/>
-                <Button Grid.Column="1" Content="Search inventory" Style="{StaticResource PrimaryButton}" Width="140"
+                <ComboBox Grid.Column="1" Style="{StaticResource RoundedComboBox}" Width="170" Margin="0,0,8,0"
+                          ItemsSource="{Binding StockFilterOptions}"
+                          DisplayMemberPath="Label"
+                          SelectedValuePath="Value"
+                          SelectedValue="{Binding InventoryStockFilter}"
+                          ToolTip="Stock filter"/>
+                <Button Grid.Column="2" Content="Search inventory" Style="{StaticResource PrimaryButton}" Width="140"
                         Command="{Binding SearchInventoryCommand}"/>
             </Grid>
 

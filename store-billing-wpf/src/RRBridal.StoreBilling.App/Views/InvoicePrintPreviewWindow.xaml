@@ -13,11 +13,8 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Border Grid.Row="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Background="White" Padding="8">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                <TextBlock x:Name="BodyText" FontFamily="Consolas,Courier New" FontSize="10" TextWrapping="Wrap"
-                           Foreground="Black"/>
-            </ScrollViewer>
+        <Border Grid.Row="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Background="White" Padding="4">
+            <FlowDocumentScrollViewer x:Name="PreviewViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="Print" Style="{StaticResource PrimaryButton}" MinWidth="100" Margin="0,0,10,0" Click="Print_OnClick"/>

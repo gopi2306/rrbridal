@@ -8,12 +8,14 @@ public enum PaymentProviderKind
     Cash,
     PineLabs,
     Razorpay,
+    CreditNote,
 }
 
 public sealed record PaymentRequest(
     string InvoiceNo,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string? Reference = null);
 
 public sealed record PaymentResult(
     PaymentProviderKind Provider,

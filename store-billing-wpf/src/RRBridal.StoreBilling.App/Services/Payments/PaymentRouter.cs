@@ -47,18 +47,25 @@ public sealed class PaymentRouter : IPaymentRouter
     public async Task<PaymentResult> PayAndRecordAsync(PaymentProviderKind provider, PaymentRequest request, CancellationToken ct)
     {
         PaymentResult result;
-        if (provider == PaymentProviderKind.Cash)
+        if (provider is PaymentProviderKind.Cash or PaymentProviderKind.CreditNote)
         {
+            var providerName = provider == PaymentProviderKind.Cash ? "Cash" : "CreditNote";
+            var reference = !string.IsNullOrWhiteSpace(request.Reference)
+                ? request.Reference.Trim()
+                : provider == PaymentProviderKind.Cash
+                    ? $"CASH-{request.InvoiceNo}"
+                    : $"CN-{request.InvoiceNo}";
             var raw = JsonSerializer.Serialize(new
             {
-                provider = "Cash",
+                provider = providerName,
                 invoiceNo = request.InvoiceNo,
                 amount = request.Amount,
                 currency = request.Currency,
+                reference,
             });
             result = new PaymentResult(
-                Provider: PaymentProviderKind.Cash,
-                ProviderReference: $"CASH-{request.InvoiceNo}",
+                Provider: provider,
+                ProviderReference: reference,
                 Status: "Success",
                 RawResponseJson: raw);
         }

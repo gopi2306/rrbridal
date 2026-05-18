@@ -15,7 +15,7 @@ public partial class SettingsDialog : Window
     private void SettingsDialog_OnLoaded(object sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsViewModel vm)
-            vm.LoadReceiptSettings();
+            _ = vm.LoadReceiptSettingsAsync(tryPullIfLoggedIn: true);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

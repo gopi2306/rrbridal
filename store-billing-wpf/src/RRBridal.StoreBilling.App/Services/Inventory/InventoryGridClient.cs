@@ -23,6 +23,7 @@ public sealed class InventoryGridClient
         string storeId,
         int page = 1,
         int limit = 100,
+        InventoryStockFilter stockFilter = InventoryStockFilter.All,
         CancellationToken ct = default)
     {
         _ = storeId;
@@ -44,6 +45,16 @@ public sealed class InventoryGridClient
                 Builders<BsonDocument>.Filter.Regex("upcEanCode", regex),
                 Builders<BsonDocument>.Filter.Regex("itemName", regex),
                 Builders<BsonDocument>.Filter.Regex("shortName", regex)));
+        }
+
+        switch (stockFilter)
+        {
+            case InventoryStockFilter.InStock:
+                filters.Add(Builders<BsonDocument>.Filter.Gt("stockQty", 0));
+                break;
+            case InventoryStockFilter.OutOfStock:
+                filters.Add(Builders<BsonDocument>.Filter.Lte("stockQty", 0));
+                break;
         }
 
         var filter = Builders<BsonDocument>.Filter.And(filters);

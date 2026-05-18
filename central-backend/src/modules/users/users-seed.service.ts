@@ -7,6 +7,7 @@ import { AuthSettingsService } from './auth-settings.service';
 import { RoleDefinition, RoleDefinitionDocument } from './schemas/role-definition.schema';
 import { User, UserDocument } from './schemas/user.schema';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
+import { SEED_STORE_RECEIPT_PRINT_SETTINGS } from '../company-profile/company-profile-seed.constants';
 
 const SEED_ADMIN_EMAIL = 'admin@gmail.com';
 const SEED_ADMIN_PASSWORD = '123456';
@@ -151,6 +152,7 @@ export class UsersSeedService implements OnModuleInit {
         address: store.address,
         phone: store.phone,
         status: 'active',
+        receiptPrintSettings: { ...SEED_STORE_RECEIPT_PRINT_SETTINGS },
       });
       this.logger.log(`Seeded store: ${store.code} — ${store.name}`);
     }

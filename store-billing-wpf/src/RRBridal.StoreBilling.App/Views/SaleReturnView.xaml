@@ -24,8 +24,13 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Original Bill No" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Enter full bill no or last 3–4 digits"/>
+                                <TextBlock Text="Full bill no or last 3–4 digits" FontSize="11"
+                                           Foreground="{StaticResource BrushTextMuted}" Margin="0,4,0,0"/>
+                            </StackPanel>
                             <Button Grid.Column="2" Content="Load Bill" Style="{StaticResource PrimaryButton}"
                                     Command="{Binding LookupBillCommand}"/>
                         </Grid>
@@ -51,9 +56,11 @@
                                 <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="70"/>
                                 <DataGridTextColumn Header="Return Qty" Binding="{Binding ReturnQty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
                                 <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Amount" Binding="{Binding ReturnAmount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding ReturnDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Taxable amt" Binding="{Binding TaxableReturnAmount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
                                 <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent}" IsReadOnly="True" Width="60"/>
                                 <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="90"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -120,8 +127,16 @@
                 <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Grid Margin="0,0,0,6">
-                            <TextBlock Text="Sub total" Foreground="{StaticResource BrushTextMuted}"/>
-                            <TextBlock Text="{Binding SubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            <TextBlock Text="Gross sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding GrossSubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Return discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding ReturnDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Taxable sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding TaxableSubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="CGST" Foreground="{StaticResource BrushTextMuted}"
@@ -140,6 +155,10 @@
                                        Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
                             <TextBlock Text="{Binding IgstTotalFormatted}" HorizontalAlignment="Right"
                                        Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Tax total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding TaxTotalFormatted}" HorizontalAlignment="Right"/>
                         </Grid>
 
                         <Separator Margin="0,8,0,12"/>
@@ -186,8 +205,8 @@
 
                 <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
                     <Grid>
-                        <TextBlock Text="Return Total" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ReturnTotalFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding FooterLabel}" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding FooterAmountFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
                     </Grid>
                 </Border>
             </Grid>

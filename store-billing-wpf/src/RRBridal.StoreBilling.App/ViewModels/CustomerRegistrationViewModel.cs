@@ -59,15 +59,9 @@ public partial class CustomerRegistrationViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(Telephone) && string.IsNullOrWhiteSpace(Mobile))
+        if (string.IsNullOrWhiteSpace(Mobile))
         {
-            MessageBox.Show("Enter telephone or mobile (or both).", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(FullAddress))
-        {
-            MessageBox.Show("Full address is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Mobile number is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 

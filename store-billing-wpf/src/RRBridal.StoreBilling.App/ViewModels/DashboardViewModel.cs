@@ -34,7 +34,16 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _inventorySearchText = "";
 
+    [ObservableProperty] private InventoryStockFilter _inventoryStockFilter = InventoryStockFilter.All;
+
     [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in local store inventory.";
+
+    public IReadOnlyList<InventoryStockFilterOption> StockFilterOptions { get; } =
+    [
+        new(InventoryStockFilter.All, "All products"),
+        new(InventoryStockFilter.InStock, "In stock only"),
+        new(InventoryStockFilter.OutOfStock, "Out of stock only"),
+    ];
 
     [ObservableProperty] private int _inventoryPage = 1;
 
@@ -88,6 +97,12 @@ public partial class DashboardViewModel : ObservableObject
         }
     }
 
+    partial void OnInventoryStockFilterChanged(InventoryStockFilter value)
+    {
+        InventoryPage = 1;
+        _ = LoadInventoryGridAsync();
+    }
+
     [RelayCommand]
     private async Task SearchInventory()
     {
@@ -121,7 +136,12 @@ public partial class DashboardViewModel : ObservableObject
         try
         {
             var storeId = _storeContext.StoreId;
-            var result = await _inventoryClient.SearchAsync(InventorySearchText, storeId, InventoryPage, InventoryPageSize);
+            var result = await _inventoryClient.SearchAsync(
+                InventorySearchText,
+                storeId,
+                InventoryPage,
+                InventoryPageSize,
+                InventoryStockFilter);
 
             foreach (var r in result.Data)
                 InventoryRows.Add(r);
@@ -138,7 +158,7 @@ public partial class DashboardViewModel : ObservableObject
             {
                 InventoryPagerLabel = $"Page {result.Page} of {result.TotalPages} ({result.Total} matches)";
                 InventoryHint =
-                    $"{result.Data.Count} row(s) on this page · local store «{storeId}».";
+                    $"{result.Data.Count} row(s) on this page · filter: {GetStockFilterLabel(InventoryStockFilter)} · store «{storeId}».";
             }
         }
         catch (Exception ex)
@@ -149,4 +169,12 @@ public partial class DashboardViewModel : ObservableObject
     }
 
     private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
+
+    private static string GetStockFilterLabel(InventoryStockFilter filter) =>
+        filter switch
+        {
+            InventoryStockFilter.InStock => "In stock only",
+            InventoryStockFilter.OutOfStock => "Out of stock only",
+            _ => "All products",
+        };
 }

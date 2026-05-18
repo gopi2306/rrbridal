@@ -21,6 +21,10 @@ public partial class BillingLineItem : ObservableObject
 
     [ObservableProperty] private decimal amount;
 
+    [ObservableProperty] private decimal discountAmount;
+
+    [ObservableProperty] private decimal cashDiscountAmount;
+
     [ObservableProperty] private decimal mrp;
 
     [ObservableProperty] private decimal taxPercent;
@@ -39,6 +43,8 @@ public partial class BillingLineItem : ObservableObject
     partial void OnRateChanged(decimal value) => Recalc();
     partial void OnTaxPercentChanged(decimal value) => RecalcTax();
     partial void OnIsIgstChanged(bool value) => RecalcTax();
+    partial void OnDiscountAmountChanged(decimal value) => RecalcTax();
+    partial void OnCashDiscountAmountChanged(decimal value) => RecalcTax();
 
     private void Recalc()
     {
@@ -61,9 +67,10 @@ public partial class BillingLineItem : ObservableObject
             IgstPercent = 0;
         }
 
-        CgstAmount = Math.Round(Amount * CgstPercent / 100m, 2);
-        SgstAmount = Math.Round(Amount * SgstPercent / 100m, 2);
-        IgstAmount = Math.Round(Amount * IgstPercent / 100m, 2);
+        var taxable = Math.Max(0m, Amount - DiscountAmount - CashDiscountAmount);
+        CgstAmount = Math.Round(taxable * CgstPercent / 100m, 2);
+        SgstAmount = Math.Round(taxable * SgstPercent / 100m, 2);
+        IgstAmount = Math.Round(taxable * IgstPercent / 100m, 2);
         TaxAmount = CgstAmount + SgstAmount + IgstAmount;
     }
 }

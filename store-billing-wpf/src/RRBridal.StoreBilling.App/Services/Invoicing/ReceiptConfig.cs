@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
@@ -7,6 +8,15 @@ public sealed class ReceiptConfigDocument
     public StoreProfile Store { get; set; } = new();
 
     public ReceiptPrintSettings Print { get; set; } = new();
+
+    public DateTime? LastReceiptSettingsSyncUtc { get; set; }
+}
+
+public sealed class ReceiptQrSlotConfig
+{
+    public string Label { get; set; } = "";
+
+    public string Payload { get; set; } = "";
 }
 
 public sealed class StoreProfile
@@ -35,6 +45,14 @@ public sealed class StoreProfile
     };
 
     public string ThankYouLine { get; set; } = "Thank you for shopping — visit again!";
+
+    public string? LogoUrl { get; set; }
+
+    public string? LogoFilePath { get; set; }
+
+    public List<ReceiptQrSlotConfig> QrSlots { get; set; } = new();
+
+    public bool ShowBillBarcode { get; set; } = true;
 }
 
 public sealed class ReceiptPrintSettings
@@ -45,5 +63,9 @@ public sealed class ReceiptPrintSettings
     public bool AlwaysUsePrintDialog { get; set; }
 
     /// <summary>Monospace receipt width in characters (80mm thermal ~42–48).</summary>
-    public int ReceiptCharWidth { get; set; } = 42;
+    public int ReceiptCharWidth { get; set; } = 48;
+
+    public string? CentralPrinterHint { get; set; }
+
+    public string? CentralPrinterModel { get; set; }
 }

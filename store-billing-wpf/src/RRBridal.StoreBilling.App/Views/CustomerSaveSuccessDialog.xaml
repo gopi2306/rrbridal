@@ -8,7 +8,7 @@
         ShowInTaskbar="False"
         Background="{StaticResource BrushBackground}">
     <Border Padding="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Margin="0" Background="{StaticResource BrushSurface}">
-        <Grid Width="440">
+        <Grid MinWidth="480" MaxWidth="520">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -21,19 +21,21 @@
                             FontSize="14" Padding="8,0" Cursor="Hand" Click="CloseButton_OnClick" ToolTip="Close"/>
                 </Grid>
             </Border>
-            <StackPanel Grid.Row="1" Margin="20,16,20,8">
-                <StackPanel Orientation="Horizontal">
-                    <Border Width="40" Height="40" CornerRadius="20" Background="#FF2E7D32" VerticalAlignment="Top" Margin="0,0,12,0">
-                        <TextBlock Text="✓" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <StackPanel>
-                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushText}" FontSize="14"
-                                   Text="Customer details have been saved successfully. Do you want to continue billing with this customer now or use this customer later?"/>
-                        <TextBlock x:Name="SyncWarningBlock" TextWrapping="Wrap" Margin="0,10,0,0" FontSize="12" Foreground="{StaticResource BrushNegative}"
-                                   Visibility="Collapsed"/>
-                    </StackPanel>
+            <Grid Grid.Row="1" Margin="20,16,20,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20" Background="#FF2E7D32" VerticalAlignment="Top" Margin="0,0,12,0">
+                    <TextBlock Text="✓" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushText}" FontSize="14" LineHeight="20"
+                               Text="Customer details have been saved successfully. Do you want to continue billing with this customer now or use this customer later?"/>
+                    <TextBlock x:Name="SyncWarningBlock" TextWrapping="Wrap" Margin="0,10,0,0" FontSize="12" Foreground="{StaticResource BrushNegative}"
+                               Visibility="Collapsed"/>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,8,20,20">
                 <Button Content="Use later" Style="{StaticResource OutlineButton}" MinWidth="110" Margin="0,0,10,0" IsCancel="True"/>
                 <Button Content="Continue billing" Style="{StaticResource PrimaryButton}" MinWidth="140" IsDefault="True" Click="ContinueBilling_OnClick"/>

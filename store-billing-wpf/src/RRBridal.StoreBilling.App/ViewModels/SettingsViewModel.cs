@@ -52,7 +52,13 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string? _selectedPrinterFullName;
 
-    [ObservableProperty] private int _receiptCharWidth = 42;
+    [ObservableProperty] private int _receiptCharWidth = 48;
+
+    [ObservableProperty] private string _receiptCentralSyncText = "(not synced from central yet)";
+
+    [ObservableProperty] private string _receiptPrinterHintText = "";
+
+    [ObservableProperty] private string _receiptPrinterWarningText = "";
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
@@ -65,9 +71,40 @@ public partial class SettingsViewModel : ObservableObject
         _ = RefreshStatusAsync();
     }
 
-    public void LoadReceiptSettings()
+    public async Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
     {
-        _services.ReceiptConfig.Reload();
+        _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+        AuthStatusText = string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken)
+            ? "Central auth: not logged in"
+            : "Central auth: logged in";
+
+        var shouldPull = forcePullFromCentral
+            || (tryPullIfLoggedIn && !string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken)
+                && (ShouldPullReceiptProfile()));
+
+        if (shouldPull)
+            await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
+        else
+        {
+            _services.ReceiptConfig.Reload();
+            ApplyReceiptFieldsFromConfig();
+        }
+    }
+
+    private bool ShouldPullReceiptProfile()
+    {
+        if (!_services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc.HasValue)
+            return true;
+
+        var s = _services.ReceiptConfig.Current.Store;
+        return string.Equals(s.StoreName, "RR Bridal", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(s.Gstin);
+    }
+
+    public void LoadReceiptSettings() => _ = LoadReceiptSettingsAsync();
+
+    private void ApplyReceiptFieldsFromConfig()
+    {
         var c = _services.ReceiptConfig.Current;
         var s = c.Store;
         ReceiptStoreName = s.StoreName;
@@ -82,8 +119,35 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptThankYouLine = s.ThankYouLine;
         ReceiptAlwaysUsePrintDialog = c.Print.AlwaysUsePrintDialog;
         SelectedPrinterFullName = c.Print.BillPrinterFullName;
-        ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 42;
+        ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
+        ReceiptCentralSyncText = c.LastReceiptSettingsSyncUtc.HasValue
+            ? $"Last synced: {s.StoreName} at {c.LastReceiptSettingsSyncUtc.Value.ToLocalTime():g}"
+            : "(not synced from central yet)";
+        var hint = c.Print.CentralPrinterModel ?? c.Print.CentralPrinterHint;
+        ReceiptPrinterHintText = string.IsNullOrWhiteSpace(hint)
+            ? "Central printer hint: (none — pick a local queue below)"
+            : $"Central printer hint: {hint}";
+        UpdatePrinterWarning();
         RefreshPrinters();
+    }
+
+    private void UpdatePrinterWarning()
+    {
+        var print = _services.ReceiptConfig.Current.Print;
+        if (string.IsNullOrWhiteSpace(print.CentralPrinterHint) && string.IsNullOrWhiteSpace(print.CentralPrinterModel))
+        {
+            ReceiptPrinterWarningText = "";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedPrinterFullName))
+        {
+            ReceiptPrinterWarningText = "";
+            return;
+        }
+
+        ReceiptPrinterWarningText =
+            "Central printer name did not match any queue on this PC — select a printer manually.";
     }
 
     [RelayCommand]
@@ -105,6 +169,45 @@ public partial class SettingsViewModel : ObservableObject
         catch
         {
             // ignore — no printers
+        }
+    }
+
+    [RelayCommand]
+    public async Task PullReceiptFromCentralAsync() => await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
+
+    private async Task PullReceiptFromCentralAsync(bool refreshUiFromMemory)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+            {
+                LastActionText = "Log in to Central first (email + password above), then pull.";
+                ReceiptCentralSyncText = "Not synced — central login required.";
+                return;
+            }
+
+            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+            LastActionText = "Pulling receipt settings from central...";
+            var (ok, message) = await _services.ReceiptConfigSync.SyncFromCentralAsync(CancellationToken.None);
+
+            if (ok && refreshUiFromMemory)
+                ApplyReceiptFieldsFromConfig();
+            else
+            {
+                _services.ReceiptConfig.Reload();
+                ApplyReceiptFieldsFromConfig();
+            }
+
+            LastActionText = message;
+            if (!ok)
+            {
+                ReceiptPrinterWarningText = message;
+                ReceiptCentralSyncText = "Pull failed — see message below.";
+            }
+        }
+        catch (Exception ex)
+        {
+            LastActionText = ex.Message;
         }
     }
 
@@ -134,8 +237,11 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptCharWidth = w;
         c.Print.ReceiptCharWidth = w;
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
+        UpdatePrinterWarning();
         LastActionText = "Receipt and printer settings saved.";
     }
+
+    partial void OnSelectedPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
 
     [RelayCommand]
     public async Task LoginCentralAsync()
@@ -152,8 +258,8 @@ public partial class SettingsViewModel : ObservableObject
             }
 
             AuthStatusText = "Logged in";
-            LastActionText = "Bearer token saved.";
             LoginPassword = "";
+            await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
         }
         catch (Exception ex)
         {
@@ -189,8 +295,18 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             LastActionText = "Running sync...";
+            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
             await _services.SyncEngine.RunOnceAsync(CancellationToken.None);
-            LastActionText = "Sync complete.";
+
+            if (!string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+            {
+                var (ok, msg) = await _services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync(CancellationToken.None);
+                if (ok)
+                    ApplyReceiptFieldsFromConfig();
+                LastActionText = ok ? $"Sync complete. {msg}" : $"Sync finished; receipt pull failed: {msg}";
+            }
+            else
+                LastActionText = "Sync complete. Log in to Central to pull receipt header.";
         }
         catch (Exception ex)
         {

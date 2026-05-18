@@ -8,6 +8,7 @@ using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.PurchaseIntents;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services;
@@ -30,6 +31,8 @@ public sealed class AppServices
     public required MasterDataService MasterData { get; init; }
     public required LocalAuthService LocalAuth { get; init; }
     public required ReceiptConfigStore ReceiptConfig { get; init; }
+    public required ReceiptLogoCache ReceiptLogoCache { get; init; }
+    public required ReceiptConfigSyncService ReceiptConfigSync { get; init; }
     public required StoreContext StoreContext { get; init; }
     public UserSession? UserSession { get; set; }
 
@@ -62,12 +65,24 @@ public sealed class AppServices
 
         var masterData = new MasterDataService(localDb, http);
         var localAuth = new LocalAuthService(localDb);
-        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData);
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var productCatalog = new ProductCatalogService(localDb, http);
         var inventoryGrid = new InventoryGridClient(localDb);
         var receiptConfig = new ReceiptConfigStore();
+        var receiptLogoCache = new ReceiptLogoCache(http);
+        var companyProfileClient = new CompanyProfileClient(http);
+        var storeReceiptClient = new StoreReceiptSettingsClient(http);
+        var receiptConfigSync = new ReceiptConfigSyncService(
+            companyProfileClient,
+            storeReceiptClient,
+            receiptConfig,
+            receiptLogoCache,
+            storeContext,
+            authSession,
+            http);
+
+        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
 
         return new AppServices
         {
@@ -84,6 +99,8 @@ public sealed class AppServices
             MasterData = masterData,
             LocalAuth = localAuth,
             ReceiptConfig = receiptConfig,
+            ReceiptLogoCache = receiptLogoCache,
+            ReceiptConfigSync = receiptConfigSync,
             StoreContext = storeContext,
         };
     }

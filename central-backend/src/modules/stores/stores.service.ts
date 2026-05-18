@@ -25,6 +25,7 @@ export class StoresService {
       address: dto.address?.trim(),
       phone: dto.phone?.trim(),
       status: 'active',
+      receiptPrintSettings: dto.receiptPrintSettings,
     });
   }
 
@@ -44,6 +45,7 @@ export class StoresService {
     if (dto.address !== undefined) set.address = dto.address.trim();
     if (dto.phone !== undefined) set.phone = dto.phone.trim();
     if (dto.status !== undefined) set.status = dto.status;
+    if (dto.receiptPrintSettings !== undefined) set.receiptPrintSettings = dto.receiptPrintSettings;
     if (Object.keys(set).length === 0) {
       return await this.findByCode(code);
     }
@@ -60,6 +62,11 @@ export class StoresService {
       .lean();
     if (!doc) throw new NotFoundException(`Store '${code}' not found`);
     return doc;
+  }
+
+  async getReceiptPrintSettings(code: string) {
+    const doc = await this.findByCode(code);
+    return doc.receiptPrintSettings ?? {};
   }
 
   async existsByCode(code: string): Promise<boolean> {

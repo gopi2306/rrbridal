@@ -13,9 +13,11 @@ namespace RRBridal.StoreBilling.App.Services.Products;
 public sealed class ProductCatalogService
 {
     private readonly IMongoCollection<BsonDocument> _cache;
+    private readonly IMongoDatabase _localDb;
 
     public ProductCatalogService(IMongoDatabase localDb, HttpClient centralApi)
     {
+        _localDb = localDb;
         _cache = localDb.GetCollection<BsonDocument>("local_products_cache");
     }
 
@@ -25,6 +27,7 @@ public sealed class ProductCatalogService
         if (q.Length < 1)
             return Array.Empty<CatalogProduct>();
 
+        var hsnLookup = await HsnSacResolver.LoadLookupAsync(_localDb, ct);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var list = new List<CatalogProduct>();
         var stockFilter = Builders<BsonDocument>.Filter.Gt("stockQty", 0);
@@ -44,7 +47,7 @@ public sealed class ProductCatalogService
                 var docs = await _cache.Find(matchFilter).Limit(40).ToListAsync(ct);
                 foreach (var d in docs)
                 {
-                    var p = MapFromBson(d);
+                    var p = MapFromBson(d, hsnLookup);
                     if (p != null && seen.Add(p.Sku))
                         list.Add(p);
                 }
@@ -68,7 +71,7 @@ public sealed class ProductCatalogService
             var docs = await _cache.Find(filter).Limit(80).ToListAsync(ct);
             foreach (var d in docs)
             {
-                var p = MapFromBson(d);
+                var p = MapFromBson(d, hsnLookup);
                 if (p != null && seen.Add(p.Sku))
                     list.Add(p);
             }
@@ -85,6 +88,7 @@ public sealed class ProductCatalogService
 
         try
         {
+            var hsnLookup = await HsnSacResolver.LoadLookupAsync(_localDb, ct);
             var q = code.Trim();
             var skuExact = new BsonRegularExpression("^" + Regex.Escape(q) + "$", "i");
             var filter = Builders<BsonDocument>.Filter.And(
@@ -94,7 +98,7 @@ public sealed class ProductCatalogService
                     Builders<BsonDocument>.Filter.Regex("sku", skuExact)));
 
             var doc = await _cache.Find(filter).FirstOrDefaultAsync(ct);
-            return doc != null ? MapFromBson(doc) : null;
+            return doc != null ? MapFromBson(doc, hsnLookup) : null;
         }
         catch
         {
@@ -105,7 +109,7 @@ public sealed class ProductCatalogService
     private static bool IsAllDigits(string s) =>
         s.Length > 0 && s.All(static c => c is >= '0' and <= '9');
 
-    private static CatalogProduct? MapFromBson(BsonDocument d)
+    private static CatalogProduct? MapFromBson(BsonDocument d, IReadOnlyDictionary<string, string> hsnLookup)
     {
         if (!d.TryGetValue("sku", out var skuVal) || skuVal.IsBsonNull)
             return null;
@@ -121,6 +125,8 @@ public sealed class ProductCatalogService
             ?? ReadString(d, "shortName")
             ?? sku;
 
+        var hsnSac = HsnSacResolver.Resolve(d, hsnLookup);
+
         return new CatalogProduct
         {
             CentralId = id,
@@ -130,7 +136,7 @@ public sealed class ProductCatalogService
             SellingPrice = ReadDecimalBson(d, "sellingPrice"),
             StorePrice = ReadDecimalBson(d, "storePrice"),
             GstPercent = ReadDecimalBson(d, "gstPercent"),
-            HsnSac = ReadString(d, "hsnCodeId") ?? ReadString(d, "hsnSac"),
+            HsnSac = string.IsNullOrEmpty(hsnSac) ? null : hsnSac,
             StockQty = ReadDecimalBson(d, "stockQty") ?? 0m,
         };
     }

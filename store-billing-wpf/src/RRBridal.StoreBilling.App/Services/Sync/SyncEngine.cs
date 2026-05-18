@@ -13,7 +13,9 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
+using RRBridal.StoreBilling.App.Services.Products;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -26,8 +28,16 @@ public sealed class SyncEngine : ISyncEngine
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
     private readonly MasterDataService _masterData;
+    private readonly ReceiptConfigSyncService? _receiptConfigSync;
+    private readonly IMongoDatabase _localDb;
+    private Dictionary<string, string>? _hsnLookup;
 
-    public SyncEngine(IMongoDatabase localDb, HttpClient centralApi, StoreContext storeContext, MasterDataService masterData)
+    public SyncEngine(
+        IMongoDatabase localDb,
+        HttpClient centralApi,
+        StoreContext storeContext,
+        MasterDataService masterData,
+        ReceiptConfigSyncService? receiptConfigSync = null)
     {
         _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
@@ -36,6 +46,8 @@ public sealed class SyncEngine : ISyncEngine
         _centralApi = centralApi;
         _storeContext = storeContext;
         _masterData = masterData;
+        _receiptConfigSync = receiptConfigSync;
+        _localDb = localDb;
     }
 
     public async Task<SyncStatus> GetStatusAsync(CancellationToken ct)
@@ -55,12 +67,18 @@ public sealed class SyncEngine : ISyncEngine
 
     public async Task RunOnceAsync(CancellationToken ct)
     {
+        try { await _masterData.SyncAllMastersAsync(ct); } catch { /* master sync is best-effort */ }
+        _hsnLookup = null;
+
         // Pull before push so intake from this pull creates StockTransferReceived outbox events
         // that are flushed to central in the same cycle (central -> completed in one sync).
         await PullUpdatesAsync(ct);
         await PushPendingAsync(ct);
-        try { await _masterData.SyncAllMastersAsync(ct); } catch { /* master sync is best-effort */ }
         try { await SyncStoreUsersAsync(ct); } catch { /* store user sync is best-effort */ }
+        if (_receiptConfigSync != null)
+        {
+            try { await _receiptConfigSync.EnsureProfileReadyForPrintAsync(ct); } catch { /* receipt settings sync is best-effort */ }
+        }
     }
 
     private async Task PushPendingAsync(CancellationToken ct)
@@ -108,6 +126,8 @@ public sealed class SyncEngine : ISyncEngine
 
     private async Task PullUpdatesAsync(CancellationToken ct)
     {
+        _hsnLookup ??= await HsnSacResolver.LoadLookupAsync(_localDb, ct);
+
         var state = await _syncState.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync(ct);
         var cursor = state?.GetValue("cursor", "0").AsString ?? "0";
         var transferCursor = state?.GetValue("transferCursor", "0").AsString ?? "0";
@@ -291,6 +311,11 @@ public sealed class SyncEngine : ISyncEngine
             var baseQty = ReadStockQty(doc);
             doc["stockQty"] = baseQty + mergedExtraFromDupes;
         }
+
+        _hsnLookup ??= await HsnSacResolver.LoadLookupAsync(_localDb, ct);
+        var hsnSac = HsnSacResolver.Resolve(doc, _hsnLookup);
+        if (!string.IsNullOrEmpty(hsnSac))
+            doc["hsnSac"] = hsnSac;
 
         await _products.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
     }

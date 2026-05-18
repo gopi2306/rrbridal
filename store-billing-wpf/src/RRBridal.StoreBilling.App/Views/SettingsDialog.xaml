@@ -38,7 +38,9 @@
             <Separator Margin="0,8,0,16"/>
 
             <TextBlock FontSize="18" FontWeight="SemiBold" Text="Invoice / receipt (thermal)" Foreground="{StaticResource BrushText}"/>
-            <TextBlock Margin="0,4,0,12" Text="Printed bill header, footer, and default Windows printer for F10 print." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+            <TextBlock Margin="0,4,0,6" Text="Printed bill header, footer, and default Windows printer for F10 print." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+            <TextBlock Margin="0,0,0,12" Text="Saved locally in %LocalAppData%\RRBridal\StoreBilling\receipt_config.json (not store MongoDB). Company profile comes from central database rr_bridal_central."
+                       Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" FontSize="11"/>
 
             <TextBlock Text="Store name" Margin="0,0,0,4"/>
             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptStoreName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
@@ -61,7 +63,15 @@
             <TextBlock Text="Thank-you line" Margin="0,0,0,4"/>
             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptThankYouLine, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 
+            <TextBlock Text="Requires Central login above (e.g. ravi@rrbridal.com). Pull replaces local header/footer with company profile from central."
+                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
+            <TextBlock Text="{Binding ReceiptCentralSyncText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <Button Content="Pull receipt settings from central" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left"
+                    Command="{Binding PullReceiptFromCentralCommand}" Margin="0,0,0,12"/>
+
             <TextBlock FontWeight="SemiBold" Text="Printer" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding ReceiptPrinterHintText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding ReceiptPrinterWarningText}" TextWrapping="Wrap" Foreground="#C45A00" Margin="0,0,0,8"/>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <Button Content="Refresh printer list" Style="{StaticResource OutlineButton}" Command="{Binding RefreshPrintersCommand}" Margin="0,0,8,0"/>
                 <CheckBox Content="Always use Windows print dialog" IsChecked="{Binding ReceiptAlwaysUsePrintDialog}" VerticalAlignment="Center"/>
@@ -70,6 +80,8 @@
             <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PrinterOptions}" DisplayMemberPath="Display"
                       SelectedValuePath="FullName" SelectedValue="{Binding SelectedPrinterFullName, Mode=TwoWay}" Margin="0,0,0,8"/>
             <TextBlock Text="Receipt width (characters)" Margin="0,0,0,4"/>
+            <TextBlock Text="3-inch / 80mm thermal (e.g. TVS RP 3200 Lite): use 48 chars; adjust if text wraps."
+                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCharWidth, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12"/>
 
             <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsCommand}" Margin="0,0,0,16"/>

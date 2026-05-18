@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services.Payments;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -17,6 +14,7 @@ public enum PaymentMode
     Cash,
     Card,
     Upi,
+    CreditNote,
     Split,
 }
 
@@ -32,6 +30,9 @@ public sealed class PaymentOutcome
 {
     public bool Confirmed { get; init; }
     public List<PaymentLegResult> Legs { get; init; } = new();
+    public PaymentMode Mode { get; init; }
+    public decimal? CashReceived { get; init; }
+    public decimal? ChangeReturned { get; init; }
 }
 
 public sealed class PaymentLegResult
@@ -62,8 +63,16 @@ public partial class PaymentDialogViewModel : ObservableObject
     // --- Card / UPI single-mode ---
     [ObservableProperty] private string _deviceStatusText = "Ready";
 
-    // --- Split ---
-    public ObservableCollection<SplitPaymentLeg> SplitLegs { get; } = new();
+    // --- Credit Note ---
+    [ObservableProperty] private string _creditNoteReference = "";
+    [ObservableProperty] private decimal _creditNoteAmount;
+
+    // --- Split (fixed inputs) ---
+    [ObservableProperty] private decimal _splitCashAmount;
+    [ObservableProperty] private decimal _splitCardAmount;
+    [ObservableProperty] private decimal _splitUpiAmount;
+    [ObservableProperty] private decimal _splitCreditNoteAmount;
+    [ObservableProperty] private string _splitCreditNoteReference = "";
     [ObservableProperty] private string _splitRemainingFormatted = "₹ 0.00";
     [ObservableProperty] private bool _isSplitBalanced;
 
@@ -83,14 +92,27 @@ public partial class PaymentDialogViewModel : ObservableObject
         PayableAmount = payableAmount;
         PayableFormatted = FormatRupee(payableAmount);
         AmountReceived = payableAmount;
-
-        SplitLegs.CollectionChanged += (_, _) => RecalcSplitBalance();
+        CreditNoteAmount = payableAmount;
+        RecalcSplitBalance();
     }
 
     partial void OnSelectedModeChanged(PaymentMode value)
     {
         ErrorMessage = "";
         Status = PaymentStatus.Idle;
+
+        if (value == PaymentMode.CreditNote)
+            CreditNoteAmount = PayableAmount;
+
+        if (value == PaymentMode.Split)
+        {
+            SplitCashAmount = 0;
+            SplitCardAmount = 0;
+            SplitUpiAmount = 0;
+            SplitCreditNoteAmount = 0;
+            SplitCreditNoteReference = "";
+            RecalcSplitBalance();
+        }
     }
 
     partial void OnAmountReceivedChanged(decimal value)
@@ -100,32 +122,18 @@ public partial class PaymentDialogViewModel : ObservableObject
         IsCashShortfall = change < 0;
     }
 
-    [RelayCommand]
-    private void AddSplitLeg()
-    {
-        var remaining = PayableAmount - SplitLegs.Sum(l => l.Amount);
-        var leg = new SplitPaymentLeg { Method = PaymentProviderKind.Cash, Amount = Math.Max(0, remaining) };
-        leg.PropertyChanged += (_, _) => RecalcSplitBalance();
-        SplitLegs.Add(leg);
-        RecalcSplitBalance();
-    }
-
-    [RelayCommand]
-    private void RemoveSplitLeg(SplitPaymentLeg? leg)
-    {
-        if (leg != null)
-        {
-            SplitLegs.Remove(leg);
-            RecalcSplitBalance();
-        }
-    }
+    partial void OnSplitCashAmountChanged(decimal value) => RecalcSplitBalance();
+    partial void OnSplitCardAmountChanged(decimal value) => RecalcSplitBalance();
+    partial void OnSplitUpiAmountChanged(decimal value) => RecalcSplitBalance();
+    partial void OnSplitCreditNoteAmountChanged(decimal value) => RecalcSplitBalance();
 
     private void RecalcSplitBalance()
     {
-        var allocated = SplitLegs.Sum(l => l.Amount);
+        var allocated = SplitCashAmount + SplitCardAmount + SplitUpiAmount + SplitCreditNoteAmount;
         var remaining = PayableAmount - allocated;
         SplitRemainingFormatted = FormatRupee(remaining);
-        IsSplitBalanced = remaining == 0 && SplitLegs.Count > 0 && SplitLegs.All(l => l.Amount > 0);
+        IsSplitBalanced = remaining == 0
+            && (SplitCashAmount > 0 || SplitCardAmount > 0 || SplitUpiAmount > 0 || SplitCreditNoteAmount > 0);
     }
 
     [RelayCommand]
@@ -207,6 +215,33 @@ public partial class PaymentDialogViewModel : ObservableObject
                     });
                     break;
 
+                case PaymentMode.CreditNote:
+                    var cnRef = (CreditNoteReference ?? "").Trim();
+                    if (string.IsNullOrEmpty(cnRef))
+                    {
+                        ErrorMessage = "Enter a credit note number or reference.";
+                        Status = PaymentStatus.Failed;
+                        return;
+                    }
+                    if (CreditNoteAmount <= 0 || CreditNoteAmount > PayableAmount)
+                    {
+                        ErrorMessage = "Credit note amount must be greater than zero and not exceed payable.";
+                        Status = PaymentStatus.Failed;
+                        return;
+                    }
+                    var cnResult = await _router.PayAndRecordAsync(
+                        PaymentProviderKind.CreditNote,
+                        new PaymentRequest(_invoiceNo, CreditNoteAmount, "INR", cnRef),
+                        CancellationToken.None);
+                    legs.Add(new PaymentLegResult
+                    {
+                        Provider = PaymentProviderKind.CreditNote,
+                        Amount = CreditNoteAmount,
+                        Reference = cnResult.ProviderReference,
+                        Status = cnResult.Status,
+                    });
+                    break;
+
                 case PaymentMode.Split:
                     if (!IsSplitBalanced)
                     {
@@ -214,27 +249,41 @@ public partial class PaymentDialogViewModel : ObservableObject
                         Status = PaymentStatus.Failed;
                         return;
                     }
-                    foreach (var splitLeg in SplitLegs)
+                    if (SplitCreditNoteAmount > 0 && string.IsNullOrWhiteSpace(SplitCreditNoteReference))
+                    {
+                        ErrorMessage = "Enter a credit note reference for the credit note split amount.";
+                        Status = PaymentStatus.Failed;
+                        return;
+                    }
+
+                    var splitEntries = new List<(PaymentProviderKind Provider, decimal Amount, string? Reference)>();
+                    if (SplitCashAmount > 0)
+                        splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null));
+                    if (SplitCardAmount > 0)
+                        splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null));
+                    if (SplitUpiAmount > 0)
+                        splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null));
+                    if (SplitCreditNoteAmount > 0)
+                        splitEntries.Add((PaymentProviderKind.CreditNote, SplitCreditNoteAmount, SplitCreditNoteReference.Trim()));
+
+                    foreach (var (provider, amount, reference) in splitEntries)
                     {
                         var splitResult = await _router.PayAndRecordAsync(
-                            splitLeg.Method,
-                            new PaymentRequest(_invoiceNo, splitLeg.Amount, "INR"),
+                            provider,
+                            new PaymentRequest(_invoiceNo, amount, "INR", reference),
                             CancellationToken.None);
-
-                        splitLeg.Reference = splitResult.ProviderReference;
-                        splitLeg.Status = splitResult.Status;
 
                         if (splitResult.Status != "Success" && splitResult.Status != "Pending")
                         {
-                            ErrorMessage = $"{splitLeg.Method} leg failed: {splitResult.Status}";
+                            ErrorMessage = $"{provider} leg failed: {splitResult.Status}";
                             Status = PaymentStatus.Failed;
                             return;
                         }
 
                         legs.Add(new PaymentLegResult
                         {
-                            Provider = splitLeg.Method,
-                            Amount = splitLeg.Amount,
+                            Provider = provider,
+                            Amount = amount,
                             Reference = splitResult.ProviderReference,
                             Status = splitResult.Status,
                         });
@@ -242,7 +291,22 @@ public partial class PaymentDialogViewModel : ObservableObject
                     break;
             }
 
-            Outcome = new PaymentOutcome { Confirmed = true, Legs = legs };
+            decimal? cashReceived = null;
+            decimal? changeReturned = null;
+            if (SelectedMode == PaymentMode.Cash)
+            {
+                cashReceived = AmountReceived;
+                changeReturned = Math.Max(0m, AmountReceived - PayableAmount);
+            }
+
+            Outcome = new PaymentOutcome
+            {
+                Confirmed = true,
+                Legs = legs,
+                Mode = SelectedMode,
+                CashReceived = cashReceived,
+                ChangeReturned = changeReturned,
+            };
             Status = PaymentStatus.Success;
             CloseDialog?.Invoke(true);
         }
