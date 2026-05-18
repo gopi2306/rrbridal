@@ -116,7 +116,9 @@ export class LocationsService {
   }
 
   async remove(id: string) {
-    const doc = await this.model.findByIdAndDelete(id).lean();
+    const doc = await this.model
+      .findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true })
+      .lean();
     if (!doc) throw new NotFoundException('Not found');
     return doc;
   }

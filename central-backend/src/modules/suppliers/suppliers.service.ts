@@ -31,7 +31,9 @@ export class SuppliersService {
   }
 
   async remove(id: string) {
-    const doc = await this.supplierModel.findByIdAndDelete(id).lean();
+    const doc = await this.supplierModel
+      .findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true })
+      .lean();
     if (!doc) throw new NotFoundException('Supplier not found');
     return doc;
   }
