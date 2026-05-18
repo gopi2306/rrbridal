@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type PurchaseIntentDocument = HydratedDocument<PurchaseIntent>;
 
@@ -33,6 +33,33 @@ export class PurchaseIntentLine {
   @ApiProperty({ required: false })
   @Prop()
   note?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Stock classification label for this line (e.g. Normal Stock)',
+    example: 'Normal Stock',
+  })
+  @Prop({ trim: true })
+  stockClassification?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Destination kind hint for this line (e.g. warehouse, store)',
+    example: 'warehouse',
+  })
+  @Prop({ trim: true })
+  toKind?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Mongo _id of target Location when toLocationId is used',
+  })
+  @Prop({ type: Types.ObjectId })
+  toLocationId?: Types.ObjectId;
+
+  @ApiProperty({ required: false, description: 'Per-line remarks (separate from note and header remarks)' })
+  @Prop({ trim: true })
+  remarks?: string;
 }
 
 @Schema({ timestamps: true, collection: 'purchase_intents' })

@@ -51,14 +51,18 @@ Raised when a **store** submits a **requisition** (purchase intent) to the centr
 
 ```json
 {
-  "remarks": "optional free text",
+  "remarks": "optional free text (document-level)",
   "lines": [
     {
       "sku": "SKU-123",
       "requestedQty": 2,
       "barcode": "optional",
       "description": "optional",
-      "note": "optional line note"
+      "note": "optional line note",
+      "stockClassification": "optional, e.g. Normal Stock",
+      "toKind": "optional destination kind hint, e.g. warehouse",
+      "toLocationId": "optional 24-char hex Mongo ObjectId of a Location",
+      "remarks": "optional per-line remarks"
     }
   ]
 }
@@ -68,6 +72,7 @@ Rules:
 
 - `lines` is required and must contain at least one item.
 - Each line must have non-empty `sku` and a positive numeric `requestedQty`.
+- When present, `toLocationId` must be a valid 24-character hex Mongo ObjectId string.
 - Optional string fields may be omitted entirely (do not send `null` unless you standardize on that).
 
 Central processing rules:

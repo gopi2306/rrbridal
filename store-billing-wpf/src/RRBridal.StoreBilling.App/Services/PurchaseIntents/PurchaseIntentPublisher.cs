@@ -10,7 +10,14 @@ using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.PurchaseIntents;
 
-public readonly record struct PurchaseIntentLineInput(string Sku, double RequestedQty, string? Note = null);
+public readonly record struct PurchaseIntentLineInput(
+    string Sku,
+    double RequestedQty,
+    string? Note = null,
+    string? StockClassification = null,
+    string? ToKind = null,
+    string? ToLocationId = null,
+    string? Remarks = null);
 
 public sealed class PurchaseIntentPublisher
 {
@@ -38,6 +45,12 @@ public sealed class PurchaseIntentPublisher
             if (string.IsNullOrWhiteSpace(l.Sku)) throw new ArgumentException("Each line needs a non-empty SKU.", nameof(lines));
             if (l.RequestedQty <= 0 || double.IsNaN(l.RequestedQty) || double.IsInfinity(l.RequestedQty))
                 throw new ArgumentException("Each line needs requestedQty > 0.", nameof(lines));
+            if (!string.IsNullOrWhiteSpace(l.ToLocationId))
+            {
+                var tid = l.ToLocationId.Trim();
+                if (tid.Length != 24 || !tid.All(static c => char.IsAsciiHexDigit(c)))
+                    throw new ArgumentException("Each line ToLocationId must be a 24-character hex Mongo id.", nameof(lines));
+            }
         }
 
         var eventId = Guid.NewGuid().ToString();
@@ -54,6 +67,10 @@ public sealed class PurchaseIntentPublisher
                 { "requestedQty", l.RequestedQty },
             };
             if (!string.IsNullOrWhiteSpace(l.Note)) lineDoc["note"] = l.Note.Trim();
+            if (!string.IsNullOrWhiteSpace(l.StockClassification)) lineDoc["stockClassification"] = l.StockClassification.Trim();
+            if (!string.IsNullOrWhiteSpace(l.ToKind)) lineDoc["toKind"] = l.ToKind.Trim();
+            if (!string.IsNullOrWhiteSpace(l.ToLocationId)) lineDoc["toLocationId"] = l.ToLocationId.Trim();
+            if (!string.IsNullOrWhiteSpace(l.Remarks)) lineDoc["remarks"] = l.Remarks.Trim();
             linesBson.Add(lineDoc);
         }
 
@@ -63,7 +80,16 @@ public sealed class PurchaseIntentPublisher
         var hash = JsonSerializer.Serialize(
             new
             {
-                lines = lines.Select(l => new { sku = l.Sku.Trim(), qty = l.RequestedQty, note = l.Note }),
+                lines = lines.Select(l => new
+                {
+                    sku = l.Sku.Trim(),
+                    qty = l.RequestedQty,
+                    note = l.Note,
+                    stockClassification = l.StockClassification,
+                    toKind = l.ToKind,
+                    toLocationId = l.ToLocationId,
+                    remarks = l.Remarks,
+                }),
                 remarks,
             });
 

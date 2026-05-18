@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { CreatePurchaseIntentLineDto } from './dto/create-purchase-intent-line.dto';
 import { CreatePurchaseIntentDto } from './dto/create-purchase-intent.dto';
 import { UpdatePurchaseIntentDto } from './dto/update-purchase-intent.dto';
 import {
@@ -23,6 +24,63 @@ export class PurchaseIntentsService {
   private async nextIntentNo() {
     const suffix = Math.floor(1000 + Math.random() * 9000);
     return `PINV-${suffix}`;
+  }
+
+  private normalizeLineStockClassification(value: string | undefined): string | undefined {
+    const t = value?.trim();
+    if (!t) return undefined;
+    return t.length > 80 ? t.slice(0, 80) : t;
+  }
+
+  private normalizeLineToKind(value: string | undefined): string | undefined {
+    const t = value?.trim();
+    if (!t) return undefined;
+    return t.length > 40 ? t.slice(0, 40) : t;
+  }
+
+  private normalizeLineRemarks(value: string | undefined): string | undefined {
+    const t = value?.trim();
+    if (!t) return undefined;
+    return t.length > 500 ? t.slice(0, 500) : t;
+  }
+
+  private parseToLocationIdFromUnknown(value: unknown): Types.ObjectId | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    const id = typeof value === 'string' ? value.trim() : String(value).trim();
+    if (!id) return undefined;
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('each line toLocationId must be a valid Mongo ObjectId when provided');
+    }
+    return new Types.ObjectId(id);
+  }
+
+  private enrichLineFromRecord(line: PurchaseIntentLine, o: Record<string, unknown>): void {
+    const sc =
+      typeof o.stockClassification === 'string'
+        ? this.normalizeLineStockClassification(o.stockClassification)
+        : undefined;
+    if (sc) line.stockClassification = sc;
+    const tk = typeof o.toKind === 'string' ? this.normalizeLineToKind(o.toKind) : undefined;
+    if (tk) line.toKind = tk;
+    const loc = this.parseToLocationIdFromUnknown(o.toLocationId);
+    if (loc) line.toLocationId = loc;
+    const rmk = typeof o.remarks === 'string' ? this.normalizeLineRemarks(o.remarks) : undefined;
+    if (rmk) line.remarks = rmk;
+  }
+
+  private normalizeDtoLine(dto: CreatePurchaseIntentLineDto): PurchaseIntentLine {
+    const line: PurchaseIntentLine = { sku: dto.sku.trim(), requestedQty: dto.requestedQty };
+    if (dto.barcode?.trim()) line.barcode = dto.barcode.trim();
+    if (dto.description?.trim()) line.description = dto.description.trim();
+    if (dto.note?.trim()) line.note = dto.note.trim();
+    const sc = this.normalizeLineStockClassification(dto.stockClassification);
+    if (sc) line.stockClassification = sc;
+    const tk = this.normalizeLineToKind(dto.toKind);
+    if (tk) line.toKind = tk;
+    if (dto.toLocationId?.trim()) line.toLocationId = new Types.ObjectId(dto.toLocationId.trim());
+    const rmk = this.normalizeLineRemarks(dto.remarks);
+    if (rmk) line.remarks = rmk;
+    return line;
   }
 
   private parseLinesFromPayload(payload: Record<string, unknown>): PurchaseIntentLine[] {
@@ -48,6 +106,7 @@ export class PurchaseIntentsService {
       if (typeof o.barcode === 'string' && o.barcode) line.barcode = o.barcode;
       if (typeof o.description === 'string' && o.description) line.description = o.description;
       if (typeof o.note === 'string' && o.note) line.note = o.note;
+      this.enrichLineFromRecord(line, o);
       lines.push(line);
     }
     return lines;
@@ -87,13 +146,14 @@ export class PurchaseIntentsService {
 
   async create(dto: CreatePurchaseIntentDto) {
     const intentNo = await this.nextIntentNo();
+    const lines = (dto.lines ?? []).map((l) => this.normalizeDtoLine(l));
     return await this.model.create({
       intentNo,
       storeId: dto.storeId,
       deviceId: dto.deviceId,
       remarks: dto.remarks,
       status: (dto.status as PurchaseIntentStatus) ?? 'submitted',
-      lines: dto.lines ?? [],
+      lines,
     });
   }
 
@@ -107,7 +167,7 @@ export class PurchaseIntentsService {
     const set: Record<string, unknown> = {};
     if (dto.status !== undefined) set.status = dto.status;
     if (dto.remarks !== undefined) set.remarks = dto.remarks;
-    if (dto.lines !== undefined) set.lines = dto.lines;
+    if (dto.lines !== undefined) set.lines = dto.lines.map((l) => this.normalizeDtoLine(l));
     const doc = await this.model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase intent not found');
     return doc;

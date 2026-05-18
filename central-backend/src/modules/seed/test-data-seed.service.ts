@@ -480,6 +480,8 @@ export class TestDataSeedService implements OnModuleInit {
 
     const piModel = this.connection.model('PurchaseIntent');
     const stModel = this.connection.model('StockTransfer');
+    const warehouseAId = this.refs['loc-001'];
+    const warehouseBId = this.refs['loc-002'];
 
     // ── Purchase Intent for store-001 ─────────────────────────
     let pi1: any = await piModel.findOne({ intentNo: 'PINV-001' }).lean();
@@ -490,8 +492,23 @@ export class TestDataSeedService implements OnModuleInit {
         status: 'approved',
         remarks: 'Monthly stock replenishment for Main branch',
         lines: [
-          { sku: 'SKU-001', description: 'Bridal Red Lehenga', requestedQty: 2 },
-          { sku: 'SKU-004', description: 'Kundan Bridal Necklace Set', requestedQty: 3 },
+          {
+            sku: 'SKU-001',
+            description: 'Bridal Red Lehenga',
+            requestedQty: 2,
+            stockClassification: 'Normal Stock',
+            toKind: 'warehouse',
+            toLocationId: new Types.ObjectId(warehouseAId),
+            remarks: 'Prefer from Warehouse A',
+          },
+          {
+            sku: 'SKU-004',
+            description: 'Kundan Bridal Necklace Set',
+            requestedQty: 3,
+            stockClassification: 'Reserve / Seasonal',
+            toKind: 'warehouse',
+            toLocationId: new Types.ObjectId(warehouseBId),
+          },
         ],
       });
       this.logger.log('  + PINV-001 created (store-001: SKU-001 x2, SKU-004 x3)');
@@ -506,15 +523,19 @@ export class TestDataSeedService implements OnModuleInit {
         status: 'approved',
         remarks: 'Monthly stock replenishment for T Nagar branch',
         lines: [
-          { sku: 'SKU-002', description: 'Gold Bridal Lehenga', requestedQty: 1 },
-          { sku: 'SKU-005', description: 'Kundan Maang Tikka', requestedQty: 2 },
+          {
+            sku: 'SKU-002',
+            description: 'Gold Bridal Lehenga',
+            requestedQty: 1,
+            stockClassification: 'Normal Stock',
+            toKind: 'warehouse',
+            toLocationId: new Types.ObjectId(warehouseAId),
+          },
+          { sku: 'SKU-005', description: 'Kundan Maang Tikka', requestedQty: 2, remarks: 'Rush display stock' },
         ],
       });
       this.logger.log('  + PINV-002 created (store-002: SKU-002 x1, SKU-005 x2)');
     }
-
-    const warehouseAId = this.refs['loc-001'];
-    const warehouseBId = this.refs['loc-002'];
 
     // ── Stock Transfer 1: Warehouse A → store-001 (completed path) ─
     let st1: any = await stModel.findOne({ transferNo: 'TR-001' }).lean();
