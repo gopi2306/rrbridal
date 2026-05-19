@@ -6,7 +6,7 @@ export type CategoryDocument = HydratedDocument<Category>;
 
 @Schema({ timestamps: true, collection: 'categories' })
 export class Category {
-  @ApiProperty({ example: 'cat-001' })
+  @ApiProperty({ example: 'cat-001', description: 'Auto-generated on create (cat-NNN).' })
   @Prop({ required: true, unique: true, trim: true, lowercase: true, index: true })
   code!: string;
 

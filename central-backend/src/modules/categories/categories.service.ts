@@ -5,15 +5,44 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category, CategoryDocument } from './schemas/category.schema';
 
+const CATEGORY_CODE_PREFIX = 'cat-';
+
 @Injectable()
 export class CategoriesService {
   constructor(@InjectModel(Category.name) private readonly model: Model<CategoryDocument>) {}
 
+  /** Next sequential code: cat-001, cat-002, … */
+  private async nextCategoryCode(): Promise<string> {
+    const pattern = new RegExp(`^${CATEGORY_CODE_PREFIX}\\d+$`, 'i');
+    const rows = await this.model.find({ code: pattern }).select('code').lean();
+    let max = 0;
+    for (const row of rows) {
+      const suffix = row.code.slice(CATEGORY_CODE_PREFIX.length);
+      const n = parseInt(suffix, 10);
+      if (!Number.isNaN(n) && n > max) max = n;
+    }
+    return `${CATEGORY_CODE_PREFIX}${String(max + 1).padStart(3, '0')}`;
+  }
+
   async create(dto: CreateCategoryDto) {
-    const code = dto.code.trim().toLowerCase();
-    const existing = await this.model.findOne({ code }).lean();
-    if (existing) throw new ConflictException(`Code '${code}' already exists`);
-    return await this.model.create({ code, name: dto.name.trim(), departmentId: dto.departmentId, isActive: dto.isActive ?? true });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = await this.nextCategoryCode();
+      const existing = await this.model.findOne({ code }).lean();
+      if (existing) continue;
+      try {
+        return await this.model.create({
+          code,
+          name: dto.name.trim(),
+          departmentId: dto.departmentId,
+          isActive: dto.isActive ?? true,
+        });
+      } catch (err: unknown) {
+        const mongo = err as { code?: number };
+        if (mongo.code === 11000 && attempt < 4) continue;
+        throw err;
+      }
+    }
+    throw new ConflictException('Could not allocate a unique category code');
   }
 
   async findAll() {

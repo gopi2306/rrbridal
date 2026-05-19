@@ -6,7 +6,7 @@ export type SubCategoryDocument = HydratedDocument<SubCategory>;
 
 @Schema({ timestamps: true, collection: 'sub_categories' })
 export class SubCategory {
-  @ApiProperty({ example: 'subcat-001' })
+  @ApiProperty({ example: 'subcat-001', description: 'Auto-generated on create (subcat-NNN).' })
   @Prop({ required: true, unique: true, trim: true, lowercase: true, index: true })
   code!: string;
 
