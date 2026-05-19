@@ -18,7 +18,38 @@ public sealed class StoreLedgerService
         _db = localDb;
     }
 
-    public async Task<StoreLedgerSnapshot> LoadAsync(string storeId, int maxBills, int maxPayments, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetDistinctPosCountersAsync(string storeId, CancellationToken ct = default)
+    {
+        var billsColl = _db.GetCollection<BsonDocument>("store_bills");
+        var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
+        var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
+
+        var fromDb = billDocs
+            .Select(d => ReadString(d, "posCounter") ?? "")
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var merged = new HashSet<string>(fromDb, StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i <= 3; i++)
+            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+
+        return merged
+            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<StoreLedgerSnapshot> LoadAsync(
+        string storeId,
+        int maxBills,
+        int maxPayments,
+        ReportScope scope = ReportScope.ThisCounter,
+        string? deviceId = null,
+        string? posCounterFilter = null,
+        CancellationToken ct = default)
     {
         maxBills = Math.Clamp(maxBills, 1, 500);
         maxPayments = Math.Clamp(maxPayments, 1, 500);
@@ -30,6 +61,8 @@ public sealed class StoreLedgerService
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
 
         var bills = billDocs
+            .Where(d => MatchesScope(d, deviceId, scope))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
             .Select(MapBill)
             .Where(x => x != null)
             .Cast<LedgerBillRow>()
@@ -39,6 +72,8 @@ public sealed class StoreLedgerService
 
         var payDocs = await payColl.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync(ct);
         var payments = payDocs
+            .Where(d => MatchesPaymentScope(d, storeId, deviceId, scope))
+            .Where(d => MatchesPaymentPosCounterFilter(d, posCounterFilter))
             .Select(MapPayment)
             .OrderByDescending(x => x.SortUtc)
             .Take(maxPayments)
@@ -65,6 +100,10 @@ public sealed class StoreLedgerService
             : sortUtc.ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC";
         var status = ReadString(doc, "status") ?? "posted";
 
+        var pos = ReadString(doc, "posCounter") ?? "";
+        var dev = ReadString(doc, "deviceId") ?? "";
+        var counterDisplay = CounterDisplayFormatter.Format(pos, dev);
+
         return new LedgerBillRow
         {
             BillNo = billNo,
@@ -73,6 +112,7 @@ public sealed class StoreLedgerService
             Payable = payable,
             PostedAtUtc = posted,
             Status = status,
+            CounterDisplay = counterDisplay,
             SortUtc = sortUtc,
         };
     }
@@ -87,6 +127,10 @@ public sealed class StoreLedgerService
             ? "—"
             : created.ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC";
 
+        var pos = ReadString(doc, "PosCounter", "posCounter") ?? "";
+        var dev = ReadString(doc, "DeviceId", "deviceId") ?? "";
+        var counterDisplay = CounterDisplayFormatter.Format(pos, dev);
+
         return new LedgerPaymentRow
         {
             SortUtc = created,
@@ -98,7 +142,53 @@ public sealed class StoreLedgerService
             Currency = ReadString(doc, "Currency", "currency") ?? "INR",
             Status = ReadString(doc, "Status", "status") ?? "",
             ProviderReference = ReadString(doc, "ProviderReference", "providerReference") ?? "",
+            CounterDisplay = counterDisplay,
         };
+    }
+
+    private static bool MatchesPosCounterFilter(BsonDocument doc, string? posCounterFilter)
+    {
+        if (string.IsNullOrWhiteSpace(posCounterFilter))
+            return true;
+        var pos = ReadString(doc, "posCounter") ?? "";
+        return string.Equals(pos, posCounterFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesPaymentPosCounterFilter(BsonDocument doc, string? posCounterFilter)
+    {
+        if (string.IsNullOrWhiteSpace(posCounterFilter))
+            return true;
+        var pos = ReadString(doc, "PosCounter", "posCounter") ?? "";
+        return string.Equals(pos, posCounterFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesScope(BsonDocument doc, string? deviceId, ReportScope scope)
+    {
+        if (scope == ReportScope.StoreWide)
+            return true;
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return false;
+        if (!doc.TryGetValue("deviceId", out var v) || !v.IsString)
+            return false;
+        return string.Equals(v.AsString, deviceId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesPaymentScope(BsonDocument doc, string storeId, string? deviceId, ReportScope scope)
+    {
+        if (scope == ReportScope.StoreWide)
+        {
+            var docStore = ReadString(doc, "StoreId", "storeId");
+            return string.IsNullOrWhiteSpace(docStore)
+                || string.Equals(docStore, storeId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return false;
+        if (!doc.TryGetValue("deviceId", out var dev) && !doc.TryGetValue("DeviceId", out dev))
+            return false;
+        if (!dev.IsString)
+            return false;
+        return string.Equals(dev.AsString, deviceId, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ReadString(BsonDocument doc, params string[] keys)

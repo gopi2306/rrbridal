@@ -32,11 +32,27 @@ public partial class ShellViewModel : ObservableObject
 
     public string LoggedInUserName => _services.UserSession?.LoggedInUser.Name ?? "Unknown";
 
+    [ObservableProperty] private string _companyTitle = "RR Bridal";
+
+    [ObservableProperty] private string _storeDisplayName = "";
+
+    [ObservableProperty] private string _tillDisplayLine = "";
+
+    [ObservableProperty] private string _windowTitleText = "RR Bridal";
+
     public ObservableCollection<StoreUserRecord> StoreUsers { get; } = new();
 
     [ObservableProperty] private StoreUserRecord? _selectedBillingUser;
 
     [ObservableProperty] private string _globalSearchText = "";
+
+    public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
+
+    public bool ShowDashboardNav => IsPrimaryCounter;
+
+    public bool ShowAnalyticsNav => IsPrimaryCounter;
+
+    public bool ShowLedgerNav => IsPrimaryCounter;
 
     partial void OnSelectedBillingUserChanged(StoreUserRecord? value)
     {
@@ -56,8 +72,51 @@ public partial class ShellViewModel : ObservableObject
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
 
+        NotifyPageVisibility();
+        _services.ShellBranding.BrandingChanged += OnBrandingChanged;
+        if (!IsPrimaryCounter && IsRestrictedPage(CurrentPage))
+            CurrentPage = ShellPage.Billing;
+
         _ = LoadStoreUsersAsync();
+        _ = RefreshBrandingAsync();
     }
+
+    private static bool IsRestrictedPage(ShellPage page) =>
+        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger;
+
+    private void OnBrandingChanged()
+    {
+        var snap = _services.ShellBranding.Current;
+        CompanyTitle = snap.CompanyTitle;
+        StoreDisplayName = snap.StoreDisplayName;
+        TillDisplayLine = snap.TillDisplayLine;
+        WindowTitleText = snap.WindowTitleText;
+        Dashboard.ApplyBrandingFromShell();
+        Ledger.ApplyBrandingFromShell();
+    }
+
+    public async Task RefreshBrandingAsync()
+    {
+        try
+        {
+            await _services.ShellBranding.RefreshAsync();
+            OnBrandingChanged();
+        }
+        catch { /* best-effort */ }
+    }
+
+    public void EnsurePageVisibilityFresh()
+    {
+        OnPropertyChanged(nameof(IsBillingPage));
+        OnPropertyChanged(nameof(IsDashboardPage));
+        OnPropertyChanged(nameof(IsAnalyticsPage));
+        OnPropertyChanged(nameof(IsCustomersPage));
+        OnPropertyChanged(nameof(IsLedgerPage));
+        OnPropertyChanged(nameof(IsSaleReturnPage));
+        OnPropertyChanged(nameof(IsAdjustmentsPage));
+    }
+
+    private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
 
     private async Task LoadStoreUsersAsync()
     {
@@ -118,7 +177,12 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Navigate(ShellPage page) => CurrentPage = page;
+    private void Navigate(ShellPage page)
+    {
+        if (!IsPrimaryCounter && IsRestrictedPage(page))
+            return;
+        CurrentPage = page;
+    }
 
     [RelayCommand]
     private async Task SaveCustomerRegistration()
@@ -141,6 +205,7 @@ public partial class ShellViewModel : ObservableObject
     {
         var dlg = new SettingsDialog(_services) { Owner = Application.Current.MainWindow };
         dlg.ShowDialog();
+        _ = RefreshBrandingAsync();
     }
 
     [RelayCommand]

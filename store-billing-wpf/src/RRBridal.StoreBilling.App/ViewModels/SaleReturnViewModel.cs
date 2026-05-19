@@ -346,6 +346,7 @@ public partial class SaleReturnViewModel : ObservableObject
         {
             var storeId = _services.StoreContext.StoreId;
             var deviceId = _services.StoreContext.DeviceId;
+            var posCounter = _services.StoreContext.PosCounter;
             var createdAt = DateTime.UtcNow.ToString("O");
             var eventId = Guid.NewGuid().ToString();
 
@@ -432,6 +433,8 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "returnNo", ReturnNo },
                 { "originalBillNo", OriginalBillNo.Trim() },
                 { "storeId", storeId },
+                { "deviceId", deviceId },
+                { "posCounter", posCounter },
                 { "transactionType", exchangeLines.Count > 0 ? "exchange" : "return" },
                 { "returnMode", ReturnMode == ReturnMode.CreditNote ? "credit_note" : "cash_refund" },
                 { "reason", Reason },

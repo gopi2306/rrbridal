@@ -12,16 +12,24 @@
             <Grid Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="Dashboard" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <TextBlock Text="Store: " Foreground="{StaticResource BrushTextMuted}"/>
-                        <TextBlock Text="{Binding StoreIdDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <StackPanel Margin="0,4,0,0">
+                        <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                        <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
+                        <ComboBox ItemsSource="{Binding PosCounterFilterOptions}"
+                                  SelectedItem="{Binding SelectedPosCounterFilter}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="160"/>
                     </StackPanel>
                 </StackPanel>
                 <Button HorizontalAlignment="Right" VerticalAlignment="Top" Content="Refresh metrics" Style="{StaticResource PrimaryButton}"
                         Command="{Binding RefreshCommand}" Width="140"/>
             </Grid>
 
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding StoreWideTodaySummary}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
             <TextBlock Text="Today &amp; week (local posted bills)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
             <UniformGrid Columns="2" Margin="0,0,0,8">
@@ -60,7 +68,7 @@
                 </Border>
             </UniformGrid>
 
-            <TextBlock Text="Recent bills (this store)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Text="Recent bills" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="8">
                 <DataGrid ItemsSource="{Binding RecentBills}"
                           Style="{StaticResource ThemedDataGrid}"
@@ -71,6 +79,7 @@
                           MaxHeight="220">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                        <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="130"/>
                         <DataGridTextColumn Header="Posted (UTC)" Binding="{Binding CreatedAtDisplay}" Width="*"/>
                         <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
                     </DataGrid.Columns>

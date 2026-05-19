@@ -17,9 +17,16 @@
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Ledger" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <TextBlock Text="Store: " Foreground="{StaticResource BrushTextMuted}"/>
-                    <TextBlock Text="{Binding StoreIdDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                <StackPanel Margin="0,4,0,0">
+                    <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
+                    <ComboBox ItemsSource="{Binding PosCounterFilterOptions}"
+                              SelectedItem="{Binding SelectedPosCounterFilter}"
+                              DisplayMemberPath="Label"
+                              MinWidth="160"/>
                 </StackPanel>
             </StackPanel>
             <Button HorizontalAlignment="Right" VerticalAlignment="Top" Content="Refresh" Style="{StaticResource PrimaryButton}"
@@ -41,6 +48,7 @@
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="110"/>
+                            <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="70"/>
                             <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
                             <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
                             <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
@@ -62,6 +70,7 @@
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time UTC" Binding="{Binding CreatedAtDisplay}" Width="160"/>
+                            <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="70"/>
                             <DataGridTextColumn Header="Invoice no" Binding="{Binding InvoiceNo}" Width="120"/>
                             <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" Width="100"/>
                             <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N2}}" Width="100"/>

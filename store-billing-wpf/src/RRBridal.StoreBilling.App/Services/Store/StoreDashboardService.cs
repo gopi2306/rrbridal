@@ -18,7 +18,36 @@ public sealed class StoreDashboardService
         _db = localDb;
     }
 
-    public async Task<StoreDashboardSnapshot> LoadAsync(string storeId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetDistinctPosCountersAsync(string storeId, CancellationToken ct = default)
+    {
+        var billsColl = _db.GetCollection<BsonDocument>("store_bills");
+        var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
+        var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
+
+        var fromDb = billDocs
+            .Select(ReadPosCounter)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var merged = new HashSet<string>(fromDb, StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i <= 3; i++)
+            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+
+        return merged
+            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<StoreDashboardSnapshot> LoadAsync(
+        string storeId,
+        ReportScope scope = ReportScope.ThisCounter,
+        string? deviceId = null,
+        string? posCounterFilter = null,
+        CancellationToken ct = default)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
@@ -31,33 +60,24 @@ public sealed class StoreDashboardService
         var todayUtc = DateTime.UtcNow.Date;
         var weekStart = todayUtc.AddDays(-7);
 
-        var billsToday = 0;
-        var revenueToday = 0m;
-        var billsWeek = 0;
-        var revenueWeek = 0m;
+        var scopedBills = billDocs
+            .Where(d => MatchesScope(d, deviceId, scope))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
 
-        foreach (var doc in billDocs)
+        var (billsToday, revenueToday, billsWeek, revenueWeek) = Summarize(scopedBills, todayUtc, weekStart);
+
+        int? storeBillsToday = null;
+        decimal? storeRevenueToday = null;
+        if (string.IsNullOrWhiteSpace(posCounterFilter)
+            && (scope == ReportScope.StoreWide || scope == ReportScope.ThisCounter))
         {
-            if (!TryGetUtcDate(doc, "createdAtUtc", out var created))
-                continue;
-
-            var day = created.Date;
-            var payable = ReadDecimal(doc, "payable");
-
-            if (day == todayUtc)
-            {
-                billsToday++;
-                revenueToday += payable;
-            }
-
-            if (day >= weekStart)
-            {
-                billsWeek++;
-                revenueWeek += payable;
-            }
+            var (st, sr, _, _) = Summarize(billDocs, todayUtc, weekStart);
+            storeBillsToday = st;
+            storeRevenueToday = sr;
         }
 
-        var recent = billDocs
+        var recent = scopedBills
             .Select(d =>
             {
                 DateTime? dt = null;
@@ -72,11 +92,15 @@ public sealed class StoreDashboardService
             {
                 var payable = ReadDecimal(x.Doc, "payable");
                 var billNo = x.Doc.TryGetValue("billNo", out var bn) && bn.IsString ? bn.AsString : "";
+                var pos = ReadPosCounter(x.Doc);
+                var dev = x.Doc.TryGetValue("deviceId", out var di) && di.IsString ? di.AsString : "";
+                var counterDisplay = CounterDisplayFormatter.Format(pos, dev);
                 return new DashboardRecentBill
                 {
                     BillNo = billNo,
                     CreatedAtDisplay = x.Dt!.Value.ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC",
                     Payable = payable,
+                    CounterDisplay = counterDisplay,
                 };
             })
             .ToList();
@@ -112,16 +136,79 @@ public sealed class StoreDashboardService
         return new StoreDashboardSnapshot
         {
             StoreId = storeId,
+            Scope = scope,
             BillsTodayCount = billsToday,
             BillsTodayRevenue = revenueToday,
             BillsLast7DaysCount = billsWeek,
             BillsLast7DaysRevenue = revenueWeek,
+            StoreWideBillsTodayCount = storeBillsToday,
+            StoreWideBillsTodayRevenue = storeRevenueToday,
             PendingOutboxCount = pendingOutbox,
             SyncCursor = cursor,
             SyncUpdatedAt = syncAt,
             ProductCacheCount = productCount,
             RecentBills = recent,
         };
+    }
+
+    private static bool MatchesScope(BsonDocument doc, string? deviceId, ReportScope scope)
+    {
+        if (scope == ReportScope.StoreWide)
+            return true;
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return false;
+        if (!doc.TryGetValue("deviceId", out var v) || !v.IsString)
+            return false;
+        return string.Equals(v.AsString, deviceId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesPosCounterFilter(BsonDocument doc, string? posCounterFilter)
+    {
+        if (string.IsNullOrWhiteSpace(posCounterFilter))
+            return true;
+        var pos = ReadPosCounter(doc);
+        return string.Equals(pos, posCounterFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ReadPosCounter(BsonDocument doc)
+    {
+        if (doc.TryGetValue("posCounter", out var pc) && pc.IsString)
+            return pc.AsString.Trim();
+        return "";
+    }
+
+    private static (int billsToday, decimal revenueToday, int billsWeek, decimal revenueWeek) Summarize(
+        IReadOnlyList<BsonDocument> billDocs,
+        DateTime todayUtc,
+        DateTime weekStart)
+    {
+        var billsToday = 0;
+        var revenueToday = 0m;
+        var billsWeek = 0;
+        var revenueWeek = 0m;
+
+        foreach (var doc in billDocs)
+        {
+            if (!TryGetUtcDate(doc, "createdAtUtc", out var created))
+                continue;
+
+            var day = created.Date;
+            var payable = ReadDecimal(doc, "payable");
+
+            if (day == todayUtc)
+            {
+                billsToday++;
+                revenueToday += payable;
+            }
+
+            if (day >= weekStart)
+            {
+                billsWeek++;
+                revenueWeek += payable;
+            }
+        }
+
+        return (billsToday, revenueToday, billsWeek, revenueWeek);
     }
 
     private static bool TryGetUtcDate(BsonDocument doc, string key, out DateTime utc)

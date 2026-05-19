@@ -16,6 +16,11 @@ public partial class MainWindow : Window, IFocusSearchService
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         Loaded += OnLoaded;
         Closed += OnClosed;
+        if (DataContext is ShellViewModel shell)
+        {
+            shell.NavigateCommand.Execute(ShellPage.Billing);
+            shell.EnsurePageVisibilityFresh();
+        }
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -29,10 +34,15 @@ public partial class MainWindow : Window, IFocusSearchService
         e.Handled = true;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         App.Services.FocusSearch = this;
         GlobalSearchBox.KeyDown += GlobalSearchBox_OnKeyDown;
+        if (DataContext is ShellViewModel shell)
+        {
+            shell.EnsurePageVisibilityFresh();
+            await shell.RefreshBrandingAsync();
+        }
     }
 
     private async void GlobalSearchBox_OnKeyDown(object sender, KeyEventArgs e)

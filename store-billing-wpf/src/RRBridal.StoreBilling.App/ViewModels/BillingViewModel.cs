@@ -102,8 +102,22 @@ public partial class BillingViewModel : ObservableObject
 
     private void AssignNewBillIdentity()
     {
-        BillNo = $"{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
         BillDateDisplay = DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
+        BillNo = $"{DateTime.Now:yyyyMMdd}-{_services.StoreContext.PosCounter}-draft";
+        _ = AssignBillNumberAsync();
+    }
+
+    private async Task AssignBillNumberAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            BillNo = await _services.BillNumberGenerator.NextAsync(cts.Token);
+        }
+        catch
+        {
+            BillNo = $"{DateTime.Now:yyyyMMdd}-{_services.StoreContext.PosCounter}-0000";
+        }
     }
 
     private void OnLinesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -774,12 +788,16 @@ public partial class BillingViewModel : ObservableObject
             }
 
             var storeId = _services.StoreContext.StoreId;
+            var deviceId = _services.StoreContext.DeviceId;
+            var posCounter = _services.StoreContext.PosCounter;
 
             var doc = new BsonDocument
             {
                 { "billNo", BillNo },
                 { "billDate", BillDateDisplay },
                 { "storeId", storeId },
+                { "deviceId", deviceId },
+                { "posCounter", posCounter },
                 { "customerCode", CustomerCode },
                 { "customerName", CustomerName },
                 { "customerPhone", CustomerPhone },
@@ -879,7 +897,8 @@ public partial class BillingViewModel : ObservableObject
             "• Add manual — enter product code (SKU/barcode) to add a line.\n" +
             "• F9 — post bill (saves to local store_bills in Mongo).\n" +
             "• F10 — invoice preview / print (thermal format).\n" +
-            "• Set STORE_ID, DEVICE_ID and STORE_MONGO_URI env vars for multi-store.\n" +
+            "• Multi-counter: same STORE_ID + STORE_MONGO_URI on LAN; unique DEVICE_ID and POS_COUNTER per till (see deploy/env.counter-*.example).\n" +
+            "• Set STORE_ID, DEVICE_ID, POS_COUNTER and STORE_MONGO_URI in .env.\n" +
             "• F12 — exit.",
             "RR Bridal Billing",
             MessageBoxButton.OK,
@@ -959,7 +978,7 @@ public partial class BillingViewModel : ObservableObject
             BillDate = BillDateDisplay,
             UserName = Salesman,
             Time = DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
-            Counter = Environment.GetEnvironmentVariable("POS_COUNTER") ?? "1",
+            Counter = _services.StoreContext.PosCounter,
             CustomerName = CustomerName ?? "",
             CustomerPhone = CustomerPhone ?? "",
             Lines = snaps,

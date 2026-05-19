@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
         xmlns:views="clr-namespace:RRBridal.StoreBilling.App.Views"
         mc:Ignorable="d"
-        Title="RR Bridal Bill"
+        Title="{Binding WindowTitleText}"
         MinHeight="640"
         MinWidth="1100"
         Height="720"
@@ -39,9 +39,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="RR Bridal" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                    <TextBlock Text="Bill" FontSize="22" FontWeight="Light" Margin="2,0,0,0" Foreground="{StaticResource BrushText}" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding CompanyTitle}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
+                    <TextBlock Text="{Binding StoreDisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -77,7 +78,8 @@
                             </Border>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}" Margin="0,0,16,0">
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}" Margin="0,0,16,0"
+                            Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
                             <TextBlock Text="Dashboard" HorizontalAlignment="Center">
                                 <TextBlock.Style>
@@ -109,7 +111,8 @@
                             </Border>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Analytics}" Margin="0,0,16,0">
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Analytics}" Margin="0,0,16,0"
+                            Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
                             <TextBlock Text="Analytics" HorizontalAlignment="Center">
                                 <TextBlock.Style>
@@ -173,7 +176,8 @@
                             </Border>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}" Margin="0,0,16,0">
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}" Margin="0,0,16,0"
+                            Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
                             <TextBlock Text="Ledger" HorizontalAlignment="Center">
                                 <TextBlock.Style>
@@ -304,21 +308,28 @@
         </Border>
 
         <Grid Grid.Row="1" Margin="16,12,16,8">
-            <!-- Bind to ShellWindow.DataContext (ShellViewModel). Avoid RelativeSource AncestorType=Window — it can fail for some children and leave Visibility.Visible so Ledger stacks on top. -->
-            <views:BillingView DataContext="{Binding Billing}"
-                               Visibility="{Binding DataContext.IsBillingPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:DashboardView DataContext="{Binding Dashboard}"
-                                 Visibility="{Binding DataContext.IsDashboardPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:AnalyticsView DataContext="{Binding Analytics}"
-                                 Visibility="{Binding DataContext.IsAnalyticsPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:CustomerRegistrationView DataContext="{Binding CustomersRegistration}"
-                                           Visibility="{Binding DataContext.IsCustomersPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:LedgerView DataContext="{Binding Ledger}"
-                              Visibility="{Binding DataContext.IsLedgerPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:SaleReturnView DataContext="{Binding SaleReturn}"
-                                  Visibility="{Binding DataContext.IsSaleReturnPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
-            <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"
-                                      Visibility="{Binding DataContext.IsAdjustmentsPage, ElementName=ShellWindow, Converter={StaticResource BoolToVis}}"/>
+            <!-- Visibility on a wrapper Grid so page DataContext does not break shell bindings. -->
+            <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
+                <views:BillingView DataContext="{Binding Billing}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
+                <views:DashboardView DataContext="{Binding Dashboard}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsAnalyticsPage, Converter={StaticResource BoolToVis}}">
+                <views:AnalyticsView DataContext="{Binding Analytics}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
+                <views:CustomerRegistrationView DataContext="{Binding CustomersRegistration}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsLedgerPage, Converter={StaticResource BoolToVis}}">
+                <views:LedgerView DataContext="{Binding Ledger}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsSaleReturnPage, Converter={StaticResource BoolToVis}}">
+                <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
+                <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,10">

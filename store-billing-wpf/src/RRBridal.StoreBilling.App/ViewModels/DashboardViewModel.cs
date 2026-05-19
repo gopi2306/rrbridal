@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,8 +18,18 @@ public partial class DashboardViewModel : ObservableObject
     private readonly StoreDashboardService _dashboardService;
     private readonly InventoryGridClient _inventoryClient;
     private readonly StoreContext _storeContext;
+    private readonly ShellBrandingService _shellBranding;
+    private bool _suppressFilterRefresh;
 
     [ObservableProperty] private string _storeIdDisplay = "";
+
+    [ObservableProperty] private string _storeDisplayName = "";
+
+    [ObservableProperty] private string _tillDisplayLine = "";
+
+    [ObservableProperty] private ReportScope _reportScope = ReportScope.StoreWide;
+
+    [ObservableProperty] private string _storeWideTodaySummary = "";
 
     [ObservableProperty] private string _billsTodaySummary = "—";
 
@@ -37,6 +48,12 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private InventoryStockFilter _inventoryStockFilter = InventoryStockFilter.All;
 
     [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in local store inventory.";
+
+    [ObservableProperty] private PosCounterFilterOption? _selectedPosCounterFilter;
+
+    public bool IsPrimaryCounter => _storeContext.IsPrimaryCounter;
+
+    public ObservableCollection<PosCounterFilterOption> PosCounterFilterOptions { get; } = new();
 
     public IReadOnlyList<InventoryStockFilterOption> StockFilterOptions { get; } =
     [
@@ -64,6 +81,16 @@ public partial class DashboardViewModel : ObservableObject
         _dashboardService = new StoreDashboardService(services.LocalDb);
         _inventoryClient = services.InventoryGrid;
         _storeContext = services.StoreContext;
+        _shellBranding = services.ShellBranding;
+        PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
+        SelectedPosCounterFilter = PosCounterFilterOptions[0];
+        ApplyBrandingFromShell();
+    }
+
+    public void ApplyBrandingFromShell()
+    {
+        StoreDisplayName = _shellBranding.Current.StoreDisplayName;
+        TillDisplayLine = _shellBranding.Current.TillDisplayLine;
     }
 
     [RelayCommand]
@@ -74,10 +101,22 @@ public partial class DashboardViewModel : ObservableObject
         {
             var storeId = _storeContext.StoreId;
             StoreIdDisplay = storeId;
+            ApplyBrandingFromShell();
 
-            var snap = await _dashboardService.LoadAsync(storeId);
+            await ReloadPosCounterFilterOptionsAsync(storeId);
+
+            var posFilter = SelectedPosCounterFilter?.PosCounter;
+            var scope = ReportScope.StoreWide;
+            var snap = await _dashboardService.LoadAsync(
+                storeId,
+                scope,
+                _storeContext.DeviceId,
+                posFilter);
 
             BillsTodaySummary = $"{snap.BillsTodayCount} bills · {FormatRupee(snap.BillsTodayRevenue)}";
+            StoreWideTodaySummary = string.IsNullOrWhiteSpace(posFilter) && snap.StoreWideBillsTodayCount is int st
+                ? $"Store-wide today: {st} bills · {FormatRupee(snap.StoreWideBillsTodayRevenue ?? 0)}"
+                : "";
             BillsWeekSummary = $"{snap.BillsLast7DaysCount} bills · {FormatRupee(snap.BillsLast7DaysRevenue)}";
             PendingOutboxSummary = snap.PendingOutboxCount.ToString(InCulture);
             SyncSummary = string.IsNullOrWhiteSpace(snap.SyncUpdatedAt)
@@ -89,7 +128,8 @@ public partial class DashboardViewModel : ObservableObject
             foreach (var r in snap.RecentBills)
                 RecentBills.Add(r);
 
-            StatusMessage = "Metrics updated " + DateTime.Now.ToString("T", InCulture);
+            var filterLabel = SelectedPosCounterFilter?.Label ?? "All counters";
+            StatusMessage = $"Metrics updated {DateTime.Now.ToString("T", InCulture)} · {filterLabel}";
         }
         catch (Exception ex)
         {
@@ -97,10 +137,39 @@ public partial class DashboardViewModel : ObservableObject
         }
     }
 
+    partial void OnSelectedPosCounterFilterChanged(PosCounterFilterOption? value)
+    {
+        if (!_suppressFilterRefresh)
+            _ = Refresh();
+    }
+
     partial void OnInventoryStockFilterChanged(InventoryStockFilter value)
     {
         InventoryPage = 1;
         _ = LoadInventoryGridAsync();
+    }
+
+    private async Task ReloadPosCounterFilterOptionsAsync(string storeId)
+    {
+        var previous = SelectedPosCounterFilter?.PosCounter;
+        var distinct = await _dashboardService.GetDistinctPosCountersAsync(storeId);
+
+        _suppressFilterRefresh = true;
+        try
+        {
+            PosCounterFilterOptions.Clear();
+            PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
+            foreach (var p in distinct)
+                PosCounterFilterOptions.Add(new PosCounterFilterOption(p, $"POS{p}"));
+
+            SelectedPosCounterFilter = PosCounterFilterOptions.FirstOrDefault(o =>
+                string.Equals(o.PosCounter, previous, StringComparison.OrdinalIgnoreCase))
+                ?? PosCounterFilterOptions[0];
+        }
+        finally
+        {
+            _suppressFilterRefresh = false;
+        }
     }
 
     [RelayCommand]

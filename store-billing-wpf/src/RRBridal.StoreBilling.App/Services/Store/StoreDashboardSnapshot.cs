@@ -7,6 +7,12 @@ public sealed class StoreDashboardSnapshot
 {
     public required string StoreId { get; init; }
 
+    public ReportScope Scope { get; init; } = ReportScope.ThisCounter;
+
+    public int? StoreWideBillsTodayCount { get; init; }
+
+    public decimal? StoreWideBillsTodayRevenue { get; init; }
+
     public int BillsTodayCount { get; init; }
 
     public decimal BillsTodayRevenue { get; init; }
@@ -33,4 +39,6 @@ public sealed class DashboardRecentBill
     public required string CreatedAtDisplay { get; init; }
 
     public decimal Payable { get; init; }
+
+    public string CounterDisplay { get; init; } = "";
 }

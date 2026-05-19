@@ -25,6 +25,9 @@ internal sealed class LocalPaymentDoc
     public required string ProviderReference { get; set; }
     public required string RawResponseJson { get; set; }
     public required DateTime CreatedAt { get; set; }
+    public string? StoreId { get; set; }
+    public string? DeviceId { get; set; }
+    public string? PosCounter { get; set; }
 }
 
 public sealed class PaymentRouter : IPaymentRouter
@@ -90,6 +93,9 @@ public sealed class PaymentRouter : IPaymentRouter
             ProviderReference = result.ProviderReference,
             RawResponseJson = result.RawResponseJson,
             CreatedAt = DateTime.UtcNow,
+            StoreId = _storeContext.StoreId,
+            DeviceId = _storeContext.DeviceId,
+            PosCounter = _storeContext.PosCounter,
         };
 
         await _payments.InsertOneAsync(paymentDoc, cancellationToken: ct);

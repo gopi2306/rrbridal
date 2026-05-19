@@ -154,6 +154,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         {
             var storeId = _services.StoreContext.StoreId;
             var deviceId = _services.StoreContext.DeviceId;
+            var posCounter = _services.StoreContext.PosCounter;
             var createdAt = DateTime.UtcNow.ToString("O");
             var eventId = Guid.NewGuid().ToString();
 
@@ -198,6 +199,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
                 { "adjustmentNo", AdjustmentNo },
                 { "originalBillNo", OriginalBillNo.Trim() },
                 { "storeId", storeId },
+                { "deviceId", deviceId },
+                { "posCounter", posCounter },
                 { "isInterState", IsInterState },
                 { "reason", Reason },
                 { "lines", linesArr },

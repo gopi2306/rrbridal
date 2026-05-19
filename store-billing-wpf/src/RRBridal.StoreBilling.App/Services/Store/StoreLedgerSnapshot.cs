@@ -24,6 +24,8 @@ public sealed class LedgerBillRow
 
     public required string Status { get; init; }
 
+    public string CounterDisplay { get; init; } = "";
+
     public DateTime SortUtc { get; init; }
 }
 
@@ -47,4 +49,6 @@ public sealed class LedgerPaymentRow
     public required string Status { get; init; }
 
     public required string ProviderReference { get; init; }
+
+    public string CounterDisplay { get; init; } = "";
 }

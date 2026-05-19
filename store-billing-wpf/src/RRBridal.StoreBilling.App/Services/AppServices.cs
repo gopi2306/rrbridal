@@ -34,6 +34,9 @@ public sealed class AppServices
     public required ReceiptLogoCache ReceiptLogoCache { get; init; }
     public required ReceiptConfigSyncService ReceiptConfigSync { get; init; }
     public required StoreContext StoreContext { get; init; }
+    public required BillNumberGenerator BillNumberGenerator { get; init; }
+    public required ShellBrandingService ShellBranding { get; init; }
+    public required StoreInfoClient StoreInfo { get; init; }
     public UserSession? UserSession { get; set; }
 
     public static AppServices CreateDefault()
@@ -41,8 +44,10 @@ public sealed class AppServices
         var storeContext = new StoreContext();
         var localMongoUri = Environment.GetEnvironmentVariable("STORE_MONGO_URI") ?? "mongodb://localhost:27017/rr_bridal_store";
         var centralApiBase = Environment.GetEnvironmentVariable("CENTRAL_API_BASE") ?? "http://localhost:3000";
- //var centralApiBase = Environment.GetEnvironmentVariable("CENTRAL_API_BASE") ?? "http://bridaldev.rrbazaar.in";
-        var mongoClient = new MongoClient(localMongoUri);
+        var mongoSettings = MongoClientSettings.FromConnectionString(localMongoUri);
+        mongoSettings.ConnectTimeout = TimeSpan.FromSeconds(5);
+        mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+        var mongoClient = new MongoClient(mongoSettings);
         var localDb = mongoClient.GetDatabase(new MongoUrl(localMongoUri).DatabaseName ?? "rr_bridal_store");
 
         var authSession = new CentralAuthSession();
@@ -73,6 +78,13 @@ public sealed class AppServices
         var receiptLogoCache = new ReceiptLogoCache(http);
         var companyProfileClient = new CompanyProfileClient(http);
         var storeReceiptClient = new StoreReceiptSettingsClient(http);
+        var storeInfoClient = new StoreInfoClient(http);
+        var shellBranding = new ShellBrandingService(
+            receiptConfig,
+            storeContext,
+            storeInfoClient,
+            authSession,
+            localDb);
         var receiptConfigSync = new ReceiptConfigSyncService(
             companyProfileClient,
             storeReceiptClient,
@@ -83,6 +95,9 @@ public sealed class AppServices
             http);
 
         var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
+        var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
+
+        try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
 
         return new AppServices
         {
@@ -102,6 +117,9 @@ public sealed class AppServices
             ReceiptLogoCache = receiptLogoCache,
             ReceiptConfigSync = receiptConfigSync,
             StoreContext = storeContext,
+            BillNumberGenerator = billNumberGenerator,
+            ShellBranding = shellBranding,
+            StoreInfo = storeInfoClient,
         };
     }
 }

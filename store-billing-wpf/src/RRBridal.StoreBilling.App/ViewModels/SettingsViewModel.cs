@@ -204,6 +204,10 @@ public partial class SettingsViewModel : ObservableObject
                 ReceiptPrinterWarningText = message;
                 ReceiptCentralSyncText = "Pull failed — see message below.";
             }
+            else
+            {
+                _ = _services.ShellBranding.RefreshAsync();
+            }
         }
         catch (Exception ex)
         {
