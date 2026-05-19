@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -40,11 +38,9 @@ public partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private string _windowTitleText = "RR Bridal";
 
-    public ObservableCollection<StoreUserRecord> StoreUsers { get; } = new();
-
-    [ObservableProperty] private StoreUserRecord? _selectedBillingUser;
-
     [ObservableProperty] private string _globalSearchText = "";
+
+    [ObservableProperty] private int _pendingNotificationCount;
 
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
@@ -54,10 +50,21 @@ public partial class ShellViewModel : ObservableObject
 
     public bool ShowLedgerNav => IsPrimaryCounter;
 
-    partial void OnSelectedBillingUserChanged(StoreUserRecord? value)
+    public bool ShowSettingsNav => IsPrimaryCounter;
+
+    public bool HasPendingNotifications => PendingNotificationCount > 0;
+
+    public double NotificationBellOpacity => HasPendingNotifications ? 1.0 : 0.6;
+
+    public string NotificationBellToolTip => HasPendingNotifications
+        ? $"{PendingNotificationCount} pending sync item(s)"
+        : "Notifications";
+
+    partial void OnPendingNotificationCountChanged(int value)
     {
-        if (_services.UserSession is not null && value is not null)
-            _services.UserSession.SelectedBillingUser = value;
+        OnPropertyChanged(nameof(HasPendingNotifications));
+        OnPropertyChanged(nameof(NotificationBellOpacity));
+        OnPropertyChanged(nameof(NotificationBellToolTip));
     }
 
     public ShellViewModel(AppServices services)
@@ -77,8 +84,8 @@ public partial class ShellViewModel : ObservableObject
         if (!IsPrimaryCounter && IsRestrictedPage(CurrentPage))
             CurrentPage = ShellPage.Billing;
 
-        _ = LoadStoreUsersAsync();
         _ = RefreshBrandingAsync();
+        _ = RefreshNotificationCountAsync();
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
@@ -118,23 +125,16 @@ public partial class ShellViewModel : ObservableObject
 
     private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
 
-    private async Task LoadStoreUsersAsync()
+    public async Task RefreshNotificationCountAsync()
     {
         try
         {
-            var users = await _services.LocalAuth.GetAllUsersAsync();
-            StoreUsers.Clear();
-            foreach (var u in users)
-                StoreUsers.Add(u);
-
-            if (_services.UserSession is not null)
-            {
-                SelectedBillingUser = StoreUsers
-                    .FirstOrDefault(u => u.CentralId == _services.UserSession.LoggedInUser.CentralId)
-                    ?? StoreUsers.FirstOrDefault();
-            }
+            PendingNotificationCount = await _services.OutboxNotifications.CountThisCounterPendingAsync();
         }
-        catch { /* best-effort */ }
+        catch
+        {
+            PendingNotificationCount = 0;
+        }
     }
 
     public bool IsBillingPage => CurrentPage == ShellPage.Billing;
@@ -168,6 +168,16 @@ public partial class ShellViewModel : ObservableObject
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
         GlobalSearchText = value == ShellPage.Billing ? Billing.SearchText : "";
+
+        if (value == ShellPage.Billing)
+            RequestBillingSearchFocus();
+    }
+
+    public void RequestBillingSearchFocus()
+    {
+        if (CurrentPage != ShellPage.Billing)
+            return;
+        _services.FocusSearch?.FocusGlobalSearch();
     }
 
     partial void OnGlobalSearchTextChanged(string value)
@@ -209,10 +219,15 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void FocusGlobalSearch()
+    private async Task OpenNotifications()
     {
-        _services.FocusSearch?.FocusGlobalSearch();
+        var dlg = new NotificationsDialog(_services) { Owner = Application.Current.MainWindow };
+        dlg.ShowDialog();
+        await RefreshNotificationCountAsync();
     }
+
+    [RelayCommand]
+    private void FocusGlobalSearch() => _services.FocusSearch?.FocusGlobalSearch();
 
     [RelayCommand]
     private void ShowHelp()
@@ -228,6 +243,7 @@ public partial class ShellViewModel : ObservableObject
         if (!EnsureBillingPage())
             return;
         Billing.ClearForNewBillCommand.Execute(null);
+        RequestBillingSearchFocus();
     }
 
     [RelayCommand]
@@ -252,6 +268,20 @@ public partial class ShellViewModel : ObservableObject
         if (!EnsureBillingPage())
             return;
         Billing.LogStubCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private void Logout()
+    {
+        var answer = MessageBox.Show(
+            "Sign out and return to the login screen?",
+            "RR Bridal Billing",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        App.RequestUserLogout();
     }
 
     [RelayCommand]

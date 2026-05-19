@@ -33,6 +33,7 @@
             <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}" TextWrapping="Wrap" Margin="0,0,0,4"/>
             <TextBlock Text="Sync diagnostics (last pull)" FontWeight="SemiBold" Margin="0,4,0,2"/>
             <TextBlock Text="{Binding SyncDiagnosticsText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding AutoSyncStatusText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
             <Button Content="Run sync once" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding RunSyncOnceCommand}" Margin="0,0,0,16"/>
 
             <Separator Margin="0,8,0,16"/>

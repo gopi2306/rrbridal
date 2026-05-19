@@ -273,6 +273,11 @@
                             </Border>
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding LogoutCommand}" Margin="16,0,0,0"
+                            ToolTip="Sign out and return to login">
+                        <TextBlock Text="Logout" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource BrushNavInactive}" Opacity="0.75" FontSize="13"/>
+                    </Button>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
@@ -282,27 +287,18 @@
                              ToolTip="Type SKU, barcode, or name — press Enter to pick a product"/>
 
                     <Border Background="{StaticResource BrushBackground}" CornerRadius="6" Padding="8,4" Margin="0,0,8,0"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Billing:" Foreground="{StaticResource BrushText}" Opacity="0.6"
-                                       VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0"/>
-                            <ComboBox ItemsSource="{Binding StoreUsers}"
-                                      SelectedItem="{Binding SelectedBillingUser}"
-                                      DisplayMemberPath="Name"
-                                      MinWidth="120" FontSize="12"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Background="{StaticResource BrushBackground}" CornerRadius="6" Padding="8,4" Margin="0,0,8,0"
                             VerticalAlignment="Center" ToolTip="Logged in user">
                         <TextBlock Text="{Binding LoggedInUserName}" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
                     </Border>
 
-                    <Button Content="&#x1F514;" FontSize="16" Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Notifications" Opacity="0.6"/>
+                    <Button Content="&#x1F514;" FontSize="16" Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                            Command="{Binding OpenNotificationsCommand}"
+                            ToolTip="{Binding NotificationBellToolTip}"
+                            Opacity="{Binding NotificationBellOpacity}"/>
                     <Button Content="&#x2699;" FontSize="18" Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
-                            Command="{Binding OpenSettingsCommand}"/>
+                            Command="{Binding OpenSettingsCommand}"
+                            Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"/>
                 </StackPanel>
             </Grid>
         </Border>

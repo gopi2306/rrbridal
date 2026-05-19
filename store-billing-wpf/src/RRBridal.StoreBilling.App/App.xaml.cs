@@ -12,6 +12,28 @@ public partial class App : Application
 {
     public static AppServices Services { get; private set; } = null!;
 
+    private bool _reloginRequested;
+
+    public static void RequestUserLogout()
+    {
+        if (Current is App app)
+            app.RequestUserLogoutInternal();
+    }
+
+    private void RequestUserLogoutInternal()
+    {
+        _reloginRequested = true;
+        Services.PeriodicSync.Stop();
+        Services.UserSession = null;
+        // Keep app alive — OnMainWindowClose would exit when billing window closes.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        if (MainWindow is Window main)
+        {
+            MainWindow = null;
+            main.Close();
+        }
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -62,42 +84,39 @@ public partial class App : Application
                     : $"{syncWarning} No cached users found for store '{Services.StoreContext.StoreId}'.";
             }
 
-            bool? loginOk = null;
-            StoreUserRecord? authenticatedUser = null;
-
-            await Dispatcher.InvokeAsync(() =>
+            while (true)
             {
-                var loginWindow = new LoginWindow(Services, syncWarning);
-                loginOk = loginWindow.ShowDialog();
-                authenticatedUser = loginWindow.AuthenticatedUser;
-            });
+                if (!await TryShowLoginAsync(syncWarning).ConfigureAwait(true))
+                {
+                    Shutdown();
+                    return;
+                }
 
-            if (loginOk != true || authenticatedUser is null)
-            {
+                var authenticatedUser = _lastAuthenticatedUser!;
+                Services.UserSession = new UserSession
+                {
+                    LoggedInUser = authenticatedUser,
+                    SelectedBillingUser = authenticatedUser,
+                };
+
+                try
+                {
+                    await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
+                }
+                catch { /* best-effort after login */ }
+
+                _reloginRequested = false;
+                await ShowMainWindowAsync().ConfigureAwait(true);
+
+                if (_reloginRequested)
+                {
+                    syncWarning = "";
+                    continue;
+                }
+
                 Shutdown();
                 return;
             }
-
-            Services.UserSession = new UserSession
-            {
-                LoggedInUser = authenticatedUser,
-            };
-
-            try
-            {
-                await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
-            }
-            catch { /* best-effort after login */ }
-
-            await Dispatcher.InvokeAsync(() =>
-            {
-                var mainWindow = new MainWindow();
-                MainWindow = mainWindow;
-                ShutdownMode = ShutdownMode.OnMainWindowClose;
-                mainWindow.Show();
-                mainWindow.Activate();
-                mainWindow.Focus();
-            });
         }
         catch (Exception ex)
         {
@@ -108,5 +127,47 @@ public partial class App : Application
                 MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    private StoreUserRecord? _lastAuthenticatedUser;
+
+    private async Task<bool> TryShowLoginAsync(string syncWarning)
+    {
+        bool? loginOk = null;
+        StoreUserRecord? authenticatedUser = null;
+
+        await Dispatcher.InvokeAsync(() =>
+        {
+            var loginWindow = new LoginWindow(Services, syncWarning);
+            loginOk = loginWindow.ShowDialog();
+            authenticatedUser = loginWindow.AuthenticatedUser;
+        });
+
+        _lastAuthenticatedUser = authenticatedUser;
+        return loginOk == true && authenticatedUser is not null;
+    }
+
+    private async Task ShowMainWindowAsync()
+    {
+        var closed = new TaskCompletionSource();
+
+        await Dispatcher.InvokeAsync(() =>
+        {
+            var mainWindow = new MainWindow();
+            MainWindow = mainWindow;
+            mainWindow.Closed += (_, _) =>
+            {
+                Services.PeriodicSync.Stop();
+                if (ReferenceEquals(MainWindow, mainWindow))
+                    MainWindow = null;
+                closed.TrySetResult();
+            };
+            mainWindow.Show();
+            mainWindow.Activate();
+            mainWindow.Focus();
+            Services.PeriodicSync.Start();
+        });
+
+        await closed.Task.ConfigureAwait(true);
     }
 }

@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.ViewModels;
 
@@ -42,6 +43,8 @@ public partial class MainWindow : Window, IFocusSearchService
         {
             shell.EnsurePageVisibilityFresh();
             await shell.RefreshBrandingAsync();
+            await shell.RefreshNotificationCountAsync();
+            shell.RequestBillingSearchFocus();
         }
     }
 
@@ -74,7 +77,14 @@ public partial class MainWindow : Window, IFocusSearchService
 
     public void FocusGlobalSearch()
     {
-        GlobalSearchBox.Focus();
-        Keyboard.Focus(GlobalSearchBox);
+        if (!IsLoaded)
+            return;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            GlobalSearchBox.Focus();
+            Keyboard.Focus(GlobalSearchBox);
+            GlobalSearchBox.CaretIndex = GlobalSearchBox.Text?.Length ?? 0;
+        }, DispatcherPriority.Input);
     }
 }

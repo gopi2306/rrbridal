@@ -54,9 +54,10 @@ public static class DotEnvLoader
 
             var key = line[..equalsAt].Trim();
             var value = line[(equalsAt + 1)..].Trim();
-            if (key.Length == 0 || Environment.GetEnvironmentVariable(key) != null)
+            if (key.Length == 0)
                 continue;
 
+            // .env beside the app wins over pre-existing machine env (e.g. stale SYNC_INTERVAL_MINUTES).
             Environment.SetEnvironmentVariable(key, Unquote(value));
         }
     }

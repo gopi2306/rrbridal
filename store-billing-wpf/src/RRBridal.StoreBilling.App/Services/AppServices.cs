@@ -9,6 +9,7 @@ using RRBridal.StoreBilling.App.Services.PurchaseIntents;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Notifications;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services;
@@ -37,6 +38,9 @@ public sealed class AppServices
     public required BillNumberGenerator BillNumberGenerator { get; init; }
     public required ShellBrandingService ShellBranding { get; init; }
     public required StoreInfoClient StoreInfo { get; init; }
+    public required StoreSyncRunner StoreSyncRunner { get; init; }
+    public required PeriodicSyncService PeriodicSync { get; init; }
+    public required OutboxNotificationService OutboxNotifications { get; init; }
     public UserSession? UserSession { get; set; }
 
     public static AppServices CreateDefault()
@@ -96,6 +100,10 @@ public sealed class AppServices
 
         var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
+        var syncSchedule = new SyncScheduleOptions();
+        var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync);
+        var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
+        var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 
         try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
 
@@ -120,6 +128,9 @@ public sealed class AppServices
             BillNumberGenerator = billNumberGenerator,
             ShellBranding = shellBranding,
             StoreInfo = storeInfoClient,
+            StoreSyncRunner = storeSyncRunner,
+            PeriodicSync = periodicSync,
+            OutboxNotifications = outboxNotifications,
         };
     }
 }

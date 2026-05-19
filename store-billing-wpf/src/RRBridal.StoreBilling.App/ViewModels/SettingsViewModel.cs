@@ -26,6 +26,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _lastErrorText = "";
 
     [ObservableProperty] private string _syncDiagnosticsText = "";
+    [ObservableProperty] private string _autoSyncStatusText = "";
     [ObservableProperty] private string _lastActionText = "";
 
     [ObservableProperty] private string _receiptStoreName = "";
@@ -68,7 +69,25 @@ public partial class SettingsViewModel : ObservableObject
         AuthStatusText = string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken)
             ? "Central auth: not logged in"
             : "Central auth: token loaded";
+        _services.PeriodicSync.StatusChanged += OnPeriodicSyncStatusChanged;
+        UpdateAutoSyncStatusText();
         _ = RefreshStatusAsync();
+    }
+
+    private void OnPeriodicSyncStatusChanged()
+    {
+        OnPropertyChanged(nameof(AutoSyncStatusText));
+        UpdateAutoSyncStatusText();
+    }
+
+    private void UpdateAutoSyncStatusText()
+    {
+        AutoSyncStatusText = _services.PeriodicSync.StatusDescription;
+        if (!string.IsNullOrWhiteSpace(_services.PeriodicSync.LastRunMessage)
+            && _services.PeriodicSync.LastRunUtc.HasValue)
+        {
+            AutoSyncStatusText += Environment.NewLine + _services.PeriodicSync.LastRunMessage;
+        }
     }
 
     public async Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
@@ -291,6 +310,7 @@ public partial class SettingsViewModel : ObservableObject
             ? "(run sync once to load diagnostics)"
             : status.DiagnosticsSummary;
         LastActionText = "Status refreshed.";
+        UpdateAutoSyncStatusText();
     }
 
     [RelayCommand]
@@ -299,18 +319,12 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             LastActionText = "Running sync...";
-            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
-            await _services.SyncEngine.RunOnceAsync(CancellationToken.None);
+            var result = await _services.StoreSyncRunner.RunFullStoreSyncAsync(CancellationToken.None);
 
-            if (!string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
-            {
-                var (ok, msg) = await _services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync(CancellationToken.None);
-                if (ok)
-                    ApplyReceiptFieldsFromConfig();
-                LastActionText = ok ? $"Sync complete. {msg}" : $"Sync finished; receipt pull failed: {msg}";
-            }
-            else
-                LastActionText = "Sync complete. Log in to Central to pull receipt header.";
+            if (!result.SkippedBecauseBusy && !string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+                ApplyReceiptFieldsFromConfig();
+
+            LastActionText = result.SkippedBecauseBusy ? result.Message : result.Message;
         }
         catch (Exception ex)
         {

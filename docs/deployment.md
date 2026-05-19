@@ -45,6 +45,7 @@ Environment (`.env` beside the app or in project root for dev):
 | `POS_COUNTER` | Receipt counter label (e.g. `1`, `2`, `POS2`) |
 | `STORE_MONGO_URI` | Local/store MongoDB (default `mongodb://localhost:27017/rr_bridal_store`) |
 | `CENTRAL_API_BASE` | Central API URL |
+| `SYNC_INTERVAL_MINUTES` | Auto central sync interval in minutes (**counter 1 / `POS_COUNTER=1` only**; default `5`, `0` = off) |
 
 ---
 
