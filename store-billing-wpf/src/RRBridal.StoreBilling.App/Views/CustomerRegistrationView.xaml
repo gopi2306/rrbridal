@@ -15,7 +15,7 @@
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="New customer registration" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                <TextBlock Text="Only customer name and mobile number are required; other fields are optional." FontSize="12"
+                <TextBlock Text="Enter customer name and mobile number to register." FontSize="12"
                            Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -26,143 +26,29 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="1" VerticalAlignment="Top">
+            <Border Style="{StaticResource CardBorder}" Padding="16" MaxWidth="520" HorizontalAlignment="Left">
+                <StackPanel>
+                    <TextBlock Text="CUSTOMER NAME *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,12" ToolTip="Full name"/>
 
-                    <!-- Basic information -->
-                    <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="16">
-                        <StackPanel>
-                            <TextBlock Text="Basic information" FontWeight="SemiBold" FontSize="15" Foreground="{StaticResource BrushText}" Margin="0,0,0,12"/>
-                            <TextBlock Text="CUSTOMER NAME *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,0,0,12" ToolTip="Full name"/>
+                    <TextBlock Text="MOBILE NO. *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Mobile, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"/>
+                    <TextBlock Text="Mobile number is required for billing lookup." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
 
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="12"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="TELEPHONE NO." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Telephone, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="MOBILE NO. *" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Mobile, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock Text="Mobile number is required for billing lookup." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,-8,0,12"/>
-
-                            <TextBlock Text="EMAIL ADDRESS" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-
-                            <TextBlock Text="GSTIN / TAX ID" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Gstin, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-
-                            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="12">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ⓘ" Foreground="{StaticResource BrushAccent}" FontWeight="Bold" Margin="0,0,8,0" VerticalAlignment="Top"/>
-                                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="12"
-                                               Text="Registration stores the customer locally and syncs to central when the API is available."/>
-                                </StackPanel>
-                            </Border>
+                    <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ⓘ" Foreground="{StaticResource BrushAccent}" FontWeight="Bold" Margin="0,0,8,0" VerticalAlignment="Top"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="12"
+                                       Text="Registration stores the customer locally and syncs to central when the API is available."/>
                         </StackPanel>
                     </Border>
-
-                    <!-- Location -->
-                    <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="16">
-                        <StackPanel>
-                            <TextBlock Text="Location details" FontWeight="SemiBold" FontSize="15" Foreground="{StaticResource BrushText}" Margin="0,0,0,12"/>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="12"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="DOOR / FLAT NO." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding DoorNo, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="STREET" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <TextBlock Text="FULL ADDRESS" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FullAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
-
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="120"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="PLACE" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Place, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="CITY" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding City, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="PINCODE" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Pincode, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <TextBlock Text="STATE" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding State, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-
-                            <TextBlock Text="LANDMARK" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Landmark, UpdateSourceTrigger=PropertyChanged}"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <StackPanel Orientation="Horizontal" Margin="0,12,0,8">
-                    <CheckBox Content="Auto-detect location from GPS" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding GpsStub}"
-                              ToolTip="Coming soon" Margin="0,0,24,0"/>
-                    <CheckBox Content="Mark as credit customer" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding IsCreditCustomer}"/>
                 </StackPanel>
-                <TextBlock Text="* Required fields" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" Margin="0,0,0,12"/>
+            </Border>
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="16" Background="{StaticResource BrushSurface}">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="📷" FontSize="28" HorizontalAlignment="Center" Opacity="0.5"/>
-                            <TextBlock Text="Upload photo" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,4"/>
-                            <TextBlock TextWrapping="Wrap" TextAlignment="Center" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
-                                       Text="Optional — not saved in this version."/>
-                        </StackPanel>
-                    </Border>
-                    <Border Grid.Column="2" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="16" MinHeight="120" Background="#FFE8E8EA">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Map preview" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                            <TextBlock TextWrapping="Wrap" TextAlignment="Center" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,8,0,0"
-                                       Text="Location will be pinned upon saving — not implemented in this version."/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <TextBlock Text="{Binding StatusMessage}" Margin="0,12,0,0" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
-            </StackPanel>
-        </ScrollViewer>
+            <TextBlock Text="{Binding StatusMessage}" Margin="0,12,0,0" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+        </StackPanel>
     </Grid>
 </UserControl>
