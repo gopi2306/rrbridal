@@ -11,6 +11,8 @@ public partial class InvoicePrintPreviewWindow : Window
     private readonly FlowDocument _document;
     private readonly bool _printInvoiceEnabled;
 
+    public bool PrintSucceeded { get; private set; }
+
     public InvoicePrintPreviewWindow(AppServices services, FlowDocument document, string invoiceText, bool printInvoiceEnabled)
     {
         InitializeComponent();
@@ -33,22 +35,40 @@ public partial class InvoicePrintPreviewWindow : Window
         }
 
         var print = _services.ReceiptConfig.Current.Print;
+        var printed = false;
 
         if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(print.BillPrinterFullName))
         {
-            BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
-            return;
+            printed = BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
+        }
+        else if (BillPrintService.TryPrintToQueue(_document, print.BillPrinterFullName!, "RR Bridal bill"))
+        {
+            printed = true;
+        }
+        else
+        {
+            var r = MessageBox.Show(
+                $"Could not print to saved printer \"{print.BillPrinterFullName}\". Open the print dialog to pick a printer?",
+                "RR Bridal Billing",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (r == MessageBoxResult.Yes)
+                printed = BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
         }
 
-        if (BillPrintService.TryPrintToQueue(_document, print.BillPrinterFullName!, "RR Bridal bill"))
+        if (!printed)
             return;
 
-        var r = MessageBox.Show(
-            $"Could not print to saved printer \"{print.BillPrinterFullName}\". Open the print dialog to pick a printer?",
-            "RR Bridal Billing",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-        if (r == MessageBoxResult.Yes)
-            BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
+        PrintSucceeded = true;
+        try
+        {
+            DialogResult = true;
+        }
+        catch
+        {
+            /* non-modal owner */
+        }
+
+        Close();
     }
 }

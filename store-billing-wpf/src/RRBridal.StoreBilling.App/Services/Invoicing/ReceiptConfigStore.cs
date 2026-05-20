@@ -18,40 +18,80 @@ public sealed class ReceiptConfigStore
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    private readonly object _lock = new();
     private readonly string _filePath;
+    private readonly string _tempFilePath;
+    private ReceiptConfigDocument _current = new();
+    private bool _hasLoadedFromDisk;
 
     public ReceiptConfigStore()
     {
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RRBridal", "StoreBilling");
         Directory.CreateDirectory(dir);
         _filePath = Path.Combine(dir, "receipt_config.json");
+        _tempFilePath = _filePath + ".tmp";
         Load();
     }
 
-    public ReceiptConfigDocument Current { get; private set; } = new();
+    public ReceiptConfigDocument Current
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _current;
+            }
+        }
+    }
 
     public void Load()
+    {
+        lock (_lock)
+        {
+            LoadCore();
+        }
+    }
+
+    public void Reload() => Load();
+
+    private void LoadCore()
     {
         try
         {
             if (!File.Exists(_filePath))
             {
-                Current = new ReceiptConfigDocument();
+                _current = new ReceiptConfigDocument();
+                _hasLoadedFromDisk = false;
                 return;
             }
 
             var json = File.ReadAllText(_filePath);
-            var doc = JsonSerializer.Deserialize<ReceiptConfigDocument>(json);
-            Current = doc ?? new ReceiptConfigDocument();
-            if (Current.Store.PolicyLines == null)
-                Current.Store.PolicyLines = new List<string>();
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                if (!_hasLoadedFromDisk)
+                    _current = new ReceiptConfigDocument();
+                return;
+            }
+
+            var doc = JsonSerializer.Deserialize<ReceiptConfigDocument>(json, JsonOpts);
+            if (doc == null)
+            {
+                if (!_hasLoadedFromDisk)
+                    _current = new ReceiptConfigDocument();
+                return;
+            }
+
+            if (doc.Store.PolicyLines == null)
+                doc.Store.PolicyLines = new List<string>();
+
+            _current = doc;
+            _hasLoadedFromDisk = true;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"ReceiptConfigStore.Load failed ({_filePath}): {ex.Message}");
-            // Keep previous Current if re-read fails — do not wipe synced data.
-            if (Current.Store.StoreName == "RR Bridal" && string.IsNullOrWhiteSpace(Current.Store.Gstin))
-                Current = new ReceiptConfigDocument();
+            if (!_hasLoadedFromDisk)
+                _current = new ReceiptConfigDocument();
         }
     }
 
@@ -59,9 +99,22 @@ public sealed class ReceiptConfigStore
 
     public async Task SaveAsync(CancellationToken ct = default)
     {
-        var json = JsonSerializer.Serialize(Current, JsonOpts);
-        await File.WriteAllTextAsync(_filePath, json, ct);
-    }
+        string json;
+        lock (_lock)
+        {
+            json = JsonSerializer.Serialize(_current, JsonOpts);
+        }
 
-    public void Reload() => Load();
+        await File.WriteAllTextAsync(_tempFilePath, json, ct).ConfigureAwait(false);
+
+        lock (_lock)
+        {
+            if (File.Exists(_filePath))
+                File.Replace(_tempFilePath, _filePath, null);
+            else
+                File.Move(_tempFilePath, _filePath);
+
+            _hasLoadedFromDisk = true;
+        }
+    }
 }

@@ -90,34 +90,16 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    public async Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
+    public Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
     {
         _services.CentralAuthSession.ApplyTo(_services.CentralApi);
         AuthStatusText = string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken)
             ? "Central auth: not logged in"
             : "Central auth: logged in";
 
-        var shouldPull = forcePullFromCentral
-            || (tryPullIfLoggedIn && !string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken)
-                && (ShouldPullReceiptProfile()));
-
-        if (shouldPull)
-            await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
-        else
-        {
-            _services.ReceiptConfig.Reload();
-            ApplyReceiptFieldsFromConfig();
-        }
-    }
-
-    private bool ShouldPullReceiptProfile()
-    {
-        if (!_services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc.HasValue)
-            return true;
-
-        var s = _services.ReceiptConfig.Current.Store;
-        return string.Equals(s.StoreName, "RR Bridal", StringComparison.OrdinalIgnoreCase)
-            && string.IsNullOrWhiteSpace(s.Gstin);
+        _services.ReceiptConfig.Reload();
+        ApplyReceiptFieldsFromConfig();
+        return Task.CompletedTask;
     }
 
     public void LoadReceiptSettings() => _ = LoadReceiptSettingsAsync();
@@ -192,46 +174,14 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task PullReceiptFromCentralAsync() => await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
-
-    private async Task PullReceiptFromCentralAsync(bool refreshUiFromMemory)
+    public void PullReceiptFromCentralAsync()
     {
-        try
-        {
-            if (string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
-            {
-                LastActionText = "Log in to Central first (email + password above), then pull.";
-                ReceiptCentralSyncText = "Not synced — central login required.";
-                return;
-            }
-
-            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
-            LastActionText = "Pulling receipt settings from central...";
-            var (ok, message) = await _services.ReceiptConfigSync.SyncFromCentralAsync(CancellationToken.None);
-
-            if (ok && refreshUiFromMemory)
-                ApplyReceiptFieldsFromConfig();
-            else
-            {
-                _services.ReceiptConfig.Reload();
-                ApplyReceiptFieldsFromConfig();
-            }
-
-            LastActionText = message;
-            if (!ok)
-            {
-                ReceiptPrinterWarningText = message;
-                ReceiptCentralSyncText = "Pull failed — see message below.";
-            }
-            else
-            {
-                _ = _services.ShellBranding.RefreshAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            LastActionText = ex.Message;
-        }
+        _services.ReceiptConfig.Reload();
+        ApplyReceiptFieldsFromConfig();
+        LastActionText = "Loaded saved receipt settings. Company master updates only via Run sync once.";
+        ReceiptCentralSyncText = _services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc.HasValue
+            ? $"Last synced via store sync: {_services.ReceiptConfig.Current.Store.StoreName} at {_services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc!.Value.ToLocalTime():g}"
+            : "Not synced yet — use Run sync once (after Central login).";
     }
 
     [RelayCommand]
@@ -282,7 +232,9 @@ public partial class SettingsViewModel : ObservableObject
 
             AuthStatusText = "Logged in";
             LoginPassword = "";
-            await PullReceiptFromCentralAsync(refreshUiFromMemory: true);
+            LastActionText = "Logged in. Use Run sync once to save company master and printer from central.";
+            _services.ReceiptConfig.Reload();
+            ApplyReceiptFieldsFromConfig();
         }
         catch (Exception ex)
         {
@@ -321,8 +273,12 @@ public partial class SettingsViewModel : ObservableObject
             LastActionText = "Running sync...";
             var result = await _services.StoreSyncRunner.RunFullStoreSyncAsync(CancellationToken.None);
 
-            if (!result.SkippedBecauseBusy && !string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+            if (!result.SkippedBecauseBusy)
+            {
+                _services.ReceiptConfig.Reload();
                 ApplyReceiptFieldsFromConfig();
+                _ = _services.ShellBranding.RefreshAsync();
+            }
 
             LastActionText = result.SkippedBecauseBusy ? result.Message : result.Message;
         }

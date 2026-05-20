@@ -13,18 +13,21 @@ public sealed class StoreSyncRunner
     private readonly CentralAuthSession _authSession;
     private readonly HttpClient _centralApi;
     private readonly ReceiptConfigSyncService _receiptConfigSync;
+    private readonly ShellBrandingService? _shellBranding;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public StoreSyncRunner(
         ISyncEngine syncEngine,
         CentralAuthSession authSession,
         HttpClient centralApi,
-        ReceiptConfigSyncService receiptConfigSync)
+        ReceiptConfigSyncService receiptConfigSync,
+        ShellBrandingService? shellBranding = null)
     {
         _syncEngine = syncEngine;
         _authSession = authSession;
         _centralApi = centralApi;
         _receiptConfigSync = receiptConfigSync;
+        _shellBranding = shellBranding;
     }
 
     public SemaphoreSlim SyncLock => _syncLock;
@@ -46,15 +49,23 @@ public sealed class StoreSyncRunner
             _authSession.ApplyTo(_centralApi);
             await _syncEngine.RunOnceAsync(ct).ConfigureAwait(false);
 
-            if (!string.IsNullOrEmpty(_authSession.AccessToken))
+            if (string.IsNullOrEmpty(_authSession.AccessToken))
+                return SyncRunResult.Ok("Sync complete. Log in to Central (Settings) for company master and printer.");
+
+            var receiptNote = _receiptConfigSync.IsProfileReadyForPrint()
+                ? "Company master and printer saved."
+                : "Company master not saved — check Central login and backend seed.";
+
+            if (_shellBranding != null)
             {
-                var (ok, msg) = await _receiptConfigSync.EnsureProfileReadyForPrintAsync(ct).ConfigureAwait(false);
-                return ok
-                    ? SyncRunResult.Ok($"Sync complete. {msg}")
-                    : SyncRunResult.Ok($"Sync finished; receipt pull failed: {msg}");
+                try
+                {
+                    await _shellBranding.RefreshAsync(ct).ConfigureAwait(false);
+                }
+                catch { /* best-effort */ }
             }
 
-            return SyncRunResult.Ok("Sync complete. Log in to Central to pull receipt header.");
+            return SyncRunResult.Ok($"Sync complete. {receiptNote}");
         }
         catch (Exception ex)
         {

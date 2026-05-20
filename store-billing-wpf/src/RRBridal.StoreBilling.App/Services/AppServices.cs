@@ -101,7 +101,7 @@ public sealed class AppServices
         var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
         var syncSchedule = new SyncScheduleOptions();
-        var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync);
+        var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync, shellBranding);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 

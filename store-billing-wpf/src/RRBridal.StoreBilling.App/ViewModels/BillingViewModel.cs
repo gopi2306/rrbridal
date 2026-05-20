@@ -838,7 +838,7 @@ public partial class BillingViewModel : ObservableObject
             ClearForNewBill();
 
             if (printInput != null)
-                await ShowInvoicePrintDialogAsync(paymentVm.Outcome, printInvoiceEnabled: true, prebuiltInput: printInput);
+                await ShowInvoicePrintDialogAsync(paymentVm.Outcome, printInvoiceEnabled: true, prebuiltInput: printInput, clearBillingAfterPrint: false);
         }
         catch (Exception ex)
         {
@@ -849,7 +849,8 @@ public partial class BillingViewModel : ObservableObject
     private async Task ShowInvoicePrintDialogAsync(
         PaymentOutcome? paymentOutcome,
         bool printInvoiceEnabled,
-        ThermalInvoiceInput? prebuiltInput = null)
+        ThermalInvoiceInput? prebuiltInput = null,
+        bool clearBillingAfterPrint = true)
     {
         try
         {
@@ -878,6 +879,14 @@ public partial class BillingViewModel : ObservableObject
                 Owner = Application.Current.MainWindow,
             };
             dlg.ShowDialog();
+
+            if (!dlg.PrintSucceeded)
+                return;
+
+            if (clearBillingAfterPrint)
+                ClearForNewBill();
+
+            _services.FocusSearch?.FocusGlobalSearch();
         }
         catch (Exception ex)
         {
@@ -918,7 +927,7 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        await ShowInvoicePrintDialogAsync(paymentOutcome: null, printInvoiceEnabled: PrintInvoice);
+        await ShowInvoicePrintDialogAsync(paymentOutcome: null, printInvoiceEnabled: PrintInvoice, clearBillingAfterPrint: true);
     }
 
     private ThermalInvoiceInput BuildThermalInput(PaymentOutcome? paymentOutcome)

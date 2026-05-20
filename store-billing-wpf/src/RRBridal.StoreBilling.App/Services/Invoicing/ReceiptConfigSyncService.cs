@@ -48,21 +48,38 @@ public sealed class ReceiptConfigSyncService
 
     public async Task<(bool Ok, string Message)> EnsureProfileReadyForPrintAsync(CancellationToken ct = default)
     {
+        if (IsProfileReadyForPrint())
+            return (true, $"Receipt profile ready: {_config.Current.Store.StoreName}");
+
         _config.Reload();
         if (IsProfileReadyForPrint())
             return (true, $"Receipt profile ready: {_config.Current.Store.StoreName}");
 
-        if (string.IsNullOrEmpty(_authSession.AccessToken))
-        {
-            return (false,
-                "Receipt header not synced. Open Settings, log in to Central, and use \"Pull receipt settings from central\".");
-        }
-
-        _authSession.ApplyTo(_centralHttp);
-        return await SyncFromCentralAsync(ct);
+        return (false,
+            "Receipt header not synced. Open Settings, log in to Central, then use Run sync once.");
     }
 
-    private static bool LooksLikeUnsyncedDefault(StoreProfile store) =>
+    /// <summary>
+    /// Pull company master + printer from central and save to receipt_config.json.
+    /// Only call from store sync (Run sync once, periodic sync, notifications Sync now).
+    /// </summary>
+    public async Task<(bool Ok, string Message)> SyncReceiptFromCentralOnStoreSyncAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(_authSession.AccessToken))
+            return (false, "Central login required for company master sync.");
+
+        _authSession.ApplyTo(_centralHttp);
+        try
+        {
+            return await SyncFromCentralAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public static bool LooksLikeUnsyncedDefault(StoreProfile store) =>
         string.Equals(store.StoreName, "RR Bridal", StringComparison.OrdinalIgnoreCase)
         && string.IsNullOrWhiteSpace(store.Gstin);
 
@@ -112,10 +129,16 @@ public sealed class ReceiptConfigSyncService
         else if (!string.IsNullOrWhiteSpace(legal))
             store.StoreName = legal;
 
-        store.Address = BuildAddress(profile);
+        var address = BuildAddress(profile);
+        if (!string.IsNullOrWhiteSpace(address))
+            store.Address = address;
+
         store.Gstin = GetString(profile, "gstin") ?? store.Gstin;
         store.CustomerCarePhone = GetString(profile, "phone") ?? store.CustomerCarePhone;
-        store.LogoUrl = GetString(profile, "companyLogo");
+
+        var logo = GetString(profile, "companyLogo");
+        if (!string.IsNullOrWhiteSpace(logo))
+            store.LogoUrl = logo;
 
         store.FssaiNo = GetString(profile, "fssaiNo") ?? GetExtraString(profile, "fssaiNo") ?? store.FssaiNo;
         store.BranchCode = GetExtraString(profile, "branchCode")
@@ -129,24 +152,13 @@ public sealed class ReceiptConfigSyncService
             ?? GetExtraString(profile, "thankYouLine")
             ?? store.ThankYouLine;
 
-        if (TryGetProperty(profile, "policyLines", out var pl) && pl.ValueKind == JsonValueKind.Array)
-        {
-            store.PolicyLines = pl.EnumerateArray()
-                .Select(e => e.GetString() ?? "")
-                .Where(s => s.Length > 0)
-                .ToList();
-        }
-        else if (TryGetProperty(profile, "extraFields", out var extra)
-            && TryGetProperty(extra, "policyLines", out var epl)
-            && epl.ValueKind == JsonValueKind.Array)
-        {
-            store.PolicyLines = epl.EnumerateArray()
-                .Select(e => e.GetString() ?? "")
-                .Where(s => s.Length > 0)
-                .ToList();
-        }
+        var policyLines = ParsePolicyLines(profile);
+        if (policyLines.Count > 0)
+            store.PolicyLines = policyLines;
 
-        store.QrSlots = ParseQrSlots(profile);
+        var qrSlots = ParseQrSlots(profile);
+        if (qrSlots.Count > 0)
+            store.QrSlots = qrSlots;
         if (TryGetProperty(profile, "receiptBarcodeEnabled", out var bce)
             && (bce.ValueKind == JsonValueKind.True || bce.ValueKind == JsonValueKind.False))
             store.ShowBillBarcode = bce.GetBoolean();
@@ -167,12 +179,37 @@ public sealed class ReceiptConfigSyncService
 
         var queueHint = GetString(settings, "billPrinterQueueName");
         var modelHint = GetString(settings, "printerModel");
-        print.CentralPrinterHint = queueHint;
-        print.CentralPrinterModel = modelHint;
+        if (!string.IsNullOrWhiteSpace(queueHint))
+            print.CentralPrinterHint = queueHint;
+        if (!string.IsNullOrWhiteSpace(modelHint))
+            print.CentralPrinterModel = modelHint;
 
         var resolved = PrinterQueueResolver.ResolveFullName(queueHint, modelHint);
         if (!string.IsNullOrWhiteSpace(resolved))
             print.BillPrinterFullName = resolved;
+    }
+
+    private static List<string> ParsePolicyLines(JsonElement profile)
+    {
+        if (TryGetProperty(profile, "policyLines", out var pl) && pl.ValueKind == JsonValueKind.Array)
+        {
+            return pl.EnumerateArray()
+                .Select(e => e.GetString() ?? "")
+                .Where(s => s.Length > 0)
+                .ToList();
+        }
+
+        if (TryGetProperty(profile, "extraFields", out var extra)
+            && TryGetProperty(extra, "policyLines", out var epl)
+            && epl.ValueKind == JsonValueKind.Array)
+        {
+            return epl.EnumerateArray()
+                .Select(e => e.GetString() ?? "")
+                .Where(s => s.Length > 0)
+                .ToList();
+        }
+
+        return new List<string>();
     }
 
     private static List<ReceiptQrSlotConfig> ParseQrSlots(JsonElement profile)

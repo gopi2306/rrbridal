@@ -77,7 +77,10 @@ public sealed class SyncEngine : ISyncEngine
         try { await SyncStoreUsersAsync(ct); } catch { /* store user sync is best-effort */ }
         if (_receiptConfigSync != null)
         {
-            try { await _receiptConfigSync.EnsureProfileReadyForPrintAsync(ct); } catch { /* receipt settings sync is best-effort */ }
+            if (_receiptConfigSync != null)
+            {
+                try { await _receiptConfigSync.SyncReceiptFromCentralOnStoreSyncAsync(ct); } catch { /* company master save is best-effort */ }
+            }
         }
     }
 

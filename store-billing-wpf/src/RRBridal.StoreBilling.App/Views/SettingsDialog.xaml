@@ -64,10 +64,10 @@
             <TextBlock Text="Thank-you line" Margin="0,0,0,4"/>
             <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptThankYouLine, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 
-            <TextBlock Text="Requires Central login above (e.g. ravi@rrbridal.com). Pull replaces local header/footer with company profile from central."
+            <TextBlock Text="Company master and printer are saved from central only when you use Run sync once (below). Edit fields here and Save receipt settings for local-only changes until the next sync."
                        TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
             <TextBlock Text="{Binding ReceiptCentralSyncText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
-            <Button Content="Pull receipt settings from central" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left"
+            <Button Content="Reload saved receipt settings" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left"
                     Command="{Binding PullReceiptFromCentralCommand}" Margin="0,0,0,12"/>
 
             <TextBlock FontWeight="SemiBold" Text="Printer" Margin="0,0,0,4"/>
