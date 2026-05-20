@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -10,10 +11,12 @@ namespace RRBridal.StoreBilling.App.Services.Auth;
 public sealed class LocalAuthService
 {
     private readonly IMongoCollection<BsonDocument> _storeUsers;
+    private readonly StoreContext _storeContext;
 
-    public LocalAuthService(IMongoDatabase localDb)
+    public LocalAuthService(IMongoDatabase localDb, StoreContext storeContext)
     {
         _storeUsers = localDb.GetCollection<BsonDocument>("store_users");
+        _storeContext = storeContext;
     }
 
     public async Task<IReadOnlyList<StoreUserRecord>> GetAllUsersAsync(CancellationToken ct = default)
@@ -26,20 +29,78 @@ public sealed class LocalAuthService
         return docs.Select(MapToRecord).ToList();
     }
 
-    public async Task<StoreUserRecord?> ValidateAsync(string email, string password, CancellationToken ct = default)
+    /// <summary>Login with machine lock: one active session per user per DEVICE_ID across store tills.</summary>
+    public async Task<(StoreUserRecord? User, string? Error)> TryLoginAsync(
+        string email,
+        string password,
+        CancellationToken ct = default)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var filter = Builders<BsonDocument>.Filter.Eq("email", normalizedEmail);
         var doc = await _storeUsers.Find(filter).FirstOrDefaultAsync(ct);
-        if (doc is null) return null;
+        if (doc is null)
+            return (null, null);
 
         var hash = doc.GetValue("passwordHash", "").AsString;
-        if (string.IsNullOrEmpty(hash)) return null;
+        if (string.IsNullOrEmpty(hash) || !BCrypt.Net.BCrypt.Verify(password, hash))
+            return (null, null);
 
-        if (!BCrypt.Net.BCrypt.Verify(password, hash))
+        var activeMachineId = ReadString(doc, "activeMachineId");
+        var currentDevice = _storeContext.DeviceId.Trim();
+        if (!string.IsNullOrEmpty(activeMachineId)
+            && !string.Equals(activeMachineId, currentDevice, StringComparison.OrdinalIgnoreCase))
+        {
+            var pos = ReadInt(doc, "activePosCounter");
+            var tillLabel = pos > 0 ? $"POS{pos}" : "another till";
+            return (null,
+                $"This user is already logged in on {tillLabel} · {activeMachineId}. Log out on that till first.");
+        }
+
+        var posCounter = int.TryParse(_storeContext.PosCounter, out var pc) ? pc : 1;
+        var update = Builders<BsonDocument>.Update
+            .Set("activeMachineId", currentDevice)
+            .Set("activePosCounter", posCounter);
+
+        await _storeUsers.UpdateOneAsync(filter, update, cancellationToken: ct);
+
+        doc["activeMachineId"] = currentDevice;
+        doc["activePosCounter"] = posCounter;
+
+        return (MapToRecord(doc), null);
+    }
+
+    /// <summary>Clears machine lock for this till only (logout / app exit).</summary>
+    public async Task<bool> ReleaseSessionAsync(string email, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("email", normalizedEmail),
+            Builders<BsonDocument>.Filter.Eq("activeMachineId", _storeContext.DeviceId));
+
+        var update = Builders<BsonDocument>.Update
+            .Unset("activeMachineId")
+            .Unset("activePosCounter");
+
+        var result = await _storeUsers.UpdateOneAsync(filter, update, cancellationToken: ct);
+        return result.ModifiedCount > 0 || result.MatchedCount > 0;
+    }
+
+    private static string? ReadString(BsonDocument doc, string key)
+    {
+        if (!doc.TryGetValue(key, out var v) || v.IsBsonNull)
             return null;
+        var s = v.IsString ? v.AsString : v.ToString();
+        return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    }
 
-        return MapToRecord(doc);
+    private static int ReadInt(BsonDocument doc, string key)
+    {
+        if (!doc.TryGetValue(key, out var v) || v.IsBsonNull)
+            return 0;
+        return v.IsInt32 ? v.AsInt32 : v.IsInt64 ? (int)v.AsInt64 : 0;
     }
 
     private static StoreUserRecord MapToRecord(BsonDocument doc)

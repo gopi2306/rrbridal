@@ -63,10 +63,12 @@ public partial class LoginViewModel : ObservableObject
         IsLoggingIn = true;
         try
         {
-            var user = await _authService.ValidateAsync(Email, Password);
+            var (user, error) = await _authService.TryLoginAsync(Email, Password);
             if (user is null)
             {
-                ErrorMessage = "Invalid email or password.";
+                ErrorMessage = string.IsNullOrEmpty(error)
+                    ? "Invalid email or password."
+                    : error;
                 return;
             }
 

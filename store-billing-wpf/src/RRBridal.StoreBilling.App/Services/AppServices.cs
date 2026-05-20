@@ -73,7 +73,7 @@ public sealed class AppServices
             storeContext);
 
         var masterData = new MasterDataService(localDb, http);
-        var localAuth = new LocalAuthService(localDb);
+        var localAuth = new LocalAuthService(localDb, storeContext);
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var productCatalog = new ProductCatalogService(localDb, http);

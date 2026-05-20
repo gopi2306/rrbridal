@@ -24,7 +24,10 @@ public partial class App : Application
     {
         _reloginRequested = true;
         Services.PeriodicSync.Stop();
+        var email = Services.UserSession?.LoggedInUser.Email;
         Services.UserSession = null;
+        if (!string.IsNullOrWhiteSpace(email))
+            _ = ReleaseSessionForEmailAsync(email);
         // Keep app alive — OnMainWindowClose would exit when billing window closes.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         if (MainWindow is Window main)
@@ -158,6 +161,8 @@ public partial class App : Application
             mainWindow.Closed += (_, _) =>
             {
                 Services.PeriodicSync.Stop();
+                if (!_reloginRequested)
+                    _ = ReleaseCurrentUserSessionAsync();
                 if (ReferenceEquals(MainWindow, mainWindow))
                     MainWindow = null;
                 closed.TrySetResult();
@@ -169,5 +174,26 @@ public partial class App : Application
         });
 
         await closed.Task.ConfigureAwait(true);
+    }
+
+    private static async Task ReleaseCurrentUserSessionAsync()
+    {
+        var email = Services.UserSession?.LoggedInUser.Email;
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        await ReleaseSessionForEmailAsync(email).ConfigureAwait(false);
+    }
+
+    private static async Task ReleaseSessionForEmailAsync(string email)
+    {
+        try
+        {
+            await Services.LocalAuth.ReleaseSessionAsync(email).ConfigureAwait(false);
+        }
+        catch
+        {
+            /* best-effort */
+        }
     }
 }

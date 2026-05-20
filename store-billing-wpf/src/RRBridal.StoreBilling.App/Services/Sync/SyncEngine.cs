@@ -266,6 +266,9 @@ public sealed class SyncEngine : ISyncEngine
                 : "";
             if (string.IsNullOrWhiteSpace(id)) continue;
 
+            var filter = Builders<BsonDocument>.Filter.Eq("centralId", id);
+            var existing = await collection.Find(filter).FirstOrDefaultAsync(ct);
+
             var bsonDoc = new BsonDocument
             {
                 { "centralId", id },
@@ -278,7 +281,11 @@ public sealed class SyncEngine : ISyncEngine
                 { "lastSyncedAt", DateTime.UtcNow.ToString("O") },
             };
 
-            var filter = Builders<BsonDocument>.Filter.Eq("centralId", id);
+            if (existing?.TryGetValue("activeMachineId", out var mid) == true && !mid.IsBsonNull)
+                bsonDoc["activeMachineId"] = mid;
+            if (existing?.TryGetValue("activePosCounter", out var pc) == true && !pc.IsBsonNull)
+                bsonDoc["activePosCounter"] = pc;
+
             await collection.ReplaceOneAsync(filter, bsonDoc, new ReplaceOptions { IsUpsert = true }, ct);
         }
     }
