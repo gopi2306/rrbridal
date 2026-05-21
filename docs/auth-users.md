@@ -65,6 +65,23 @@ Send `Authorization: Bearer <accessToken>` on protected routes.
 
 `locationKind: store` requires a non-empty `storeId`.
 
+## Role access (screen permissions)
+
+Collection `role_access`: `role`, `area`, `screen`, `allow`, `status` (`active` | `inactive`). One row per `(role, area, screen)`.
+
+Admin APIs (JWT + role `admin` or `super_admin`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/admin/role-access` | Create or upsert one row (`role`, `area`, `screen`, `allow`, `status`). |
+| `POST` | `/admin/role-access/filter` | Filter rows (`role`, `area`, `screen`, `allow`, `status`, pagination). |
+| `GET` | `/admin/role-access/by-role/:role` | List active permissions for a role. |
+| `PATCH` | `/admin/role-access/by-role/:role` | Bulk save `{ "permissions": [{ "area", "screen", "allow" }] }`. |
+| `POST` | `/admin/role-access/by-role/:role/allow-all` | Set `allow: true` on all active rows for the role. |
+| `GET` | `/admin/role-access/:id` | Get one row. |
+| `PATCH` | `/admin/role-access/:id` | Update `allow` / `status`. |
+| `DELETE` | `/admin/role-access/:id` | Soft-disable (`status: inactive`, `allow: false`). |
+
 ## Store WPF client
 
 - On startup, loads `%LocalAppData%\RRBridal\StoreBilling\central_auth.json` if present and sets `Authorization: Bearer` on the shared `HttpClient`.
