@@ -47,6 +47,7 @@ import { BranchesModule } from '../branches/branches.module';
 import { DivisionsModule } from '../divisions/divisions.module';
 import { LocationsModule } from '../locations/locations.module';
 import { SeedModule } from '../seed/seed.module';
+import { RoleAccessModule } from '../role-access/role-access.module';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { SeedModule } from '../seed/seed.module';
     DivisionsModule,
     LocationsModule,
     SeedModule,
+    RoleAccessModule,
   ],
   controllers: [AppController],
 })
