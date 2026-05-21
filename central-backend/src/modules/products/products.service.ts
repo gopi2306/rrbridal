@@ -1,10 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
+import {
+  isValidObjectIdString,
+  PRODUCT_REF_OBJECT_ID_FIELDS,
+  stripInvalidObjectIdRefs,
+  toObjectId,
+} from '../../common/object-id.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product, ProductDocument } from './schemas/product.schema';
+
 
 @Injectable()
 export class ProductsService {
@@ -18,13 +25,15 @@ export class ProductsService {
   }
 
   async findById(id: string) {
-    const doc = await this.productModel.findById(id).lean();
+    if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
+    const doc = await this.productModel.findById(toObjectId(id)).lean();
     if (!doc) throw new NotFoundException('Product not found');
     return doc;
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    const doc = await this.productModel.findByIdAndUpdate(id, { $set: dto }, { new: true }).lean();
+    if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
+    const doc = await this.productModel.findByIdAndUpdate(toObjectId(id), { $set: dto }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Product not found');
     return doc;
   }
@@ -66,8 +75,8 @@ export class ProductsService {
 
     if (params.sku) filter.sku = params.sku;
     if (params.upcEanCode) filter.upcEanCode = params.upcEanCode;
-    if (params.categoryId) filter.categoryId = params.categoryId;
-    if (params.supplierNameId) filter.supplierNameId = params.supplierNameId;
+    if (isValidObjectIdString(params.categoryId)) filter.categoryId = toObjectId(params.categoryId);
+    if (isValidObjectIdString(params.supplierNameId)) filter.supplierNameId = toObjectId(params.supplierNameId);
 
     if (params.search) {
       filter.$or = [
@@ -114,9 +123,10 @@ export class ProductsService {
     ] as const;
 
     for (const field of exactMatchFields) {
-      if (dto[field] !== undefined && dto[field] !== null) {
-        filter[field] = dto[field];
-      }
+      const raw = dto[field];
+      if (raw === undefined || raw === null) continue;
+      if (typeof raw === 'string' && !isValidObjectIdString(raw)) continue;
+      filter[field] = typeof raw === 'string' ? toObjectId(raw) : raw;
     }
 
     if (dto.isActive !== undefined && dto.isActive !== null) {
@@ -151,40 +161,23 @@ export class ProductsService {
     const sortBy = dto.sortBy ?? 'updatedAt';
     const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .populate([
-          'manufacturerNameId',
-          'supplierNameId',
-          'departmentId',
-          'categoryId',
-          'subCategoryId',
-          'brandId',
-          'weightAndSizeId',
-          'weightPerGmOrMlId',
-          'offerGroupId',
-          'productStatusId',
-          'colourId',
-          'hsnCodeId',
-          'gstUomId',
-          'uomSubId',
-          'batchExpiryDetailId',
-          'itemPrepStatusId',
-          'packedConfirmationId',
-          'poQtyPolicyId',
-          'sellById',
-          'batchSelectionId',
-          'skuTypeId',
-          'skuOrderGroupId',
-          'indentTypeId',
-        ])
         .sort({ [sortBy]: sortOrder })
         .skip(skip)
         .limit(limit)
         .lean(),
       this.productModel.countDocuments(filter),
     ]);
+
+    const data = rawData.map((row) =>
+      stripInvalidObjectIdRefs({ ...row } as Record<string, unknown>, PRODUCT_REF_OBJECT_ID_FIELDS),
+    );
+    await this.productModel.populate(
+      data,
+      PRODUCT_REF_OBJECT_ID_FIELDS.map((path) => ({ path })),
+    );
 
     return {
       data,

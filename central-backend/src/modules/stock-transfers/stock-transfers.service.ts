@@ -64,6 +64,32 @@ export class StockTransfersService {
     return new Types.ObjectId(id);
   }
 
+  private async assertSufficientWarehouseStock(lines: { sku: string; qty: number }[]) {
+    const requestedBySku = new Map<string, number>();
+    for (const line of lines) {
+      const sku = line.sku.trim();
+      if (!sku) continue;
+      requestedBySku.set(sku, (requestedBySku.get(sku) ?? 0) + line.qty);
+    }
+    if (requestedBySku.size === 0) return;
+
+    const availableBySku = await this.inventoryService.getWarehouseQtyBySkus([...requestedBySku.keys()]);
+    const shortages: string[] = [];
+    for (const [sku, requested] of requestedBySku) {
+      const available = availableBySku.get(sku) ?? 0;
+      if (available < requested) {
+        shortages.push(
+          `SKU '${sku}': requested ${requested}, available ${available}`,
+        );
+      }
+    }
+    if (shortages.length > 0) {
+      throw new BadRequestException(
+        `Insufficient warehouse stock. ${shortages.join('; ')}`,
+      );
+    }
+  }
+
   private assertTransition(from: StockTransferStatus, to: StockTransferStatus) {
     if (from === to) return;
     if (terminal.includes(from)) {
@@ -82,6 +108,8 @@ export class StockTransfersService {
     const storeExists = await this.storesService.existsByCode(dto.toStoreId);
     if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${dto.toStoreId}'`);
     const fromLocationId = await this.resolveFromLocationId(dto.locationId);
+    const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
+    await this.assertSufficientWarehouseStock(lines);
     const transferNo = await this.nextTransferNo();
     return await this.model.create({
       transferNo,
@@ -92,7 +120,7 @@ export class StockTransfersService {
       transferDate: dto.transferDate,
       remarks: dto.remarks,
       stockClassification: this.normalizeStockClassification(dto.stockClassification),
-      lines: dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty })),
+      lines,
     });
   }
 
@@ -130,6 +158,7 @@ export class StockTransfersService {
       return line;
     });
 
+    await this.assertSufficientWarehouseStock(lines);
     const transferNo = await this.nextTransferNo();
     const fromLocationId = await this.resolveFromLocationId(dto.locationId);
     return await this.model.create({
@@ -175,7 +204,9 @@ export class StockTransfersService {
     }
     if (dto.lines !== undefined) {
       if (!dto.lines.length) throw new BadRequestException('lines must contain at least one item');
-      set.lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
+      const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
+      await this.assertSufficientWarehouseStock(lines);
+      set.lines = lines;
     }
     const updateOps: UpdateQuery<StockTransferDocument> = {};
     if (Object.keys(set).length) updateOps.$set = set;
@@ -301,6 +332,7 @@ export class StockTransfersService {
     const note = doc.transferNo;
 
     if (from === 'draft' && to === 'in_transit') {
+      await this.assertSufficientWarehouseStock(lines);
       await this.inventoryService.addLedgerEntries([
         ...lines.map((l) => ({
           sku: l.sku,

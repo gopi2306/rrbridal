@@ -97,6 +97,17 @@ export class InventoryService {
     };
   }
 
+  /** Warehouse on-hand qty per SKU (global pool from ledger `locationKind: warehouse`). */
+  async getWarehouseQtyBySkus(skus: string[]): Promise<Map<string, number>> {
+    const trimmed = [...new Set(skus.map((s) => s.trim()).filter(Boolean))];
+    const balanceMap = await this.aggregateBalancesForSkus(trimmed);
+    const result = new Map<string, number>();
+    for (const sku of trimmed) {
+      result.set(sku, balanceMap.get(sku)?.warehouseQty ?? 0);
+    }
+    return result;
+  }
+
   private sumStoreQty(storeById: Map<string, number>, filterStoreId?: string): number {
     if (filterStoreId) return storeById.get(filterStoreId) ?? 0;
     let sum = 0;

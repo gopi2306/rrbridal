@@ -1,5 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Models;
 
@@ -21,8 +22,10 @@ public partial class BillingLineItem : ObservableObject
 
     [ObservableProperty] private decimal amount;
 
+    /// <summary>Item discount share (₹) taken from tax-inclusive line total.</summary>
     [ObservableProperty] private decimal discountAmount;
 
+    /// <summary>Cash discount share (₹) taken from tax-inclusive line total.</summary>
     [ObservableProperty] private decimal cashDiscountAmount;
 
     [ObservableProperty] private decimal mrp;
@@ -38,6 +41,42 @@ public partial class BillingLineItem : ObservableObject
     [ObservableProperty] private decimal sgstAmount;
     [ObservableProperty] private decimal igstAmount;
     [ObservableProperty] private decimal taxAmount;
+
+    private decimal _originalTaxAmount;
+    private decimal _originalInclusiveAmount;
+    private decimal _revisedAmount;
+    private decimal _revisedTaxAmount;
+    private decimal _revisedInclusiveAmount;
+
+    public decimal OriginalTaxAmount
+    {
+        get => _originalTaxAmount;
+        private set => SetProperty(ref _originalTaxAmount, value);
+    }
+
+    public decimal OriginalInclusiveAmount
+    {
+        get => _originalInclusiveAmount;
+        private set => SetProperty(ref _originalInclusiveAmount, value);
+    }
+
+    public decimal RevisedAmount
+    {
+        get => _revisedAmount;
+        private set => SetProperty(ref _revisedAmount, value);
+    }
+
+    public decimal RevisedTaxAmount
+    {
+        get => _revisedTaxAmount;
+        private set => SetProperty(ref _revisedTaxAmount, value);
+    }
+
+    public decimal RevisedInclusiveAmount
+    {
+        get => _revisedInclusiveAmount;
+        private set => SetProperty(ref _revisedInclusiveAmount, value);
+    }
 
     partial void OnQtyChanged(decimal value) => Recalc();
     partial void OnRateChanged(decimal value) => Recalc();
@@ -67,10 +106,19 @@ public partial class BillingLineItem : ObservableObject
             IgstPercent = 0;
         }
 
-        var taxable = Math.Max(0m, Amount - DiscountAmount - CashDiscountAmount);
-        CgstAmount = Math.Round(taxable * CgstPercent / 100m, 2);
-        SgstAmount = Math.Round(taxable * SgstPercent / 100m, 2);
-        IgstAmount = Math.Round(taxable * IgstPercent / 100m, 2);
-        TaxAmount = CgstAmount + SgstAmount + IgstAmount;
+        var original = BillingDiscountCalculator.ComputeOriginalTax(Amount, TaxPercent, IsIgst);
+        OriginalTaxAmount = original.TotalTax;
+        OriginalInclusiveAmount = original.Inclusive;
+
+        var revised = BillingDiscountCalculator.ComputeRevisedFromInclusiveDiscounts(
+            OriginalInclusiveAmount, DiscountAmount, CashDiscountAmount, TaxPercent, IsIgst);
+
+        RevisedAmount = revised.Taxable;
+        CgstAmount = revised.Cgst;
+        SgstAmount = revised.Sgst;
+        IgstAmount = revised.Igst;
+        TaxAmount = revised.TotalTax;
+        RevisedTaxAmount = revised.TotalTax;
+        RevisedInclusiveAmount = revised.Inclusive;
     }
 }

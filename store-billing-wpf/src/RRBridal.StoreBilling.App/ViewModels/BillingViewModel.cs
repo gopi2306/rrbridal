@@ -13,6 +13,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
@@ -28,8 +29,25 @@ public partial class BillingViewModel : ObservableObject
 
     private readonly AppServices _services;
     private readonly CustomerLookupService _customerLookup;
+    private readonly CustomerRegistrationService _customerRegistration;
+    private readonly CustomerCodeGenerator _customerCodeGenerator;
 
     public Action? NavigateToCustomerRegistration { get; set; }
+
+    /// <summary>Raised when customer fields change so shell can refresh F9 Post bill.</summary>
+    public event Action? PostBillCanExecuteChanged;
+
+    public bool IsCustomerReadyForPost =>
+        !string.IsNullOrWhiteSpace(CustomerName?.Trim())
+        && PhoneMatchHelper.IsPhoneLikeQuery((CustomerPhone ?? "").Trim());
+
+    private bool CanPostBill() => IsCustomerReadyForPost;
+
+    private void NotifyPostBillCanExecute()
+    {
+        PostBillCommand.NotifyCanExecuteChanged();
+        PostBillCanExecuteChanged?.Invoke();
+    }
 
     [ObservableProperty] private string _searchText = "";
 
@@ -47,6 +65,8 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _billDateDisplay = "";
 
     [ObservableProperty] private string _subTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _originalTaxTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _revisedSubTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _taxTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _grossTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _itemDiscountFormatted = "₹ 0.00";
@@ -60,28 +80,39 @@ public partial class BillingViewModel : ObservableObject
 
     [ObservableProperty] private bool _isInterState;
 
-    [ObservableProperty] private string _itemDiscountPercentText = "0";
+    [ObservableProperty] private string _itemDiscountPercentText = "";
 
     [ObservableProperty] private decimal _itemDiscountPercent;
 
     /// <summary>Total item discount (₹), sum of proportional line discounts.</summary>
     public decimal ItemDiscount => Lines.Sum(l => l.DiscountAmount);
 
-    [ObservableProperty] private string _cashDiscAmountText = "0";
+    [ObservableProperty] private string _cashDiscAmountText = "";
 
     private decimal _cashDiscTarget;
 
     /// <summary>Total cash discount (₹), sum of proportional line cash discounts.</summary>
     public decimal CashDiscAmount => Lines.Sum(l => l.CashDiscountAmount);
 
-    [ObservableProperty] private string _roundOffText = "0";
+    [ObservableProperty] private string _roundOffText = "";
 
     [ObservableProperty] private decimal _roundOff;
 
     private bool _suppressDiscountTextSync;
     private bool _suppressPhoneAutoSearch;
+    private bool _suppressCustomerFieldSync;
+    private bool _phoneCaptureInProgress;
+    private string _lastCommittedPhoneNorm = "";
+    private bool _phoneWasComplete;
+
+    [ObservableProperty] private bool _isPhoneComplete;
+
+    /// <summary>Orange blinking border while fewer than 10 digits are entered.</summary>
+    [ObservableProperty] private bool _isPhoneIncompleteHighlight;
+
     private bool _roundOffUserEdited;
-    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private bool _isComputingTotals;
+    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
 
@@ -89,10 +120,13 @@ public partial class BillingViewModel : ObservableObject
     {
         _services = services;
         _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
+        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
         AssignNewBillIdentity();
         ApplyLoggedInSalesman();
         Lines.CollectionChanged += OnLinesCollectionChanged;
         RecalculateTotals();
+        NotifyPostBillCanExecute();
     }
 
     private void ApplyLoggedInSalesman()
@@ -145,7 +179,12 @@ public partial class BillingViewModel : ObservableObject
             or nameof(BillingLineItem.Qty)
             or nameof(BillingLineItem.Rate)
             or nameof(BillingLineItem.TaxPercent)
-            or nameof(BillingLineItem.TaxAmount))
+            or nameof(BillingLineItem.TaxAmount)
+            or nameof(BillingLineItem.DiscountAmount)
+            or nameof(BillingLineItem.CashDiscountAmount)
+            or nameof(BillingLineItem.OriginalTaxAmount)
+            or nameof(BillingLineItem.RevisedAmount)
+            or nameof(BillingLineItem.RevisedInclusiveAmount))
         {
             RecalculateTotals();
         }
@@ -158,18 +197,19 @@ public partial class BillingViewModel : ObservableObject
             line.LineNo = i++;
     }
 
-    private void ApplyProportionalItemDiscount()
+    private static decimal LineOriginalInclusive(BillingLineItem line) =>
+        BillingDiscountCalculator.ComputeOriginalInclusive(line.Amount, line.TaxPercent, line.IsIgst);
+
+    private void ApplyProportionalItemDiscount(IReadOnlyList<(BillingLineItem Line, decimal OriginalInclusive)> snapshots)
     {
-        var sub = Lines.Sum(l => l.Amount);
-        if (sub <= 0 || ItemDiscountPercent <= 0)
+        if (ItemDiscountPercent <= 0)
         {
             foreach (var line in Lines)
                 line.DiscountAmount = 0;
             return;
         }
 
-        var totalDisc = Math.Round(sub * ItemDiscountPercent / 100m, 2, MidpointRounding.AwayFromZero);
-        var active = Lines.Where(l => l.Amount > 0).ToList();
+        var active = snapshots.Where(s => s.Line.Amount > 0).ToList();
         if (active.Count == 0)
         {
             foreach (var line in Lines)
@@ -177,15 +217,24 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
+        var totalInclusive = active.Sum(s => s.OriginalInclusive);
+        if (totalInclusive <= 0)
+        {
+            foreach (var line in Lines)
+                line.DiscountAmount = 0;
+            return;
+        }
+
+        var totalDisc = Math.Round(totalInclusive * ItemDiscountPercent / 100m, 2, MidpointRounding.AwayFromZero);
         var allocated = 0m;
         for (var i = 0; i < active.Count; i++)
         {
-            var line = active[i];
+            var (line, originalInclusive) = active[i];
             if (i == active.Count - 1)
                 line.DiscountAmount = Math.Max(0m, totalDisc - allocated);
             else
             {
-                var share = Math.Round(line.Amount / sub * totalDisc, 2, MidpointRounding.AwayFromZero);
+                var share = Math.Round(originalInclusive / totalInclusive * totalDisc, 2, MidpointRounding.AwayFromZero);
                 line.DiscountAmount = share;
                 allocated += share;
             }
@@ -195,18 +244,21 @@ public partial class BillingViewModel : ObservableObject
             line.DiscountAmount = 0;
     }
 
-    private void ApplyProportionalCashDiscount()
+    private void ApplyProportionalCashDiscount(IReadOnlyList<(BillingLineItem Line, decimal OriginalInclusive)> snapshots)
     {
-        var sub = Lines.Sum(l => l.Amount);
-        if (sub <= 0 || _cashDiscTarget <= 0)
+        if (_cashDiscTarget <= 0)
         {
             foreach (var line in Lines)
                 line.CashDiscountAmount = 0;
             return;
         }
 
-        var totalCash = Math.Round(_cashDiscTarget, 2, MidpointRounding.AwayFromZero);
-        var active = Lines.Where(l => l.Amount > 0).ToList();
+        var active = snapshots
+            .Where(s => s.Line.Amount > 0)
+            .Select(s => (s.Line, InclusiveAfterItem: Math.Max(0m, s.OriginalInclusive - s.Line.DiscountAmount)))
+            .Where(x => x.InclusiveAfterItem > 0)
+            .ToList();
+
         if (active.Count == 0)
         {
             foreach (var line in Lines)
@@ -214,15 +266,17 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
+        var totalBase = active.Sum(x => x.InclusiveAfterItem);
+        var totalCash = Math.Round(_cashDiscTarget, 2, MidpointRounding.AwayFromZero);
         var allocated = 0m;
         for (var i = 0; i < active.Count; i++)
         {
-            var line = active[i];
+            var (line, inclusiveAfterItem) = active[i];
             if (i == active.Count - 1)
                 line.CashDiscountAmount = Math.Max(0m, totalCash - allocated);
             else
             {
-                var share = Math.Round(line.Amount / sub * totalCash, 2, MidpointRounding.AwayFromZero);
+                var share = Math.Round(inclusiveAfterItem / totalBase * totalCash, 2, MidpointRounding.AwayFromZero);
                 line.CashDiscountAmount = share;
                 allocated += share;
             }
@@ -240,10 +294,17 @@ public partial class BillingViewModel : ObservableObject
             || decimal.TryParse(text.Trim(), NumberStyles.Number, InCulture, out value);
     }
 
+    /// <summary>Empty display when numeric value is zero (placeholder-style inputs).</summary>
+    private static string FormatEditableDecimalText(decimal value) =>
+        value == 0 ? "" : value.ToString("0.##", CultureInfo.InvariantCulture);
+
     private sealed record BillTotals(
         decimal SubTotal,
+        decimal OriginalInclusiveTotal,
         decimal ItemDiscount,
         decimal CashDiscount,
+        decimal OriginalTaxTotal,
+        decimal RevisedSubTotal,
         decimal Cgst,
         decimal Sgst,
         decimal Igst,
@@ -254,17 +315,38 @@ public partial class BillingViewModel : ObservableObject
 
     private BillTotals ComputeBillTotals()
     {
-        ApplyProportionalItemDiscount();
-        ApplyProportionalCashDiscount();
+        _isComputingTotals = true;
+        try
+        {
+        return ComputeBillTotalsCore();
+        }
+        finally
+        {
+            _isComputingTotals = false;
+        }
+    }
+
+    private BillTotals ComputeBillTotalsCore()
+    {
+        var snapshots = Lines
+            .Where(l => l.Amount > 0)
+            .Select(l => (Line: l, OriginalInclusive: LineOriginalInclusive(l)))
+            .ToList();
+
+        ApplyProportionalItemDiscount(snapshots);
+        ApplyProportionalCashDiscount(snapshots);
 
         var sub = Lines.Sum(l => l.Amount);
+        var originalInclusive = snapshots.Sum(s => s.OriginalInclusive);
         var itemDisc = ItemDiscount;
         var cashDisc = CashDiscAmount;
+        var originalTax = Lines.Sum(l => l.OriginalTaxAmount);
+        var revisedSub = Lines.Sum(l => l.RevisedAmount);
         var cgst = Lines.Sum(l => l.CgstAmount);
         var sgst = Lines.Sum(l => l.SgstAmount);
         var igst = Lines.Sum(l => l.IgstAmount);
         var tax = cgst + sgst + igst;
-        var grandBeforeRound = sub - itemDisc - cashDisc + tax;
+        var grandBeforeRound = Lines.Sum(l => l.RevisedInclusiveAmount);
 
         decimal roundOff;
         if (!_roundOffUserEdited)
@@ -275,7 +357,7 @@ public partial class BillingViewModel : ObservableObject
             {
                 _suppressDiscountTextSync = true;
                 RoundOff = roundOff;
-                RoundOffText = roundOff.ToString("0.##", CultureInfo.InvariantCulture);
+                RoundOffText = FormatEditableDecimalText(roundOff);
                 _suppressDiscountTextSync = false;
             }
         }
@@ -285,20 +367,26 @@ public partial class BillingViewModel : ObservableObject
         }
 
         var payable = grandBeforeRound + roundOff;
-        return new BillTotals(sub, itemDisc, cashDisc, cgst, sgst, igst, tax, grandBeforeRound, roundOff, payable);
+        return new BillTotals(
+            sub, originalInclusive, itemDisc, cashDisc, originalTax, revisedSub,
+            cgst, sgst, igst, tax, grandBeforeRound, roundOff, payable);
     }
 
     private void RecalculateTotals()
     {
+        if (_isComputingTotals) return;
+
         var totals = ComputeBillTotals();
         _lastBillTotals = totals;
 
         SubTotalFormatted = FormatRupee(totals.SubTotal);
+        OriginalTaxTotalFormatted = FormatRupee(totals.OriginalTaxTotal);
+        RevisedSubTotalFormatted = FormatRupee(totals.RevisedSubTotal);
         TaxTotalFormatted = FormatRupee(totals.TaxTotal);
         CgstTotalFormatted = FormatRupee(totals.Cgst);
         SgstTotalFormatted = FormatRupee(totals.Sgst);
         IgstTotalFormatted = FormatRupee(totals.Igst);
-        GrossTotalFormatted = FormatRupee(totals.SubTotal);
+        GrossTotalFormatted = FormatRupee(totals.OriginalInclusiveTotal);
         ItemDiscountFormatted = FormatRupee(totals.ItemDiscount);
         CashDiscAmountFormatted = FormatRupee(totals.CashDiscount);
         RoundOffFormatted = FormatRupee(totals.RoundOff);
@@ -311,23 +399,13 @@ public partial class BillingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            _suppressDiscountTextSync = true;
-            ItemDiscountPercentText = "0";
             ItemDiscountPercent = 0;
-            _suppressDiscountTextSync = false;
             RecalculateTotals();
             return;
         }
 
         if (!TryParseDecimalInput(value, out var parsed))
-        {
-            _suppressDiscountTextSync = true;
-            ItemDiscountPercentText = "0";
-            ItemDiscountPercent = 0;
-            _suppressDiscountTextSync = false;
-            RecalculateTotals();
             return;
-        }
 
         ItemDiscountPercent = Math.Clamp(parsed, 0, 100);
         RecalculateTotals();
@@ -341,7 +419,7 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        var text = value.ToString("0.##", CultureInfo.InvariantCulture);
+        var text = FormatEditableDecimalText(value);
         if (ItemDiscountPercentText != text)
         {
             _suppressDiscountTextSync = true;
@@ -358,23 +436,13 @@ public partial class BillingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            _suppressDiscountTextSync = true;
-            CashDiscAmountText = "0";
             _cashDiscTarget = 0;
-            _suppressDiscountTextSync = false;
             RecalculateTotals();
             return;
         }
 
         if (!TryParseDecimalInput(value, out var parsed))
-        {
-            _suppressDiscountTextSync = true;
-            CashDiscAmountText = "0";
-            _cashDiscTarget = 0;
-            _suppressDiscountTextSync = false;
-            RecalculateTotals();
             return;
-        }
 
         _cashDiscTarget = Math.Max(0m, parsed);
         RecalculateTotals();
@@ -388,23 +456,13 @@ public partial class BillingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            _suppressDiscountTextSync = true;
-            RoundOffText = "0";
             RoundOff = 0;
-            _suppressDiscountTextSync = false;
             RecalculateTotals();
             return;
         }
 
         if (!TryParseDecimalInput(value, out var parsed))
-        {
-            _suppressDiscountTextSync = true;
-            RoundOffText = "0";
-            RoundOff = 0;
-            _suppressDiscountTextSync = false;
-            RecalculateTotals();
             return;
-        }
 
         RoundOff = parsed;
         RecalculateTotals();
@@ -412,7 +470,9 @@ public partial class BillingViewModel : ObservableObject
 
     partial void OnRoundOffChanged(decimal value)
     {
-        var text = value.ToString("0.##", CultureInfo.InvariantCulture);
+        if (_roundOffUserEdited) return;
+
+        var text = FormatEditableDecimalText(value);
         if (RoundOffText != text)
         {
             _suppressDiscountTextSync = true;
@@ -443,6 +503,7 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
         }
+        NotifyPostBillCanExecute();
     }
 
     public void ApplyCustomerMatch(CustomerMatch match)
@@ -458,13 +519,211 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
         }
+        NotifyPostBillCanExecute();
+    }
+
+    /** Clears customer code, name, and phone from the bill (e.g. user deleted phone or name). */
+    private void ClearCustomerProfile()
+    {
+        _suppressCustomerFieldSync = true;
+        _suppressPhoneAutoSearch = true;
+        try
+        {
+            CustomerCode = "";
+            CustomerName = "";
+            CustomerPhone = "";
+            _lastCommittedPhoneNorm = "";
+            _phoneWasComplete = false;
+            IsPhoneComplete = false;
+            IsPhoneIncompleteHighlight = false;
+        }
+        finally
+        {
+            _suppressPhoneAutoSearch = false;
+            _suppressCustomerFieldSync = false;
+        }
+        NotifyPostBillCanExecute();
+    }
+
+    private bool HasLoadedCustomerOnBill() =>
+        !string.IsNullOrWhiteSpace(CustomerCode)
+        || !string.IsNullOrWhiteSpace(CustomerName)
+        || !string.IsNullOrWhiteSpace(CustomerPhone);
+
+    partial void OnCustomerNameChanged(string value)
+    {
+        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value) && HasLoadedCustomerOnBill())
+            ClearCustomerProfile();
+        else
+            NotifyPostBillCanExecute();
+    }
+
+    partial void OnCustomerCodeChanged(string value)
+    {
+        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value) && HasLoadedCustomerOnBill())
+            ClearCustomerProfile();
+        else
+            NotifyPostBillCanExecute();
     }
 
     [RelayCommand]
-    private Task SearchCustomer() => SearchCustomerCoreAsync(phoneSearchOnly: false);
+    private Task SearchCustomer()
+    {
+        var name = (CustomerName ?? "").Trim();
+        var phone = (CustomerPhone ?? "").Trim();
+        if (!string.IsNullOrEmpty(name) && string.IsNullOrEmpty(phone))
+            return SearchCustomerByNameAsync();
+        return SearchCustomerCoreAsync(phoneSearchOnly: false);
+    }
 
     [RelayCommand]
-    private Task SearchCustomerByPhone() => SearchCustomerCoreAsync(phoneSearchOnly: true);
+    private Task SearchCustomerByPhone() => HandlePhoneCommittedAsync();
+
+    public async Task SearchCustomerByNameAsync()
+    {
+        if (_suppressPhoneAutoSearch)
+            return;
+
+        var query = (CustomerName ?? "").Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            MessageBox.Show("Enter a customer name to search.", "RR Bridal Billing",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var results = await _customerLookup.SearchAsync(query);
+        if (!PhoneMatchHelper.IsPhoneLikeQuery(query))
+        {
+            var exactName = results
+                .Where(r => string.Equals((r.Name ?? "").Trim(), query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (exactName.Count == 1)
+            {
+                ApplyCustomerMatch(exactName[0]);
+                return;
+            }
+        }
+
+        await ShowCustomerSearchDialogAsync(query);
+    }
+
+    partial void OnCustomerPhoneChanged(string value)
+    {
+        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value))
+        {
+            if (HasLoadedCustomerOnBill())
+            {
+                ClearCustomerProfile();
+                return;
+            }
+        }
+
+        var norm = PhoneMatchHelper.NormalizePhone(value);
+        if (norm != _lastCommittedPhoneNorm)
+            _lastCommittedPhoneNorm = "";
+
+        var isComplete = PhoneMatchHelper.IsPhoneLikeQuery((value ?? "").Trim());
+        if (IsPhoneComplete != isComplete)
+            IsPhoneComplete = isComplete;
+
+        if (isComplete && !_phoneWasComplete)
+            _ = HandlePhoneCommittedAsync();
+
+        _phoneWasComplete = isComplete;
+        UpdatePhoneHighlightState();
+        NotifyPostBillCanExecute();
+    }
+
+    partial void OnIsPhoneCompleteChanged(bool value) => UpdatePhoneHighlightState();
+
+    private void UpdatePhoneHighlightState()
+    {
+        var hasInput = !string.IsNullOrWhiteSpace(CustomerPhone);
+        var incomplete = hasInput && !IsPhoneComplete;
+        if (IsPhoneIncompleteHighlight != incomplete)
+            IsPhoneIncompleteHighlight = incomplete;
+    }
+
+    private bool IsCustomerAlreadyOnBill(string phone) =>
+        !string.IsNullOrWhiteSpace(CustomerName)
+        && PhoneMatchHelper.PhoneMatches(CustomerPhone, phone);
+
+    public async Task HandlePhoneCommittedAsync()
+    {
+        if (_suppressPhoneAutoSearch || _phoneCaptureInProgress)
+            return;
+
+        var phone = (CustomerPhone ?? "").Trim();
+        if (!PhoneMatchHelper.IsPhoneLikeQuery(phone))
+            return;
+
+        var norm = PhoneMatchHelper.NormalizePhone(phone);
+        if (!string.IsNullOrEmpty(norm) && norm == _lastCommittedPhoneNorm)
+            return;
+
+        if (IsCustomerAlreadyOnBill(phone))
+        {
+            _lastCommittedPhoneNorm = norm;
+            return;
+        }
+
+        _phoneCaptureInProgress = true;
+        try
+        {
+            var results = await _customerLookup.SearchAsync(phone);
+            var exact = results.Where(r => PhoneMatchHelper.PhoneMatches(r.Phone, phone)).ToList();
+
+            if (exact.Count > 0)
+            {
+                ApplyCustomerMatch(exact[0]);
+                _lastCommittedPhoneNorm = norm;
+                return;
+            }
+
+            var dlg = new CustomerQuickCaptureDialog(
+                phone,
+                "",
+                existingMatch: null,
+                isNewCustomer: true,
+                exactMatchCount: 0)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            _suppressPhoneAutoSearch = true;
+            var dialogResult = dlg.ShowDialog();
+            _suppressPhoneAutoSearch = false;
+
+            if (dialogResult != true || !dlg.Saved)
+                return;
+
+            var name = dlg.CustomerName.Trim();
+            var mobile = dlg.MobileNo.Trim();
+
+            var code = await _customerCodeGenerator.NextAsync();
+            var reg = await _customerRegistration.RegisterAsync(new CustomerRegistrationPayload
+            {
+                CustomerCode = code,
+                CustomerName = name,
+                Mobile = mobile,
+            });
+
+            ApplyCustomerRegistration(reg);
+
+            if (!string.IsNullOrWhiteSpace(reg.CentralSyncWarning))
+            {
+                MessageBox.Show(reg.CentralSyncWarning, "RR Bridal Billing",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(mobile);
+        }
+        finally
+        {
+            _phoneCaptureInProgress = false;
+        }
+    }
 
     private async Task SearchCustomerCoreAsync(bool phoneSearchOnly)
     {
@@ -501,6 +760,11 @@ public partial class BillingViewModel : ObservableObject
             }
         }
 
+        await ShowCustomerSearchDialogAsync(query);
+    }
+
+    private Task ShowCustomerSearchDialogAsync(string query)
+    {
         var dlg = new CustomerSearchDialog(query, _customerLookup)
         {
             Owner = Application.Current.MainWindow
@@ -510,12 +774,18 @@ public partial class BillingViewModel : ObservableObject
         if (result == true && dlg.SelectedCustomer != null)
         {
             ApplyCustomerMatch(dlg.SelectedCustomer);
+            _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(dlg.SelectedCustomer.Phone);
         }
         else if (dlg.WantsNewRegistration)
         {
             NavigateToCustomerRegistration?.Invoke();
         }
+
+        return Task.CompletedTask;
     }
+
+    [RelayCommand]
+    private Task SearchProduct() => OpenProductSearchAsync();
 
     public async Task OpenProductSearchAsync(CancellationToken ct = default)
     {
@@ -686,30 +956,37 @@ public partial class BillingViewModel : ObservableObject
     [RelayCommand]
     private void ClearForNewBill()
     {
-        _suppressPhoneAutoSearch = true;
-        CustomerCode = "";
-        CustomerName = "";
-        CustomerPhone = "";
-        _suppressPhoneAutoSearch = false;
+        ClearCustomerProfile();
         AssignNewBillIdentity();
         ApplyLoggedInSalesman();
         Lines.Clear();
         _suppressDiscountTextSync = true;
-        ItemDiscountPercentText = "0";
+        ItemDiscountPercentText = "";
         ItemDiscountPercent = 0;
-        CashDiscAmountText = "0";
+        CashDiscAmountText = "";
         _cashDiscTarget = 0;
-        RoundOffText = "0";
+        RoundOffText = "";
         RoundOff = 0;
         _roundOffUserEdited = false;
         _suppressDiscountTextSync = false;
         IsInterState = false;
         SearchText = "";
+        NotifyPostBillCanExecute();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanPostBill))]
     private async Task PostBill()
     {
+        if (!CanPostBill())
+        {
+            MessageBox.Show(
+                "Enter customer name and a valid 10-digit mobile number before posting the bill.",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
         if (!Lines.Any(l => l.Amount > 0))
         {
             MessageBox.Show(
@@ -763,6 +1040,10 @@ public partial class BillingViewModel : ObservableObject
                     { "amount", (double)line.Amount },
                     { "discountAmount", (double)line.DiscountAmount },
                     { "cashDiscountAmount", (double)line.CashDiscountAmount },
+                    { "originalTaxAmount", (double)line.OriginalTaxAmount },
+                    { "revisedAmount", (double)line.RevisedAmount },
+                    { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
+                    { "revisedTaxAmount", (double)line.RevisedTaxAmount },
                     { "mrp", (double)line.Mrp },
                     { "taxPercent", (double)line.TaxPercent },
                     { "cgstPercent", (double)line.CgstPercent },
@@ -814,6 +1095,9 @@ public partial class BillingViewModel : ObservableObject
                 { "cashDiscAmount", (double)totals.CashDiscount },
                 { "roundOff", (double)totals.RoundOff },
                 { "subTotal", (double)totals.SubTotal },
+                { "originalInclusiveTotal", (double)totals.OriginalInclusiveTotal },
+                { "originalTaxTotal", (double)totals.OriginalTaxTotal },
+                { "revisedSubTotal", (double)totals.RevisedSubTotal },
                 { "cgstTotal", (double)totals.Cgst },
                 { "sgstTotal", (double)totals.Sgst },
                 { "igstTotal", (double)totals.Igst },
@@ -941,7 +1225,6 @@ public partial class BillingViewModel : ObservableObject
             .Select(l =>
             {
                 var lineDisc = l.DiscountAmount + l.CashDiscountAmount;
-                var taxable = Math.Max(0m, l.Amount - lineDisc);
                 return new InvoiceLineSnap
                 {
                     LineNo = l.LineNo,
@@ -953,8 +1236,8 @@ public partial class BillingViewModel : ObservableObject
                     Mrp = l.Mrp,
                     Amount = l.Amount,
                     LineDiscount = lineDisc,
-                    TaxableAmount = taxable,
-                    TaxAmount = l.TaxAmount,
+                    TaxableAmount = l.RevisedAmount,
+                    TaxAmount = l.RevisedTaxAmount,
                 };
             })
             .ToList();
@@ -963,7 +1246,7 @@ public partial class BillingViewModel : ObservableObject
         var totalQty = active.Sum(l => l.Qty);
         var totalMrp = active.Sum(l => l.Mrp * l.Qty);
         var totalLineAmount = active.Sum(l => l.Amount);
-        var totalTaxable = snaps.Sum(l => l.TaxableAmount);
+        var totalTaxable = active.Sum(l => l.RevisedAmount);
         var savings = active.Sum(l => Math.Max(0m, l.Mrp * l.Qty - l.Amount));
 
         PaymentReceiptSnap? paySnap = null;
@@ -992,6 +1275,8 @@ public partial class BillingViewModel : ObservableObject
             CustomerPhone = CustomerPhone ?? "",
             Lines = snaps,
             SubTotal = totals.SubTotal,
+            OriginalTaxTotal = totals.OriginalTaxTotal,
+            RevisedSubTotal = totals.RevisedSubTotal,
             TaxTotal = totals.TaxTotal,
             IsInterState = IsInterState,
             CgstTotal = totals.Cgst,

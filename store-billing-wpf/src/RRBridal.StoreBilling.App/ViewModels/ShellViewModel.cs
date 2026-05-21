@@ -72,6 +72,12 @@ public partial class ShellViewModel : ObservableObject
         _services = services;
         Billing = new BillingViewModel(services);
         Billing.NavigateToCustomerRegistration = () => CurrentPage = ShellPage.Customers;
+        Billing.PostBillCanExecuteChanged += () => PostBillCommand.NotifyCanExecuteChanged();
+        Billing.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BillingViewModel.SearchText) && CurrentPage == ShellPage.Billing)
+                GlobalSearchText = Billing.SearchText;
+        };
         Dashboard = new DashboardViewModel(services);
         Analytics = new AnalyticsViewModel(services);
         Ledger = new LedgerViewModel(services);
@@ -171,14 +177,12 @@ public partial class ShellViewModel : ObservableObject
 
         if (value == ShellPage.Billing)
             RequestBillingSearchFocus();
+
+        PostBillCommand.NotifyCanExecuteChanged();
     }
 
-    public void RequestBillingSearchFocus()
-    {
-        if (CurrentPage != ShellPage.Billing)
-            return;
+    public void RequestBillingSearchFocus() =>
         _services.FocusSearch?.FocusGlobalSearch();
-    }
 
     partial void OnGlobalSearchTextChanged(string value)
     {
@@ -227,7 +231,8 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void FocusGlobalSearch() => _services.FocusSearch?.FocusGlobalSearch();
+    private void FocusGlobalSearch() =>
+        _services.FocusSearch?.FocusGlobalSearch();
 
     [RelayCommand]
     private void ShowHelp()
@@ -246,7 +251,9 @@ public partial class ShellViewModel : ObservableObject
         RequestBillingSearchFocus();
     }
 
-    [RelayCommand]
+    private bool CanRunPostBill() => IsBillingPage && Billing.IsCustomerReadyForPost;
+
+    [RelayCommand(CanExecute = nameof(CanRunPostBill))]
     private async Task PostBill()
     {
         if (!EnsureBillingPage())

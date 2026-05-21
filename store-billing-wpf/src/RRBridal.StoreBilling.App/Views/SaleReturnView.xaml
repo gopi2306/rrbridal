@@ -90,12 +90,11 @@
                                 <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
                                 <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
                                 <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2}" IsReadOnly="True" Width="90"/>
-                                <DataGridTemplateColumn Header="" Width="70">
+                                <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="Remove"
-                                                    Style="{StaticResource OutlineButton}"
-                                                    Padding="6,2"
+                                            <Button Style="{StaticResource IconDeleteButton}"
+                                                    HorizontalAlignment="Center"
                                                     Command="{Binding DataContext.RemoveExchangeLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
                                         </DataTemplate>

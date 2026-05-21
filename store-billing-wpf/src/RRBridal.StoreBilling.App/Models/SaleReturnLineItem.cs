@@ -1,5 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Models;
 
@@ -18,6 +19,9 @@ public partial class SaleReturnLineItem : ObservableObject
     public decimal OriginalItemDiscount { get; init; }
     public decimal OriginalCashDiscount { get; init; }
 
+    /// <summary>Tax-inclusive amount paid on the original bill for full line qty.</summary>
+    public decimal OriginalPaidInclusive { get; init; }
+
     private decimal ReturnRatio => OriginalQty > 0 ? ReturnQty / OriginalQty : 0m;
 
     public decimal ReturnItemDiscount =>
@@ -28,24 +32,30 @@ public partial class SaleReturnLineItem : ObservableObject
 
     public decimal ReturnDiscountAmount => ReturnItemDiscount + ReturnCashDiscount;
 
-    public decimal GrossReturnAmount => Math.Round(ReturnQty * Rate, 2, MidpointRounding.AwayFromZero);
+    /// <summary>Proportional tax-inclusive refund (matches billing payable for returned qty).</summary>
+    public decimal ReturnInclusive =>
+        Math.Round(OriginalPaidInclusive * ReturnRatio, 2, MidpointRounding.AwayFromZero);
 
-    public decimal TaxableReturnAmount =>
-        Math.Max(0m, GrossReturnAmount - ReturnItemDiscount - ReturnCashDiscount);
+    /// <summary>Pre-discount inclusive value for summary display.</summary>
+    public decimal GrossReturnAmount => ReturnInclusive + ReturnDiscountAmount;
 
-    /// <summary>Taxable line value after discounts (used for return subtotal).</summary>
+    private GstTaxBreakdown ReturnBreakdown =>
+        BillingDiscountCalculator.ReverseSplitFromInclusive(ReturnInclusive, TaxPercent, IsIgst);
+
+    public decimal TaxableReturnAmount => ReturnBreakdown.Taxable;
+
     public decimal ReturnAmount => TaxableReturnAmount;
 
     public decimal CgstPercent => IsIgst ? 0m : Math.Round(TaxPercent / 2m, 2);
     public decimal SgstPercent => IsIgst ? 0m : Math.Round(TaxPercent / 2m, 2);
     public decimal IgstPercent => IsIgst ? TaxPercent : 0m;
 
-    public decimal CgstAmount => Math.Round(TaxableReturnAmount * CgstPercent / 100m, 2);
-    public decimal SgstAmount => Math.Round(TaxableReturnAmount * SgstPercent / 100m, 2);
-    public decimal IgstAmount => Math.Round(TaxableReturnAmount * IgstPercent / 100m, 2);
-    public decimal TaxAmount => CgstAmount + SgstAmount + IgstAmount;
+    public decimal CgstAmount => ReturnBreakdown.Cgst;
+    public decimal SgstAmount => ReturnBreakdown.Sgst;
+    public decimal IgstAmount => ReturnBreakdown.Igst;
+    public decimal TaxAmount => ReturnBreakdown.TotalTax;
 
-    public decimal LineReturnTotal => TaxableReturnAmount + TaxAmount;
+    public decimal LineReturnTotal => ReturnInclusive;
 
     partial void OnIsSelectedChanged(bool value)
     {
@@ -77,6 +87,7 @@ public partial class SaleReturnLineItem : ObservableObject
         OnPropertyChanged(nameof(ReturnItemDiscount));
         OnPropertyChanged(nameof(ReturnCashDiscount));
         OnPropertyChanged(nameof(ReturnDiscountAmount));
+        OnPropertyChanged(nameof(ReturnInclusive));
         OnPropertyChanged(nameof(GrossReturnAmount));
         OnPropertyChanged(nameof(TaxableReturnAmount));
         OnPropertyChanged(nameof(ReturnAmount));

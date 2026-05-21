@@ -54,13 +54,47 @@
                                      IsReadOnly="True" IsTabStop="False" Margin="0,0,0,8"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer name" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                            <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4"
+                                     Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="CustomerNameBox_OnKeyDown" Margin="0,0,0,8"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Phone" VerticalAlignment="Center"/>
-                            <TextBox x:Name="CustomerPhoneBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="CustomerPhoneBox_OnKeyDown"/>
+                            <Border x:Name="PhoneInputBorder" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+                                    CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" SnapsToDevicePixels="True">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Opacity" Value="1"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPhoneIncompleteHighlight}" Value="True">
+                                                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard x:Name="PhoneBlinkStoryboard">
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                             From="1" To="0.4" Duration="0:0:0.45" AutoReverse="True"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="PhoneBlinkStoryboard"/>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                             To="1" Duration="0:0:0"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource RoundedTextBox}"
+                                         Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="10"
+                                         KeyDown="CustomerPhoneBox_OnKeyDown"
+                                         LostFocus="CustomerPhoneBox_OnLostFocus"/>
+                            </Border>
                         </Grid>
                     </Grid>
                 </Border>
@@ -110,6 +144,12 @@
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="85"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
@@ -124,12 +164,11 @@
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTemplateColumn Header="" Width="70">
+                                <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="Remove"
-                                                    Style="{StaticResource OutlineButton}"
-                                                    Padding="6,2"
+                                            <Button Style="{StaticResource IconDeleteButton}"
+                                                    HorizontalAlignment="Center"
                                                     Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
                                         </DataTemplate>
@@ -138,7 +177,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
-                                   Text="F3: search box — Enter: pick product from catalog. Use TAB to move between cells."/>
+                                   Text="F3: focus product search — Enter: add from catalog (single match auto-adds). TAB between cells."/>
                     </DockPanel>
                 </Border>
             </StackPanel>
@@ -172,6 +211,22 @@
                             <TextBlock Text="{Binding SubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
+                            <TextBlock Text="GST before discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding OriginalTaxTotalFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Item discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding ItemDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Cash discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding CashDiscAmountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Revised sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding RevisedSubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
                             <TextBlock Text="CGST" Foreground="{StaticResource BrushTextMuted}"
                                        Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                             <TextBlock Text="{Binding CgstTotalFormatted}" HorizontalAlignment="Right"
@@ -194,16 +249,8 @@
                             <TextBlock Text="{Binding TaxTotalFormatted}" HorizontalAlignment="Right"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
-                            <TextBlock Text="Gross total" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="Total (incl. tax)" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding GrossTotalFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushText}" FontWeight="SemiBold"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,6">
-                            <TextBlock Text="Item discount" Foreground="{StaticResource BrushTextMuted}"/>
-                            <TextBlock Text="{Binding ItemDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,6">
-                            <TextBlock Text="Cash discount" Foreground="{StaticResource BrushTextMuted}"/>
-                            <TextBlock Text="{Binding CashDiscAmountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="Round off" Foreground="{StaticResource BrushTextMuted}"/>
@@ -222,7 +269,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Item discount (%)" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding ItemDiscountPercentText, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding ItemDiscountPercentText, UpdateSourceTrigger=PropertyChanged}"
+                                     GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
@@ -231,7 +279,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Cash disc amt" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CashDiscAmountText, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding CashDiscAmountText, UpdateSourceTrigger=PropertyChanged}"
+                                     GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
@@ -240,7 +289,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Round off" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding RoundOffText, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding RoundOffText, UpdateSourceTrigger=PropertyChanged}"
+                                     GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>

@@ -18,6 +18,9 @@ public sealed class AppServices
 {
     public IFocusSearchService? FocusSearch { get; set; }
 
+    /// <summary>Focuses billing line-item product search (set by BillingView).</summary>
+    public Action? FocusBillingProductSearch { get; set; }
+
     public required IMongoDatabase LocalDb { get; init; }
     public required HttpClient CentralApi { get; init; }
     public required ISyncEngine SyncEngine { get; init; }

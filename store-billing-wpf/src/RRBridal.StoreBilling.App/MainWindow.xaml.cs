@@ -87,4 +87,12 @@ public partial class MainWindow : Window, IFocusSearchService
             GlobalSearchBox.CaretIndex = GlobalSearchBox.Text?.Length ?? 0;
         }, DispatcherPriority.Input);
     }
+
+    public void FocusBillingProductSearch()
+    {
+        if (App.Services.FocusBillingProductSearch != null)
+            App.Services.FocusBillingProductSearch.Invoke();
+        else
+            FocusGlobalSearch();
+    }
 }

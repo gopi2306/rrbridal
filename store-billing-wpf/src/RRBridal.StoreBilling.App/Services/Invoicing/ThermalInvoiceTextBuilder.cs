@@ -45,6 +45,10 @@ public sealed class ThermalInvoiceInput
 
     public decimal SubTotal { get; init; }
 
+    public decimal OriginalTaxTotal { get; init; }
+
+    public decimal RevisedSubTotal { get; init; }
+
     public decimal TaxTotal { get; init; }
 
     public decimal ItemDiscount { get; init; }
@@ -141,8 +145,15 @@ public static class ThermalInvoiceTextBuilder
         sb.AppendLine(TwoCols($"No. of items: {input.ItemCount}", $"Total qty: {input.TotalQty:0.###}", w));
         sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.00}", $"Total amount: {input.TotalTaxableAmount:0.00}", w));
 
+        if (input.ItemDiscount > 0 || input.CashDiscAmount > 0)
+        {
+            if (input.OriginalTaxTotal > 0)
+                sb.AppendLine(TwoCols($"GST before disc: {input.OriginalTaxTotal:0.00}", "", w));
+            if (input.RevisedSubTotal > 0)
+                sb.AppendLine(TwoCols($"Revised sub total: {input.RevisedSubTotal:0.00}", "", w));
+        }
+
         if (input.ItemDiscount > 0)
-            sb.AppendLine(TwoCols($"Item discount: {input.ItemDiscount:0.00}", "", w));
         if (input.CashDiscAmount > 0)
             sb.AppendLine(TwoCols($"Cash discount: {input.CashDiscAmount:0.00}", "", w));
         if (input.RoundOff != 0)

@@ -250,6 +250,44 @@
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
+    <Style x:Key="IconDeleteButton" TargetType="Button">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="32"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="ToolTip" Value="Remove"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6">
+                        <Viewbox Width="16" Height="16" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="Icon"
+                                      Data="M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12z M15.5,4l-1,-1h-5l-1,1H5v2h14V4z"
+                                      Fill="{StaticResource BrushNegative}"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#18C62828"/>
+                            <Setter TargetName="Icon" Property="Fill" Value="#FFB71C1C"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#28C62828"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ShortcutChip" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>

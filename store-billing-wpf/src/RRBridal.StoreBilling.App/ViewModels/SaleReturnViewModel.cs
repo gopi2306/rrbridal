@@ -14,6 +14,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Views;
@@ -163,6 +164,7 @@ public partial class SaleReturnViewModel : ObservableObject
         {
             foreach (BsonDocument lineBson in doc["lines"].AsBsonArray.OfType<BsonDocument>())
             {
+                var taxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble();
                 var item = new SaleReturnLineItem
                 {
                     LineNo = lineBson.GetValue("lineNo", 0).ToInt32(),
@@ -170,10 +172,11 @@ public partial class SaleReturnViewModel : ObservableObject
                     Description = lineBson.GetValue("description", "").AsString,
                     OriginalQty = (decimal)lineBson.GetValue("qty", 0).ToDouble(),
                     Rate = (decimal)lineBson.GetValue("rate", 0).ToDouble(),
-                    TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
+                    TaxPercent = taxPercent,
                     IsIgst = IsInterState,
                     OriginalItemDiscount = (decimal)lineBson.GetValue("discountAmount", 0).ToDouble(),
                     OriginalCashDiscount = (decimal)lineBson.GetValue("cashDiscountAmount", 0).ToDouble(),
+                    OriginalPaidInclusive = ResolveOriginalPaidInclusive(lineBson, taxPercent, IsInterState),
                 };
                 item.PropertyChanged += OnReturnLinePropertyChanged;
                 ReturnLines.Add(item);
@@ -184,11 +187,44 @@ public partial class SaleReturnViewModel : ObservableObject
         RecalculateTotals();
     }
 
+    private static decimal ResolveOriginalPaidInclusive(BsonDocument lineBson, decimal taxPercent, bool isIgst)
+    {
+        if (lineBson.Contains("revisedInclusiveAmount"))
+        {
+            var revisedInclusive = (decimal)lineBson["revisedInclusiveAmount"].ToDouble();
+            if (revisedInclusive > 0)
+                return revisedInclusive;
+        }
+
+        var revisedAmount = lineBson.Contains("revisedAmount")
+            ? (decimal)lineBson["revisedAmount"].ToDouble()
+            : 0m;
+        var revisedTax = lineBson.Contains("revisedTaxAmount")
+            ? (decimal)lineBson["revisedTaxAmount"].ToDouble()
+            : 0m;
+        if (revisedAmount > 0 || revisedTax > 0)
+            return Math.Round(revisedAmount + revisedTax, 2, MidpointRounding.AwayFromZero);
+
+        var amount = (decimal)lineBson.GetValue("amount", 0).ToDouble();
+        var cgst = (decimal)lineBson.GetValue("cgstAmount", 0).ToDouble();
+        var sgst = (decimal)lineBson.GetValue("sgstAmount", 0).ToDouble();
+        var igst = (decimal)lineBson.GetValue("igstAmount", 0).ToDouble();
+        var taxFromLine = cgst + sgst + igst;
+        if (amount > 0 || taxFromLine > 0)
+            return Math.Round(amount + taxFromLine, 2, MidpointRounding.AwayFromZero);
+
+        var itemDisc = (decimal)lineBson.GetValue("discountAmount", 0).ToDouble();
+        var cashDisc = (decimal)lineBson.GetValue("cashDiscountAmount", 0).ToDouble();
+        var originalInclusive = BillingDiscountCalculator.ComputeOriginalInclusive(amount, taxPercent, isIgst);
+        return Math.Max(0m, Math.Round(originalInclusive - itemDisc - cashDisc, 2, MidpointRounding.AwayFromZero));
+    }
+
     private void OnReturnLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(SaleReturnLineItem.ReturnQty)
             or nameof(SaleReturnLineItem.IsSelected)
             or nameof(SaleReturnLineItem.ReturnAmount)
+            or nameof(SaleReturnLineItem.ReturnInclusive)
             or nameof(SaleReturnLineItem.ReturnDiscountAmount)
             or nameof(SaleReturnLineItem.GrossReturnAmount)
             or nameof(SaleReturnLineItem.TaxableReturnAmount)
@@ -226,7 +262,7 @@ public partial class SaleReturnViewModel : ObservableObject
         var sgst = selected.Sum(l => l.SgstAmount);
         var igst = selected.Sum(l => l.IgstAmount);
         var taxTotal = cgst + sgst + igst;
-        var total = taxableSub + taxTotal;
+        var total = selected.Sum(l => l.LineReturnTotal);
 
         GrossSubTotalFormatted = FormatRupee(grossSub);
         ReturnDiscountFormatted = FormatRupee(returnDiscount);
@@ -364,10 +400,13 @@ public partial class SaleReturnViewModel : ObservableObject
                     { "discountAmount", (double)l.ReturnItemDiscount },
                     { "cashDiscountAmount", (double)l.ReturnCashDiscount },
                     { "amount", (double)l.TaxableReturnAmount },
+                    { "revisedInclusiveAmount", (double)l.ReturnInclusive },
+                    { "lineTotal", (double)l.LineReturnTotal },
                     { "taxPercent", (double)l.TaxPercent },
                     { "cgstAmt", (double)l.CgstAmount },
                     { "sgstAmt", (double)l.SgstAmount },
                     { "igstAmt", (double)l.IgstAmount },
+                    { "taxAmt", (double)l.TaxAmount },
                 });
             }
 
@@ -376,7 +415,7 @@ public partial class SaleReturnViewModel : ObservableObject
             var cgst = selected.Sum(l => l.CgstAmount);
             var sgst = selected.Sum(l => l.SgstAmount);
             var igst = selected.Sum(l => l.IgstAmount);
-            var total = sub + cgst + sgst + igst;
+            var total = selected.Sum(l => l.LineReturnTotal);
             var exchangeLines = ExchangeLines.Where(l => l.Qty > 0).ToList();
             var exchangeLinesArr = new BsonArray();
             foreach (var l in exchangeLines)
@@ -603,7 +642,7 @@ public partial class SaleReturnViewModel : ObservableObject
         sb.AppendLine("------------------------------------------");
         sb.AppendLine("OLD ITEM RETURNED");
         foreach (var line in returnLines)
-            sb.AppendLine($"{line.ProductCode} {line.ReturnQty:0.###} x {line.Rate:0.00} = {line.ReturnAmount + line.TaxAmount:0.00}");
+            sb.AppendLine($"{line.ProductCode} {line.ReturnQty:0.###} x {line.Rate:0.00} = {line.LineReturnTotal:0.00}");
         sb.AppendLine("------------------------------------------");
         sb.AppendLine("NEW ITEM ISSUED");
         foreach (var line in exchangeLines)
