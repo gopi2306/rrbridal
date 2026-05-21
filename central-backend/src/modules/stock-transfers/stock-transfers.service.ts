@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types, UpdateQuery } from 'mongoose';
+import { FilterQuery, Model, SortOrder, Types, UpdateQuery } from 'mongoose';
 import { InventoryService } from '../inventory/inventory.service';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StoresService } from '../stores/stores.service';
 import { LocationsService } from '../locations/locations.service';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
+import { FilterStockTransferDto } from './dto/filter-stock-transfer.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import {
   StockTransfer,
@@ -234,6 +235,97 @@ export class StockTransfersService {
       filter.transferNo = { $regex: params.search, $options: 'i' };
     }
     return await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+  }
+
+  private parseDateBound(value: string, endOfDay: boolean): Date {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException(`Invalid date: ${value}`);
+    }
+    if (endOfDay && !value.includes('T')) {
+      d.setHours(23, 59, 59, 999);
+    }
+    return d;
+  }
+
+  async filter(dto: FilterStockTransferDto) {
+    const filter: FilterQuery<StockTransferDocument> = {};
+
+    if (dto.transferNo) filter.transferNo = dto.transferNo;
+    if (dto.toStoreId) filter.toStoreId = dto.toStoreId;
+    if (dto.status) filter.status = dto.status;
+    if (dto.stockClassification) filter.stockClassification = dto.stockClassification;
+
+    if (dto.fromLocationId) {
+      if (!Types.ObjectId.isValid(dto.fromLocationId)) {
+        throw new BadRequestException('fromLocationId must be a valid Mongo ObjectId');
+      }
+      filter.fromLocationId = new Types.ObjectId(dto.fromLocationId);
+    }
+
+    if (dto.purchaseIntentId) {
+      if (!Types.ObjectId.isValid(dto.purchaseIntentId)) {
+        throw new BadRequestException('purchaseIntentId must be a valid Mongo ObjectId');
+      }
+      filter.purchaseIntentId = new Types.ObjectId(dto.purchaseIntentId);
+    }
+
+    if (dto.transferDateFrom || dto.transferDateTo) {
+      filter.transferDate = {};
+      if (dto.transferDateFrom) filter.transferDate.$gte = dto.transferDateFrom;
+      if (dto.transferDateTo) filter.transferDate.$lte = dto.transferDateTo;
+    }
+
+    if (dto.createdAtFrom || dto.createdAtTo) {
+      filter.createdAt = {};
+      if (dto.createdAtFrom) filter.createdAt.$gte = this.parseDateBound(dto.createdAtFrom, false);
+      if (dto.createdAtTo) filter.createdAt.$lte = this.parseDateBound(dto.createdAtTo, true);
+    }
+
+    if (dto.updatedAtFrom || dto.updatedAtTo) {
+      filter.updatedAt = {};
+      if (dto.updatedAtFrom) filter.updatedAt.$gte = this.parseDateBound(dto.updatedAtFrom, false);
+      if (dto.updatedAtTo) filter.updatedAt.$lte = this.parseDateBound(dto.updatedAtTo, true);
+    }
+
+    if (dto.sku) {
+      filter['lines.sku'] = { $regex: dto.sku, $options: 'i' };
+    }
+
+    if (dto.search) {
+      const rx = { $regex: dto.search, $options: 'i' };
+      filter.$or = [
+        { transferNo: rx },
+        { remarks: rx },
+        { 'lines.sku': rx },
+        { 'lines.description': rx },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'updatedAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      this.model
+        .find(filter)
+        .populate(['fromLocationId', 'toStoreId', 'purchaseIntentId'])
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.model.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async listAwaitingIntakeForStore(storeId: string, limit: number) {
