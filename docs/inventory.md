@@ -10,11 +10,14 @@ The central API maintains **location-aware** stock in the `inventoryledgerentrie
 | Source | Effect |
 |--------|--------|
 | Goods receipt posted | Positive `qtyDelta` at **warehouse** (`GoodsReceiptPosted`) |
-| Stock transfer → `in_transit` | Negative `qtyDelta` at **warehouse** (`StockTransferDispatched`) |
-| Stock transfer → `completed` | Positive `qtyDelta` at **store** for `toStoreId` (`StockTransferReceived`) |
-| Stock transfer → `cancelled` from `in_transit` or `awaiting_intake` | Positive `qtyDelta` at **warehouse** to reverse dispatch (`StockTransferCancelled`) |
+| Transfer **in** → `in_transit` | Negative `qtyDelta` at **warehouse** (`StockTransferDispatched`) |
+| Transfer **in** → `completed` | Negative in-transit; positive at **store** for `toStoreId` (`StockTransferReceived`) |
+| Transfer **in** → `cancelled` | Reverse in-transit to **warehouse** (`StockTransferCancelled`) |
+| Transfer **out** → `in_transit` | Negative `qtyDelta` at **store** for `fromStoreId`; positive in-transit |
+| Transfer **out** → `completed` | Negative in-transit; positive at **warehouse** (`StockTransferReceived`) |
+| Transfer **out** → `cancelled` | Reverse in-transit to **store** (`StockTransferCancelled`) |
 
-While a transfer is between `in_transit` and `awaiting_intake`, stock is no longer counted at the warehouse but not yet counted at the store (in-transit gap), matching a simple two-location report.
+While a transfer is `in_transit` / `awaiting_intake`, quantity sits in the **in_transit** bucket (not at the source site). See [stock-transfers.md](./stock-transfers.md).
 
 ## Warehouse + store grid API
 

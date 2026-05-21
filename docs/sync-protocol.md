@@ -110,10 +110,12 @@ Raised by the **Store WPF** app after it receives a central stock transfer into 
 
 Rules:
 
-- The event `storeId` must match the transfer `toStoreId`.
+- The event `storeId` must match the transfer’s store: `toStoreId` for **transfer in**, `fromStoreId` for **transfer out**.
 - Lines must match the central transfer lines by SKU and quantity.
 - Central treats a transfer that is already `completed` as applied and does not post inventory ledger entries again.
-- For a transfer in `awaiting_intake`, central moves it to `completed`, which records `in_transit -qty` and `store +qty` through the existing stock transfer ledger flow.
+- For a transfer in `awaiting_intake`, central moves it to `completed`:
+  - **In:** in_transit −, store + (central ledger).
+  - **Out:** in_transit −, warehouse + (central ledger). WPF has already decremented local stock on pull.
 
 ## Central → Store (pull)
 Endpoint: `GET /api/sync/pull?storeId=...&sinceCursor=...&sinceTransferCursor=...&limit=...`
@@ -161,21 +163,30 @@ After each successful pull, the store persists `sync_state.diagnosticsSummary` w
 
 ### Update: `StockTransferAwaitingStoreIntake`
 
-Central includes store-bound transfers whose status is `awaiting_intake`. The store applies these idempotently:
+Central includes transfers whose status is `awaiting_intake` and that belong to the pulling store:
 
-- Save the transfer into local `local_stock_transfers` (with `intakeSource: awaiting_intake_pull` when finished).
-- Increment `local_products_cache.stockQty` once per transfer line.
+- **Transfer in** (`direction`: `warehouse_to_store` or omitted): `toStoreId` matches `storeId`.
+- **Transfer out** (`direction`: `store_to_warehouse`): `fromStoreId` matches `storeId`.
+
+`payload.transfer` includes `direction`, `transferId`, `transferNo`, `lines`, optional `fromStoreId` / `toStoreId`, `stockClassification`, etc.
+
+The store applies these idempotently:
+
+- Save into local `local_stock_transfers` (field `direction` persisted).
+- Adjust `local_products_cache.stockQty` per line:
+  - **In:** increment (add stock).
+  - **Out:** decrement (subtract stock, clamped at 0; pull warning if local qty was short).
 - Create a pending `StockTransferReceived` outbox event so central can complete the transfer on the next push.
 
 ### Update: `StockTransferCompleted`
 
-Payload shape matches `StockTransferAwaitingStoreIntake` (`payload.transfer` with `transferId`, `transferNo`, `lines`, etc.).
+Payload shape matches `StockTransferAwaitingStoreIntake` (including `direction`).
 
 Used when central is already **`completed`** (e.g. another till already pushed `StockTransferReceived`). The store:
 
-- Skips if `local_stock_transfers` already has `stockApplied: true` for that `transferId` / `transferNo` (same idempotency as awaiting).
-- Otherwise increments `local_products_cache.stockQty` per line, updates `local_stock_transfers` with `stockApplied: true` and `intakeSource: central_completed_pull`.
-- **Does not** enqueue `StockTransferReceived` (central must not receive a second receipt).
+- Skips if `local_stock_transfers` already has `stockApplied: true` for that `transferId` / `transferNo`.
+- Otherwise applies the same stock adjustment as awaiting (**in** = increment, **out** = decrement), sets `stockApplied: true`, `intakeSource: central_completed_pull`.
+- **Does not** enqueue `StockTransferReceived` (no second receipt).
 
 ### Sales stock rule
 

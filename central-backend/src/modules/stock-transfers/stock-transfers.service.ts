@@ -7,9 +7,11 @@ import { StoresService } from '../stores/stores.service';
 import { LocationsService } from '../locations/locations.service';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
+import { ReceiveStockTransferDto } from './dto/receive-stock-transfer.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import {
   StockTransfer,
+  StockTransferDirection,
   StockTransferDocument,
   StockTransferLine,
   StockTransferStatus,
@@ -19,7 +21,7 @@ const terminal: StockTransferStatus[] = ['completed', 'cancelled'];
 
 const allowedNext: Record<StockTransferStatus, StockTransferStatus[]> = {
   draft: ['in_transit', 'cancelled'],
-  in_transit: ['awaiting_intake', 'cancelled'],
+  in_transit: ['cancelled'],
   awaiting_intake: ['completed'],
   completed: [],
   cancelled: [],
@@ -46,8 +48,36 @@ export class StockTransfersService {
     return t.length > 80 ? t.slice(0, 80) : t;
   }
 
+  private resolveDirection(value: string | undefined): StockTransferDirection {
+    return value === 'store_to_warehouse' ? 'store_to_warehouse' : 'warehouse_to_store';
+  }
+
+  private resolveDirectionFromDoc(doc: { direction?: string }): StockTransferDirection {
+    return this.resolveDirection(doc.direction);
+  }
+
+  private owningStoreId(doc: { direction?: string; toStoreId?: string; fromStoreId?: string }): string {
+    return this.resolveDirectionFromDoc(doc) === 'store_to_warehouse'
+      ? (doc.fromStoreId ?? '').trim()
+      : (doc.toStoreId ?? '').trim();
+  }
+
+  /** Mongo filter: transfers relevant to a store (in destination or out source). */
+  private storeScopeFilter(storeId: string): Record<string, unknown> {
+    const sid = storeId.trim();
+    return {
+      $or: [
+        {
+          $or: [{ direction: 'warehouse_to_store' }, { direction: { $exists: false } }],
+          toStoreId: sid,
+        },
+        { direction: 'store_to_warehouse', fromStoreId: sid },
+      ],
+    };
+  }
+
   /** Resolves DTO `locationId` to an ObjectId after validating active warehouse location. */
-  private async resolveFromLocationId(locationId: string | undefined): Promise<Types.ObjectId | undefined> {
+  private async resolveWarehouseLocationId(locationId: string | undefined): Promise<Types.ObjectId | undefined> {
     if (locationId === undefined || String(locationId).trim() === '') return undefined;
     const id = String(locationId).trim();
     if (!Types.ObjectId.isValid(id)) {
@@ -62,6 +92,10 @@ export class StockTransfersService {
       throw new BadRequestException('locationId must reference an active location');
     }
     return new Types.ObjectId(id);
+  }
+
+  private async resolveToLocationId(locationId: string | undefined): Promise<Types.ObjectId | undefined> {
+    return this.resolveWarehouseLocationId(locationId);
   }
 
   private async assertSufficientWarehouseStock(lines: { sku: string; qty: number }[]) {
@@ -90,6 +124,32 @@ export class StockTransfersService {
     }
   }
 
+  private async assertSufficientStoreStock(storeId: string, lines: { sku: string; qty: number }[]) {
+    const requestedBySku = new Map<string, number>();
+    for (const line of lines) {
+      const sku = line.sku.trim();
+      if (!sku) continue;
+      requestedBySku.set(sku, (requestedBySku.get(sku) ?? 0) + line.qty);
+    }
+    if (requestedBySku.size === 0) return;
+
+    const availableBySku = await this.inventoryService.getStoreQtyBySkus(storeId, [...requestedBySku.keys()]);
+    const shortages: string[] = [];
+    for (const [sku, requested] of requestedBySku) {
+      const available = availableBySku.get(sku) ?? 0;
+      if (available < requested) {
+        shortages.push(
+          `SKU '${sku}': requested ${requested}, available ${available}`,
+        );
+      }
+    }
+    if (shortages.length > 0) {
+      throw new BadRequestException(
+        `Insufficient store stock. ${shortages.join('; ')}`,
+      );
+    }
+  }
+
   private assertTransition(from: StockTransferStatus, to: StockTransferStatus) {
     if (from === to) return;
     if (terminal.includes(from)) {
@@ -105,17 +165,42 @@ export class StockTransfersService {
     if (!dto.lines?.length) {
       throw new BadRequestException('lines must contain at least one item');
     }
-    const storeExists = await this.storesService.existsByCode(dto.toStoreId);
-    if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${dto.toStoreId}'`);
-    const fromLocationId = await this.resolveFromLocationId(dto.locationId);
+    const direction = this.resolveDirection(dto.direction);
     const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
-    await this.assertSufficientWarehouseStock(lines);
     const transferNo = await this.nextTransferNo();
+
+    if (direction === 'store_to_warehouse') {
+      const fromStoreId = dto.fromStoreId?.trim();
+      if (!fromStoreId) throw new BadRequestException('fromStoreId is required for store_to_warehouse transfers');
+      const storeExists = await this.storesService.existsByCode(fromStoreId);
+      if (!storeExists) throw new BadRequestException(`Unknown fromStoreId '${fromStoreId}'`);
+      const toLocationId = await this.resolveToLocationId(dto.toLocationId);
+      return await this.model.create({
+        transferNo,
+        direction,
+        fromKind: 'store' as const,
+        fromStoreId,
+        ...(toLocationId ? { toLocationId } : {}),
+        status: 'draft',
+        transferDate: dto.transferDate,
+        remarks: dto.remarks,
+        stockClassification: this.normalizeStockClassification(dto.stockClassification),
+        lines,
+      });
+    }
+
+    const toStoreId = dto.toStoreId?.trim();
+    if (!toStoreId) throw new BadRequestException('toStoreId is required for warehouse_to_store transfers');
+    const storeExists = await this.storesService.existsByCode(toStoreId);
+    if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${toStoreId}'`);
+    const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
+    await this.assertSufficientWarehouseStock(lines);
     return await this.model.create({
       transferNo,
+      direction: 'warehouse_to_store' as const,
       fromKind: 'warehouse' as const,
       ...(fromLocationId ? { fromLocationId } : {}),
-      toStoreId: dto.toStoreId,
+      toStoreId,
       status: 'draft',
       transferDate: dto.transferDate,
       remarks: dto.remarks,
@@ -160,9 +245,10 @@ export class StockTransfersService {
 
     await this.assertSufficientWarehouseStock(lines);
     const transferNo = await this.nextTransferNo();
-    const fromLocationId = await this.resolveFromLocationId(dto.locationId);
+    const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
     return await this.model.create({
       transferNo,
+      direction: 'warehouse_to_store' as const,
       fromKind: 'warehouse' as const,
       ...(fromLocationId ? { fromLocationId } : {}),
       toStoreId: intent.storeId,
@@ -196,7 +282,7 @@ export class StockTransfersService {
       if (!raw) {
         unset.fromLocationId = 1;
       } else {
-        set.fromLocationId = await this.resolveFromLocationId(dto.locationId);
+        set.fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
       }
     }
     if (dto.stockClassification !== undefined) {
@@ -205,7 +291,13 @@ export class StockTransfersService {
     if (dto.lines !== undefined) {
       if (!dto.lines.length) throw new BadRequestException('lines must contain at least one item');
       const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
-      await this.assertSufficientWarehouseStock(lines);
+      if (this.resolveDirectionFromDoc(current) === 'store_to_warehouse') {
+        const fromStoreId = current.fromStoreId?.trim();
+        if (!fromStoreId) throw new BadRequestException('Transfer out is missing fromStoreId');
+        await this.assertSufficientStoreStock(fromStoreId, lines);
+      } else {
+        await this.assertSufficientWarehouseStock(lines);
+      }
       set.lines = lines;
     }
     const updateOps: UpdateQuery<StockTransferDocument> = {};
@@ -221,11 +313,18 @@ export class StockTransfersService {
   async list(params: {
     search?: string;
     toStoreId?: string;
+    fromStoreId?: string;
+    direction?: string;
     status?: string;
     purchaseIntentId?: string;
   }) {
     const filter: Record<string, unknown> = {};
+    const direction = params.direction?.trim();
+    if (direction === 'warehouse_to_store' || direction === 'store_to_warehouse') {
+      filter.direction = direction;
+    }
     if (params.toStoreId) filter.toStoreId = params.toStoreId;
+    if (params.fromStoreId) filter.fromStoreId = params.fromStoreId;
     if (params.status) filter.status = params.status;
     if (params.purchaseIntentId && Types.ObjectId.isValid(params.purchaseIntentId)) {
       filter.purchaseIntentId = new Types.ObjectId(params.purchaseIntentId);
@@ -237,10 +336,11 @@ export class StockTransfersService {
   }
 
   async listAwaitingIntakeForStore(storeId: string, limit: number) {
+    const cap = Math.max(1, Math.min(200, limit));
     return await this.model
-      .find({ toStoreId: storeId, status: 'awaiting_intake' })
+      .find({ ...this.storeScopeFilter(storeId), status: 'awaiting_intake' })
       .sort({ updatedAt: 1, _id: 1 })
-      .limit(limit)
+      .limit(cap)
       .lean();
   }
 
@@ -260,7 +360,7 @@ export class StockTransfersService {
       const since = new Date(Date.now() - 90 * 86400000);
       return await this.model
         .find({
-          toStoreId: storeId,
+          ...this.storeScopeFilter(storeId),
           status: 'completed',
           updatedAt: { $gte: since },
         })
@@ -271,7 +371,7 @@ export class StockTransfersService {
 
     return await this.model
       .find({
-        toStoreId: storeId,
+        ...this.storeScopeFilter(storeId),
         status: 'completed',
         _id: { $gt: new Types.ObjectId(sinceTransferCursor) },
       })
@@ -292,7 +392,7 @@ export class StockTransfersService {
       : await this.model.findOne({ transferNo });
 
     if (!doc) throw new NotFoundException('Stock transfer not found');
-    if (doc.toStoreId !== storeId) {
+    if (this.owningStoreId(doc) !== storeId) {
       throw new BadRequestException(`Transfer '${doc.transferNo}' is not assigned to store '${storeId}'`);
     }
 
@@ -305,20 +405,71 @@ export class StockTransfersService {
       throw new BadRequestException(`Cannot receive transfer '${doc.transferNo}' from status '${doc.status}'`);
     }
 
-    return await this.setStatus(String(doc._id), 'completed');
+    return await this.transitionStatus(doc, 'completed');
+  }
+
+  /** Store confirms physical receipt; moves in_transit → awaiting_intake. */
+  async receiveAtStore(id: string, dto: ReceiveStockTransferDto) {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Stock transfer not found');
+    const doc = await this.model.findById(id);
+    if (!doc) throw new NotFoundException('Stock transfer not found');
+
+    const storeId = dto.storeId.trim();
+    const storeExists = await this.storesService.existsByCode(storeId);
+    if (!storeExists) throw new BadRequestException(`Unknown storeId '${storeId}'`);
+    if (this.owningStoreId(doc) !== storeId) {
+      throw new BadRequestException(
+        `Transfer '${doc.transferNo}' is not assigned to store '${storeId}'`,
+      );
+    }
+
+    this.assertReceiptLinesMatch(doc.lines ?? [], dto.lines);
+
+    if (doc.status === 'completed') {
+      return doc.toObject();
+    }
+    if (doc.status === 'awaiting_intake') {
+      return doc.toObject();
+    }
+    if (doc.status !== 'in_transit') {
+      throw new BadRequestException(
+        `Cannot receive transfer '${doc.transferNo}' from status '${doc.status}'`,
+      );
+    }
+
+    doc.receivedAt = dto.receivedAt?.trim() || new Date().toISOString();
+    const receivedBy = dto.receivedBy?.trim();
+    if (receivedBy) doc.receivedBy = receivedBy;
+
+    await this.transitionStatus(doc, 'awaiting_intake', { allowStoreIntake: true });
+    return doc.toObject();
   }
 
   async setStatus(id: string, status: StockTransferStatus) {
     const doc = await this.model.findById(id);
     if (!doc) throw new NotFoundException('Stock transfer not found');
-    const from = doc.status;
-    this.assertTransition(from, status);
-    if (from !== status) {
-      await this.applyTransferLedger(from, status, doc);
-    }
-    doc.status = status;
-    await doc.save();
+    await this.transitionStatus(doc, status);
     return doc.toObject();
+  }
+
+  private async transitionStatus(
+    doc: StockTransferDocument,
+    to: StockTransferStatus,
+    options?: { allowStoreIntake?: boolean },
+  ) {
+    const from = doc.status;
+    if (from === to) return doc;
+
+    if (options?.allowStoreIntake && from === 'in_transit' && to === 'awaiting_intake') {
+      // Store receive endpoint only; not allowed via POST /:id/status.
+    } else {
+      this.assertTransition(from, to);
+    }
+
+    await this.applyTransferLedger(from, to, doc);
+    doc.status = to;
+    await doc.save();
+    return doc;
   }
 
   /** Posts warehouse / store ledger movements for transfer lifecycle. */
@@ -330,73 +481,174 @@ export class StockTransfersService {
     const transferId = String(doc._id);
     const lines = doc.lines ?? [];
     const note = doc.transferNo;
+    const direction = this.resolveDirectionFromDoc(doc);
+    const isOut = direction === 'store_to_warehouse';
+    const storeId = this.owningStoreId(doc);
 
     if (from === 'draft' && to === 'in_transit') {
-      await this.assertSufficientWarehouseStock(lines);
-      await this.inventoryService.addLedgerEntries([
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: -l.qty,
-          sourceType: 'StockTransferDispatched',
-          sourceId: transferId,
-          note,
-          locationKind: 'warehouse' as const,
-        })),
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: l.qty,
-          sourceType: 'StockTransferDispatched',
-          sourceId: transferId,
-          note,
-          locationKind: 'in_transit' as const,
-        })),
-      ]);
+      if (isOut) {
+        await this.assertSufficientStoreStock(storeId, lines);
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferDispatched',
+            sourceId: transferId,
+            note,
+            locationKind: 'store' as const,
+            storeId,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferDispatched',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+        ]);
+      } else {
+        await this.assertSufficientWarehouseStock(lines);
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferDispatched',
+            sourceId: transferId,
+            note,
+            locationKind: 'warehouse' as const,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferDispatched',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+        ]);
+      }
       return;
     }
 
     if (from === 'awaiting_intake' && to === 'completed') {
-      await this.inventoryService.addLedgerEntries([
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: -l.qty,
-          sourceType: 'StockTransferReceived',
-          sourceId: transferId,
-          note,
-          locationKind: 'in_transit' as const,
-        })),
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: l.qty,
-          sourceType: 'StockTransferReceived',
-          sourceId: transferId,
-          note,
-          locationKind: 'store' as const,
-          storeId: doc.toStoreId,
-        })),
-      ]);
+      if (isOut) {
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferReceived',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferReceived',
+            sourceId: transferId,
+            note,
+            locationKind: 'warehouse' as const,
+          })),
+        ]);
+      } else {
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferReceived',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferReceived',
+            sourceId: transferId,
+            note,
+            locationKind: 'store' as const,
+            storeId,
+          })),
+        ]);
+      }
       return;
     }
 
     if (to === 'cancelled' && (from === 'in_transit' || from === 'awaiting_intake')) {
-      await this.inventoryService.addLedgerEntries([
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: -l.qty,
-          sourceType: 'StockTransferCancelled',
-          sourceId: transferId,
-          note,
-          locationKind: 'in_transit' as const,
-        })),
-        ...lines.map((l) => ({
-          sku: l.sku,
-          qtyDelta: l.qty,
-          sourceType: 'StockTransferCancelled',
-          sourceId: transferId,
-          note,
-          locationKind: 'warehouse' as const,
-        })),
-      ]);
+      if (isOut) {
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferCancelled',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferCancelled',
+            sourceId: transferId,
+            note,
+            locationKind: 'store' as const,
+            storeId,
+          })),
+        ]);
+      } else {
+        await this.inventoryService.addLedgerEntries([
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: -l.qty,
+            sourceType: 'StockTransferCancelled',
+            sourceId: transferId,
+            note,
+            locationKind: 'in_transit' as const,
+          })),
+          ...lines.map((l) => ({
+            sku: l.sku,
+            qtyDelta: l.qty,
+            sourceType: 'StockTransferCancelled',
+            sourceId: transferId,
+            note,
+            locationKind: 'warehouse' as const,
+          })),
+        ]);
+      }
     }
+  }
+
+  /** Payload shape for store sync pull (`payload.transfer`). */
+  toSyncTransferPayload(transfer: Record<string, unknown> & { _id?: unknown }) {
+    const direction = this.resolveDirectionFromDoc(transfer as { direction?: string });
+    const row = transfer as {
+      _id?: unknown;
+      transferNo: string;
+      toStoreId?: string;
+      fromStoreId?: string;
+      status: string;
+      transferDate?: string;
+      remarks?: string;
+      stockClassification?: string;
+      fromLocationId?: unknown;
+      toLocationId?: unknown;
+      lines?: StockTransferLine[];
+    };
+    return {
+      transferId: row._id != null ? String(row._id) : '',
+      transferNo: row.transferNo,
+      direction,
+      toStoreId: row.toStoreId,
+      ...(row.fromStoreId ? { fromStoreId: row.fromStoreId } : {}),
+      status: row.status,
+      transferDate: row.transferDate,
+      remarks: row.remarks,
+      stockClassification: row.stockClassification ?? 'Normal Stock',
+      ...(row.fromLocationId != null ? { fromLocationId: String(row.fromLocationId) } : {}),
+      ...(row.toLocationId != null ? { toLocationId: String(row.toLocationId) } : {}),
+      lines: row.lines,
+    };
   }
 
   private readPayloadString(payload: Record<string, unknown>, key: string) {

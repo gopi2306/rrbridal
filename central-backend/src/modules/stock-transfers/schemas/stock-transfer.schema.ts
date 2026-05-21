@@ -6,6 +6,10 @@ export type StockTransferDocument = HydratedDocument<StockTransfer>;
 
 export type StockTransferStatus = 'draft' | 'in_transit' | 'awaiting_intake' | 'completed' | 'cancelled';
 
+export type StockTransferDirection = 'warehouse_to_store' | 'store_to_warehouse';
+
+export type StockTransferFromKind = 'warehouse' | 'store';
+
 @Schema({ _id: false })
 export class StockTransferLine {
   @ApiProperty()
@@ -27,20 +31,44 @@ export class StockTransfer {
   @Prop({ required: true, unique: true, index: true })
   transferNo!: string;
 
-  @ApiProperty({ enum: ['warehouse'] })
+  @ApiProperty({
+    enum: ['warehouse_to_store', 'store_to_warehouse'],
+    default: 'warehouse_to_store',
+  })
+  @Prop({ required: true, default: 'warehouse_to_store', index: true })
+  direction!: StockTransferDirection;
+
+  @ApiProperty({ enum: ['warehouse', 'store'] })
   @Prop({ required: true, default: 'warehouse' })
-  fromKind!: 'warehouse';
+  fromKind!: StockTransferFromKind;
 
   @ApiProperty({
     required: false,
-    description: 'Mongo _id of the source warehouse Location (type warehouse, active)',
+    description: 'Mongo _id of the source warehouse Location (transfer in)',
   })
   @Prop({ type: Types.ObjectId, index: true })
   fromLocationId?: Types.ObjectId;
 
-  @ApiProperty()
-  @Prop({ required: true, index: true })
-  toStoreId!: string;
+  @ApiProperty({
+    required: false,
+    description: 'Source store id (transfer out)',
+  })
+  @Prop({ index: true })
+  fromStoreId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Destination store id (transfer in)',
+  })
+  @Prop({ index: true })
+  toStoreId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Mongo _id of the destination warehouse Location (transfer out)',
+  })
+  @Prop({ type: Types.ObjectId, index: true })
+  toLocationId?: Types.ObjectId;
 
   @ApiProperty({ required: false })
   @Prop({ type: Types.ObjectId, index: true })
@@ -66,9 +94,26 @@ export class StockTransfer {
   @Prop({ trim: true })
   stockClassification?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'ISO timestamp when the store confirmed physical receipt or dispatch',
+  })
+  @Prop()
+  receivedAt?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Store operator name or user id who confirmed receipt',
+  })
+  @Prop({ trim: true })
+  receivedBy?: string;
+
   @ApiProperty({ type: [StockTransferLine] })
   @Prop({ type: [StockTransferLine], default: [] })
   lines!: StockTransferLine[];
 }
 
 export const StockTransferSchema = SchemaFactory.createForClass(StockTransfer);
+
+StockTransferSchema.index({ direction: 1, toStoreId: 1, status: 1 });
+StockTransferSchema.index({ direction: 1, fromStoreId: 1, status: 1 });

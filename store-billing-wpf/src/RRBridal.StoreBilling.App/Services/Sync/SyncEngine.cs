@@ -411,6 +411,7 @@ public sealed class SyncEngine : ISyncEngine
         var storeId = _storeContext.StoreId;
         var now = DateTime.UtcNow.ToString("O");
         var stockClassification = ReadTransferStockClassification(transfer);
+        var direction = ReadTransferDirection(transfer);
 
         if (existing == null)
         {
@@ -419,6 +420,7 @@ public sealed class SyncEngine : ISyncEngine
                 { "transferId", transferId },
                 { "transferNo", transferNo },
                 { "storeId", storeId },
+                { "direction", direction },
                 { "status", "receiving" },
                 { "stockApplied", false },
                 { "createdAtUtc", now },
@@ -436,12 +438,14 @@ public sealed class SyncEngine : ISyncEngine
         {
             await _transfers.UpdateOneAsync(
                 filter,
-                Builders<BsonDocument>.Update.Set("stockClassification", stockClassification),
+                Builders<BsonDocument>.Update
+                    .Set("stockClassification", stockClassification)
+                    .Set("direction", direction),
                 cancellationToken: ct);
         }
 
         foreach (var line in lines)
-            await IncrementLocalStockForTransferLineAsync(line, now, ct);
+            await ApplyStockAdjustmentForTransferLineAsync(line, direction, now, ct, pullWarnings);
 
         if (createOutbox)
         {
@@ -484,6 +488,7 @@ public sealed class SyncEngine : ISyncEngine
                 .Set("receivedAtUtc", now)
                 .Set("receiptEventId", eventId)
                 .Set("intakeSource", "awaiting_intake_pull")
+                .Set("direction", direction)
                 .Set("stockClassification", stockClassification);
             await _transfers.UpdateOneAsync(filter, update, cancellationToken: ct);
         }
@@ -526,6 +531,7 @@ public sealed class SyncEngine : ISyncEngine
         var storeId = _storeContext.StoreId;
         var now = DateTime.UtcNow.ToString("O");
         var stockClassification = ReadTransferStockClassification(transfer);
+        var direction = ReadTransferDirection(transfer);
 
         if (existing == null)
         {
@@ -534,6 +540,7 @@ public sealed class SyncEngine : ISyncEngine
                 { "transferId", transferId },
                 { "transferNo", transferNo },
                 { "storeId", storeId },
+                { "direction", direction },
                 { "status", "received" },
                 { "stockApplied", false },
                 { "createdAtUtc", now },
@@ -551,21 +558,106 @@ public sealed class SyncEngine : ISyncEngine
         {
             await _transfers.UpdateOneAsync(
                 filter,
-                Builders<BsonDocument>.Update.Set("stockClassification", stockClassification),
+                Builders<BsonDocument>.Update
+                    .Set("stockClassification", stockClassification)
+                    .Set("direction", direction),
                 cancellationToken: ct);
         }
 
         foreach (var line in lines)
-            await IncrementLocalStockForTransferLineAsync(line, now, ct);
+            await ApplyStockAdjustmentForTransferLineAsync(line, direction, now, ct, pullWarnings);
 
         var update = Builders<BsonDocument>.Update
             .Set("status", "received")
             .Set("stockApplied", true)
             .Set("receivedAtUtc", now)
             .Set("intakeSource", "central_completed_pull")
+            .Set("direction", direction)
             .Set("stockClassification", stockClassification);
         await _transfers.UpdateOneAsync(filter, update, cancellationToken: ct);
     }
+
+    private static string ReadTransferDirection(JsonElement transfer, string whenMissing = "warehouse_to_store")
+    {
+        if (!transfer.TryGetProperty("direction", out var el) || el.ValueKind == JsonValueKind.Null)
+            return whenMissing;
+        if (el.ValueKind != JsonValueKind.String)
+            return whenMissing;
+        var s = el.GetString()?.Trim();
+        return s == "store_to_warehouse" ? "store_to_warehouse" : whenMissing;
+    }
+
+    private static bool IsTransferOut(string direction) =>
+        string.Equals(direction, "store_to_warehouse", StringComparison.Ordinal);
+
+    private async Task ApplyStockAdjustmentForTransferLineAsync(
+        TransferLine line,
+        string direction,
+        string now,
+        CancellationToken ct,
+        List<string>? pullWarnings)
+    {
+        if (IsTransferOut(direction))
+            await DecrementLocalStockForTransferLineAsync(line, now, ct, pullWarnings);
+        else
+            await IncrementLocalStockForTransferLineAsync(line, now, ct);
+    }
+
+    private async Task DecrementLocalStockForTransferLineAsync(
+        TransferLine line,
+        string now,
+        CancellationToken ct,
+        List<string>? pullWarnings)
+    {
+        var sku = line.Sku;
+        var escaped = Regex.Escape(sku);
+        var skuFilter = Builders<BsonDocument>.Filter.Regex(
+            "sku",
+            new BsonRegularExpression("^" + escaped + "$", "i"));
+
+        var list = await _products.Find(skuFilter).ToListAsync(ct);
+        if (list.Count == 0)
+        {
+            pullWarnings?.Add($"Transfer out SKU '{sku}': no local product row; skipped decrement.");
+            return;
+        }
+
+        BsonDocument target;
+        if (list.Count == 1)
+            target = list[0];
+        else
+        {
+            var ordered = list
+                .OrderByDescending(d => d.Contains("centralProductId") && !d["centralProductId"].IsBsonNull)
+                .ToList();
+            target = ordered[0];
+        }
+
+        var current = target.TryGetValue("stockQty", out var sq) ? ToDouble(sq) : 0;
+        var requested = (double)line.Qty;
+        var next = Math.Max(0, current - requested);
+        if (next < current - requested + 0.0001 && pullWarnings != null)
+        {
+            pullWarnings.Add(
+                $"Transfer out SKU '{sku}': requested decrement {requested}, applied {current - next} (clamped at 0).");
+        }
+
+        await _products.UpdateOneAsync(
+            Builders<BsonDocument>.Filter.Eq("_id", target["_id"]),
+            Builders<BsonDocument>.Update
+                .Set("stockQty", next)
+                .Set("lastStockUpdatedAt", now),
+            cancellationToken: ct);
+    }
+
+    private static double ToDouble(BsonValue v) => v.BsonType switch
+    {
+        BsonType.Double => v.AsDouble,
+        BsonType.Int32 => v.AsInt32,
+        BsonType.Int64 => v.AsInt64,
+        BsonType.Decimal128 => (double)v.AsDecimal,
+        _ => 0,
+    };
 
     private async Task IncrementLocalStockForTransferLineAsync(TransferLine line, string now, CancellationToken ct)
     {

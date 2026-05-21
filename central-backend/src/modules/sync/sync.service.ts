@@ -106,19 +106,9 @@ export class SyncService {
         storeId,
         createdAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date().toISOString(),
         payload: {
-          transfer: {
-            transferId: String(row._id),
-            transferNo: transfer.transferNo,
-            toStoreId: transfer.toStoreId,
-            status: transfer.status,
-            transferDate: transfer.transferDate,
-            remarks: transfer.remarks,
-            stockClassification: (transfer as { stockClassification?: string }).stockClassification ?? 'Normal Stock',
-            ...((transfer as { fromLocationId?: unknown }).fromLocationId != null
-              ? { fromLocationId: String((transfer as { fromLocationId: unknown }).fromLocationId) }
-              : {}),
-            lines: transfer.lines,
-          },
+          transfer: this.stockTransfersService.toSyncTransferPayload(
+            transfer as Record<string, unknown> & { _id?: unknown },
+          ),
         },
       };
     });
@@ -130,19 +120,9 @@ export class SyncService {
         storeId,
         createdAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date().toISOString(),
         payload: {
-          transfer: {
-            transferId: String(row._id),
-            transferNo: transfer.transferNo,
-            toStoreId: transfer.toStoreId,
-            status: transfer.status,
-            transferDate: transfer.transferDate,
-            remarks: transfer.remarks,
-            stockClassification: (transfer as { stockClassification?: string }).stockClassification ?? 'Normal Stock',
-            ...((transfer as { fromLocationId?: unknown }).fromLocationId != null
-              ? { fromLocationId: String((transfer as { fromLocationId: unknown }).fromLocationId) }
-              : {}),
-            lines: transfer.lines,
-          },
+          transfer: this.stockTransfersService.toSyncTransferPayload(
+            transfer as Record<string, unknown> & { _id?: unknown },
+          ),
         },
       };
     });
