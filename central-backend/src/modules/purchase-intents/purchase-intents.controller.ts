@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreatePurchaseIntentDto } from './dto/create-purchase-intent.dto';
+import { FilterPurchaseIntentDto } from './dto/filter-purchase-intent.dto';
 import { SetPurchaseIntentStatusDto } from './dto/set-purchase-intent-status.dto';
 import { UpdatePurchaseIntentDto } from './dto/update-purchase-intent.dto';
 import { PurchaseIntentsService } from './purchase-intents.service';
@@ -13,6 +14,11 @@ export class PurchaseIntentsController {
   @Post()
   async create(@Body() dto: CreatePurchaseIntentDto) {
     return await this.intentsService.create(dto);
+  }
+
+  @Post('filter')
+  async filter(@Body() dto: FilterPurchaseIntentDto) {
+    return await this.intentsService.filter(dto);
   }
 
   @Get()

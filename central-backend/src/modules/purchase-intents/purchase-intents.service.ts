@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { CreatePurchaseIntentLineDto } from './dto/create-purchase-intent-line.dto';
 import { CreatePurchaseIntentDto } from './dto/create-purchase-intent.dto';
+import { FilterPurchaseIntentDto } from './dto/filter-purchase-intent.dto';
 import { UpdatePurchaseIntentDto } from './dto/update-purchase-intent.dto';
 import {
   PurchaseIntent,
@@ -181,6 +182,79 @@ export class PurchaseIntentsService {
       filter.intentNo = { $regex: params.search, $options: 'i' };
     }
     return await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+  }
+
+  private parseDateBound(value: string, endOfDay: boolean): Date {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException(`Invalid date: ${value}`);
+    }
+    if (endOfDay && !value.includes('T')) {
+      d.setHours(23, 59, 59, 999);
+    }
+    return d;
+  }
+
+  async filter(dto: FilterPurchaseIntentDto) {
+    const filter: FilterQuery<PurchaseIntentDocument> = {};
+
+    if (dto.intentNo) filter.intentNo = dto.intentNo;
+    if (dto.storeId) filter.storeId = dto.storeId;
+    if (dto.deviceId) filter.deviceId = dto.deviceId;
+    if (dto.sourceEventId) filter.sourceEventId = dto.sourceEventId;
+    if (dto.status) filter.status = dto.status;
+
+    if (dto.createdAtFrom || dto.createdAtTo) {
+      filter.createdAt = {};
+      if (dto.createdAtFrom) filter.createdAt.$gte = this.parseDateBound(dto.createdAtFrom, false);
+      if (dto.createdAtTo) filter.createdAt.$lte = this.parseDateBound(dto.createdAtTo, true);
+    }
+
+    if (dto.updatedAtFrom || dto.updatedAtTo) {
+      filter.updatedAt = {};
+      if (dto.updatedAtFrom) filter.updatedAt.$gte = this.parseDateBound(dto.updatedAtFrom, false);
+      if (dto.updatedAtTo) filter.updatedAt.$lte = this.parseDateBound(dto.updatedAtTo, true);
+    }
+
+    if (dto.sku) {
+      filter['lines.sku'] = { $regex: dto.sku, $options: 'i' };
+    }
+
+    if (dto.search) {
+      const rx = { $regex: dto.search, $options: 'i' };
+      filter.$or = [
+        { intentNo: rx },
+        { remarks: rx },
+        { 'lines.sku': rx },
+        { 'lines.barcode': rx },
+        { 'lines.description': rx },
+      ];
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const sortBy = dto.sortBy ?? 'updatedAt';
+    const sortOrder: SortOrder = dto.sortOrder === 'asc' ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      this.model
+        .find(filter)
+        .populate(['storeId', 'deviceId', 'sourceEventId'])
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.model.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async setStatus(id: string, status: PurchaseIntentStatus) {
