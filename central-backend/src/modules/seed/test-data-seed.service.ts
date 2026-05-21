@@ -542,6 +542,7 @@ export class TestDataSeedService implements OnModuleInit {
     if (!st1) {
       st1 = await stModel.create({
         transferNo: 'TR-001',
+        direction: 'warehouse_to_store',
         fromKind: 'warehouse',
         fromLocationId: new Types.ObjectId(warehouseAId),
         toStoreId: 'store-001',
@@ -560,8 +561,15 @@ export class TestDataSeedService implements OnModuleInit {
       const st1Id = String(st1._id);
       await this.stockTransfersService.setStatus(st1Id, 'in_transit');
       this.logger.log('  + TR-001 -> in_transit (warehouse -qty, in_transit +qty)');
-      await this.stockTransfersService.setStatus(st1Id, 'awaiting_intake');
-      this.logger.log('  + TR-001 -> awaiting_intake');
+      await this.stockTransfersService.receiveAtStore(st1Id, {
+        storeId: 'store-001',
+        receivedBy: 'seed',
+        lines: [
+          { sku: 'SKU-001', qty: 2 },
+          { sku: 'SKU-004', qty: 3 },
+        ],
+      });
+      this.logger.log('  + TR-001 -> awaiting_intake (store receive)');
       await this.stockTransfersService.setStatus(st1Id, 'completed');
       this.logger.log('  + TR-001 -> completed (in_transit -qty, store-001 +qty)');
 
@@ -574,6 +582,7 @@ export class TestDataSeedService implements OnModuleInit {
     if (!st2) {
       st2 = await stModel.create({
         transferNo: 'TR-002',
+        direction: 'warehouse_to_store',
         fromKind: 'warehouse',
         fromLocationId: new Types.ObjectId(warehouseBId),
         toStoreId: 'store-002',
@@ -592,8 +601,15 @@ export class TestDataSeedService implements OnModuleInit {
       const st2Id = String(st2._id);
       await this.stockTransfersService.setStatus(st2Id, 'in_transit');
       this.logger.log('  + TR-002 -> in_transit (warehouse -qty, in_transit +qty)');
-      await this.stockTransfersService.setStatus(st2Id, 'awaiting_intake');
-      this.logger.log('  + TR-002 -> awaiting_intake');
+      await this.stockTransfersService.receiveAtStore(st2Id, {
+        storeId: 'store-002',
+        receivedBy: 'seed',
+        lines: [
+          { sku: 'SKU-002', qty: 1 },
+          { sku: 'SKU-005', qty: 2 },
+        ],
+      });
+      this.logger.log('  + TR-002 -> awaiting_intake (store receive)');
       await this.stockTransfersService.setStatus(st2Id, 'completed');
       this.logger.log('  + TR-002 -> completed (in_transit -qty, store-002 +qty)');
 
@@ -606,6 +622,7 @@ export class TestDataSeedService implements OnModuleInit {
     if (!st3) {
       await stModel.create({
         transferNo: 'TR-003',
+        direction: 'warehouse_to_store',
         fromKind: 'warehouse',
         fromLocationId: new Types.ObjectId(warehouseAId),
         toStoreId: 'store-001',
