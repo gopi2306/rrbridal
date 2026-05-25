@@ -31,7 +31,10 @@ public partial class MainWindow : Window, IFocusSearchService
             return;
         if (DataContext is not ShellViewModel vm)
             return;
-        vm.FocusGlobalSearchCommand.Execute(null);
+        if (vm.CurrentPage == ShellPage.Billing)
+            App.Services.FocusBillingProductSearch?.Invoke();
+        else
+            vm.FocusGlobalSearchCommand.Execute(null);
         e.Handled = true;
     }
 
@@ -59,7 +62,7 @@ public partial class MainWindow : Window, IFocusSearchService
         if (shell.CurrentPage == ShellPage.Billing)
         {
             shell.Billing.SearchText = shell.GlobalSearchText;
-            await shell.Billing.OpenProductSearchAsync();
+            await shell.Billing.CommitProductCodeInputAsync(shell.GlobalSearchText);
             shell.GlobalSearchText = shell.Billing.SearchText;
         }
         else if (shell.CurrentPage == ShellPage.SaleReturn)

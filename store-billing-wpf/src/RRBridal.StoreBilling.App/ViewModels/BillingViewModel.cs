@@ -126,9 +126,13 @@ public partial class BillingViewModel : ObservableObject
         AssignNewBillIdentity();
         ApplyLoggedInSalesman();
         Lines.CollectionChanged += OnLinesCollectionChanged;
+        EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
     }
+
+    /// <summary>View focuses the trailing entry row Product code cell after add.</summary>
+    public Action? RequestFocusEntryProductCode { get; set; }
 
     private void ApplyLoggedInSalesman()
     {
@@ -787,49 +791,84 @@ public partial class BillingViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task SearchProduct() => OpenProductSearchAsync();
+    private Task SearchProduct() => CommitProductCodeInputAsync(SearchText);
 
-    public async Task OpenProductSearchAsync(CancellationToken ct = default)
+    public Task OpenProductSearchAsync(CancellationToken ct = default) =>
+        CommitProductCodeInputAsync(SearchText, ct);
+
+    public async Task CommitProductCodeInputAsync(string? input, CancellationToken ct = default)
     {
-        var q = (SearchText ?? "").Trim();
-        if (q.Length >= 1)
+        var q = (input ?? "").Trim();
+        if (q.Length < 1)
         {
-            var items = await _services.ProductCatalog.SearchAsync(q, ct);
-            if (items.Count == 1)
-            {
-                AddLineFromCatalog(items[0]);
-                SearchText = "";
-                return;
-            }
-
-            if (items.Count == 0)
-            {
-                var existing = await _services.ProductCatalog.FindBySkuOrBarcodeAsync(q, ct);
-                if (existing != null && existing.StockQty <= 0)
-                {
-                    MessageBox.Show(
-                        $"Product \"{existing.Name}\" (SKU: {existing.Sku}) is out of stock.\nA reference indent request has been created.",
-                        "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    await AddIndentRequestAsync(existing.Sku, existing.Name, existing.CentralId, ct);
-                    SearchText = "";
-                    return;
-                }
-
-                MessageBox.Show(
-                    $"No product found in local inventory for \"{q}\".\nA reference indent request has been created.",
-                    "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                await AddIndentRequestAsync(q, q, "", ct);
-                SearchText = "";
-                return;
-            }
+            MessageBox.Show(
+                "Enter a product code.",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
         }
 
-        var dlg = new ProductSearchDialog(SearchText ?? "", _services) { Owner = Application.Current.MainWindow };
-        if (dlg.ShowDialog() != true || dlg.SelectedProduct == null)
-            return;
+        var exact = await _services.ProductCatalog.FindBySkuOrBarcodeAsync(q, ct);
+        if (exact != null)
+        {
+            if (exact.StockQty <= 0)
+            {
+                MessageBox.Show(
+                    $"Product \"{exact.Name}\" (SKU: {exact.Sku}) is out of stock.\nA reference indent request has been created.",
+                    "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await AddIndentRequestAsync(exact.Sku, exact.Name, exact.CentralId, ct);
+                ClearEntryRowProductCode();
+                SearchText = "";
+                RequestFocusEntryProductCode?.Invoke();
+                return;
+            }
 
-        AddLineFromCatalog(dlg.SelectedProduct);
+            AddLineFromCatalog(exact);
+            SearchText = "";
+            return;
+        }
+
+        var codeItems = await _services.ProductCatalog.SearchByProductCodeAsync(q, ct);
+        if (codeItems.Count == 1)
+        {
+            AddLineFromCatalog(codeItems[0]);
+            SearchText = "";
+            return;
+        }
+
+        if (codeItems.Count > 1)
+        {
+            var codeDlg = new ProductSearchDialog(q, _services, codeOnly: true)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            if (codeDlg.ShowDialog() == true && codeDlg.SelectedProduct != null)
+                AddLineFromCatalog(codeDlg.SelectedProduct);
+            SearchText = "";
+            return;
+        }
+
+        var nameItems = await _services.ProductCatalog.SearchAsync(q, ct);
+        if (nameItems.Count > 0)
+        {
+            var nameDlg = new ProductSearchDialog(q, _services, codeOnly: false)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            if (nameDlg.ShowDialog() == true && nameDlg.SelectedProduct != null)
+                AddLineFromCatalog(nameDlg.SelectedProduct);
+            SearchText = "";
+            return;
+        }
+
+        MessageBox.Show(
+            $"No product found in local inventory for \"{q}\".\nA reference indent request has been created.",
+            "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
+        await AddIndentRequestAsync(q, q, "", ct);
+        ClearEntryRowProductCode();
         SearchText = "";
+        RequestFocusEntryProductCode?.Invoke();
     }
 
     private async Task AddIndentRequestAsync(string sku, string description, string centralProductId, CancellationToken ct)
@@ -858,32 +897,69 @@ public partial class BillingViewModel : ObservableObject
         catch { }
     }
 
+    public void EnsureEntryRow()
+    {
+        foreach (var row in Lines.Where(l => l.IsEntryRow).ToList())
+            Lines.Remove(row);
+        Lines.Add(new BillingLineItem { IsEntryRow = true });
+    }
+
+    private BillingLineItem? GetEntryRow() =>
+        Lines.FirstOrDefault(l => l.IsEntryRow);
+
+    private void ClearEntryRowProductCode()
+    {
+        var entry = GetEntryRow();
+        if (entry != null)
+            entry.ProductCode = "";
+    }
+
+    private static void FillLineFromCatalog(BillingLineItem line, CatalogProduct p)
+    {
+        line.IsEntryRow = false;
+        line.CentralProductId = p.CentralId ?? "";
+        line.ProductCode = p.Sku;
+        line.Description = p.Name;
+        line.HsnCode = string.IsNullOrWhiteSpace(p.HsnSac) ? "" : p.HsnSac.Trim();
+        line.Qty = 1;
+        line.Rate = p.SuggestedRate;
+        line.Mrp = p.Mrp ?? 0;
+        line.TaxPercent = p.SuggestedTaxPercent;
+    }
+
     private void AddLineFromCatalog(CatalogProduct p)
     {
         var sku = (p.Sku ?? "").Trim();
         if (!string.IsNullOrEmpty(sku))
         {
             var existing = Lines.FirstOrDefault(l =>
-                string.Equals((l.ProductCode ?? "").Trim(), sku, StringComparison.OrdinalIgnoreCase));
+                !l.IsEntryRow
+                && string.Equals((l.ProductCode ?? "").Trim(), sku, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
                 existing.Qty += 1;
+                ClearEntryRowProductCode();
+                EnsureEntryRow();
+                RequestFocusEntryProductCode?.Invoke();
                 return;
             }
         }
 
-        Lines.Add(new BillingLineItem
+        var entry = GetEntryRow();
+        if (entry != null)
         {
-            CentralProductId = p.CentralId ?? "",
-            ProductCode = p.Sku,
-            Description = p.Name,
-            HsnCode = string.IsNullOrWhiteSpace(p.HsnSac) ? "" : p.HsnSac.Trim(),
-            Qty = 1,
-            Rate = p.SuggestedRate,
-            Mrp = p.Mrp ?? 0,
-            TaxPercent = p.SuggestedTaxPercent,
-            IsIgst = IsInterState,
-        });
+            FillLineFromCatalog(entry, p);
+            entry.IsIgst = IsInterState;
+            EnsureEntryRow();
+            RequestFocusEntryProductCode?.Invoke();
+            return;
+        }
+
+        var line = new BillingLineItem { IsIgst = IsInterState };
+        FillLineFromCatalog(line, p);
+        Lines.Add(line);
+        EnsureEntryRow();
+        RequestFocusEntryProductCode?.Invoke();
     }
 
     [RelayCommand]
@@ -896,50 +972,7 @@ public partial class BillingViewModel : ObservableObject
         if (dlg.ShowDialog() != true)
             return;
 
-        await TryAddProductByCodeAsync(dlg.ProductCode, ct);
-    }
-
-    private async Task TryAddProductByCodeAsync(string code, CancellationToken ct = default)
-    {
-        var q = (code ?? "").Trim();
-        if (string.IsNullOrEmpty(q))
-            return;
-
-        var existing = await _services.ProductCatalog.FindBySkuOrBarcodeAsync(q, ct);
-        if (existing != null)
-        {
-            if (existing.StockQty <= 0)
-            {
-                MessageBox.Show(
-                    $"Product \"{existing.Name}\" (SKU: {existing.Sku}) is out of stock.\nA reference indent request has been created.",
-                    "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                await AddIndentRequestAsync(existing.Sku, existing.Name, existing.CentralId, ct);
-                return;
-            }
-
-            AddLineFromCatalog(existing);
-            return;
-        }
-
-        var items = await _services.ProductCatalog.SearchAsync(q, ct);
-        if (items.Count == 1)
-        {
-            AddLineFromCatalog(items[0]);
-            return;
-        }
-
-        if (items.Count > 1)
-        {
-            var pickDlg = new ProductSearchDialog(q, _services) { Owner = Application.Current.MainWindow };
-            if (pickDlg.ShowDialog() == true && pickDlg.SelectedProduct != null)
-                AddLineFromCatalog(pickDlg.SelectedProduct);
-            return;
-        }
-
-        MessageBox.Show(
-            $"No product found in local inventory for \"{q}\".\nA reference indent request has been created.",
-            "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-        await AddIndentRequestAsync(q, q, "", ct);
+        await CommitProductCodeInputAsync(dlg.ProductCode, ct);
     }
 
     [RelayCommand]
@@ -951,8 +984,10 @@ public partial class BillingViewModel : ObservableObject
     [RelayCommand]
     private void RemoveLine(BillingLineItem? line)
     {
-        if (line != null)
-            Lines.Remove(line);
+        if (line == null || line.IsEntryRow)
+            return;
+        Lines.Remove(line);
+        EnsureEntryRow();
     }
 
     [RelayCommand]
@@ -973,7 +1008,9 @@ public partial class BillingViewModel : ObservableObject
         _suppressDiscountTextSync = false;
         IsInterState = false;
         SearchText = "";
+        EnsureEntryRow();
         NotifyPostBillCanExecute();
+        RequestFocusEntryProductCode?.Invoke();
     }
 
     [RelayCommand(CanExecute = nameof(CanPostBill))]
@@ -1155,7 +1192,9 @@ public partial class BillingViewModel : ObservableObject
         if (clearBillingAfterPrint)
             ClearForNewBill();
 
-        _services.FocusSearch?.FocusGlobalSearch();
+        RequestFocusEntryProductCode?.Invoke();
+        if (RequestFocusEntryProductCode == null)
+            _services.FocusSearch?.FocusBillingProductSearch();
     }
 
     [RelayCommand]
@@ -1164,10 +1203,11 @@ public partial class BillingViewModel : ObservableObject
         MessageBox.Show(
             "Store billing flow:\n" +
             "• Settings (gear): login to central, Run sync once — fills local product cache.\n" +
-            "• Barcode labels: store the printed code in central product field barcode (or sku), then sync — scan types into search; one match adds the line automatically.\n" +
-            "• F3 — focus search; type SKU/barcode/name and press Enter — pick product (or auto-add if exactly one match).\n" +
+            "• Barcode labels: store the printed code in central product field barcode (or sku), then sync — scan into last row Product code.\n" +
+            "• Last row Product code — SKU/barcode adds directly; product name opens pick list. Enter → next row.\n" +
+            "• F3 — focus entry row Product code; toolbar search uses same rules.\n" +
             "• F2 — new bill (clears lines).\n" +
-            "• Add manual — enter product code (SKU/barcode) to add a line.\n" +
+            "• Add manual — same as typing product code in the last grid row.\n" +
             "• F8 — hold bill (save draft without payment or stock change).\n" +
             "• Resume held — open held bills from billing screen.\n" +
             "• F9 — post bill (saves to local store_bills in Mongo).\n" +
@@ -1388,6 +1428,7 @@ public partial class BillingViewModel : ObservableObject
             }
         }
 
+        EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
     }

@@ -189,7 +189,7 @@ public partial class ShellViewModel : ObservableObject
     }
 
     public void RequestBillingSearchFocus() =>
-        _services.FocusSearch?.FocusGlobalSearch();
+        _services.FocusSearch?.FocusBillingProductSearch();
 
     partial void OnGlobalSearchTextChanged(string value)
     {
@@ -238,8 +238,13 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void FocusGlobalSearch() =>
-        _services.FocusSearch?.FocusGlobalSearch();
+    private void FocusGlobalSearch()
+    {
+        if (CurrentPage == ShellPage.Billing)
+            _services.FocusSearch?.FocusBillingProductSearch();
+        else
+            _services.FocusSearch?.FocusGlobalSearch();
+    }
 
     [RelayCommand]
     private void ShowHelp()

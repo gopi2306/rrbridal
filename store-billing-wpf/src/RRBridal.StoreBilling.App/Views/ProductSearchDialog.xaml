@@ -16,7 +16,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Search SKU, barcode, or name (store cache + central)" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+        <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" TextWrapping="Wrap"/>
 
         <Grid Grid.Row="1" Margin="0,10,0,10">
             <Grid.ColumnDefinitions>

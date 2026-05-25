@@ -110,13 +110,15 @@
                                 <Button Content="Add manual" Style="{StaticResource PrimaryButton}" Command="{Binding AddManualLineCommand}"/>
                             </StackPanel>
                         </Grid>
-                        <DataGrid ItemsSource="{Binding Lines}"
+                        <DataGrid x:Name="LinesGrid"
+                                  ItemsSource="{Binding Lines}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   RowHeight="36"
                                   BorderThickness="1"
-                                  BorderBrush="{StaticResource BrushBorder}">
+                                  BorderBrush="{StaticResource BrushBorder}"
+                                  PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
@@ -179,7 +181,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
-                                   Text="F3: focus product search — Enter: add from catalog (single match auto-adds). TAB between cells."/>
+                                   Text="Last row Product code: SKU/barcode Enter adds line; name opens pick list. F3 focuses entry row. TAB between cells."/>
                     </DockPanel>
                 </Border>
             </StackPanel>

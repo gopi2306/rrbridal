@@ -10,10 +10,10 @@ public partial class ProductSearchDialog
 {
     public CatalogProduct? SelectedProduct { get; private set; }
 
-    public ProductSearchDialog(string initialQuery, AppServices services)
+    public ProductSearchDialog(string initialQuery, AppServices services, bool codeOnly = false)
     {
         InitializeComponent();
-        DataContext = new ProductSearchViewModel(services.ProductCatalog, initialQuery);
+        DataContext = new ProductSearchViewModel(services.ProductCatalog, initialQuery, codeOnly);
         Loaded += async (_, _) =>
         {
             if (DataContext is ProductSearchViewModel vm)

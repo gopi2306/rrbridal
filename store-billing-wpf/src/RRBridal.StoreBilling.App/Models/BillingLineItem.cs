@@ -8,6 +8,9 @@ public partial class BillingLineItem : ObservableObject
 {
     [ObservableProperty] private int lineNo;
 
+    /// <summary>Trailing scratch row for typing the next product code.</summary>
+    [ObservableProperty] private bool isEntryRow;
+
     [ObservableProperty] private string centralProductId = "";
 
     [ObservableProperty] private string productCode = "";

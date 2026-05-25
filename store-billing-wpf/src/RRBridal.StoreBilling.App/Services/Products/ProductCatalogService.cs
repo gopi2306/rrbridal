@@ -81,6 +81,7 @@ public sealed class ProductCatalogService
         return list;
     }
 
+    /// <summary>SKU, barcode (upcEanCode), or alias — exact match only.</summary>
     public async Task<CatalogProduct?> FindBySkuOrBarcodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -90,12 +91,10 @@ public sealed class ProductCatalogService
         {
             var hsnLookup = await HsnSacResolver.LoadLookupAsync(_localDb, ct);
             var q = code.Trim();
-            var skuExact = new BsonRegularExpression("^" + Regex.Escape(q) + "$", "i");
+            var exact = new BsonRegularExpression("^" + Regex.Escape(q) + "$", "i");
             var filter = Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Exists("sku"),
-                Builders<BsonDocument>.Filter.Or(
-                    Builders<BsonDocument>.Filter.Eq("upcEanCode", q),
-                    Builders<BsonDocument>.Filter.Regex("sku", skuExact)));
+                CodeExactMatchFilter(q, exact));
 
             var doc = await _cache.Find(filter).FirstOrDefaultAsync(ct);
             return doc != null ? MapFromBson(doc, hsnLookup) : null;
@@ -105,6 +104,73 @@ public sealed class ProductCatalogService
             return null;
         }
     }
+
+    /// <summary>Partial match on SKU, barcode, or alias only (not product name).</summary>
+    public async Task<IReadOnlyList<CatalogProduct>> SearchByProductCodeAsync(string query, CancellationToken ct = default)
+    {
+        var q = query?.Trim() ?? "";
+        if (q.Length < 1)
+            return Array.Empty<CatalogProduct>();
+
+        var hsnLookup = await HsnSacResolver.LoadLookupAsync(_localDb, ct);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<CatalogProduct>();
+        var stockFilter = Builders<BsonDocument>.Filter.Gt("stockQty", 0);
+
+        if (IsAllDigits(q))
+        {
+            try
+            {
+                var exact = new BsonRegularExpression("^" + Regex.Escape(q) + "$", "i");
+                var matchFilter = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Exists("sku"),
+                    stockFilter,
+                    CodeExactMatchFilter(q, exact));
+
+                var docs = await _cache.Find(matchFilter).Limit(40).ToListAsync(ct);
+                foreach (var d in docs)
+                {
+                    var p = MapFromBson(d, hsnLookup);
+                    if (p != null && seen.Add(p.Sku))
+                        list.Add(p);
+                }
+            }
+            catch { }
+        }
+
+        try
+        {
+            var escaped = Regex.Escape(q);
+            var regex = new BsonRegularExpression(escaped, "i");
+            var filter = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Exists("sku"),
+                stockFilter,
+                CodePartialMatchFilter(regex));
+
+            var docs = await _cache.Find(filter).Limit(80).ToListAsync(ct);
+            foreach (var d in docs)
+            {
+                var p = MapFromBson(d, hsnLookup);
+                if (p != null && seen.Add(p.Sku))
+                    list.Add(p);
+            }
+        }
+        catch { }
+
+        return list;
+    }
+
+    private static FilterDefinition<BsonDocument> CodeExactMatchFilter(string q, BsonRegularExpression exactRegex) =>
+        Builders<BsonDocument>.Filter.Or(
+            Builders<BsonDocument>.Filter.Eq("upcEanCode", q),
+            Builders<BsonDocument>.Filter.Regex("sku", exactRegex),
+            Builders<BsonDocument>.Filter.Regex("alias", exactRegex));
+
+    private static FilterDefinition<BsonDocument> CodePartialMatchFilter(BsonRegularExpression regex) =>
+        Builders<BsonDocument>.Filter.Or(
+            Builders<BsonDocument>.Filter.Regex("sku", regex),
+            Builders<BsonDocument>.Filter.Regex("upcEanCode", regex),
+            Builders<BsonDocument>.Filter.Regex("alias", regex));
 
     private static bool IsAllDigits(string s) =>
         s.Length > 0 && s.All(static c => c is >= '0' and <= '9');
