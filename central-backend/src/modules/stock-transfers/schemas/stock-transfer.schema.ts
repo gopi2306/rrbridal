@@ -12,6 +12,13 @@ export type StockTransferFromKind = 'warehouse' | 'store';
 
 @Schema({ _id: false })
 export class StockTransferLine {
+  @ApiProperty({
+    required: false,
+    description: 'Mongo ObjectId of the product master; resolved from sku on save when omitted',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true })
+  productId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true })
   sku!: string;
@@ -23,6 +30,15 @@ export class StockTransferLine {
   @ApiProperty()
   @Prop({ required: true })
   qty!: number;
+}
+
+/** API response shape: each line includes populated `product` (not stored on the document). */
+export class StockTransferLineResponse extends StockTransferLine {
+  @ApiProperty({
+    required: false,
+    description: 'Full product master with populated refs (department, category, supplier, etc.)',
+  })
+  product?: Record<string, unknown>;
 }
 
 @Schema({ timestamps: true, collection: 'stock_transfers' })
@@ -108,7 +124,7 @@ export class StockTransfer {
   @Prop({ trim: true })
   receivedBy?: string;
 
-  @ApiProperty({ type: [StockTransferLine] })
+  @ApiProperty({ type: [StockTransferLineResponse] })
   @Prop({ type: [StockTransferLine], default: [] })
   lines!: StockTransferLine[];
 }

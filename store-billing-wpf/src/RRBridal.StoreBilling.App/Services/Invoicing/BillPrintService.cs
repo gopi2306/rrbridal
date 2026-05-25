@@ -9,7 +9,7 @@ namespace RRBridal.StoreBilling.App.Services.Invoicing;
 public sealed class BillPrintService
 {
     /// <summary>~80mm at 96 DPI.</summary>
-    private const double PageWidthPx = 80.0 / 25.4 * 96.0;
+    private const double DefaultPageWidthPx = 80.0 / 25.4 * 96.0;
 
     private const double LogoMaxWidthPx = 72.0 / 25.4 * 96.0;
 
@@ -21,11 +21,12 @@ public sealed class BillPrintService
     public static FlowDocument CreateReceiptDocument(
         string monospaceText,
         ThermalReceiptAssets? assets,
-        double fontSize = 10.0)
+        double fontSize = 10.0,
+        double? pageWidthPx = null)
     {
         var doc = new FlowDocument
         {
-            PageWidth = PageWidthPx,
+            PageWidth = pageWidthPx ?? DefaultPageWidthPx,
             PagePadding = new Thickness(8, 8, 8, 8),
             FontFamily = new FontFamily("Consolas,Courier New"),
             FontSize = fontSize,

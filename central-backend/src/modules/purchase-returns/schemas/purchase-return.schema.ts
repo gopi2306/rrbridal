@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { ApiProperty } from '@nestjs/swagger';
-import { HydratedDocument } from 'mongoose';
+import { ApiProperty, OmitType } from '@nestjs/swagger';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type PurchaseReturnDocument = HydratedDocument<PurchaseReturn>;
 
@@ -37,6 +37,13 @@ export class PurchaseReturnSupplierSnapshot {
 
 @Schema({ _id: false })
 export class PurchaseReturnLine {
+  @ApiProperty({
+    required: false,
+    description: 'Mongo ObjectId of the product master; resolved from sku on save when omitted',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true })
+  productId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true })
   sku!: string;
@@ -76,6 +83,15 @@ export class PurchaseReturnLine {
   @ApiProperty({ required: false })
   @Prop()
   taxAmount?: number;
+}
+
+/** API response shape: each line includes populated `product` (not stored on the document). */
+export class PurchaseReturnLineResponse extends PurchaseReturnLine {
+  @ApiProperty({
+    required: false,
+    description: 'Full product master with populated refs (department, category, supplier, etc.)',
+  })
+  product?: Record<string, unknown>;
 }
 
 @Schema({ timestamps: true })
@@ -120,9 +136,34 @@ export class PurchaseReturn {
   @Prop()
   netAmount?: number;
 
-  @ApiProperty({ type: [PurchaseReturnLine] })
+  @ApiProperty({ type: [PurchaseReturnLineResponse] })
   @Prop({ type: [PurchaseReturnLine], default: [] })
   lines!: PurchaseReturnLine[];
+}
+
+/** API response shape: populated masters (not stored on the document). */
+export class PurchaseReturnResponse extends OmitType(PurchaseReturn, ['supplier'] as const) {
+  @ApiProperty({
+    required: false,
+    description: 'Embedded supplier copy saved on the purchase return (supplierId, name, code, etc.)',
+    type: PurchaseReturnSupplierSnapshot,
+  })
+  supplierSnapshot?: PurchaseReturnSupplierSnapshot;
+
+  @ApiProperty({
+    required: false,
+    description: 'Full supplier master document resolved from supplierSnapshot.supplierId',
+  })
+  supplier?: Record<string, unknown>;
+
+  @ApiProperty({ required: false, description: 'Resolved branch master when branchId is set' })
+  branch?: Record<string, unknown>;
+
+  @ApiProperty({ required: false, description: 'Resolved division master when mainDivisionId is set' })
+  mainDivision?: Record<string, unknown>;
+
+  @ApiProperty({ required: false, description: 'Resolved location master when mainLocationId is set' })
+  mainLocation?: Record<string, unknown>;
 }
 
 export const PurchaseReturnSchema = SchemaFactory.createForClass(PurchaseReturn);

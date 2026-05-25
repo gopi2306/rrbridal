@@ -1,14 +1,28 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
-import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import {
+  attachLineProducts,
+  enrichDocWithLineProducts,
+  resolveProductIdForSku,
+} from '../../common/product-line-enrichment';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { CreatePurchaseOrderDto, CreatePurchaseOrderLineDto } from './dto/create-purchase-order.dto';
 import { FilterPurchaseOrderDto } from './dto/filter-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
-import { PurchaseOrder, PurchaseOrderDocument, PurchaseOrderStatus } from './schemas/purchase-order.schema';
+import {
+  PurchaseOrder,
+  PurchaseOrderDocument,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
+} from './schemas/purchase-order.schema';
 
 @Injectable()
 export class PurchaseOrdersService {
-  constructor(@InjectModel(PurchaseOrder.name) private readonly poModel: Model<PurchaseOrderDocument>) {}
+  constructor(
+    @InjectModel(PurchaseOrder.name) private readonly poModel: Model<PurchaseOrderDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+  ) {}
 
   private async nextPoNo() {
     // Simple scaffold: PO-<random 4 digits>. Replace with counter-based sequence later.
@@ -16,9 +30,45 @@ export class PurchaseOrdersService {
     return `PO-${suffix}`;
   }
 
+  private async normalizeDtoLine(dto: CreatePurchaseOrderLineDto): Promise<PurchaseOrderLine> {
+    const sku = dto.sku.trim();
+    const productId = await resolveProductIdForSku(this.productModel, sku, dto.productId);
+    const line: PurchaseOrderLine = { sku };
+    if (productId) line.productId = productId;
+    if (dto.barcode !== undefined) line.barcode = dto.barcode;
+    if (dto.description !== undefined) line.description = dto.description;
+    if (dto.recdQty !== undefined) line.recdQty = dto.recdQty;
+    if (dto.freeQty !== undefined) line.freeQty = dto.freeQty;
+    if (dto.cost !== undefined) line.cost = dto.cost;
+    if (dto.selling !== undefined) line.selling = dto.selling;
+    if (dto.mrp !== undefined) line.mrp = dto.mrp;
+    if (dto.discountPercent !== undefined) line.discountPercent = dto.discountPercent;
+    if (dto.discountAmount !== undefined) line.discountAmount = dto.discountAmount;
+    if (dto.taxPercent !== undefined) line.taxPercent = dto.taxPercent;
+    if (dto.taxAmount !== undefined) line.taxAmount = dto.taxAmount;
+    if (dto.cgstPercent !== undefined) line.cgstPercent = dto.cgstPercent;
+    if (dto.cgstAmount !== undefined) line.cgstAmount = dto.cgstAmount;
+    if (dto.sgstPercent !== undefined) line.sgstPercent = dto.sgstPercent;
+    if (dto.sgstAmount !== undefined) line.sgstAmount = dto.sgstAmount;
+    if (dto.surchargePercent !== undefined) line.surchargePercent = dto.surchargePercent;
+    if (dto.surchargeAmount !== undefined) line.surchargeAmount = dto.surchargeAmount;
+    if (dto.amount !== undefined) line.amount = dto.amount;
+    if (dto.netCost !== undefined) line.netCost = dto.netCost;
+    if (dto.rotPercent !== undefined) line.rotPercent = dto.rotPercent;
+    if (dto.grossPercent !== undefined) line.grossPercent = dto.grossPercent;
+    if (dto.cashDiscPercent !== undefined) line.cashDiscPercent = dto.cashDiscPercent;
+    if (dto.cashDiscAmount !== undefined) line.cashDiscAmount = dto.cashDiscAmount;
+    if (dto.netAmount !== undefined) line.netAmount = dto.netAmount;
+    return line;
+  }
+
   async create(dto: CreatePurchaseOrderDto) {
     const poNo = await this.nextPoNo();
-    return await this.poModel.create({
+    const lines: PurchaseOrderLine[] = [];
+    for (const l of dto.lines ?? []) {
+      lines.push(await this.normalizeDtoLine(l));
+    }
+    const created = await this.poModel.create({
       poNo,
       branchId: dto.branchId,
       mainDivisionId: dto.mainDivisionId,
@@ -35,21 +85,49 @@ export class PurchaseOrdersService {
       sgstAmount: dto.sgstAmount,
       surchargeAmount: dto.surchargeAmount,
       netAmount: dto.netAmount,
-      status: (dto.status as any) ?? 'open',
-      lines: dto.lines ?? [],
+      status: (dto.status as PurchaseOrderStatus) ?? 'open',
+      lines,
     });
+    return await enrichDocWithLineProducts(
+      this.productModel,
+      created.toObject() as unknown as Record<string, unknown>,
+    );
   }
 
   async findById(id: string) {
     const doc = await this.poModel.findById(id).lean();
     if (!doc) throw new NotFoundException('Purchase order not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async update(id: string, dto: UpdatePurchaseOrderDto) {
-    const doc = await this.poModel.findByIdAndUpdate(id, { $set: dto }, { new: true }).lean();
+    const set: Record<string, unknown> = {};
+    if (dto.branchId !== undefined) set.branchId = dto.branchId;
+    if (dto.mainDivisionId !== undefined) set.mainDivisionId = dto.mainDivisionId;
+    if (dto.mainLocationId !== undefined) set.mainLocationId = dto.mainLocationId;
+    if (dto.supplier !== undefined) set.supplier = dto.supplier;
+    if (dto.poDate !== undefined) set.poDate = dto.poDate;
+    if (dto.deliveryDate !== undefined) set.deliveryDate = dto.deliveryDate;
+    if (dto.expiryDate !== undefined) set.expiryDate = dto.expiryDate;
+    if (dto.itemDiscAmount !== undefined) set.itemDiscAmount = dto.itemDiscAmount;
+    if (dto.cashDiscPercent !== undefined) set.cashDiscPercent = dto.cashDiscPercent;
+    if (dto.cashDiscount !== undefined) set.cashDiscount = dto.cashDiscount;
+    if (dto.taxAmount !== undefined) set.taxAmount = dto.taxAmount;
+    if (dto.cgstAmount !== undefined) set.cgstAmount = dto.cgstAmount;
+    if (dto.sgstAmount !== undefined) set.sgstAmount = dto.sgstAmount;
+    if (dto.surchargeAmount !== undefined) set.surchargeAmount = dto.surchargeAmount;
+    if (dto.netAmount !== undefined) set.netAmount = dto.netAmount;
+    if (dto.status !== undefined) set.status = dto.status;
+    if (dto.lines !== undefined) {
+      const lines: PurchaseOrderLine[] = [];
+      for (const l of dto.lines) {
+        lines.push(await this.normalizeDtoLine(l));
+      }
+      set.lines = lines;
+    }
+    const doc = await this.poModel.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase order not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async list(params: { search?: string; supplierId?: string; status?: string }) {
@@ -62,13 +140,17 @@ export class PurchaseOrdersService {
         { 'supplier.name': { $regex: params.search, $options: 'i' } },
       ];
     }
-    return await this.poModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    const rows = await this.poModel.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    return await attachLineProducts(
+      this.productModel,
+      rows as Array<{ lines?: Array<Record<string, unknown>> }>,
+    );
   }
 
   async setStatus(id: string, status: PurchaseOrderStatus) {
     const doc = await this.poModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase order not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async filter(dto: FilterPurchaseOrderDto) {
@@ -122,8 +204,13 @@ export class PurchaseOrdersService {
       this.poModel.countDocuments(filter),
     ]);
 
+    const enrichedData = await attachLineProducts(
+      this.productModel,
+      data as Array<{ lines?: Array<Record<string, unknown>> }>,
+    );
+
     return {
-      data,
+      data: enrichedData,
       total,
       page,
       limit,
@@ -131,4 +218,3 @@ export class PurchaseOrdersService {
     };
   }
 }
-

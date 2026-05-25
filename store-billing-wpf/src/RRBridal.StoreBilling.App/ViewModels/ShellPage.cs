@@ -9,4 +9,5 @@ public enum ShellPage
     Ledger,
     SaleReturn,
     Adjustments,
+    DuplicateBill,
 }

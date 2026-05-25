@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type GoodsReceiptDocument = HydratedDocument<GoodsReceipt>;
 
@@ -20,6 +20,13 @@ export class GoodsReceiptSupplierSnapshot {
 
 @Schema({ _id: false })
 export class GoodsReceiptLine {
+  @ApiProperty({
+    required: false,
+    description: 'Mongo ObjectId of the product master; resolved from sku on save when omitted',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true })
+  productId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true })
   sku!: string;
@@ -39,6 +46,15 @@ export class GoodsReceiptLine {
   @ApiProperty({ required: false, enum: ['valid', 'invalid', 'damaged'] })
   @Prop({ default: 'valid' })
   outcome?: GoodsReceiptLineOutcome;
+}
+
+/** API response shape: each line includes populated `product` (not stored on the document). */
+export class GoodsReceiptLineResponse extends GoodsReceiptLine {
+  @ApiProperty({
+    required: false,
+    description: 'Full product master with populated refs (department, category, supplier, etc.)',
+  })
+  product?: Record<string, unknown>;
 }
 
 @Schema({ timestamps: true })
@@ -79,7 +95,7 @@ export class GoodsReceipt {
   @Prop({ required: true, default: 'draft', index: true })
   status!: GoodsReceiptStatus;
 
-  @ApiProperty({ type: [GoodsReceiptLine] })
+  @ApiProperty({ type: [GoodsReceiptLineResponse] })
   @Prop({ type: [GoodsReceiptLine], default: [] })
   lines!: GoodsReceiptLine[];
 }

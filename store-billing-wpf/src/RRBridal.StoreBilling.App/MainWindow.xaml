@@ -20,7 +20,8 @@
         <KeyBinding Key="Escape" Command="{Binding CancelCustomerRegistrationCommand}"/>
         <KeyBinding Key="F9" Command="{Binding PostBillCommand}"/>
         <KeyBinding Key="F10" Command="{Binding PrintStubCommand}"/>
-        <KeyBinding Key="F11" Command="{Binding LogStubCommand}"/>
+        <KeyBinding Key="F8" Command="{Binding HoldBillCommand}"/>
+        <KeyBinding Key="F11" Command="{Binding OpenDuplicateBillCommand}"/>
         <KeyBinding Key="F12" Command="{Binding CloseAppCommand}"/>
     </Window.InputBindings>
 
@@ -241,6 +242,38 @@
                             </Border>
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DuplicateBill}" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="Duplicate" HorizontalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
+                                        <Setter Property="Opacity" Value="0.55"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.DuplicateBill}">
+                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                <Setter Property="Opacity" Value="1"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.DuplicateBill}">
+                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Adjustments}">
                         <StackPanel>
                             <TextBlock Text="Adjustments" HorizontalAlignment="Center">
@@ -323,6 +356,9 @@
             <Grid Visibility="{Binding IsSaleReturnPage, Converter={StaticResource BoolToVis}}">
                 <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
             </Grid>
+            <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
+                <views:DuplicateBillView DataContext="{Binding DuplicateBill}"/>
+            </Grid>
             <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
                 <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
             </Grid>
@@ -334,8 +370,9 @@
                 <Button Style="{StaticResource ShortcutChip}" Content="F2 New" Command="{Binding ClearForNewBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F3 Search" Command="{Binding FocusGlobalSearchCommand}"/>
                 <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="8,0" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F8 Hold" Command="{Binding HoldBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F10 Print" Command="{Binding PrintStubCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F11 Log" Command="{Binding LogStubCommand}"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}"/>
             </StackPanel>
         </Border>

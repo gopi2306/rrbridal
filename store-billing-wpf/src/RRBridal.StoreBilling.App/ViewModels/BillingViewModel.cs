@@ -112,6 +112,7 @@ public partial class BillingViewModel : ObservableObject
 
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
+    private string? _resumingDraftBillNo;
     private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
@@ -136,6 +137,7 @@ public partial class BillingViewModel : ObservableObject
 
     private void AssignNewBillIdentity()
     {
+        _resumingDraftBillNo = null;
         BillDateDisplay = DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
         BillNo = $"{DateTime.Now:yyyyMMdd}-{_services.StoreContext.PosCounter}-draft";
         _ = AssignBillNumberAsync();
@@ -1110,7 +1112,16 @@ public partial class BillingViewModel : ObservableObject
                 { "createdAtUtc", DateTime.UtcNow.ToString("O") },
             };
 
+            if (!string.IsNullOrEmpty(_resumingDraftBillNo))
+            {
+                await coll.DeleteOneAsync(Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                    Builders<BsonDocument>.Filter.Eq("billNo", _resumingDraftBillNo),
+                    Builders<BsonDocument>.Filter.Eq("status", "draft")));
+            }
+
             await coll.InsertOneAsync(doc);
+            _resumingDraftBillNo = null;
 
             foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.CentralProductId)))
                 await _services.ProductCatalog.DecrementStockAsync(line.CentralProductId!, line.Qty, ct: default);
@@ -1136,46 +1147,15 @@ public partial class BillingViewModel : ObservableObject
         ThermalInvoiceInput? prebuiltInput = null,
         bool clearBillingAfterPrint = true)
     {
-        try
-        {
-            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
-            var (profileOk, profileMsg) = await _services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
-            if (!profileOk)
-            {
-                MessageBox.Show(
-                    profileMsg,
-                    "Receipt settings",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
+        var input = prebuiltInput ?? BuildThermalInput(paymentOutcome);
+        var printed = await InvoicePrintFlow.ShowAsync(_services, input, printInvoiceEnabled);
+        if (!printed)
+            return;
 
-            var input = prebuiltInput ?? BuildThermalInput(paymentOutcome);
-            var text = ThermalInvoiceTextBuilder.Build(input);
-            var assets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
-                _services.ReceiptConfig.Current,
-                input.BillNo,
-                _services.ReceiptLogoCache);
-            var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
-            var doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
-            var dlg = new InvoicePrintPreviewWindow(_services, doc, text, printInvoiceEnabled)
-            {
-                Owner = Application.Current.MainWindow,
-            };
-            dlg.ShowDialog();
+        if (clearBillingAfterPrint)
+            ClearForNewBill();
 
-            if (!dlg.PrintSucceeded)
-                return;
-
-            if (clearBillingAfterPrint)
-                ClearForNewBill();
-
-            _services.FocusSearch?.FocusGlobalSearch();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Could not open invoice preview: {ex.Message}", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        _services.FocusSearch?.FocusGlobalSearch();
     }
 
     [RelayCommand]
@@ -1188,8 +1168,11 @@ public partial class BillingViewModel : ObservableObject
             "• F3 — focus search; type SKU/barcode/name and press Enter — pick product (or auto-add if exactly one match).\n" +
             "• F2 — new bill (clears lines).\n" +
             "• Add manual — enter product code (SKU/barcode) to add a line.\n" +
+            "• F8 — hold bill (save draft without payment or stock change).\n" +
+            "• Resume held — open held bills from billing screen.\n" +
             "• F9 — post bill (saves to local store_bills in Mongo).\n" +
             "• F10 — invoice preview / print (thermal format).\n" +
+            "• F11 — duplicate bill (reprint posted invoice).\n" +
             "• Multi-counter: same STORE_ID + STORE_MONGO_URI on LAN; unique DEVICE_ID and POS_COUNTER per till (see deploy/env.counter-*.example).\n" +
             "• Set STORE_ID, DEVICE_ID, POS_COUNTER and STORE_MONGO_URI in .env.\n" +
             "• F12 — exit.",
@@ -1297,9 +1280,190 @@ public partial class BillingViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private static void LogStub()
+    private async Task HoldBill()
     {
-        MessageBox.Show("Activity log is not implemented yet.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+        if (!Lines.Any(l => l.Amount > 0))
+        {
+            MessageBox.Show("Add at least one line before holding the bill.", "Hold bill",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        RecalculateTotals();
+        if (string.IsNullOrWhiteSpace(BillNo))
+            await AssignBillNumberAsync();
+
+        try
+        {
+            var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
+            var doc = BuildBillBsonDocument("draft", payments: null, paymentMode: "");
+            var storeId = _services.StoreContext.StoreId;
+            var filter = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                Builders<BsonDocument>.Filter.Eq("billNo", BillNo),
+                Builders<BsonDocument>.Filter.Eq("status", "draft"));
+
+            await coll.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true });
+            _resumingDraftBillNo = BillNo;
+            MessageBox.Show($"Bill {BillNo} held. Use Resume held bills to continue.", "Hold bill",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            ClearForNewBill();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not hold bill: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResumeHeldBills()
+    {
+        try
+        {
+            var rows = await _services.BillDocuments.ListDraftsAsync();
+            var dlg = new HeldBillsDialog(rows) { Owner = Application.Current.MainWindow };
+            if (dlg.ShowDialog() != true)
+                return;
+
+            if (dlg.DeleteRequested && dlg.SelectedRow != null)
+            {
+                await _services.BillDocuments.DeleteDraftAsync(dlg.SelectedRow.BillNo);
+                MessageBox.Show("Held bill deleted.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!dlg.ResumeRequested || dlg.SelectedRow == null)
+                return;
+
+            var doc = await _services.BillDocuments.GetByBillNoAsync(dlg.SelectedRow.BillNo);
+            if (doc == null)
+            {
+                MessageBox.Show("Held bill not found.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            LoadFromDraftDocument(doc);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open held bills: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    public void LoadFromDraftDocument(BsonDocument doc)
+    {
+        ClearForNewBill();
+        _resumingDraftBillNo = doc.GetValue("billNo", "").AsString;
+        BillNo = _resumingDraftBillNo;
+        BillDateDisplay = doc.GetValue("billDate", BillDateDisplay).AsString;
+        CustomerCode = doc.GetValue("customerCode", "").AsString;
+        CustomerName = doc.GetValue("customerName", "").AsString;
+        CustomerPhone = doc.GetValue("customerPhone", "").AsString;
+        Salesman = doc.GetValue("salesman", "").AsString;
+        HoldBills = doc.GetValue("holdBills", false).AsBoolean;
+        DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean;
+        PrintInvoice = doc.GetValue("printInvoice", true).AsBoolean;
+        IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
+        ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
+        CashDiscAmountText = doc.GetValue("cashDiscAmount", 0).ToDouble().ToString("0.##", InCulture);
+
+        if (doc.TryGetValue("lines", out var linesVal) && linesVal.IsBsonArray)
+        {
+            foreach (BsonDocument lineBson in linesVal.AsBsonArray.OfType<BsonDocument>())
+            {
+                var line = new BillingLineItem
+                {
+                    LineNo = lineBson.GetValue("lineNo", 0).ToInt32(),
+                    CentralProductId = lineBson.GetValue("centralProductId", "").AsString,
+                    ProductCode = lineBson.GetValue("sku", "").AsString,
+                    Description = lineBson.GetValue("description", "").AsString,
+                    HsnCode = lineBson.GetValue("hsn", "").AsString,
+                    Qty = (decimal)lineBson.GetValue("qty", 0).ToDouble(),
+                    Rate = (decimal)lineBson.GetValue("rate", 0).ToDouble(),
+                    Mrp = (decimal)lineBson.GetValue("mrp", 0).ToDouble(),
+                    TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
+                    IsIgst = IsInterState,
+                };
+                Lines.Add(line);
+            }
+        }
+
+        RecalculateTotals();
+        NotifyPostBillCanExecute();
+    }
+
+    private BsonDocument BuildBillBsonDocument(string status, BsonArray? payments, string paymentMode)
+    {
+        RecalculateTotals();
+        var totals = _lastBillTotals;
+        var linesArr = new BsonArray();
+        foreach (var line in Lines.Where(l => l.Amount > 0))
+        {
+            linesArr.Add(new BsonDocument
+            {
+                { "lineNo", line.LineNo },
+                { "centralProductId", line.CentralProductId ?? "" },
+                { "sku", line.ProductCode },
+                { "description", line.Description },
+                { "hsn", line.HsnCode ?? "" },
+                { "qty", (double)line.Qty },
+                { "rate", (double)line.Rate },
+                { "amount", (double)line.Amount },
+                { "discountAmount", (double)line.DiscountAmount },
+                { "cashDiscountAmount", (double)line.CashDiscountAmount },
+                { "originalTaxAmount", (double)line.OriginalTaxAmount },
+                { "revisedAmount", (double)line.RevisedAmount },
+                { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
+                { "revisedTaxAmount", (double)line.RevisedTaxAmount },
+                { "mrp", (double)line.Mrp },
+                { "taxPercent", (double)line.TaxPercent },
+                { "cgstPercent", (double)line.CgstPercent },
+                { "sgstPercent", (double)line.SgstPercent },
+                { "igstPercent", (double)line.IgstPercent },
+                { "cgstAmount", (double)line.CgstAmount },
+                { "sgstAmount", (double)line.SgstAmount },
+                { "igstAmount", (double)line.IgstAmount },
+                { "taxAmount", (double)line.TaxAmount },
+            });
+        }
+
+        return new BsonDocument
+        {
+            { "billNo", BillNo.Trim() },
+            { "billDate", BillDateDisplay },
+            { "storeId", _services.StoreContext.StoreId },
+            { "deviceId", _services.StoreContext.DeviceId },
+            { "posCounter", _services.StoreContext.PosCounter },
+            { "customerCode", CustomerCode },
+            { "customerName", CustomerName },
+            { "customerPhone", CustomerPhone },
+            { "salesman", Salesman },
+            { "doorNo", "" },
+            { "street", "" },
+            { "fullAddress", "" },
+            { "holdBills", HoldBills },
+            { "doorDelivery", DoorDelivery },
+            { "printInvoice", PrintInvoice },
+            { "isInterState", IsInterState },
+            { "itemDiscountPercent", (double)ItemDiscountPercent },
+            { "itemDiscount", (double)totals.ItemDiscount },
+            { "cashDiscAmount", (double)totals.CashDiscount },
+            { "roundOff", (double)totals.RoundOff },
+            { "subTotal", (double)totals.SubTotal },
+            { "originalInclusiveTotal", (double)totals.OriginalInclusiveTotal },
+            { "originalTaxTotal", (double)totals.OriginalTaxTotal },
+            { "revisedSubTotal", (double)totals.RevisedSubTotal },
+            { "cgstTotal", (double)totals.Cgst },
+            { "sgstTotal", (double)totals.Sgst },
+            { "igstTotal", (double)totals.Igst },
+            { "taxTotal", (double)totals.TaxTotal },
+            { "payable", (double)totals.Payable },
+            { "lines", linesArr },
+            { "payments", payments ?? new BsonArray() },
+            { "paymentMode", paymentMode },
+            { "status", status },
+            { "createdAtUtc", DateTime.UtcNow.ToString("O") },
+        };
     }
 
     [RelayCommand]

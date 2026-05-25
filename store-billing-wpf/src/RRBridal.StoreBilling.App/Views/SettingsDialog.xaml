@@ -89,6 +89,14 @@
 
             <Separator Margin="0,8,0,16"/>
 
+            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Duplicate bill print" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Margin="0,4,0,12" Text="Reprint posted invoices with DUPLICATE watermark (no stock change)." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+            <CheckBox Content="Allow duplicate bill print (F11 / Duplicate screen / Ledger)" IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,12"/>
+            <Button Content="Save duplicate print setting" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                    Command="{Binding SaveBillingSettingsCommand}" Margin="0,0,0,16"/>
+
+            <Separator Margin="0,8,0,16"/>
+
             <TextBlock FontWeight="SemiBold" Text="Developer tests"/>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                 <Button Content="PineLabs" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding TestPineLabsPaymentCommand}"/>

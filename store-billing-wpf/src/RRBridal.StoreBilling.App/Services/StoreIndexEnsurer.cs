@@ -17,5 +17,17 @@ public static class StoreIndexEnsurer
         await bills.Indexes.CreateOneAsync(
             new CreateIndexModel<MongoDB.Bson.BsonDocument>(keys, new CreateIndexOptions { Name = "storeId_deviceId_createdAtUtc" }),
             cancellationToken: ct);
+
+        await bills.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("billNo"),
+                new CreateIndexOptions { Name = "billNo" }),
+            cancellationToken: ct);
+
+        await bills.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Descending("createdAtUtc"),
+                new CreateIndexOptions { Name = "createdAtUtc_desc" }),
+            cancellationToken: ct);
     }
 }

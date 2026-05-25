@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreatePurchaseReturnSupplierDto {
   @ApiProperty()
@@ -40,6 +48,15 @@ export class CreatePurchaseReturnSupplierDto {
 }
 
 export class CreatePurchaseReturnLineDto {
+  @ApiProperty({
+    required: false,
+    description: 'Product Mongo ObjectId; if omitted, resolved from sku when a product exists',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^[a-fA-F0-9]{24}$/i, { message: 'productId must be a 24-character hex Mongo id' })
+  productId?: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()

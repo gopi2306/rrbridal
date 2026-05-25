@@ -25,6 +25,8 @@
                                 <TextBlock FontWeight="SemiBold" FontSize="15" Text="Customer profiles" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
                                         Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
+                                <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
+                                        Padding="10,4" FontSize="12" Command="{Binding ResumeHeldBillsCommand}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,0" VerticalAlignment="Center"/>

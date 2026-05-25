@@ -26,6 +26,8 @@ public partial class ShellViewModel : ObservableObject
 
     public AdjustmentBillViewModel AdjustmentBill { get; }
 
+    public DuplicateBillViewModel DuplicateBill { get; }
+
     [ObservableProperty] private ShellPage _currentPage = ShellPage.Billing;
 
     public string LoggedInUserName => _services.UserSession?.LoggedInUser.Name ?? "Unknown";
@@ -84,6 +86,7 @@ public partial class ShellViewModel : ObservableObject
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
+        DuplicateBill = new DuplicateBillViewModel(services);
 
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
@@ -127,6 +130,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
+        OnPropertyChanged(nameof(IsDuplicateBillPage));
     }
 
     private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
@@ -157,6 +161,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsAdjustmentsPage => CurrentPage == ShellPage.Adjustments;
 
+    public bool IsDuplicateBillPage => CurrentPage == ShellPage.DuplicateBill;
+
     partial void OnCurrentPageChanged(ShellPage value)
     {
         OnPropertyChanged(nameof(IsBillingPage));
@@ -166,6 +172,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
+        OnPropertyChanged(nameof(IsDuplicateBillPage));
 
         if (value == ShellPage.Dashboard)
             _ = Dashboard.RefreshCommand.ExecuteAsync(null);
@@ -270,11 +277,18 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void LogStub()
+    private async Task OpenDuplicateBill()
+    {
+        CurrentPage = ShellPage.DuplicateBill;
+        await DuplicateBill.SearchCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    private async Task HoldBill()
     {
         if (!EnsureBillingPage())
             return;
-        Billing.LogStubCommand.Execute(null);
+        await Billing.HoldBillCommand.ExecuteAsync(null);
     }
 
     [RelayCommand]
@@ -302,7 +316,7 @@ public partial class ShellViewModel : ObservableObject
         if (CurrentPage != ShellPage.Billing)
         {
             MessageBox.Show(
-                "Switch to Billing to use billing shortcuts (F1, F2, F9, F10 print, F11).",
+                "Switch to Billing to use billing shortcuts (F1, F2, F8 hold, F9 post, F10 print).",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

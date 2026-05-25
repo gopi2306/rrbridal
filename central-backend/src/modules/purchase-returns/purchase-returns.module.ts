@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
 import { Division, DivisionSchema } from '../divisions/schemas/division.schema';
 import { Location, LocationSchema } from '../locations/schemas/location.schema';
+import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { Supplier, SupplierSchema } from '../suppliers/schemas/supplier.schema';
 import { PurchaseReturn, PurchaseReturnSchema } from './schemas/purchase-return.schema';
 import { PurchaseReturnsController } from './purchase-returns.controller';
@@ -16,6 +17,7 @@ import { PurchaseReturnsService } from './purchase-returns.service';
       { name: Location.name, schema: LocationSchema },
       { name: Division.name, schema: DivisionSchema },
       { name: Supplier.name, schema: SupplierSchema },
+      { name: Product.name, schema: ProductSchema },
     ]),
   ],
   controllers: [PurchaseReturnsController],

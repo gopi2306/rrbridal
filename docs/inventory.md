@@ -33,9 +33,11 @@ Query parameters:
 
 Response rows (one per product in the result set):
 
-- `sku`, `barcode`, `product` (item name)
+- `sku`, `productId`, `upcEanCode` (barcode)
+- `product` — full product document with populated master refs (same shape as `GET /products` filter rows)
 - `warehouseQty` — sum of ledger at warehouse for that SKU
+- `inTransitQty` — quantity in the in-transit bucket
 - `storeQty` — per `storeId` filter or all stores
-- `mrp`, `storePrice` (falls back to `sellingPrice` if `storePrice` unset)
+- `mrp`, `storePrice` — convenience copies from `product` (`storePrice` falls back to `sellingPrice` when unset)
 
 Products with no ledger rows show zero quantities.

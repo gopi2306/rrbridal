@@ -3,9 +3,11 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -32,6 +34,10 @@ public partial class LedgerViewModel : ObservableObject
 
     [ObservableProperty] private PosCounterFilterOption? _selectedPosCounterFilter;
 
+    [ObservableProperty] private LedgerBillRow? _selectedBill;
+
+    private readonly AppServices _services;
+
     public ObservableCollection<PosCounterFilterOption> PosCounterFilterOptions { get; } = new();
 
     public ObservableCollection<LedgerBillRow> Bills { get; } = new();
@@ -40,6 +46,7 @@ public partial class LedgerViewModel : ObservableObject
 
     public LedgerViewModel(AppServices services)
     {
+        _services = services;
         _ledgerService = new StoreLedgerService(services.LocalDb);
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
@@ -92,6 +99,42 @@ public partial class LedgerViewModel : ObservableObject
             StatusMessage = "Could not load ledger: " + ex.Message;
         }
     }
+
+    [RelayCommand(CanExecute = nameof(CanReprintDuplicate))]
+    private async Task ReprintDuplicate()
+    {
+        if (SelectedBill == null)
+            return;
+
+        if (!_services.PosBillingSettings.Current.AllowDuplicatePrint)
+        {
+            MessageBox.Show("Duplicate bill printing is disabled in billing settings.", "Reprint",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var doc = await _services.BillDocuments.GetByBillNoAsync(SelectedBill.BillNo);
+        if (doc == null || doc.GetValue("status", "posted").AsString != "posted")
+        {
+            MessageBox.Show("Only posted bills can be reprinted.", "Reprint",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var user = _services.UserSession?.LoggedInUser.Name ?? "Unknown";
+        var input = _services.BillDocuments.MapToThermalInput(doc, isDuplicate: true, printedBy: user);
+        if (await InvoicePrintFlow.ShowAsync(_services, input, printInvoiceEnabled: true))
+        {
+            await _services.BillDocuments.AppendPrintAuditAsync(SelectedBill.BillNo, "duplicate", user);
+            StatusMessage = $"Duplicate reprinted for {SelectedBill.BillNo}.";
+        }
+    }
+
+    private bool CanReprintDuplicate() =>
+        SelectedBill != null && string.Equals(SelectedBill.Status, "posted", StringComparison.OrdinalIgnoreCase);
+
+    partial void OnSelectedBillChanged(LedgerBillRow? value) =>
+        ReprintDuplicateCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedPosCounterFilterChanged(PosCounterFilterOption? value)
     {

@@ -29,8 +29,12 @@
                               MinWidth="160"/>
                 </StackPanel>
             </StackPanel>
-            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Content="Refresh" Style="{StaticResource PrimaryButton}"
-                    Command="{Binding RefreshCommand}" Width="120"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Reprint duplicate" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                        Command="{Binding ReprintDuplicateCommand}" Width="130"/>
+                <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding RefreshCommand}" Width="100"/>
+            </StackPanel>
         </Grid>
 
         <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
@@ -39,6 +43,7 @@
             <TabItem Header="Posted bills">
                 <Border Style="{StaticResource CardBorder}" Margin="0,8,0,0" Padding="8" VerticalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding Bills}"
+                              SelectedItem="{Binding SelectedBill}"
                               Style="{StaticResource ThemedDataGrid}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"

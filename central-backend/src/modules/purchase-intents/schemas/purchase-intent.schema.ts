@@ -14,6 +14,13 @@ export type PurchaseIntentStatus =
 
 @Schema({ _id: false })
 export class PurchaseIntentLine {
+  @ApiProperty({
+    required: false,
+    description: 'Mongo ObjectId of the product master; resolved from sku on save when omitted',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true })
+  productId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true })
   sku!: string;
@@ -62,6 +69,15 @@ export class PurchaseIntentLine {
   remarks?: string;
 }
 
+/** API response shape: each line includes populated `product` (not stored on the document). */
+export class PurchaseIntentLineResponse extends PurchaseIntentLine {
+  @ApiProperty({
+    required: false,
+    description: 'Full product master with populated refs (department, category, supplier, etc.)',
+  })
+  product?: Record<string, unknown>;
+}
+
 @Schema({ timestamps: true, collection: 'purchase_intents' })
 export class PurchaseIntent {
   @ApiProperty()
@@ -88,7 +104,7 @@ export class PurchaseIntent {
   @Prop()
   remarks?: string;
 
-  @ApiProperty({ type: [PurchaseIntentLine] })
+  @ApiProperty({ type: [PurchaseIntentLineResponse] })
   @Prop({ type: [PurchaseIntentLine], default: [] })
   lines!: PurchaseIntentLine[];
 }

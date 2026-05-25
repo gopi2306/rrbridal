@@ -10,6 +10,7 @@ using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Notifications;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services;
@@ -39,6 +40,8 @@ public sealed class AppServices
     public required ReceiptConfigSyncService ReceiptConfigSync { get; init; }
     public required StoreContext StoreContext { get; init; }
     public required BillNumberGenerator BillNumberGenerator { get; init; }
+    public required PosBillingSettingsStore PosBillingSettings { get; init; }
+    public required BillDocumentService BillDocuments { get; init; }
     public required ShellBrandingService ShellBranding { get; init; }
     public required StoreInfoClient StoreInfo { get; init; }
     public required StoreSyncRunner StoreSyncRunner { get; init; }
@@ -103,6 +106,8 @@ public sealed class AppServices
 
         var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
+        var posBillingSettings = new PosBillingSettingsStore();
+        var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var syncSchedule = new SyncScheduleOptions();
         var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync, shellBranding);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
@@ -129,6 +134,8 @@ public sealed class AppServices
             ReceiptConfigSync = receiptConfigSync,
             StoreContext = storeContext,
             BillNumberGenerator = billNumberGenerator,
+            PosBillingSettings = posBillingSettings,
+            BillDocuments = billDocuments,
             ShellBranding = shellBranding,
             StoreInfo = storeInfoClient,
             StoreSyncRunner = storeSyncRunner,

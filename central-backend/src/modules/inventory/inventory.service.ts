@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { enrichProductDocuments } from '../../common/product-line-enrichment';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ProductsService } from '../products/products.service';
 import { InventoryLedgerEntry, InventoryLedgerDocument, InventoryLocationKind } from './schemas/inventory-ledger.schema';
 
@@ -20,6 +22,7 @@ type BalanceBucket = { warehouseQty: number; inTransitQty: number; storeById: Ma
 export class InventoryService {
   constructor(
     @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly productsService: ProductsService,
   ) {}
 
@@ -70,21 +73,34 @@ export class InventoryService {
       };
     }
 
-    const skus = products.map((p) => p.sku);
+    const enrichedProducts = await enrichProductDocuments(
+      this.productModel,
+      products as Array<Record<string, unknown>>,
+    );
+
+    const skus = enrichedProducts
+      .map((p) => (typeof p.sku === 'string' ? p.sku : ''))
+      .filter(Boolean);
     const balanceMap = await this.aggregateBalancesForSkus(skus);
 
-    const data = products.map((p) => {
-      const b = balanceMap.get(p.sku) ?? { warehouseQty: 0, inTransitQty: 0, storeById: new Map<string, number>() };
+    const data = enrichedProducts.map((p) => {
+      const sku = typeof p.sku === 'string' ? p.sku : '';
+      const b = balanceMap.get(sku) ?? { warehouseQty: 0, inTransitQty: 0, storeById: new Map<string, number>() };
       const storeQty = this.sumStoreQty(b.storeById, params.storeId);
+      const mrp = typeof p.mrp === 'number' ? p.mrp : undefined;
+      const storePrice =
+        (typeof p.storePrice === 'number' ? p.storePrice : undefined) ??
+        (typeof p.sellingPrice === 'number' ? p.sellingPrice : undefined);
       return {
-        sku: p.sku,
-        upcEanCode: p.upcEanCode,
-        product: p.itemName,
+        sku,
+        productId: p._id != null ? String(p._id) : undefined,
+        upcEanCode: typeof p.upcEanCode === 'string' ? p.upcEanCode : undefined,
+        product: p,
         warehouseQty: b.warehouseQty,
         inTransitQty: b.inTransitQty,
         storeQty,
-        mrp: p.mrp,
-        storePrice: p.storePrice ?? p.sellingPrice,
+        mrp,
+        storePrice,
       };
     });
 

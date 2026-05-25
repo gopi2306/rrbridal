@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.PurchaseIntents;
@@ -61,6 +62,8 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _receiptPrinterWarningText = "";
 
+    [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
+
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
     public SettingsViewModel(AppServices services)
@@ -99,6 +102,7 @@ public partial class SettingsViewModel : ObservableObject
 
         _services.ReceiptConfig.Reload();
         ApplyReceiptFieldsFromConfig();
+        LoadBillingSettingsFromStore();
         return Task.CompletedTask;
     }
 
@@ -312,6 +316,20 @@ public partial class SettingsViewModel : ObservableObject
             CancellationToken.None);
         LastActionText = $"Razorpay: {result.Status}";
         await RefreshStatusAsync();
+    }
+
+    private void LoadBillingSettingsFromStore()
+    {
+        _services.PosBillingSettings.Load();
+        BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
+    }
+
+    [RelayCommand]
+    public async Task SaveBillingSettingsAsync()
+    {
+        _services.PosBillingSettings.Update(s => s.AllowDuplicatePrint = BillingAllowDuplicatePrint);
+        await _services.PosBillingSettings.SaveAsync();
+        LastActionText = "Duplicate print setting saved.";
     }
 
     [RelayCommand]

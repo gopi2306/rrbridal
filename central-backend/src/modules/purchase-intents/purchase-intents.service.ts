@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
+import { attachLineProducts, enrichDocWithLineProducts, resolveProductIdForSku } from '../../common/product-line-enrichment';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreatePurchaseIntentLineDto } from './dto/create-purchase-intent-line.dto';
 import { CreatePurchaseIntentDto } from './dto/create-purchase-intent.dto';
 import { FilterPurchaseIntentDto } from './dto/filter-purchase-intent.dto';
@@ -20,7 +22,10 @@ export type SyncEventMeta = {
 
 @Injectable()
 export class PurchaseIntentsService {
-  constructor(@InjectModel(PurchaseIntent.name) private readonly model: Model<PurchaseIntentDocument>) {}
+  constructor(
+    @InjectModel(PurchaseIntent.name) private readonly model: Model<PurchaseIntentDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+  ) {}
 
   private async nextIntentNo() {
     const suffix = Math.floor(1000 + Math.random() * 9000);
@@ -69,8 +74,11 @@ export class PurchaseIntentsService {
     if (rmk) line.remarks = rmk;
   }
 
-  private normalizeDtoLine(dto: CreatePurchaseIntentLineDto): PurchaseIntentLine {
-    const line: PurchaseIntentLine = { sku: dto.sku.trim(), requestedQty: dto.requestedQty };
+  private async normalizeDtoLine(dto: CreatePurchaseIntentLineDto): Promise<PurchaseIntentLine> {
+    const sku = dto.sku.trim();
+    const productId = await resolveProductIdForSku(this.productModel, sku, dto.productId);
+    const line: PurchaseIntentLine = { sku, requestedQty: dto.requestedQty };
+    if (productId) line.productId = productId;
     if (dto.barcode?.trim()) line.barcode = dto.barcode.trim();
     if (dto.description?.trim()) line.description = dto.description.trim();
     if (dto.note?.trim()) line.note = dto.note.trim();
@@ -84,7 +92,28 @@ export class PurchaseIntentsService {
     return line;
   }
 
-  private parseLinesFromPayload(payload: Record<string, unknown>): PurchaseIntentLine[] {
+  private async normalizeLineFromRecord(
+    sku: string,
+    requestedQty: number,
+    o: Record<string, unknown>,
+  ): Promise<PurchaseIntentLine> {
+    const rawProductId =
+      typeof o.productId === 'string'
+        ? o.productId
+        : o.productId != null
+          ? String(o.productId)
+          : undefined;
+    const productId = await resolveProductIdForSku(this.productModel, sku, rawProductId);
+    const line: PurchaseIntentLine = { sku, requestedQty };
+    if (productId) line.productId = productId;
+    if (typeof o.barcode === 'string' && o.barcode) line.barcode = o.barcode;
+    if (typeof o.description === 'string' && o.description) line.description = o.description;
+    if (typeof o.note === 'string' && o.note) line.note = o.note;
+    this.enrichLineFromRecord(line, o);
+    return line;
+  }
+
+  private async parseLinesFromPayload(payload: Record<string, unknown>): Promise<PurchaseIntentLine[]> {
     const raw = payload.lines;
     if (!Array.isArray(raw) || raw.length === 0) {
       throw new BadRequestException('payload.lines must be a non-empty array');
@@ -103,12 +132,7 @@ export class PurchaseIntentsService {
       if (typeof requestedQty !== 'number' || !Number.isFinite(requestedQty) || requestedQty <= 0) {
         throw new BadRequestException('each line requires requestedQty as a positive number');
       }
-      const line: PurchaseIntentLine = { sku: sku.trim(), requestedQty };
-      if (typeof o.barcode === 'string' && o.barcode) line.barcode = o.barcode;
-      if (typeof o.description === 'string' && o.description) line.description = o.description;
-      if (typeof o.note === 'string' && o.note) line.note = o.note;
-      this.enrichLineFromRecord(line, o);
-      lines.push(line);
+      lines.push(await this.normalizeLineFromRecord(sku.trim(), requestedQty, o));
     }
     return lines;
   }
@@ -118,14 +142,14 @@ export class PurchaseIntentsService {
    */
   async ensureFromSync(meta: SyncEventMeta, payload: Record<string, unknown>) {
     const existing = await this.model.findOne({ sourceEventId: meta.eventId }).lean();
-    if (existing) return existing;
+    if (existing) return await enrichDocWithLineProducts(this.productModel, existing as unknown as Record<string, unknown>);
 
-    const lines = this.parseLinesFromPayload(payload);
+    const lines = await this.parseLinesFromPayload(payload);
     const remarks = typeof payload.remarks === 'string' ? payload.remarks : undefined;
 
     const intentNo = await this.nextIntentNo();
     try {
-      return await this.model.create({
+      const created = await this.model.create({
         intentNo,
         storeId: meta.storeId,
         deviceId: meta.deviceId,
@@ -134,12 +158,13 @@ export class PurchaseIntentsService {
         remarks,
         lines,
       });
+      return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
     } catch (err: unknown) {
       const dup =
         err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
       if (dup) {
         const again = await this.model.findOne({ sourceEventId: meta.eventId }).lean();
-        if (again) return again;
+        if (again) return await enrichDocWithLineProducts(this.productModel, again as unknown as Record<string, unknown>);
       }
       throw err;
     }
@@ -147,8 +172,11 @@ export class PurchaseIntentsService {
 
   async create(dto: CreatePurchaseIntentDto) {
     const intentNo = await this.nextIntentNo();
-    const lines = (dto.lines ?? []).map((l) => this.normalizeDtoLine(l));
-    return await this.model.create({
+    const lines: PurchaseIntentLine[] = [];
+    for (const l of dto.lines ?? []) {
+      lines.push(await this.normalizeDtoLine(l));
+    }
+    const created = await this.model.create({
       intentNo,
       storeId: dto.storeId,
       deviceId: dto.deviceId,
@@ -156,22 +184,29 @@ export class PurchaseIntentsService {
       status: (dto.status as PurchaseIntentStatus) ?? 'submitted',
       lines,
     });
+    return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
   }
 
   async findById(id: string) {
     const doc = await this.model.findById(id).lean();
     if (!doc) throw new NotFoundException('Purchase intent not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async update(id: string, dto: UpdatePurchaseIntentDto) {
     const set: Record<string, unknown> = {};
     if (dto.status !== undefined) set.status = dto.status;
     if (dto.remarks !== undefined) set.remarks = dto.remarks;
-    if (dto.lines !== undefined) set.lines = dto.lines.map((l) => this.normalizeDtoLine(l));
+    if (dto.lines !== undefined) {
+      const lines: PurchaseIntentLine[] = [];
+      for (const l of dto.lines) {
+        lines.push(await this.normalizeDtoLine(l));
+      }
+      set.lines = lines;
+    }
     const doc = await this.model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase intent not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async list(params: { search?: string; storeId?: string; status?: string }) {
@@ -181,7 +216,11 @@ export class PurchaseIntentsService {
     if (params.search) {
       filter.intentNo = { $regex: params.search, $options: 'i' };
     }
-    return await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    const rows = await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    return await attachLineProducts(
+      this.productModel,
+      rows as Array<{ lines?: Array<Record<string, unknown>> }>,
+    );
   }
 
   private parseDateBound(value: string, endOfDay: boolean): Date {
@@ -248,8 +287,13 @@ export class PurchaseIntentsService {
       this.model.countDocuments(filter),
     ]);
 
+    const enrichedData = await attachLineProducts(
+      this.productModel,
+      data as Array<{ lines?: Array<Record<string, unknown>> }>,
+    );
+
     return {
-      data,
+      data: enrichedData,
       total,
       page,
       limit,
@@ -260,6 +304,6 @@ export class PurchaseIntentsService {
   async setStatus(id: string, status: PurchaseIntentStatus) {
     const doc = await this.model.findByIdAndUpdate(id, { $set: { status } }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase intent not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 }

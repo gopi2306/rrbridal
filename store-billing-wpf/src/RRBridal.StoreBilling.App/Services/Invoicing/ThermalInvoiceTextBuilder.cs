@@ -80,6 +80,12 @@ public sealed class ThermalInvoiceInput
     public decimal IgstTotal { get; init; }
 
     public PaymentReceiptSnap? Payments { get; init; }
+
+    public bool IsDuplicateCopy { get; init; }
+
+    public string DuplicatePrintedBy { get; init; } = "";
+
+    public DateTime? DuplicatePrintedAtUtc { get; init; }
 }
 
 /// <summary>Plain-text thermal receipt (fixed-width, dashed rules).</summary>
@@ -115,6 +121,21 @@ public static class ThermalInvoiceTextBuilder
             sb.AppendLine($"Branch: {s.BranchCode}");
         sb.AppendLine();
         AddCenter("TAX INVOICE");
+        if (input.IsDuplicateCopy)
+        {
+            AddCenter("*** DUPLICATE ***");
+            if (!string.IsNullOrWhiteSpace(input.DuplicatePrintedBy) || input.DuplicatePrintedAtUtc.HasValue)
+            {
+                var when = input.DuplicatePrintedAtUtc.HasValue
+                    ? input.DuplicatePrintedAtUtc.Value.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", In)
+                    : "";
+                var who = input.DuplicatePrintedBy?.Trim() ?? "";
+                var reprint = string.IsNullOrEmpty(who) ? when : string.IsNullOrEmpty(when) ? who : $"Reprint: {when} by {who}";
+                if (!string.IsNullOrEmpty(reprint))
+                    AddCenter(reprint);
+            }
+        }
+
         AddRule();
 
         sb.AppendLine(LabeledRow("Bill No:", input.BillNo, "Bill Date:", input.BillDate, w));

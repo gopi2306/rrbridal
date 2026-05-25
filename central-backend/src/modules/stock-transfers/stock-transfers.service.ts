@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types, UpdateQuery } from 'mongoose';
+import { attachLineProducts, enrichDocWithLineProducts, resolveProductIdForSku } from '../../common/product-line-enrichment';
 import { InventoryService } from '../inventory/inventory.service';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { PurchaseIntentLine } from '../purchase-intents/schemas/purchase-intent.schema';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StoresService } from '../stores/stores.service';
 import { LocationsService } from '../locations/locations.service';
@@ -9,6 +12,7 @@ import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.d
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 import { FilterStockTransferDto } from './dto/filter-stock-transfer.dto';
 import { ReceiveStockTransferDto } from './dto/receive-stock-transfer.dto';
+import { StockTransferLineDto } from './dto/stock-transfer-line.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import {
   StockTransfer,
@@ -32,6 +36,7 @@ const allowedNext: Record<StockTransferStatus, StockTransferStatus[]> = {
 export class StockTransfersService {
   constructor(
     @InjectModel(StockTransfer.name) private readonly model: Model<StockTransferDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly purchaseIntentsService: PurchaseIntentsService,
     private readonly inventoryService: InventoryService,
     private readonly storesService: StoresService,
@@ -151,6 +156,19 @@ export class StockTransfersService {
     }
   }
 
+  private async mapTransferLines(lines: StockTransferLineDto[]): Promise<StockTransferLine[]> {
+    const out: StockTransferLine[] = [];
+    for (const l of lines) {
+      const sku = l.sku.trim();
+      const productId = await resolveProductIdForSku(this.productModel, sku, l.productId);
+      const line: StockTransferLine = { sku, qty: l.qty };
+      if (l.description) line.description = l.description;
+      if (productId) line.productId = productId;
+      out.push(line);
+    }
+    return out;
+  }
+
   private assertTransition(from: StockTransferStatus, to: StockTransferStatus) {
     if (from === to) return;
     if (terminal.includes(from)) {
@@ -167,7 +185,7 @@ export class StockTransfersService {
       throw new BadRequestException('lines must contain at least one item');
     }
     const direction = this.resolveDirection(dto.direction);
-    const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
+    const lines = await this.mapTransferLines(dto.lines);
     const transferNo = await this.nextTransferNo();
 
     if (direction === 'store_to_warehouse') {
@@ -176,7 +194,7 @@ export class StockTransfersService {
       const storeExists = await this.storesService.existsByCode(fromStoreId);
       if (!storeExists) throw new BadRequestException(`Unknown fromStoreId '${fromStoreId}'`);
       const toLocationId = await this.resolveToLocationId(dto.toLocationId);
-      return await this.model.create({
+      const created = await this.model.create({
         transferNo,
         direction,
         fromKind: 'store' as const,
@@ -188,6 +206,7 @@ export class StockTransfersService {
         stockClassification: this.normalizeStockClassification(dto.stockClassification),
         lines,
       });
+      return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
     }
 
     const toStoreId = dto.toStoreId?.trim();
@@ -196,7 +215,7 @@ export class StockTransfersService {
     if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${toStoreId}'`);
     const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
     await this.assertSufficientWarehouseStock(lines);
-    return await this.model.create({
+    const created = await this.model.create({
       transferNo,
       direction: 'warehouse_to_store' as const,
       fromKind: 'warehouse' as const,
@@ -208,46 +227,61 @@ export class StockTransfersService {
       stockClassification: this.normalizeStockClassification(dto.stockClassification),
       lines,
     });
+    return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
   }
 
   async createFromPurchaseIntent(intentId: string, dto: CreateFromPurchaseIntentDto) {
-    const intent = await this.purchaseIntentsService.findById(intentId);
+    const intentRaw = await this.purchaseIntentsService.findById(intentId);
+    const intent = intentRaw as typeof intentRaw & {
+      status: string;
+      remarks?: string;
+      storeId: string;
+      lines: PurchaseIntentLine[];
+    };
     if (intent.status === 'rejected' || intent.status === 'cancelled') {
       throw new BadRequestException(`Cannot create transfer from intent in status '${intent.status}'`);
     }
     if (intent.status === 'fulfilled') {
       throw new BadRequestException('Cannot create transfer from a fulfilled intent');
     }
-    if (!intent.lines?.length) {
+    const intentLines = intent.lines ?? [];
+    if (!intentLines.length) {
       throw new BadRequestException('Purchase intent has no lines');
     }
 
     const overrideMap = new Map(
       (dto.lineOverrides ?? []).map((o) => [o.sku.trim(), o.qty] as const),
     );
-    const intentSkus = new Set(intent.lines.map((l) => l.sku.trim()));
+    const intentSkus = new Set(intentLines.map((l) => l.sku.trim()));
     for (const sku of overrideMap.keys()) {
       if (!intentSkus.has(sku)) {
         throw new BadRequestException(`lineOverrides contains unknown sku: ${sku}`);
       }
     }
 
-    const lines: StockTransferLine[] = intent.lines.map((il) => {
+    const lines: StockTransferLine[] = [];
+    for (const il of intentLines) {
       const sku = il.sku.trim();
       const qtyOverride = overrideMap.get(sku);
       const qty = qtyOverride ?? il.requestedQty;
       if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) {
         throw new BadRequestException(`Invalid qty for sku ${sku}`);
       }
+      const productId = await resolveProductIdForSku(
+        this.productModel,
+        sku,
+        il.productId ? String(il.productId) : undefined,
+      );
       const line: StockTransferLine = { sku, qty };
       if (il.description) line.description = il.description;
-      return line;
-    });
+      if (productId) line.productId = productId;
+      lines.push(line);
+    }
 
     await this.assertSufficientWarehouseStock(lines);
     const transferNo = await this.nextTransferNo();
     const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
-    return await this.model.create({
+    const created = await this.model.create({
       transferNo,
       direction: 'warehouse_to_store' as const,
       fromKind: 'warehouse' as const,
@@ -259,13 +293,14 @@ export class StockTransfersService {
       stockClassification: this.normalizeStockClassification(dto.stockClassification),
       lines,
     });
+    return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
   }
 
   async findById(id: string) {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Stock transfer not found');
     const doc = await this.model.findById(id).lean();
     if (!doc) throw new NotFoundException('Stock transfer not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async update(id: string, dto: UpdateStockTransferDto) {
@@ -291,7 +326,7 @@ export class StockTransfersService {
     }
     if (dto.lines !== undefined) {
       if (!dto.lines.length) throw new BadRequestException('lines must contain at least one item');
-      const lines = dto.lines.map((l) => ({ sku: l.sku.trim(), description: l.description, qty: l.qty }));
+      const lines = await this.mapTransferLines(dto.lines);
       if (this.resolveDirectionFromDoc(current) === 'store_to_warehouse') {
         const fromStoreId = current.fromStoreId?.trim();
         if (!fromStoreId) throw new BadRequestException('Transfer out is missing fromStoreId');
@@ -308,7 +343,7 @@ export class StockTransfersService {
       new: true,
     }).lean();
     if (!doc) throw new NotFoundException('Stock transfer not found');
-    return doc;
+    return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
   }
 
   async list(params: {
@@ -333,7 +368,8 @@ export class StockTransfersService {
     if (params.search) {
       filter.transferNo = { $regex: params.search, $options: 'i' };
     }
-    return await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    const rows = await this.model.find(filter).sort({ updatedAt: -1 }).limit(200).lean();
+    return await attachLineProducts(this.productModel, rows as Array<{ lines?: Array<Record<string, unknown>> }>);
   }
 
   private parseDateBound(value: string, endOfDay: boolean): Date {
@@ -418,8 +454,13 @@ export class StockTransfersService {
       this.model.countDocuments(filter),
     ]);
 
+    const enrichedData = await attachLineProducts(
+      this.productModel,
+      data as Array<{ lines?: Array<Record<string, unknown>> }>,
+    );
+
     return {
-      data,
+      data: enrichedData,
       total,
       page,
       limit,
@@ -491,13 +532,14 @@ export class StockTransfersService {
     this.assertReceiptLinesMatch(doc.lines ?? [], payload.lines);
 
     if (doc.status === 'completed') {
-      return doc.toObject();
+      return await enrichDocWithLineProducts(this.productModel, doc.toObject() as unknown as Record<string, unknown>);
     }
     if (doc.status !== 'awaiting_intake') {
       throw new BadRequestException(`Cannot receive transfer '${doc.transferNo}' from status '${doc.status}'`);
     }
 
-    return await this.transitionStatus(doc, 'completed');
+    const updated = await this.transitionStatus(doc, 'completed');
+    return await enrichDocWithLineProducts(this.productModel, updated.toObject() as unknown as Record<string, unknown>);
   }
 
   /** Store confirms physical receipt; moves in_transit → awaiting_intake. */
@@ -518,10 +560,10 @@ export class StockTransfersService {
     this.assertReceiptLinesMatch(doc.lines ?? [], dto.lines);
 
     if (doc.status === 'completed') {
-      return doc.toObject();
+      return await enrichDocWithLineProducts(this.productModel, doc.toObject() as unknown as Record<string, unknown>);
     }
     if (doc.status === 'awaiting_intake') {
-      return doc.toObject();
+      return await enrichDocWithLineProducts(this.productModel, doc.toObject() as unknown as Record<string, unknown>);
     }
     if (doc.status !== 'in_transit') {
       throw new BadRequestException(
@@ -534,14 +576,14 @@ export class StockTransfersService {
     if (receivedBy) doc.receivedBy = receivedBy;
 
     await this.transitionStatus(doc, 'awaiting_intake', { allowStoreIntake: true });
-    return doc.toObject();
+    return await enrichDocWithLineProducts(this.productModel, doc.toObject() as unknown as Record<string, unknown>);
   }
 
   async setStatus(id: string, status: StockTransferStatus) {
     const doc = await this.model.findById(id);
     if (!doc) throw new NotFoundException('Stock transfer not found');
     await this.transitionStatus(doc, status);
-    return doc.toObject();
+    return await enrichDocWithLineProducts(this.productModel, doc.toObject() as unknown as Record<string, unknown>);
   }
 
   private async transitionStatus(
