@@ -42,6 +42,7 @@ public sealed class AppServices
     public required BillNumberGenerator BillNumberGenerator { get; init; }
     public required PosBillingSettingsStore PosBillingSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
+    public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
     public required ShellBrandingService ShellBranding { get; init; }
     public required StoreInfoClient StoreInfo { get; init; }
     public required StoreSyncRunner StoreSyncRunner { get; init; }
@@ -108,6 +109,7 @@ public sealed class AppServices
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
+        var customerCreditNotes = new CustomerCreditNoteService(localDb);
         var syncSchedule = new SyncScheduleOptions();
         var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync, shellBranding);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
@@ -136,6 +138,7 @@ public sealed class AppServices
             BillNumberGenerator = billNumberGenerator,
             PosBillingSettings = posBillingSettings,
             BillDocuments = billDocuments,
+            CustomerCreditNotes = customerCreditNotes,
             ShellBranding = shellBranding,
             StoreInfo = storeInfoClient,
             StoreSyncRunner = storeSyncRunner,

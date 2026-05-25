@@ -23,18 +23,94 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header: Payable total -->
+        <!-- Header: invoice total and amount to collect -->
         <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,16">
             <StackPanel HorizontalAlignment="Center">
-                <TextBlock Text="Total Payable" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding PayableFormatted}" FontSize="32" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                <TextBlock Text="Invoice total" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding PayableFormatted}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                <TextBlock Text="Credit applied" FontSize="12" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,10,0,2"
+                           Visibility="{Binding HasPaymentCreditApplied, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="{Binding PaymentCreditAppliedFormatted}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"
+                           Visibility="{Binding HasPaymentCreditApplied, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="Amount to collect" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,10,0,2"/>
+                <TextBlock Text="{Binding CollectibleFormatted}" FontSize="32" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="{Binding BillingCreditReservedBanner}" FontSize="13" Foreground="{StaticResource BrushAccent}"
+                           TextWrapping="Wrap" Margin="0,0,0,8"
+                           Visibility="{Binding HasBillingCreditReserved, Converter={StaticResource BoolToVis}}"/>
+
+                <StackPanel Visibility="{Binding HasAvailableCredit, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Customer credit" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding AvailableCreditNotes}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding DisplayLabel}"
+                                        Command="{Binding DataContext.TogglePaymentCreditNoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+                                            <Setter Property="Padding" Value="10,6"/>
+                                            <Setter Property="FontSize" Value="12"/>
+                                            <Setter Property="Margin" Value="0,0,6,6"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Credit note" FontSize="12" Foreground="{StaticResource BrushTextMuted}"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedPaymentCreditLabel}" FontSize="12" FontWeight="SemiBold"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Original balance" FontSize="12" Foreground="{StaticResource BrushTextMuted}"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PaymentOriginalCreditFormatted}" FontSize="12"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Using on payment" FontSize="12" Foreground="{StaticResource BrushAccent}"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PaymentApplyingCreditFormatted}" FontSize="12" FontWeight="SemiBold"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Remaining after" FontSize="12" Foreground="{StaticResource BrushTextMuted}"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PaymentRemainingAfterFormatted}" FontSize="12" FontWeight="SemiBold"
+                                   Visibility="{Binding HasPaymentCreditSelected, Converter={StaticResource BoolToVis}}"/>
+                    </Grid>
+                </StackPanel>
             </StackPanel>
         </Border>
 
         <!-- Payment Mode Selection -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Payment Method" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,10"/>
                 <WrapPanel>
@@ -58,7 +134,7 @@
         </Border>
 
         <!-- Mode-specific panels -->
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12" MinHeight="118">
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Margin="0,0,0,12" MinHeight="118">
             <Grid>
                 <!-- Cash Panel -->
                 <StackPanel>
@@ -82,7 +158,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Amount Received" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Amount received (to collect)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource RoundedTextBox}" FontSize="18" FontWeight="Bold" Margin="0,0,12,0"
                                  Text="{Binding AmountReceived, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
@@ -162,7 +238,8 @@
                         </Style>
                     </StackPanel.Style>
                     <TextBlock Text="Credit Note" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Record credit note payment (partial amount allowed up to payable)." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+                    <TextBlock Text="Record credit note payment (amount capped by note balance minus invoice credit already applied)." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding CreditNoteMaxFormatted}" FontSize="12" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,12"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -258,7 +335,7 @@
         </Border>
 
         <!-- Error message -->
-        <TextBlock Grid.Row="3" Text="{Binding ErrorMessage}" FontSize="13" Foreground="{StaticResource BrushNegative}" TextWrapping="Wrap" Margin="0,0,0,12">
+        <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}" FontSize="13" Foreground="{StaticResource BrushNegative}" TextWrapping="Wrap" Margin="0,0,0,12">
             <TextBlock.Style>
                 <Style TargetType="TextBlock">
                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -272,7 +349,7 @@
         </TextBlock>
 
         <!-- Action buttons -->
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>

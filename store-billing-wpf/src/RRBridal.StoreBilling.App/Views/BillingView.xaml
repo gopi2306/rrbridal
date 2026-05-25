@@ -261,6 +261,67 @@
                             <TextBlock Text="{Binding RoundOffFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushText}"/>
                         </Grid>
 
+                        <StackPanel Margin="0,4,0,8"
+                                    Visibility="{Binding HasAvailableCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Customer credit" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+                            <ItemsControl ItemsSource="{Binding AvailableCreditNotes}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DisplayLabel}"
+                                                Command="{Binding DataContext.ToggleCreditNoteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+                                                    <Setter Property="Padding" Value="10,6"/>
+                                                    <Setter Property="FontSize" Value="12"/>
+                                                    <Setter Property="Margin" Value="0,0,6,6"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Credit note" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding SelectedCreditNoteLabel}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Original balance" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding OriginalCreditBalanceFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Payable before credit" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding PayableBeforeCreditFormatted}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Applied on this bill" Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding CreditAppliedFormatted}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Remaining after bill" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding RemainingAfterCreditFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        </Grid>
+
                         <Separator Margin="0,8,0,12"/>
 
                         <CheckBox Content="Inter-state (IGST)" Style="{StaticResource ThemedCheckBox}"

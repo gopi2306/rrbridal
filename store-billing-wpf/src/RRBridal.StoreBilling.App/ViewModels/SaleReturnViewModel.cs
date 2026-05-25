@@ -467,6 +467,10 @@ public partial class SaleReturnViewModel : ObservableObject
                 }
             }
 
+            var customerCode = _originalBillDoc?.GetValue("customerCode", "").AsString ?? "";
+            var customerName = _originalBillDoc?.GetValue("customerName", "").AsString ?? "";
+            var customerPhone = _originalBillDoc?.GetValue("customerPhone", "").AsString ?? "";
+
             var returnDoc = new BsonDocument
             {
                 { "returnNo", ReturnNo },
@@ -474,6 +478,9 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "storeId", storeId },
                 { "deviceId", deviceId },
                 { "posCounter", posCounter },
+                { "customerCode", customerCode },
+                { "customerName", customerName },
+                { "customerPhone", customerPhone },
                 { "transactionType", exchangeLines.Count > 0 ? "exchange" : "return" },
                 { "returnMode", ReturnMode == ReturnMode.CreditNote ? "credit_note" : "cash_refund" },
                 { "reason", Reason },
@@ -549,8 +556,17 @@ public partial class SaleReturnViewModel : ObservableObject
             var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
             await outbox.InsertOneAsync(outboxEvent);
 
+            var stockOk = 0;
+            var stockFailed = new List<string>();
             foreach (var line in selected.Where(l => !string.IsNullOrWhiteSpace(l.ProductCode)))
-                await _services.ProductCatalog.IncrementStockBySkuAsync(line.ProductCode, line.ReturnQty, line.Description);
+            {
+                var ok = await _services.ProductCatalog.IncrementStockBySkuAsync(
+                    line.ProductCode, line.ReturnQty, line.Description);
+                if (ok)
+                    stockOk++;
+                else
+                    stockFailed.Add(line.ProductCode);
+            }
 
             foreach (var line in exchangeLines.Where(l => !string.IsNullOrWhiteSpace(l.ProductCode)))
                 await _services.ProductCatalog.DecrementStockBySkuAsync(line.ProductCode, line.Qty);
@@ -558,11 +574,45 @@ public partial class SaleReturnViewModel : ObservableObject
             if (exchangeLines.Count > 0)
                 ShowExchangeReceipt(selected, exchangeLines, total, replacementTotal, amountToCollect, creditBalance);
 
-            MessageBox.Show(
-                exchangeLines.Count > 0
-                    ? $"Exchange {ReturnNo} posted."
-                    : $"Return {ReturnNo} posted. Mode: {(ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash Refund")}.",
-                "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
+            string? createdCreditNoteNo = null;
+            var creditNoteWarning = "";
+            if (ReturnMode == ReturnMode.CreditNote && creditBalance > 0)
+            {
+                createdCreditNoteNo = await _services.CustomerCreditNotes.CreateFromReturnAsync(
+                    ReturnNo,
+                    OriginalBillNo.Trim(),
+                    customerCode,
+                    customerName,
+                    customerPhone,
+                    creditBalance,
+                    storeId);
+
+                if (!string.IsNullOrEmpty(createdCreditNoteNo))
+                {
+                    await returnsColl.UpdateOneAsync(
+                        Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
+                        Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                }
+                else
+                {
+                    creditNoteWarning =
+                        "\n\nCredit could not be made redeemable on billing: customer needs a valid 10-digit phone on the original bill.";
+                }
+            }
+
+            var modeText = ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash Refund";
+            var successBody = exchangeLines.Count > 0
+                ? $"Exchange {ReturnNo} posted."
+                : $"Return {ReturnNo} posted. Mode: {modeText}.";
+            if (!string.IsNullOrEmpty(createdCreditNoteNo))
+                successBody += $"\n\n{createdCreditNoteNo} created for customer (₹ {creditBalance:N2} redeemable on billing).";
+            successBody += creditNoteWarning;
+            if (stockOk > 0)
+                successBody += $"\n\nReturned stock updated for {stockOk} item(s).";
+            if (stockFailed.Count > 0)
+                successBody += $"\n\nWarning: could not update local stock for: {string.Join(", ", stockFailed)}.";
+
+            MessageBox.Show(successBody, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
 
             ClearForm();
         }

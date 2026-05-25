@@ -73,6 +73,18 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _cashDiscAmountFormatted = "₹ 0.00";
     [ObservableProperty] private string _roundOffFormatted = "₹ 0.00";
     [ObservableProperty] private string _payableTotalFormatted = "₹ 0.00";
+    [ObservableProperty] private string _payableBeforeCreditFormatted = "₹ 0.00";
+    [ObservableProperty] private string _creditAppliedFormatted = "₹ 0.00";
+    [ObservableProperty] private bool _hasAvailableCredit;
+    [ObservableProperty] private bool _hasAppliedCredit;
+    [ObservableProperty] private decimal _appliedCreditAmount;
+    [ObservableProperty] private string _selectedCreditNoteLabel = "";
+    [ObservableProperty] private string _originalCreditBalanceFormatted = "";
+    [ObservableProperty] private string _remainingAfterCreditFormatted = "";
+
+    public ObservableCollection<CustomerCreditNoteOption> AvailableCreditNotes { get; } = new();
+
+    private string? _selectedCreditNoteNo;
 
     [ObservableProperty] private string _cgstTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _sgstTotalFormatted = "₹ 0.00";
@@ -113,7 +125,7 @@ public partial class BillingViewModel : ObservableObject
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
     private string? _resumingDraftBillNo;
-    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
 
@@ -317,6 +329,8 @@ public partial class BillingViewModel : ObservableObject
         decimal TaxTotal,
         decimal GrandBeforeRound,
         decimal RoundOff,
+        decimal PayableBeforeCredit,
+        decimal AppliedCredit,
         decimal Payable);
 
     private BillTotals ComputeBillTotals()
@@ -372,31 +386,122 @@ public partial class BillingViewModel : ObservableObject
             roundOff = RoundOff;
         }
 
-        var payable = grandBeforeRound + roundOff;
+        var payableBeforeCredit = grandBeforeRound + roundOff;
         return new BillTotals(
             sub, originalInclusive, itemDisc, cashDisc, originalTax, revisedSub,
-            cgst, sgst, igst, tax, grandBeforeRound, roundOff, payable);
+            cgst, sgst, igst, tax, grandBeforeRound, roundOff, payableBeforeCredit, 0, payableBeforeCredit);
     }
 
     private void RecalculateTotals()
     {
         if (_isComputingTotals) return;
 
-        var totals = ComputeBillTotals();
-        _lastBillTotals = totals;
+        var core = ComputeBillTotals();
+        var payableBeforeCredit = core.PayableBeforeCredit;
+        var appliedCredit = 0m;
+        if (!string.IsNullOrEmpty(_selectedCreditNoteNo))
+        {
+            var selected = AvailableCreditNotes.FirstOrDefault(n => n.CreditNoteNo == _selectedCreditNoteNo);
+            if (selected != null)
+                appliedCredit = Math.Min(selected.RemainingAmount, payableBeforeCredit);
+        }
 
-        SubTotalFormatted = FormatRupee(totals.SubTotal);
-        OriginalTaxTotalFormatted = FormatRupee(totals.OriginalTaxTotal);
-        RevisedSubTotalFormatted = FormatRupee(totals.RevisedSubTotal);
-        TaxTotalFormatted = FormatRupee(totals.TaxTotal);
-        CgstTotalFormatted = FormatRupee(totals.Cgst);
-        SgstTotalFormatted = FormatRupee(totals.Sgst);
-        IgstTotalFormatted = FormatRupee(totals.Igst);
-        GrossTotalFormatted = FormatRupee(totals.OriginalInclusiveTotal);
-        ItemDiscountFormatted = FormatRupee(totals.ItemDiscount);
-        CashDiscAmountFormatted = FormatRupee(totals.CashDiscount);
-        RoundOffFormatted = FormatRupee(totals.RoundOff);
-        PayableTotalFormatted = FormatRupee(totals.Payable);
+        var payable = Math.Max(0, payableBeforeCredit - appliedCredit);
+        _lastBillTotals = core with { AppliedCredit = appliedCredit, Payable = payable };
+
+        SubTotalFormatted = FormatRupee(_lastBillTotals.SubTotal);
+        OriginalTaxTotalFormatted = FormatRupee(_lastBillTotals.OriginalTaxTotal);
+        RevisedSubTotalFormatted = FormatRupee(_lastBillTotals.RevisedSubTotal);
+        TaxTotalFormatted = FormatRupee(_lastBillTotals.TaxTotal);
+        CgstTotalFormatted = FormatRupee(_lastBillTotals.Cgst);
+        SgstTotalFormatted = FormatRupee(_lastBillTotals.Sgst);
+        IgstTotalFormatted = FormatRupee(_lastBillTotals.Igst);
+        GrossTotalFormatted = FormatRupee(_lastBillTotals.OriginalInclusiveTotal);
+        ItemDiscountFormatted = FormatRupee(_lastBillTotals.ItemDiscount);
+        CashDiscAmountFormatted = FormatRupee(_lastBillTotals.CashDiscount);
+        RoundOffFormatted = FormatRupee(_lastBillTotals.RoundOff);
+        PayableBeforeCreditFormatted = FormatRupee(payableBeforeCredit);
+        AppliedCreditAmount = appliedCredit;
+        CreditAppliedFormatted = FormatRupee(appliedCredit);
+        HasAppliedCredit = appliedCredit > 0;
+        PayableTotalFormatted = FormatRupee(payable);
+
+        CustomerCreditNoteOption? selectedOption = null;
+        foreach (var note in AvailableCreditNotes)
+        {
+            if (note.CreditNoteNo == _selectedCreditNoteNo)
+            {
+                note.ApplyingAmount = appliedCredit;
+                note.RemainingAfterApply = note.RemainingAmount - appliedCredit;
+                selectedOption = note;
+            }
+            else
+            {
+                note.ApplyingAmount = 0;
+                note.RemainingAfterApply = note.RemainingAmount;
+            }
+
+            note.RefreshDisplayLabel();
+        }
+
+        SelectedCreditNoteLabel = selectedOption?.CreditNoteNo ?? "";
+        OriginalCreditBalanceFormatted = selectedOption != null ? FormatRupee(selectedOption.OriginalAmount) : "";
+        RemainingAfterCreditFormatted = selectedOption != null ? FormatRupee(selectedOption.RemainingAfterApply) : "";
+    }
+
+    private void ClearCreditSelection()
+    {
+        _selectedCreditNoteNo = null;
+        foreach (var note in AvailableCreditNotes)
+        {
+            note.IsSelected = false;
+            note.ApplyingAmount = 0;
+            note.RemainingAfterApply = note.RemainingAmount;
+            note.RefreshDisplayLabel();
+        }
+
+        SelectedCreditNoteLabel = "";
+        OriginalCreditBalanceFormatted = "";
+        RemainingAfterCreditFormatted = "";
+    }
+
+    private async Task RefreshCustomerCreditAsync()
+    {
+        ClearCreditSelection();
+        AvailableCreditNotes.Clear();
+        HasAvailableCredit = false;
+
+        var phone = (CustomerPhone ?? "").Trim();
+        var code = (CustomerCode ?? "").Trim();
+        if (string.IsNullOrEmpty(phone) && string.IsNullOrEmpty(code))
+            return;
+
+        var storeId = _services.StoreContext.StoreId;
+        var notes = await _services.CustomerCreditNotes.ListAvailableForCustomerAsync(storeId, code, phone);
+        foreach (var note in notes)
+            AvailableCreditNotes.Add(CustomerCreditNoteOption.FromRecord(note));
+
+        HasAvailableCredit = AvailableCreditNotes.Count > 0;
+    }
+
+    [RelayCommand]
+    private void ToggleCreditNote(CustomerCreditNoteOption? option)
+    {
+        if (option == null)
+            return;
+
+        if (_selectedCreditNoteNo == option.CreditNoteNo)
+        {
+            ClearCreditSelection();
+        }
+        else
+        {
+            _selectedCreditNoteNo = option.CreditNoteNo;
+            foreach (var note in AvailableCreditNotes)
+                note.IsSelected = note.CreditNoteNo == _selectedCreditNoteNo;
+        }
+
+        RecalculateTotals();
     }
 
     partial void OnItemDiscountPercentTextChanged(string value)
@@ -509,6 +614,7 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
         }
+        _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
     }
 
@@ -525,6 +631,7 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
         }
+        _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
     }
 
@@ -548,6 +655,10 @@ public partial class BillingViewModel : ObservableObject
             _suppressPhoneAutoSearch = false;
             _suppressCustomerFieldSync = false;
         }
+        ClearCreditSelection();
+        AvailableCreditNotes.Clear();
+        HasAvailableCredit = false;
+        RecalculateTotals();
         NotifyPostBillCanExecute();
     }
 
@@ -1008,7 +1119,11 @@ public partial class BillingViewModel : ObservableObject
         _suppressDiscountTextSync = false;
         IsInterState = false;
         SearchText = "";
+        ClearCreditSelection();
+        AvailableCreditNotes.Clear();
+        HasAvailableCredit = false;
         EnsureEntryRow();
+        RecalculateTotals();
         NotifyPostBillCanExecute();
         RequestFocusEntryProductCode?.Invoke();
     }
@@ -1054,12 +1169,64 @@ public partial class BillingViewModel : ObservableObject
         RecalculateTotals();
         var totals = _lastBillTotals;
 
-        var paymentVm = new PaymentDialogViewModel(_services.PaymentRouter, BillNo, totals.Payable);
-        var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
-        var paymentResult = paymentDlg.ShowDialog();
+        PaymentOutcome paymentOutcome;
+        if (totals.Payable > 0)
+        {
+            var paymentVm = new PaymentDialogViewModel(
+                _services.PaymentRouter,
+                _services.CustomerCreditNotes,
+                _services.StoreContext.StoreId,
+                BillNo,
+                totals.Payable,
+                CustomerCode,
+                CustomerPhone,
+                _selectedCreditNoteNo,
+                totals.AppliedCredit);
+            await paymentVm.InitializeAsync();
+            var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
+            var paymentResult = paymentDlg.ShowDialog();
+            if (paymentResult != true || !paymentVm.Outcome.Confirmed)
+                return;
+            paymentOutcome = paymentVm.Outcome;
+        }
+        else
+        {
+            var legs = new List<PaymentLegResult>();
+            if (totals.AppliedCredit > 0 && !string.IsNullOrEmpty(_selectedCreditNoteNo))
+            {
+                legs.Add(new PaymentLegResult
+                {
+                    Provider = PaymentProviderKind.CreditNote,
+                    Amount = totals.AppliedCredit,
+                    Reference = _selectedCreditNoteNo,
+                    Status = "Success",
+                });
+            }
 
-        if (paymentResult != true || !paymentVm.Outcome.Confirmed)
-            return;
+            paymentOutcome = new PaymentOutcome
+            {
+                Confirmed = true,
+                Mode = totals.AppliedCredit > 0 ? PaymentMode.CreditNote : PaymentMode.Cash,
+                Legs = legs,
+            };
+        }
+
+        if (totals.AppliedCredit > 0 && !string.IsNullOrEmpty(_selectedCreditNoteNo))
+        {
+            var consumed = await _services.CustomerCreditNotes.ConsumeAsync(
+                _selectedCreditNoteNo,
+                BillNo,
+                totals.AppliedCredit);
+            if (!consumed)
+            {
+                MessageBox.Show(
+                    "Could not apply the selected credit note (it may already be used). Refresh and try again.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
 
         try
         {
@@ -1096,7 +1263,7 @@ public partial class BillingViewModel : ObservableObject
             }
 
             var paymentsArr = new BsonArray();
-            foreach (var leg in paymentVm.Outcome.Legs)
+            foreach (var leg in paymentOutcome.Legs)
             {
                 paymentsArr.Add(new BsonDocument
                 {
@@ -1144,10 +1311,17 @@ public partial class BillingViewModel : ObservableObject
                 { "payable", (double)totals.Payable },
                 { "lines", linesArr },
                 { "payments", paymentsArr },
-                { "paymentMode", paymentVm.SelectedMode.ToString() },
+                { "paymentMode", paymentOutcome.Mode.ToString() },
                 { "status", "posted" },
                 { "createdAtUtc", DateTime.UtcNow.ToString("O") },
             };
+
+            if (totals.AppliedCredit > 0 && !string.IsNullOrEmpty(_selectedCreditNoteNo))
+            {
+                doc.Add("creditNoteNo", _selectedCreditNoteNo);
+                doc.Add("creditApplied", (double)totals.AppliedCredit);
+                doc.Add("payableBeforeCredit", (double)totals.PayableBeforeCredit);
+            }
 
             if (!string.IsNullOrEmpty(_resumingDraftBillNo))
             {
@@ -1165,12 +1339,12 @@ public partial class BillingViewModel : ObservableObject
 
             ThermalInvoiceInput? printInput = null;
             if (PrintInvoice)
-                printInput = BuildThermalInput(paymentVm.Outcome);
+                printInput = BuildThermalInput(paymentOutcome);
 
             ClearForNewBill();
 
             if (printInput != null)
-                await ShowInvoicePrintDialogAsync(paymentVm.Outcome, printInvoiceEnabled: true, prebuiltInput: printInput, clearBillingAfterPrint: false);
+                await ShowInvoicePrintDialogAsync(paymentOutcome, printInvoiceEnabled: true, prebuiltInput: printInput, clearBillingAfterPrint: false);
         }
         catch (Exception ex)
         {

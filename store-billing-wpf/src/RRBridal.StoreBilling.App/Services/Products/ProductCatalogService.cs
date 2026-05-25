@@ -277,9 +277,9 @@ public sealed class ProductCatalogService
         }
     }
 
-    public async Task IncrementStockBySkuAsync(string sku, decimal qty, string? description = null, CancellationToken ct = default)
+    public async Task<bool> IncrementStockBySkuAsync(string sku, decimal qty, string? description = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return;
+        if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return true;
         try
         {
             var normalizedSku = sku.Trim();
@@ -291,7 +291,11 @@ public sealed class ProductCatalogService
                 .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O"));
 
             await _cache.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, ct);
+            return true;
         }
-        catch { }
+        catch
+        {
+            return false;
+        }
     }
 }
