@@ -48,6 +48,8 @@ import { DivisionsModule } from '../divisions/divisions.module';
 import { LocationsModule } from '../locations/locations.module';
 import { SeedModule } from '../seed/seed.module';
 import { RoleAccessModule } from '../role-access/role-access.module';
+import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
+import { StoreSalesModule } from '../store-sales/store-sales.module';
 
 @Module({
   imports: [
@@ -103,6 +105,8 @@ import { RoleAccessModule } from '../role-access/role-access.module';
     LocationsModule,
     SeedModule,
     RoleAccessModule,
+    DocumentNumbersModule,
+    StoreSalesModule,
   ],
   controllers: [AppController],
 })

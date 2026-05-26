@@ -20,9 +20,18 @@ public sealed class BillNumberGenerator
         _store = store;
     }
 
-    public async Task<string> NextAsync(CancellationToken ct = default)
+    public Task<string> NextBillAsync(CancellationToken ct = default) =>
+        NextAsync("billNo", "", ct);
+
+    public Task<string> NextReturnAsync(CancellationToken ct = default) =>
+        NextAsync("returnNo", "RET-", ct);
+
+    public Task<string> NextAdjustmentAsync(CancellationToken ct = default) =>
+        NextAsync("adjustmentNo", "ADJ-", ct);
+
+    public async Task<string> NextAsync(string counterKind, string prefix, CancellationToken ct = default)
     {
-        var counterKey = $"billNo:{_store.StoreId}:{_store.DeviceId}";
+        var counterKey = $"{counterKind}:{_store.StoreId}:{_store.DeviceId}";
         var filter = Builders<BsonDocument>.Filter.Eq("_id", counterKey);
         var update = Builders<BsonDocument>.Update.Inc("seq", 1);
         var options = new FindOneAndUpdateOptions<BsonDocument>
@@ -35,6 +44,7 @@ public sealed class BillNumberGenerator
         var seq = doc["seq"].AsInt32;
         var date = DateTime.Now.ToString("yyyyMMdd");
         var pos = _store.PosCounter;
-        return $"{date}-{pos}-{seq:D4}";
+        var storeSuffix = StoreCodeSuffix.FormatLast3(_store.StoreId);
+        return $"{prefix}{date}-{storeSuffix}-{pos}-{seq:D4}";
     }
 }

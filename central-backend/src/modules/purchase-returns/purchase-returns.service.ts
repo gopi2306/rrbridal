@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, PipelineStage, SortOrder, Types } from 'mongoose';
+import { DocumentNumberService } from '../../common/document-number.service';
+import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
+import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
 import { Branch, BranchDocument } from '../branches/schemas/branch.schema';
 import { Division, DivisionDocument } from '../divisions/schemas/division.schema';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
@@ -41,11 +44,30 @@ export class PurchaseReturnsService {
     @InjectModel(Division.name) private readonly divisionModel: Model<DivisionDocument>,
     @InjectModel(Supplier.name) private readonly supplierModel: Model<SupplierDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    private readonly allocator: DocumentNumberAllocatorService,
+    private readonly configService: DocumentNumberConfigService,
   ) {}
 
-  private async nextPrNo() {
-    const suffix = Math.floor(1000 + Math.random() * 9000);
-    return `PR-${suffix}`;
+  private async allocatePurchaseReturnNo(): Promise<string> {
+    const config = await this.configService.getByKey('purchase_return');
+    const prefix = config.prefix;
+    return this.allocator.allocate('purchase_return', {
+      exists: async (v) => !!(await this.prModel.exists({ purchaseReturnNo: v }).lean()),
+      syncFloorFromValues: () => this.maxPrSequenceForPrefix(prefix),
+    });
+  }
+
+  private async maxPrSequenceForPrefix(prefix: string): Promise<number> {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\d+$`, 'i');
+    const rows = await this.prModel.find({ purchaseReturnNo: regex }).select('purchaseReturnNo').lean();
+    let max = 0;
+    for (const row of rows) {
+      if (typeof row.purchaseReturnNo !== 'string') continue;
+      const n = DocumentNumberService.parseSequenceNumber(row.purchaseReturnNo, prefix);
+      if (n !== null && n > max) max = n;
+    }
+    return max;
   }
 
   /** Mongo ObjectId hex (24 chars); also what seed stores on branchId / location / division refs. */
@@ -305,7 +327,7 @@ export class PurchaseReturnsService {
       const clash = await this.prModel.exists({ purchaseReturnNo });
       if (clash) throw new ConflictException(`Purchase return number '${purchaseReturnNo}' already exists`);
     } else {
-      purchaseReturnNo = await this.nextPrNo();
+      purchaseReturnNo = await this.allocatePurchaseReturnNo();
     }
     const lines = dto.lines?.length ? await this.normalizeLines(dto.lines) : [];
     const created = await this.prModel.create({

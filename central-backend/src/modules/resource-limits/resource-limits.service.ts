@@ -13,8 +13,18 @@ export const WAREHOUSE_LOCATION_TYPE = 'warehouse';
 
 export interface ResourceLimitUsage {
   users: Record<string, { limit: number; current: number }>;
-  stores: { limit: number; current: number; maxUsersPerStore: number };
-  warehouses: { limit: number; current: number; maxUsersPerWarehouse: number };
+  stores: {
+    limit: number;
+    current: number;
+    maxUsersPerStore: number;
+    usersByStore: Array<{ storeId: string; current: number; limit: number }>;
+  };
+  warehouses: {
+    limit: number;
+    current: number;
+    maxUsersPerWarehouse: number;
+    usersByWarehouse: Array<{ warehouseLocationCode: string; current: number; limit: number }>;
+  };
 }
 
 @Injectable()
@@ -82,7 +92,11 @@ export class ResourceLimitsService {
       users[role] = { limit: roleQuotas[role] ?? 99, current: count };
     }
 
-    const activeStores = await this.storeModel.countDocuments({ status: 'active' });
+    const [activeStores, usersByStore, usersByWarehouse] = await Promise.all([
+      this.storeModel.countDocuments({ status: 'active' }),
+      this.getUsersByStore(limits.maxUsersPerStore),
+      this.getUsersByWarehouse(limits.maxUsersPerWarehouse),
+    ]);
 
     return {
       users,
@@ -90,28 +104,148 @@ export class ResourceLimitsService {
         limit: limits.maxStores,
         current: activeStores,
         maxUsersPerStore: limits.maxUsersPerStore,
+        usersByStore,
       },
       warehouses: {
         limit: limits.maxWarehouses,
         current: activeWarehouseLocations,
         maxUsersPerWarehouse: limits.maxUsersPerWarehouse,
+        usersByWarehouse,
       },
     };
   }
 
+  private async getUsersByStore(
+    limit: number,
+  ): Promise<Array<{ storeId: string; current: number; limit: number }>> {
+    const [activeStores, rows] = await Promise.all([
+      this.storeModel.find({ status: 'active' }).select('code').lean(),
+      this.userModel.aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            role: 'store',
+            locationKind: 'store',
+            status: { $in: ['active', 'invited'] },
+            storeId: { $exists: true, $nin: [null, ''] },
+          },
+        },
+        { $group: { _id: '$storeId', count: { $sum: 1 } } },
+      ]),
+    ]);
+    const countByStore = new Map(rows.map((r) => [String(r._id).toLowerCase(), r.count]));
+    const storeIds = new Set<string>();
+    for (const s of activeStores) storeIds.add(String(s.code).toLowerCase());
+    for (const id of countByStore.keys()) storeIds.add(id);
+    return [...storeIds].sort().map((storeId) => ({
+      storeId,
+      current: countByStore.get(storeId) ?? 0,
+      limit,
+    }));
+  }
+
+  private async getUsersByWarehouse(
+    limit: number,
+  ): Promise<Array<{ warehouseLocationCode: string; current: number; limit: number }>> {
+    const [activeWarehouses, rows] = await Promise.all([
+      this.locationModel
+        .find({ type: WAREHOUSE_LOCATION_TYPE, isActive: true })
+        .select('code')
+        .lean(),
+      this.userModel.aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            role: 'warehouse',
+            locationKind: 'warehouse',
+            status: { $in: ['active', 'invited'] },
+            warehouseLocationCode: { $exists: true, $nin: [null, ''] },
+          },
+        },
+        { $group: { _id: '$warehouseLocationCode', count: { $sum: 1 } } },
+      ]),
+    ]);
+    const countBySite = new Map(rows.map((r) => [String(r._id).toLowerCase(), r.count]));
+    const siteCodes = new Set<string>();
+    for (const loc of activeWarehouses) siteCodes.add(String(loc.code).toLowerCase());
+    for (const code of countBySite.keys()) siteCodes.add(code);
+    return [...siteCodes].sort().map((warehouseLocationCode) => ({
+      warehouseLocationCode,
+      current: countBySite.get(warehouseLocationCode) ?? 0,
+      limit,
+    }));
+  }
+
+  private async peakUsersPerStore(): Promise<{ storeId: string; count: number } | null> {
+    const rows = await this.getUsersByStore(
+      (await this.ensureDefaults()).maxUsersPerStore,
+    );
+    if (!rows.length) return null;
+    const top = rows.reduce((a, b) => (b.current > a.current ? b : a));
+    if (top.current === 0) return null;
+    return { storeId: top.storeId, count: top.current };
+  }
+
+  private async peakUsersPerWarehouse(): Promise<{ warehouseLocationCode: string; count: number } | null> {
+    const rows = await this.getUsersByWarehouse(
+      (await this.ensureDefaults()).maxUsersPerWarehouse,
+    );
+    if (!rows.length) return null;
+    const top = rows.reduce((a, b) => (b.current > a.current ? b : a));
+    if (top.current === 0) return null;
+    return { warehouseLocationCode: top.warehouseLocationCode, count: top.current };
+  }
+
+  private async validatePatchAgainstUsage(dto: PatchResourceLimitsDto): Promise<void> {
+    if (dto.stores != null) {
+      const activeStores = await this.storeModel.countDocuments({ status: 'active' });
+      if (dto.stores < activeStores) {
+        throw new BadRequestException(
+          `Cannot set stores limit to ${dto.stores}; ${activeStores} active stores already exist`,
+        );
+      }
+    }
+
+    if (dto.warehouses != null) {
+      const activeWarehouses = await this.countActiveWarehouseLocations();
+      if (dto.warehouses < activeWarehouses) {
+        throw new BadRequestException(
+          `Cannot set warehouses limit to ${dto.warehouses}; ${activeWarehouses} active warehouse locations already exist`,
+        );
+      }
+    }
+
+    if (dto.maxUsersPerStore != null) {
+      const peak = await this.peakUsersPerStore();
+      if (peak && dto.maxUsersPerStore < peak.count) {
+        throw new BadRequestException(
+          `Cannot set maxUsersPerStore to ${dto.maxUsersPerStore}; store '${peak.storeId}' already has ${peak.count} active or invited users`,
+        );
+      }
+    }
+
+    if (dto.maxUsersPerWarehouse != null) {
+      const peak = await this.peakUsersPerWarehouse();
+      if (peak && dto.maxUsersPerWarehouse < peak.count) {
+        throw new BadRequestException(
+          `Cannot set maxUsersPerWarehouse to ${dto.maxUsersPerWarehouse}; warehouse '${peak.warehouseLocationCode}' already has ${peak.count} active or invited users`,
+        );
+      }
+    }
+  }
+
   async patch(dto: PatchResourceLimitsDto): Promise<ResourceLimitUsage> {
     const doc = await this.ensureDefaults();
+    await this.validatePatchAgainstUsage(dto);
 
-    if (dto.stores !== undefined) {
+    if (dto.stores != null) {
       doc.maxStores = dto.stores;
     }
-    if (dto.warehouses !== undefined) {
+    if (dto.warehouses != null) {
       doc.maxWarehouses = dto.warehouses;
     }
-    if (dto.maxUsersPerStore !== undefined) {
+    if (dto.maxUsersPerStore != null) {
       doc.maxUsersPerStore = dto.maxUsersPerStore;
     }
-    if (dto.maxUsersPerWarehouse !== undefined) {
+    if (dto.maxUsersPerWarehouse != null) {
       doc.maxUsersPerWarehouse = dto.maxUsersPerWarehouse;
     }
     await doc.save();
@@ -135,6 +269,21 @@ export class ResourceLimitsService {
     const doc = await this.ensureDefaults();
     const activeStores = await this.storeModel.countDocuments({ status: 'active' });
     if (activeStores >= doc.maxStores) {
+      throw new BadRequestException(
+        `Store limit reached (maximum ${doc.maxStores}). Contact admin to increase the limit.`,
+      );
+    }
+  }
+
+  /** Call when reactivating a store (excludes `excludeStoreCode` from the active count). */
+  async assertStoreLimitForActivation(excludeStoreCode?: string): Promise<void> {
+    const doc = await this.ensureDefaults();
+    const filter: Record<string, unknown> = { status: 'active' };
+    if (excludeStoreCode) {
+      filter.code = { $ne: excludeStoreCode.trim().toLowerCase() };
+    }
+    const others = await this.storeModel.countDocuments(filter);
+    if (others >= doc.maxStores) {
       throw new BadRequestException(
         `Store limit reached (maximum ${doc.maxStores}). Contact admin to increase the limit.`,
       );
@@ -183,6 +332,7 @@ export class ResourceLimitsService {
     const sid = storeId.trim().toLowerCase();
     const filter: Record<string, unknown> = {
       role: 'store',
+      locationKind: 'store',
       storeId: sid,
       status: { $in: ['active', 'invited'] },
     };
@@ -192,7 +342,7 @@ export class ResourceLimitsService {
     const n = await this.userModel.countDocuments(filter);
     if (n >= doc.maxUsersPerStore) {
       throw new BadRequestException(
-        `Users per store limit reached for this store (maximum ${doc.maxUsersPerStore}). Contact admin to increase the limit.`,
+        `Store '${sid}' has reached the maximum of ${doc.maxUsersPerStore} users. Contact admin to increase the limit.`,
       );
     }
   }
@@ -213,7 +363,7 @@ export class ResourceLimitsService {
     const n = await this.userModel.countDocuments(filter);
     if (n >= doc.maxUsersPerWarehouse) {
       throw new BadRequestException(
-        `Users per warehouse limit reached for this site (maximum ${doc.maxUsersPerWarehouse}). Contact admin to increase the limit.`,
+        `Warehouse '${c}' has reached the maximum of ${doc.maxUsersPerWarehouse} users. Contact admin to increase the limit.`,
       );
     }
   }

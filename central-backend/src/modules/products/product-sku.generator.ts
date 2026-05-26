@@ -1,69 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { IdSequence, IdSequenceDocument } from './schemas/id-sequence.schema';
+import { DocumentNumberService } from '../../common/document-number.service';
+import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
+import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
 import { Product, ProductDocument } from './schemas/product.schema';
-
-const SEQUENCE_KEY = 'product_sku';
-const SKU_PREFIX = 'SKU-';
-const SKU_PAD = 6;
-
-function parseSkuSequenceNumber(sku: string): number | null {
-  const m = /^SKU-(\d+)$/i.exec(sku.trim());
-  const digits = m?.[1];
-  return digits ? parseInt(digits, 10) : null;
-}
 
 @Injectable()
 export class ProductSkuGenerator {
   constructor(
-    @InjectModel(IdSequence.name) private readonly sequenceModel: Model<IdSequenceDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    private readonly allocator: DocumentNumberAllocatorService,
+    private readonly configService: DocumentNumberConfigService,
   ) {}
 
-  /** Allocates the next unique SKU (e.g. SKU-000042). */
+  /** Allocates the next unique SKU using configured prefix/pad/startFrom. */
   async allocateNextAsync(): Promise<string> {
-    await this.syncSequenceFloorFromExistingProducts();
+    const config = await this.configService.getByKey('product_sku');
+    const prefix = config.prefix;
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const doc = await this.sequenceModel
-        .findOneAndUpdate(
-          { _id: SEQUENCE_KEY },
-          { $inc: { seq: 1 } },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        )
-        .lean();
-
-      const seq = typeof doc?.seq === 'number' ? doc.seq : 1;
-      const sku = `${SKU_PREFIX}${String(seq).padStart(SKU_PAD, '0')}`;
-
-      const taken = await this.productModel.exists({ sku }).lean();
-      if (!taken) return sku;
-    }
-
-    return `${SKU_PREFIX}${Date.now()}`;
+    return this.allocator.allocate('product_sku', {
+      exists: async (v) => !!(await this.productModel.exists({ sku: v }).lean()),
+      syncFloorFromValues: () => this.maxSequenceForPrefix(prefix),
+    });
   }
 
-  /** Ensures the counter is at least the highest existing SKU-###### in products. */
-  private async syncSequenceFloorFromExistingProducts() {
-    const rows = await this.productModel
-      .find({ sku: { $regex: `^${SKU_PREFIX}\\d+$`, $options: 'i' } })
-      .select('sku')
-      .lean();
+  private async maxSequenceForPrefix(prefix: string): Promise<number> {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\d+$`, 'i');
+    const rows = await this.productModel.find({ sku: regex }).select('sku').lean();
 
     let max = 0;
     for (const row of rows) {
       if (typeof row.sku !== 'string') continue;
-      const n = parseSkuSequenceNumber(row.sku);
+      const n = DocumentNumberService.parseSequenceNumber(row.sku, prefix);
       if (n !== null && n > max) max = n;
     }
-
-    if (max > 0) {
-      await this.sequenceModel.updateOne(
-        { _id: SEQUENCE_KEY },
-        { $max: { seq: max } },
-        { upsert: true },
-      );
-    }
+    return max;
   }
 }

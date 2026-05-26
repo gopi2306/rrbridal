@@ -40,6 +40,16 @@ export class StoresService {
   }
 
   async update(code: string, dto: UpdateStoreDto) {
+    const normalized = code.trim().toLowerCase();
+    const prev = await this.storeModel.findOne({ code: normalized }).lean();
+    if (!prev) throw new NotFoundException(`Store '${code}' not found`);
+
+    const wasActive = prev.status === 'active';
+    const willBeActive = dto.status !== undefined ? dto.status === 'active' : wasActive;
+    if (willBeActive && !wasActive) {
+      await this.resourceLimits.assertStoreLimitForActivation(normalized);
+    }
+
     const set: Record<string, unknown> = {};
     if (dto.name !== undefined) set.name = dto.name.trim();
     if (dto.address !== undefined) set.address = dto.address.trim();
@@ -49,9 +59,7 @@ export class StoresService {
     if (Object.keys(set).length === 0) {
       return await this.findByCode(code);
     }
-    const doc = await this.storeModel
-      .findOneAndUpdate({ code: code.trim().toLowerCase() }, { $set: set }, { new: true })
-      .lean();
+    const doc = await this.storeModel.findOneAndUpdate({ code: normalized }, { $set: set }, { new: true }).lean();
     if (!doc) throw new NotFoundException(`Store '${code}' not found`);
     return doc;
   }

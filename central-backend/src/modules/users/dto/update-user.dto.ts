@@ -28,7 +28,7 @@ export class UpdateUserDto {
   locationKind?: (typeof locations)[number];
 
   @ApiProperty({ required: false })
-  @ValidateIf((o: UpdateUserDto) => o.locationKind === 'store')
+  @ValidateIf((o: UpdateUserDto) => o.role === 'store' || o.locationKind === 'store')
   @IsString()
   @IsNotEmpty()
   storeId?: string;

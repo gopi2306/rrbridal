@@ -34,6 +34,14 @@ export class UsersService {
     });
   }
 
+  /** Site-scoped store/warehouse users use per-store/per-warehouse caps, not global role quotas. */
+  private usesPerSiteRoleQuota(role: UserRole, locationKind: string): boolean {
+    return (
+      (role === 'store' && locationKind === 'store') ||
+      (role === 'warehouse' && locationKind === 'warehouse')
+    );
+  }
+
   async assertCanAssignRole(
     targetRole: UserRole,
     existingUser?: { role: UserRole; status: UserStatus },
@@ -47,6 +55,23 @@ export class UsersService {
     if (alreadyInSlot) return;
     if (n >= cap) {
       throw new BadRequestException(`Role quota reached for '${targetRole}' (maximum ${cap})`);
+    }
+  }
+
+  private assertStoreRoleAssignment(
+    role: UserRole,
+    locationKind: string,
+    storeId: string | undefined,
+    status: UserStatus,
+  ): void {
+    if (role !== 'store') return;
+    const counts = status === 'active' || status === 'invited';
+    if (!counts) return;
+    if (locationKind !== 'store') {
+      throw new BadRequestException('locationKind must be store when role is store');
+    }
+    if (!storeId?.trim()) {
+      throw new BadRequestException('storeId is required when role is store');
     }
   }
 
@@ -84,7 +109,7 @@ export class UsersService {
   ): Promise<void> {
     const counts = params.status === 'active' || params.status === 'invited';
     if (!counts) return;
-    if (params.role === 'store' && params.storeId) {
+    if (params.role === 'store' && params.locationKind === 'store' && params.storeId) {
       await this.resourceLimitsService.assertUsersPerStoreLimit(
         String(params.storeId).trim().toLowerCase(),
         params.excludeUserId,
@@ -166,13 +191,21 @@ export class UsersService {
   async create(dto: CreateUserDto): Promise<PublicUser> {
     const status = (dto.status ?? 'active') as UserStatus;
     await this.assertStoreLocation(dto.locationKind, dto.storeId);
+    this.assertStoreRoleAssignment(
+      dto.role as UserRole,
+      dto.locationKind,
+      dto.storeId,
+      status,
+    );
     await this.assertWarehouseAssignment(
       dto.role as UserRole,
       dto.locationKind,
       dto.warehouseLocationCode,
       status,
     );
-    await this.assertCanAssignRole(dto.role as UserRole);
+    if (!this.usesPerSiteRoleQuota(dto.role as UserRole, dto.locationKind)) {
+      await this.assertCanAssignRole(dto.role as UserRole);
+    }
     await this.assertPerSiteUserLimits({
       role: dto.role as UserRole,
       locationKind: dto.locationKind,
@@ -236,17 +269,23 @@ export class UsersService {
         : prevWarehouse;
 
     await this.assertStoreLocation(nextLocation, nextStoreId);
+    this.assertStoreRoleAssignment(nextRole, nextLocation, nextStoreId, nextStatus);
     await this.assertWarehouseAssignment(nextRole, nextLocation, nextWarehouseLocationCode, nextStatus);
 
     const prevCounts = prev.status === 'active' || prev.status === 'invited';
     const nextCounts = nextStatus === 'active' || nextStatus === 'invited';
     if (nextCounts) {
-      const sameSlot =
-        prevCounts && prev.role === nextRole && (nextStatus === 'active' || nextStatus === 'invited');
-      if (sameSlot) {
-        await this.assertCanAssignRole(nextRole, { role: prev.role as UserRole, status: prev.status as UserStatus });
-      } else {
-        await this.assertCanAssignRole(nextRole);
+      if (!this.usesPerSiteRoleQuota(nextRole, nextLocation)) {
+        const sameSlot =
+          prevCounts && prev.role === nextRole && (nextStatus === 'active' || nextStatus === 'invited');
+        if (sameSlot) {
+          await this.assertCanAssignRole(nextRole, {
+            role: prev.role as UserRole,
+            status: prev.status as UserStatus,
+          });
+        } else {
+          await this.assertCanAssignRole(nextRole);
+        }
       }
       await this.assertPerSiteUserLimits({
         role: nextRole,

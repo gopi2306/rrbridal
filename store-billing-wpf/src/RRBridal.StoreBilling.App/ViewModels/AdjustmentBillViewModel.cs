@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -42,12 +43,12 @@ public partial class AdjustmentBillViewModel : ObservableObject
     public AdjustmentBillViewModel(AppServices services)
     {
         _services = services;
-        AssignAdjustmentNo();
+        _ = AssignAdjustmentNoAsync();
     }
 
-    private void AssignAdjustmentNo()
+    private async Task AssignAdjustmentNoAsync()
     {
-        AdjustmentNo = $"ADJ-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
+        AdjustmentNo = await _services.BillNumberGenerator.NextAdjustmentAsync();
     }
 
     [RelayCommand]
@@ -226,6 +227,13 @@ public partial class AdjustmentBillViewModel : ObservableObject
                 { "diffPayable", diffPayable },
             };
 
+            var hash = JsonSerializer.Serialize(new
+            {
+                adjustmentNo = AdjustmentNo,
+                originalBillNo = OriginalBillNo.Trim(),
+                diffPayable,
+            });
+
             var outboxEvent = new BsonDocument
             {
                 { "eventId", eventId },
@@ -234,6 +242,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
                 { "type", "AdjustmentBillCreated" },
                 { "createdAt", createdAt },
                 { "payload", payload },
+                { "hash", hash },
                 { "status", "pending" },
             };
 
@@ -253,7 +262,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ClearForm()
+    private async Task ClearForm()
     {
         foreach (var line in AdjustmentLines)
             line.PropertyChanged -= OnAdjLinePropertyChanged;
@@ -265,7 +274,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         BillLoaded = false;
         _originalBillDoc = null;
         OriginalPayableFormatted = FormatRupee(0);
-        AssignAdjustmentNo();
+        await AssignAdjustmentNoAsync();
         RecalculateTotals();
     }
 

@@ -117,6 +117,44 @@ Rules:
   - **In:** in_transit −, store + (central ledger).
   - **Out:** in_transit −, warehouse + (central ledger). WPF has already decremented local stock on pull.
 
+### Store billing document numbers (WPF)
+
+Local format (per counter / device): `{yyyyMMdd}-{storeLast3}-{posCounter}-{seq:D4}` where `storeLast3` is derived from `storeId` (e.g. `store-001` → `001`). Returns prefix `RET-`, adjustments `ADJ-`.
+
+Central stores the store’s `billNo` / `returnNo` / `adjustmentNo` as the business number and enforces **unique `(storeId, invoiceNo)`** (and the same pattern for returns/adjustments/credit notes).
+
+### Event: `InvoiceCreated`
+
+Raised when a **posted** store bill is saved locally (`store_bills`). Payments are embedded in the payload; standalone `PaymentRecorded` is **not** sent for normal checkout (avoids duplicates).
+
+`payload` includes at minimum: `billNo`, `storeId`, `deviceId`, `posCounter`, `lines[]`, `payments[]`, tax totals, `payable`, `status: posted`, customer fields, optional `creditNoteNo` / `creditApplied`.
+
+Central: collection `store_invoices`, idempotent by `sourceEventId` (`eventId`). Duplicate `billNo` for the same store → `rejected`.
+
+### Event: `SaleReturnCreated` / `SaleExchangeCreated`
+
+Raised after a sale return or exchange is posted locally. `payload` includes `returnNo`, `originalBillNo`, lines, totals, `returnMode`, optional `creditNoteNo`.
+
+Central: `store_sale_returns` with unique `(storeId, returnNo)`.
+
+### Event: `AdjustmentBillCreated`
+
+Raised after an adjustment bill is posted. `payload` includes `adjustmentNo`, `originalBillNo`, `lines`, `originalPayable`, `adjustedPayable`, `diffPayable`.
+
+Central: `store_adjustments` with unique `(storeId, adjustmentNo)`.
+
+### Event: `CreditNoteCreated`
+
+Raised when a customer credit note is created from a return (local `customer_credit_notes`). `payload` includes `creditNoteNo`, `returnNo`, `originalBillNo`, `amount`, `remainingAmount`, customer phone/code, `storeId`.
+
+Central: `store_credit_notes`, unique `(storeId, creditNoteNo)`. Duplicate create → treated as already applied.
+
+### Event: `CreditNoteApplied`
+
+Raised when credit is applied on a bill (`ConsumeAsync`). `payload`: `creditNoteNo`, `billNo`, `amountApplied`, `remainingAmount`, `status` (`available` | `consumed`).
+
+Central: idempotent by `sourceEventId` on each application; updates `remainingAmount` and application history.
+
 ## Central → Store (pull)
 Endpoint: `GET /api/sync/pull?storeId=...&sinceCursor=...&sinceTransferCursor=...&limit=...`
 

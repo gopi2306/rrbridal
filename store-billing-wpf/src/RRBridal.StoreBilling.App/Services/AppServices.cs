@@ -40,6 +40,7 @@ public sealed class AppServices
     public required ReceiptConfigSyncService ReceiptConfigSync { get; init; }
     public required StoreContext StoreContext { get; init; }
     public required BillNumberGenerator BillNumberGenerator { get; init; }
+    public required BillingOutboxPublisher BillingOutbox { get; init; }
     public required PosBillingSettingsStore PosBillingSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
     public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
@@ -107,9 +108,10 @@ public sealed class AppServices
 
         var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
+        var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
-        var customerCreditNotes = new CustomerCreditNoteService(localDb);
+        var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var syncSchedule = new SyncScheduleOptions();
         var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync, shellBranding);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
@@ -136,6 +138,7 @@ public sealed class AppServices
             ReceiptConfigSync = receiptConfigSync,
             StoreContext = storeContext,
             BillNumberGenerator = billNumberGenerator,
+            BillingOutbox = billingOutbox,
             PosBillingSettings = posBillingSettings,
             BillDocuments = billDocuments,
             CustomerCreditNotes = customerCreditNotes,

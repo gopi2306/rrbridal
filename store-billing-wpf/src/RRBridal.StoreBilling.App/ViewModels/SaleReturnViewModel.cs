@@ -64,7 +64,7 @@ public partial class SaleReturnViewModel : ObservableObject
     public SaleReturnViewModel(AppServices services)
     {
         _services = services;
-        AssignReturnNo();
+        _ = AssignReturnNoAsync();
         ExchangeLines.CollectionChanged += (_, e) =>
         {
             if (e.OldItems != null)
@@ -83,9 +83,9 @@ public partial class SaleReturnViewModel : ObservableObject
         };
     }
 
-    private void AssignReturnNo()
+    private async Task AssignReturnNoAsync()
     {
-        ReturnNo = $"RET-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
+        ReturnNo = await _services.BillNumberGenerator.NextReturnAsync();
     }
 
     [RelayCommand]
@@ -623,7 +623,7 @@ public partial class SaleReturnViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ClearForm()
+    private async Task ClearForm()
     {
         foreach (var line in ReturnLines)
             line.PropertyChanged -= OnReturnLinePropertyChanged;
@@ -638,7 +638,7 @@ public partial class SaleReturnViewModel : ObservableObject
         ExchangeLines.Clear();
         BillLoaded = false;
         _originalBillDoc = null;
-        AssignReturnNo();
+        await AssignReturnNoAsync();
         RecalculateTotals();
     }
 

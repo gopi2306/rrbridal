@@ -39,7 +39,7 @@ export class CreateUserDto {
   locationKind!: (typeof locations)[number];
 
   @ApiProperty({ required: false })
-  @ValidateIf((o: CreateUserDto) => o.locationKind === 'store')
+  @ValidateIf((o: CreateUserDto) => o.role === 'store' || o.locationKind === 'store')
   @IsString()
   @IsNotEmpty()
   storeId?: string;

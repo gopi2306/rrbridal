@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { DocumentNumberService } from '../../common/document-number.service';
+import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 import { InventoryModule } from '../inventory/inventory.module';
-import { IdSequence, IdSequenceSchema } from '../products/schemas/id-sequence.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { GoodsReceiptNumberGenerator } from './goods-receipt-number.generator';
 import { GoodsReceiptsController } from './goods-receipts.controller';
@@ -11,15 +10,15 @@ import { GoodsReceipt, GoodsReceiptSchema } from './schemas/goods-receipt.schema
 
 @Module({
   imports: [
+    DocumentNumbersModule,
     InventoryModule,
     MongooseModule.forFeature([
       { name: GoodsReceipt.name, schema: GoodsReceiptSchema },
       { name: Product.name, schema: ProductSchema },
-      { name: IdSequence.name, schema: IdSequenceSchema },
     ]),
   ],
   controllers: [GoodsReceiptsController],
-  providers: [GoodsReceiptsService, DocumentNumberService, GoodsReceiptNumberGenerator],
+  providers: [GoodsReceiptsService, GoodsReceiptNumberGenerator],
   exports: [GoodsReceiptsService],
 })
 export class GoodsReceiptsModule {}

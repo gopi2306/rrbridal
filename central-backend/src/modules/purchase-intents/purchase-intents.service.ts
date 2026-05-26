@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
+import { DocumentNumberService } from '../../common/document-number.service';
 import { attachLineProducts, enrichDocWithLineProducts, resolveProductIdForSku } from '../../common/product-line-enrichment';
+import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
+import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreatePurchaseIntentLineDto } from './dto/create-purchase-intent-line.dto';
 import { CreatePurchaseIntentDto } from './dto/create-purchase-intent.dto';
@@ -25,11 +28,30 @@ export class PurchaseIntentsService {
   constructor(
     @InjectModel(PurchaseIntent.name) private readonly model: Model<PurchaseIntentDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    private readonly allocator: DocumentNumberAllocatorService,
+    private readonly configService: DocumentNumberConfigService,
   ) {}
 
-  private async nextIntentNo() {
-    const suffix = Math.floor(1000 + Math.random() * 9000);
-    return `PINV-${suffix}`;
+  private async allocateIntentNo(): Promise<string> {
+    const config = await this.configService.getByKey('purchase_intent');
+    const prefix = config.prefix;
+    return this.allocator.allocate('purchase_intent', {
+      exists: async (v) => !!(await this.model.exists({ intentNo: v }).lean()),
+      syncFloorFromValues: () => this.maxIntentSequenceForPrefix(prefix),
+    });
+  }
+
+  private async maxIntentSequenceForPrefix(prefix: string): Promise<number> {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\d+$`, 'i');
+    const rows = await this.model.find({ intentNo: regex }).select('intentNo').lean();
+    let max = 0;
+    for (const row of rows) {
+      if (typeof row.intentNo !== 'string') continue;
+      const n = DocumentNumberService.parseSequenceNumber(row.intentNo, prefix);
+      if (n !== null && n > max) max = n;
+    }
+    return max;
   }
 
   private normalizeLineStockClassification(value: string | undefined): string | undefined {
@@ -147,7 +169,7 @@ export class PurchaseIntentsService {
     const lines = await this.parseLinesFromPayload(payload);
     const remarks = typeof payload.remarks === 'string' ? payload.remarks : undefined;
 
-    const intentNo = await this.nextIntentNo();
+    const intentNo = await this.allocateIntentNo();
     try {
       const created = await this.model.create({
         intentNo,
@@ -171,7 +193,7 @@ export class PurchaseIntentsService {
   }
 
   async create(dto: CreatePurchaseIntentDto) {
-    const intentNo = await this.nextIntentNo();
+    const intentNo = await this.allocateIntentNo();
     const lines: PurchaseIntentLine[] = [];
     for (const l of dto.lines ?? []) {
       lines.push(await this.normalizeDtoLine(l));

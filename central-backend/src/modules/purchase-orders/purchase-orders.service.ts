@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
+import { DocumentNumberService } from '../../common/document-number.service';
 import {
   attachLineProducts,
   enrichDocWithLineProducts,
   resolveProductIdForSku,
 } from '../../common/product-line-enrichment';
+import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
+import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreatePurchaseOrderDto, CreatePurchaseOrderLineDto } from './dto/create-purchase-order.dto';
 import { FilterPurchaseOrderDto } from './dto/filter-purchase-order.dto';
@@ -22,12 +25,30 @@ export class PurchaseOrdersService {
   constructor(
     @InjectModel(PurchaseOrder.name) private readonly poModel: Model<PurchaseOrderDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    private readonly allocator: DocumentNumberAllocatorService,
+    private readonly configService: DocumentNumberConfigService,
   ) {}
 
-  private async nextPoNo() {
-    // Simple scaffold: PO-<random 4 digits>. Replace with counter-based sequence later.
-    const suffix = Math.floor(1000 + Math.random() * 9000);
-    return `PO-${suffix}`;
+  private async allocatePoNo(): Promise<string> {
+    const config = await this.configService.getByKey('purchase_order');
+    const prefix = config.prefix;
+    return this.allocator.allocate('purchase_order', {
+      exists: async (v) => !!(await this.poModel.exists({ poNo: v }).lean()),
+      syncFloorFromValues: () => this.maxPoSequenceForPrefix(prefix),
+    });
+  }
+
+  private async maxPoSequenceForPrefix(prefix: string): Promise<number> {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\d+$`, 'i');
+    const rows = await this.poModel.find({ poNo: regex }).select('poNo').lean();
+    let max = 0;
+    for (const row of rows) {
+      if (typeof row.poNo !== 'string') continue;
+      const n = DocumentNumberService.parseSequenceNumber(row.poNo, prefix);
+      if (n !== null && n > max) max = n;
+    }
+    return max;
   }
 
   private async normalizeDtoLine(dto: CreatePurchaseOrderLineDto): Promise<PurchaseOrderLine> {
@@ -63,7 +84,7 @@ export class PurchaseOrdersService {
   }
 
   async create(dto: CreatePurchaseOrderDto) {
-    const poNo = await this.nextPoNo();
+    const poNo = await this.allocatePoNo();
     const lines: PurchaseOrderLine[] = [];
     for (const l of dto.lines ?? []) {
       lines.push(await this.normalizeDtoLine(l));

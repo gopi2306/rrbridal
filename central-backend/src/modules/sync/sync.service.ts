@@ -8,6 +8,7 @@ import { SyncEventDto } from './dto/sync-push.dto';
 import { ProductsService } from '../products/products.service';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
+import { StoreSalesSyncService } from '../store-sales/store-sales-sync.service';
 
 @Injectable()
 export class SyncService {
@@ -18,6 +19,7 @@ export class SyncService {
     private readonly purchaseIntentsService: PurchaseIntentsService,
     private readonly storesService: StoresService,
     private readonly stockTransfersService: StockTransfersService,
+    private readonly storeSalesSyncService: StoreSalesSyncService,
   ) {}
 
   async push(events: SyncEventDto[]) {
@@ -37,13 +39,24 @@ export class SyncService {
           continue;
         }
 
+        const meta = { eventId: ev.eventId, storeId: ev.storeId, deviceId: ev.deviceId };
+
         if (ev.type === 'PurchaseIntentCreated') {
-          await this.purchaseIntentsService.ensureFromSync(
-            { eventId: ev.eventId, storeId: ev.storeId, deviceId: ev.deviceId },
-            ev.payload,
-          );
+          await this.purchaseIntentsService.ensureFromSync(meta, ev.payload);
         } else if (ev.type === 'StockTransferReceived') {
           await this.stockTransfersService.receiveFromSync(ev.storeId, ev.payload);
+        } else if (ev.type === 'InvoiceCreated') {
+          await this.storeSalesSyncService.applyInvoiceCreated(meta, ev.payload);
+        } else if (ev.type === 'SaleReturnCreated') {
+          await this.storeSalesSyncService.applySaleReturn(meta, ev.payload, 'return');
+        } else if (ev.type === 'SaleExchangeCreated') {
+          await this.storeSalesSyncService.applySaleReturn(meta, ev.payload, 'exchange');
+        } else if (ev.type === 'AdjustmentBillCreated') {
+          await this.storeSalesSyncService.applyAdjustmentCreated(meta, ev.payload);
+        } else if (ev.type === 'CreditNoteCreated') {
+          await this.storeSalesSyncService.applyCreditNoteCreated(meta, ev.payload);
+        } else if (ev.type === 'CreditNoteApplied') {
+          await this.storeSalesSyncService.applyCreditNoteApplied(meta, ev.payload);
         }
 
         await this.syncEventModel.create({

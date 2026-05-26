@@ -55,14 +55,8 @@
                             <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBox}" Text="{Binding Salesman}"
                                      IsReadOnly="True" IsTabStop="False" Margin="0,0,0,8"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer name" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4"
-                                     Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="CustomerNameBox_OnKeyDown" Margin="0,0,0,8"/>
-
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Phone" VerticalAlignment="Center"/>
-                            <Border x:Name="PhoneInputBorder" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,0,0,8"
                                     CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" SnapsToDevicePixels="True">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -97,6 +91,12 @@
                                          KeyDown="CustomerPhoneBox_OnKeyDown"
                                          LostFocus="CustomerPhoneBox_OnLostFocus"/>
                             </Border>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Customer name" VerticalAlignment="Center"/>
+                            <TextBox x:Name="CustomerNameBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+                                     Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="CustomerNameBox_OnKeyDown"/>
                         </Grid>
                     </Grid>
                 </Border>

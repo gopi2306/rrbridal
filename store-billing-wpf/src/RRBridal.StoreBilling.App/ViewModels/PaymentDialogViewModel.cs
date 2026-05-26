@@ -57,6 +57,7 @@ public partial class PaymentDialogViewModel : ObservableObject
     private readonly string _invoiceNo;
     private readonly string? _billingReservedCreditNoteNo;
     private readonly decimal _billingReservedCreditAmount;
+    private readonly bool _skipPaymentOutbox;
 
     public decimal InvoicePayableAmount { get; }
     public string PayableFormatted { get; }
@@ -103,7 +104,7 @@ public partial class PaymentDialogViewModel : ObservableObject
     public PaymentOutcome Outcome { get; private set; } = new() { Confirmed = false };
 
     public PaymentDialogViewModel(IPaymentRouter router, string invoiceNo, decimal payableAmount)
-        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0)
+        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0, false)
     {
     }
 
@@ -116,7 +117,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         string? customerCode,
         string? customerPhone,
         string? billingReservedCreditNoteNo,
-        decimal billingReservedCreditAmount)
+        decimal billingReservedCreditAmount,
+        bool skipPaymentOutbox = false)
     {
         _router = router;
         _creditNotes = creditNotes;
@@ -124,6 +126,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         _invoiceNo = invoiceNo;
         _billingReservedCreditNoteNo = billingReservedCreditNoteNo?.Trim();
         _billingReservedCreditAmount = billingReservedCreditAmount;
+        _skipPaymentOutbox = skipPaymentOutbox;
         InvoicePayableAmount = payableAmount;
         PayableFormatted = FormatRupee(payableAmount);
         AmountReceived = payableAmount;
@@ -346,7 +349,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         var cnResult = await _router.PayAndRecordAsync(
             PaymentProviderKind.CreditNote,
             new PaymentRequest(_invoiceNo, PaymentCreditAmount, "INR", _selectedPaymentCreditNoteNo),
-            CancellationToken.None);
+            CancellationToken.None,
+            enqueueOutbox: !_skipPaymentOutbox);
         legs.Add(new PaymentLegResult
         {
             Provider = PaymentProviderKind.CreditNote,
@@ -416,7 +420,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                         var cashResult = await _router.PayAndRecordAsync(
                             PaymentProviderKind.Cash,
                             new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
-                            CancellationToken.None);
+                            CancellationToken.None,
+                            enqueueOutbox: !_skipPaymentOutbox);
                         legs.Add(new PaymentLegResult
                         {
                             Provider = PaymentProviderKind.Cash,
@@ -439,7 +444,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                     var cardResult = await _router.PayAndRecordAsync(
                         PaymentProviderKind.PineLabs,
                         new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
-                        CancellationToken.None);
+                        CancellationToken.None,
+                        enqueueOutbox: !_skipPaymentOutbox);
                     if (cardResult.Status != "Success")
                     {
                         ErrorMessage = $"POS transaction failed: {cardResult.Status}";
@@ -469,7 +475,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                     var upiResult = await _router.PayAndRecordAsync(
                         PaymentProviderKind.Razorpay,
                         new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
-                        CancellationToken.None);
+                        CancellationToken.None,
+                        enqueueOutbox: !_skipPaymentOutbox);
                     if (upiResult.Status != "Success" && upiResult.Status != "Pending")
                     {
                         ErrorMessage = $"UPI payment failed: {upiResult.Status}";
@@ -509,7 +516,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                     var cnResult = await _router.PayAndRecordAsync(
                         PaymentProviderKind.CreditNote,
                         new PaymentRequest(_invoiceNo, CreditNoteAmount, "INR", cnRef),
-                        CancellationToken.None);
+                        CancellationToken.None,
+                        enqueueOutbox: !_skipPaymentOutbox);
                     legs.Add(new PaymentLegResult
                     {
                         Provider = PaymentProviderKind.CreditNote,
@@ -556,7 +564,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                         var splitResult = await _router.PayAndRecordAsync(
                             provider,
                             new PaymentRequest(_invoiceNo, amount, "INR", reference),
-                            CancellationToken.None);
+                            CancellationToken.None,
+                            enqueueOutbox: !_skipPaymentOutbox);
 
                         if (splitResult.Status != "Success" && splitResult.Status != "Pending")
                         {

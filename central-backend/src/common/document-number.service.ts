@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { IdSequence, IdSequenceDocument } from '../modules/products/schemas/id-sequence.schema';
+import { IdSequence, IdSequenceDocument } from '../modules/document-numbers/schemas/id-sequence.schema';
 
 export type DocumentNumberConfig = {
   sequenceKey: string;
@@ -23,9 +23,9 @@ export class DocumentNumberService {
       const floor = await config.syncFloorFromValues();
       if (floor > 0) {
         await this.sequenceModel.updateOne(
-          { _id: config.sequenceKey },
+          { sequenceKey: config.sequenceKey },
           { $max: { seq: floor } },
-          { upsert: true },
+          { upsert: true, setDefaultsOnInsert: true },
         );
       }
     }
@@ -33,8 +33,8 @@ export class DocumentNumberService {
     for (let attempt = 0; attempt < 5; attempt++) {
       const doc = await this.sequenceModel
         .findOneAndUpdate(
-          { _id: config.sequenceKey },
-          { $inc: { seq: 1 } },
+          { sequenceKey: config.sequenceKey },
+          { $inc: { seq: 1 }, $setOnInsert: { sequenceKey: config.sequenceKey } },
           { upsert: true, new: true, setDefaultsOnInsert: true },
         )
         .lean();

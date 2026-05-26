@@ -2,36 +2,31 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { DocumentNumberService } from '../../common/document-number.service';
+import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
+import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
 import { GoodsReceipt, GoodsReceiptDocument } from './schemas/goods-receipt.schema';
-
-const RECEIPT_PREFIX = 'RCV-';
-const GRN_PREFIX = 'GRN-';
-const NUMBER_PAD = 6;
 
 @Injectable()
 export class GoodsReceiptNumberGenerator {
   constructor(
     @InjectModel(GoodsReceipt.name) private readonly grModel: Model<GoodsReceiptDocument>,
-    private readonly documentNumbers: DocumentNumberService,
+    private readonly allocator: DocumentNumberAllocatorService,
+    private readonly configService: DocumentNumberConfigService,
   ) {}
 
-  allocateReceiptNoAsync(): Promise<string> {
-    return this.documentNumbers.allocateNext({
-      sequenceKey: 'goods_receipt_receipt_no',
-      prefix: RECEIPT_PREFIX,
-      pad: NUMBER_PAD,
+  async allocateReceiptNoAsync(): Promise<string> {
+    const config = await this.configService.getByKey('goods_receipt_rcv');
+    return this.allocator.allocate('goods_receipt_rcv', {
       exists: async (v) => !!(await this.grModel.exists({ receiptNo: v }).lean()),
-      syncFloorFromValues: () => this.maxSequenceForField('receiptNo', RECEIPT_PREFIX),
+      syncFloorFromValues: () => this.maxSequenceForField('receiptNo', config.prefix),
     });
   }
 
-  allocateGrnNumberAsync(): Promise<string> {
-    return this.documentNumbers.allocateNext({
-      sequenceKey: 'goods_receipt_grn',
-      prefix: GRN_PREFIX,
-      pad: NUMBER_PAD,
+  async allocateGrnNumberAsync(): Promise<string> {
+    const config = await this.configService.getByKey('goods_receipt_grn');
+    return this.allocator.allocate('goods_receipt_grn', {
       exists: async (v) => !!(await this.grModel.exists({ grnNumber: v }).lean()),
-      syncFloorFromValues: () => this.maxSequenceForField('grnNumber', GRN_PREFIX),
+      syncFloorFromValues: () => this.maxSequenceForField('grnNumber', config.prefix),
     });
   }
 
@@ -39,7 +34,8 @@ export class GoodsReceiptNumberGenerator {
     field: 'receiptNo' | 'grnNumber',
     prefix: string,
   ): Promise<number> {
-    const regex = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\d+$`, 'i');
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\d+$`, 'i');
     const rows = await this.grModel.find({ [field]: regex }).select(field).lean();
 
     let max = 0;

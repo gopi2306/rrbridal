@@ -11,7 +11,11 @@ namespace RRBridal.StoreBilling.App.Services.Payments;
 
 public interface IPaymentRouter
 {
-    Task<PaymentResult> PayAndRecordAsync(PaymentProviderKind provider, PaymentRequest request, CancellationToken ct);
+    Task<PaymentResult> PayAndRecordAsync(
+        PaymentProviderKind provider,
+        PaymentRequest request,
+        CancellationToken ct,
+        bool enqueueOutbox = true);
 }
 
 internal sealed class LocalPaymentDoc
@@ -47,7 +51,11 @@ public sealed class PaymentRouter : IPaymentRouter
         _storeContext = storeContext;
     }
 
-    public async Task<PaymentResult> PayAndRecordAsync(PaymentProviderKind provider, PaymentRequest request, CancellationToken ct)
+    public async Task<PaymentResult> PayAndRecordAsync(
+        PaymentProviderKind provider,
+        PaymentRequest request,
+        CancellationToken ct,
+        bool enqueueOutbox = true)
     {
         PaymentResult result;
         if (provider is PaymentProviderKind.Cash or PaymentProviderKind.CreditNote)
@@ -99,6 +107,9 @@ public sealed class PaymentRouter : IPaymentRouter
         };
 
         await _payments.InsertOneAsync(paymentDoc, cancellationToken: ct);
+
+        if (!enqueueOutbox)
+            return result;
 
         var outboxEvent = new BsonDocument
         {

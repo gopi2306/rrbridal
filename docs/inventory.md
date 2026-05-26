@@ -41,3 +41,7 @@ Response rows (one per product in the result set):
 - `mrp`, `storePrice` — convenience copies from `product` (`storePrice` falls back to `sellingPrice` when unset)
 
 Products with no ledger rows show zero quantities.
+
+## Document numbers
+
+SKU and procurement document numbers (PO, intent, return, RCV, GRN) are auto-generated from configurable prefixes and sequences. See [document-numbers.md](./document-numbers.md).

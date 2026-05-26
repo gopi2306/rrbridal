@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
@@ -15,10 +16,12 @@ public sealed class CustomerCreditNoteService
     public const string StatusConsumed = "consumed";
 
     private readonly IMongoCollection<BsonDocument> _notes;
+    private readonly BillingOutboxPublisher? _outbox;
 
-    public CustomerCreditNoteService(IMongoDatabase localDb)
+    public CustomerCreditNoteService(IMongoDatabase localDb, BillingOutboxPublisher? outbox = null)
     {
         _notes = localDb.GetCollection<BsonDocument>("customer_credit_notes");
+        _outbox = outbox;
     }
 
     public async Task<string?> CreateFromReturnAsync(
@@ -65,6 +68,8 @@ public sealed class CustomerCreditNoteService
         };
 
         await _notes.InsertOneAsync(doc, cancellationToken: ct);
+        if (_outbox != null)
+            await _outbox.PublishCreditNoteCreatedAsync(doc, ct);
         return creditNoteNo;
     }
 
@@ -163,6 +168,17 @@ public sealed class CustomerCreditNoteService
             filter,
             Builders<BsonDocument>.Update.Combine(updates),
             cancellationToken: ct);
+        if (result.ModifiedCount > 0 && _outbox != null)
+        {
+            var status = newRemaining <= 0 ? StatusConsumed : StatusAvailable;
+            await _outbox.PublishCreditNoteAppliedAsync(
+                creditNoteNo.Trim(),
+                bill,
+                amountApplied,
+                newRemaining,
+                status,
+                ct);
+        }
         return result.ModifiedCount > 0;
     }
 

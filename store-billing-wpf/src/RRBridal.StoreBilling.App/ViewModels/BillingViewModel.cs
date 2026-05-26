@@ -164,7 +164,7 @@ public partial class BillingViewModel : ObservableObject
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            BillNo = await _services.BillNumberGenerator.NextAsync(cts.Token);
+            BillNo = await _services.BillNumberGenerator.NextBillAsync(cts.Token);
         }
         catch
         {
@@ -1181,7 +1181,8 @@ public partial class BillingViewModel : ObservableObject
                 CustomerCode,
                 CustomerPhone,
                 _selectedCreditNoteNo,
-                totals.AppliedCredit);
+                totals.AppliedCredit,
+                skipPaymentOutbox: true);
             await paymentVm.InitializeAsync();
             var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
             var paymentResult = paymentDlg.ShowDialog();
@@ -1333,6 +1334,8 @@ public partial class BillingViewModel : ObservableObject
 
             await coll.InsertOneAsync(doc);
             _resumingDraftBillNo = null;
+
+            await _services.BillingOutbox.PublishInvoiceCreatedAsync(doc);
 
             foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.CentralProductId)))
                 await _services.ProductCatalog.DecrementStockAsync(line.CentralProductId!, line.Qty, ct: default);
