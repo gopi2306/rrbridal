@@ -27,10 +27,14 @@ export class CreateProductDto {
   @IsOptional()
   alias?: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    required: false,
+    description: 'Omit to auto-generate the next SKU (e.g. SKU-000006) on the server',
+    example: 'SKU-000123',
+  })
   @IsString()
-  @IsNotEmpty()
-  sku!: string;
+  @IsOptional()
+  sku?: string;
 
   @ApiProperty({ required: false })
   @IsString()

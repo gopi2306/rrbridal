@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import {
@@ -12,6 +12,7 @@ import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreateGoodsReceiptDto, CreateGoodsReceiptLineDto } from './dto/create-goods-receipt.dto';
 import { FilterGoodsReceiptDto } from './dto/filter-goods-receipt.dto';
 import { UpdateGoodsReceiptDto } from './dto/update-goods-receipt.dto';
+import { GoodsReceiptNumberGenerator } from './goods-receipt-number.generator';
 import { GoodsReceipt, GoodsReceiptDocument } from './schemas/goods-receipt.schema';
 
 @Injectable()
@@ -20,11 +21,27 @@ export class GoodsReceiptsService {
     @InjectModel(GoodsReceipt.name) private readonly grModel: Model<GoodsReceiptDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly inventoryService: InventoryService,
+    private readonly receiptNumbers: GoodsReceiptNumberGenerator,
   ) {}
 
-  private async nextReceiptNo() {
-    const suffix = Math.floor(10 + Math.random() * 90);
-    return `RCV-${suffix}`;
+  private async resolveReceiptNo(input?: string): Promise<string> {
+    const trimmed = input?.trim();
+    if (trimmed) {
+      const exists = await this.grModel.exists({ receiptNo: trimmed }).lean();
+      if (exists) throw new ConflictException(`Receipt number '${trimmed}' is already in use`);
+      return trimmed;
+    }
+    return await this.receiptNumbers.allocateReceiptNoAsync();
+  }
+
+  private async resolveGrnNumber(input?: string): Promise<string> {
+    const trimmed = input?.trim();
+    if (trimmed) {
+      const exists = await this.grModel.exists({ grnNumber: trimmed }).lean();
+      if (exists) throw new ConflictException(`GRN number '${trimmed}' is already in use`);
+      return trimmed;
+    }
+    return await this.receiptNumbers.allocateGrnNumberAsync();
   }
 
   private async normalizeLines(lines: CreateGoodsReceiptLineDto[]) {
@@ -129,13 +146,14 @@ export class GoodsReceiptsService {
   }
 
   async create(dto: CreateGoodsReceiptDto) {
-    const receiptNo = await this.nextReceiptNo();
+    const receiptNo = await this.resolveReceiptNo();
+    const grnNumber = await this.resolveGrnNumber(dto.grnNumber);
     const lines = dto.lines?.length ? await this.normalizeLines(dto.lines) : [];
     const created = await this.grModel.create({
       receiptNo,
       poId: dto.poId,
       poNo: dto.poNo,
-      grnNumber: dto.grnNumber,
+      grnNumber,
       supplier: dto.supplier,
       invoiceNo: dto.invoiceNo,
       invoiceDate: dto.invoiceDate,

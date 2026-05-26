@@ -5,7 +5,7 @@ import { HydratedDocument, Types } from 'mongoose';
 export type GoodsReceiptDocument = HydratedDocument<GoodsReceipt>;
 
 export type GoodsReceiptStatus = 'draft' | 'posted';
-export type GoodsReceiptLineOutcome = 'valid' | 'invalid' | 'damaged';
+export type GoodsReceiptLineOutcome = 'valid' | 'invalid' | 'damaged' | 'partially-damaged';
 
 @Schema({ _id: false })
 export class GoodsReceiptSupplierSnapshot {
@@ -43,7 +43,7 @@ export class GoodsReceiptLine {
   @Prop()
   receivedQty?: number;
 
-  @ApiProperty({ required: false, enum: ['valid', 'invalid', 'damaged'] })
+  @ApiProperty({ required: false, enum: ['valid', 'invalid', 'damaged', 'partially-damaged'] })
   @Prop({ default: 'valid' })
   outcome?: GoodsReceiptLineOutcome;
 }
@@ -71,7 +71,7 @@ export class GoodsReceipt {
   @Prop({ index: true })
   poNo?: string;
 
-  @ApiProperty({ required: false, description: 'GRN number' })
+  @ApiProperty({ required: false, description: 'GRN number (auto-generated on create when omitted)' })
   @Prop({ index: true })
   grnNumber?: string;
 

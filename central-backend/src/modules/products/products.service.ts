@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import {
@@ -10,18 +10,34 @@ import {
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductSkuGenerator } from './product-sku.generator';
 import { Product, ProductDocument } from './schemas/product.schema';
 
 
 @Injectable()
 export class ProductsService {
-  constructor(@InjectModel(Product.name) private readonly productModel: Model<ProductDocument>) {}
+  constructor(
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    private readonly skuGenerator: ProductSkuGenerator,
+  ) {}
 
   async create(dto: CreateProductDto) {
+    const sku = await this.resolveSkuForCreate(dto.sku);
     return await this.productModel.create({
       ...dto,
+      sku,
       isActive: dto.isActive ?? true,
     });
+  }
+
+  private async resolveSkuForCreate(skuInput?: string): Promise<string> {
+    const trimmed = skuInput?.trim();
+    if (trimmed) {
+      const exists = await this.productModel.exists({ sku: trimmed }).lean();
+      if (exists) throw new ConflictException(`SKU '${trimmed}' is already in use`);
+      return trimmed;
+    }
+    return await this.skuGenerator.allocateNextAsync();
   }
 
   async findById(id: string) {

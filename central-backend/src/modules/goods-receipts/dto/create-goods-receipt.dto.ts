@@ -53,10 +53,10 @@ export class CreateGoodsReceiptLineDto {
   @IsOptional()
   receivedQty?: number;
 
-  @ApiProperty({ required: false, enum: ['valid', 'invalid', 'damaged'] })
+  @ApiProperty({ required: false, enum: ['valid', 'invalid', 'damaged', 'partially-damaged'] })
   @IsString()
   @IsOptional()
-  @IsIn(['valid', 'invalid', 'damaged'])
+  @IsIn(['valid', 'invalid', 'damaged', 'partially-damaged'])
   outcome?: string;
 }
 
@@ -71,7 +71,10 @@ export class CreateGoodsReceiptDto {
   @IsOptional()
   poNo?: string;
 
-  @ApiProperty({ required: false, description: 'GRN number' })
+  @ApiProperty({
+    required: false,
+    description: 'Omit to auto-generate the next GRN number (e.g. GRN-000032) on the server',
+  })
   @IsString()
   @IsOptional()
   grnNumber?: string;
