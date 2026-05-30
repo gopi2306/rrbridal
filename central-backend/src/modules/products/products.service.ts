@@ -40,11 +40,37 @@ export class ProductsService {
     return await this.skuGenerator.allocateNextAsync();
   }
 
+  async findBySku(sku: string) {
+    const trimmed = sku?.trim();
+    if (!trimmed) return null;
+    return await this.productModel.findOne({ sku: trimmed }).lean();
+  }
+
   async findById(id: string) {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
     const doc = await this.productModel.findById(toObjectId(id)).lean();
     if (!doc) throw new NotFoundException('Product not found');
     return doc;
+  }
+
+  /** Create or update by SKU. When sku is omitted on create, server allocates next SKU. */
+  async upsertBySku(dto: CreateProductDto): Promise<{ created: boolean; product: unknown }> {
+    const skuInput = dto.sku?.trim();
+    if (skuInput) {
+      const existing = await this.findBySku(skuInput);
+      if (existing) {
+        const { sku: _sku, ...rest } = dto;
+        const cleaned = stripInvalidObjectIdRefs(
+          { ...rest } as Record<string, unknown>,
+          PRODUCT_REF_OBJECT_ID_FIELDS,
+        );
+        const product = await this.update(String(existing._id), cleaned as UpdateProductDto);
+        return { created: false, product };
+      }
+    }
+
+    const product = await this.create(dto);
+    return { created: true, product };
   }
 
   async update(id: string, dto: UpdateProductDto) {

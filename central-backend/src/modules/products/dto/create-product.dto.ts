@@ -217,8 +217,19 @@ export class CreateProductDto {
 
   @ApiProperty({ required: false })
   @IsNumber()
+  @Min(0)
   @IsOptional()
   costPrice?: number;
+
+  @ApiProperty({
+    required: false,
+    description: 'Minimum gross margin % on cost (e.g. 20 → min rate = cost × 1.20). 0 = no floor.',
+  })
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  @IsOptional()
+  marginPercent?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()

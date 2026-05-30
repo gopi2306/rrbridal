@@ -1,8 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateRoleAccessDto } from './dto/create-role-access.dto';
 import { FilterRoleAccessDto } from './dto/filter-role-access.dto';
 import { UpdateRoleAccessDto } from './dto/update-role-access.dto';
@@ -12,8 +10,7 @@ import { RoleAccessService } from './role-access.service';
 @ApiTags('admin-role-access')
 @ApiBearerAuth()
 @Controller('admin/role-access')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'super_admin')
+@UseGuards(JwtAuthGuard)
 export class AdminRoleAccessController {
   constructor(private readonly service: RoleAccessService) {}
 

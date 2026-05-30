@@ -33,6 +33,10 @@ public partial class BillingLineItem : ObservableObject
 
     [ObservableProperty] private decimal mrp;
 
+    [ObservableProperty] private decimal costPrice;
+
+    [ObservableProperty] private decimal marginPercent;
+
     [ObservableProperty] private decimal taxPercent;
 
     [ObservableProperty] private bool isIgst;

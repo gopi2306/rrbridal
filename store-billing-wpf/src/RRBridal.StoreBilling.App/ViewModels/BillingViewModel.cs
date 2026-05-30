@@ -193,6 +193,9 @@ public partial class BillingViewModel : ObservableObject
 
     private void OnLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(BillingLineItem.Rate) && sender is BillingLineItem rateLine)
+            WarnIfBelowMargin(rateLine);
+
         if (e.PropertyName is nameof(BillingLineItem.Amount)
             or nameof(BillingLineItem.Qty)
             or nameof(BillingLineItem.Rate)
@@ -1033,9 +1036,27 @@ public partial class BillingViewModel : ObservableObject
         line.Description = p.Name;
         line.HsnCode = string.IsNullOrWhiteSpace(p.HsnSac) ? "" : p.HsnSac.Trim();
         line.Qty = 1;
+        line.CostPrice = p.CostPrice ?? 0;
+        line.MarginPercent = p.MarginPercent ?? 0;
         line.Rate = p.SuggestedRate;
         line.Mrp = p.Mrp ?? 0;
         line.TaxPercent = p.SuggestedTaxPercent;
+    }
+
+    private void WarnIfBelowMargin(BillingLineItem line)
+    {
+        if (line.IsEntryRow || line.Qty <= 0 || line.Rate <= 0) return;
+        if (line.CostPrice <= 0 || line.MarginPercent <= 0) return;
+
+        var label = string.IsNullOrWhiteSpace(line.ProductCode) ? line.Description : line.ProductCode;
+        if (!MarginGatekeeper.TryBuildWarning(label, line.Rate, line.CostPrice, line.MarginPercent, out var message))
+            return;
+
+        MessageBox.Show(
+            message,
+            "Below minimum margin",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private void AddLineFromCatalog(CatalogProduct p)
@@ -1061,6 +1082,7 @@ public partial class BillingViewModel : ObservableObject
         {
             FillLineFromCatalog(entry, p);
             entry.IsIgst = IsInterState;
+            WarnIfBelowMargin(entry);
             EnsureEntryRow();
             RequestFocusEntryProductCode?.Invoke();
             return;
@@ -1068,6 +1090,7 @@ public partial class BillingViewModel : ObservableObject
 
         var line = new BillingLineItem { IsIgst = IsInterState };
         FillLineFromCatalog(line, p);
+        WarnIfBelowMargin(line);
         Lines.Add(line);
         EnsureEntryRow();
         RequestFocusEntryProductCode?.Invoke();

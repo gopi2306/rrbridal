@@ -30,9 +30,11 @@
     "class-validator": "^0.15.1",
     "mongoose": "^8.23.1",
     "multer": "^2.1.1",
+    "pdfkit": "^0.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
@@ -40,6 +42,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.6.2",
+    "@types/pdfkit": "^0.17.6",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

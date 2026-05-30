@@ -198,6 +198,8 @@ public sealed class ProductCatalogService
             CentralId = id,
             Sku = sku,
             Name = name,
+            CostPrice = ReadDecimalBson(d, "costPrice"),
+            MarginPercent = ReadDecimalBson(d, "marginPercent"),
             Mrp = ReadDecimalBson(d, "mrp"),
             SellingPrice = ReadDecimalBson(d, "sellingPrice"),
             StorePrice = ReadDecimalBson(d, "storePrice"),

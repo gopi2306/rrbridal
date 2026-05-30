@@ -256,7 +256,7 @@ public partial class PaymentDialogViewModel : ObservableObject
                 SplitCreditNoteAmount = PaymentCreditAmount;
                 if (PaymentCreditAmount > 0 && !string.IsNullOrEmpty(_selectedPaymentCreditNoteNo))
                     SplitCreditNoteReference = _selectedPaymentCreditNoteNo;
-                RecalcSplitBalance();
+                CapAndRecalcSplit(nameof(SplitCashAmount));
                 break;
 
             case PaymentMode.Card:
@@ -313,10 +313,12 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     partial void OnAmountReceivedChanged(decimal value) => UpdateCashChange();
 
-    partial void OnSplitCashAmountChanged(decimal value) => RecalcSplitBalance();
-    partial void OnSplitCardAmountChanged(decimal value) => RecalcSplitBalance();
-    partial void OnSplitUpiAmountChanged(decimal value) => RecalcSplitBalance();
-    partial void OnSplitCreditNoteAmountChanged(decimal value) => RecalcSplitBalance();
+    private bool _isCappingSplit;
+
+    partial void OnSplitCashAmountChanged(decimal value) => CapAndRecalcSplit(nameof(SplitCashAmount));
+    partial void OnSplitCardAmountChanged(decimal value) => CapAndRecalcSplit(nameof(SplitCardAmount));
+    partial void OnSplitUpiAmountChanged(decimal value) => CapAndRecalcSplit(nameof(SplitUpiAmount));
+    partial void OnSplitCreditNoteAmountChanged(decimal value) => CapAndRecalcSplit(nameof(SplitCreditNoteAmount));
 
     partial void OnCreditNoteReferenceChanged(string value)
     {
@@ -331,11 +333,53 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     private void RecalcSplitBalance()
     {
-        var allocated = SplitCashAmount + SplitCardAmount + SplitUpiAmount + SplitCreditNoteAmount;
-        var remaining = InvoicePayableAmount - allocated;
-        SplitRemainingFormatted = FormatRupee(remaining);
-        IsSplitBalanced = remaining == 0
+        var allocatedCashLike = SplitCashAmount + SplitCardAmount + SplitUpiAmount;
+        var remainingRaw = CollectibleAmount - allocatedCashLike;
+        var remainingDisplay = Math.Max(0m, remainingRaw);
+        SplitRemainingFormatted = FormatRupee(remainingDisplay);
+        IsSplitBalanced = remainingRaw == 0
             && (SplitCashAmount > 0 || SplitCardAmount > 0 || SplitUpiAmount > 0 || SplitCreditNoteAmount > 0);
+    }
+
+    private void CapAndRecalcSplit(string editedProperty)
+    {
+        if (_isCappingSplit)
+        {
+            RecalcSplitBalance();
+            return;
+        }
+
+        try
+        {
+            _isCappingSplit = true;
+
+            if (SelectedMode == PaymentMode.Split)
+            {
+                if (HasPaymentCreditSelected && SplitCreditNoteAmount != PaymentCreditAmount)
+                    SplitCreditNoteAmount = PaymentCreditAmount;
+
+                var maxCollect = Math.Max(0m, CollectibleAmount);
+                var other =
+                    editedProperty == nameof(SplitCashAmount) ? SplitCardAmount + SplitUpiAmount :
+                    editedProperty == nameof(SplitCardAmount) ? SplitCashAmount + SplitUpiAmount :
+                    editedProperty == nameof(SplitUpiAmount) ? SplitCashAmount + SplitCardAmount :
+                    SplitCashAmount + SplitCardAmount + SplitUpiAmount;
+
+                var maxForEdited = Math.Max(0m, maxCollect - other);
+
+                if (editedProperty == nameof(SplitCashAmount) && SplitCashAmount > maxForEdited)
+                    SplitCashAmount = maxForEdited;
+                else if (editedProperty == nameof(SplitCardAmount) && SplitCardAmount > maxForEdited)
+                    SplitCardAmount = maxForEdited;
+                else if (editedProperty == nameof(SplitUpiAmount) && SplitUpiAmount > maxForEdited)
+                    SplitUpiAmount = maxForEdited;
+            }
+        }
+        finally
+        {
+            _isCappingSplit = false;
+            RecalcSplitBalance();
+        }
     }
 
     private async Task<bool> ApplyPaymentCreditLegAsync(List<PaymentLegResult> legs)

@@ -18,6 +18,37 @@ export class SuppliersService {
     });
   }
 
+  async findByName(name: string) {
+    const trimmed = name?.trim();
+    if (!trimmed) return null;
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const docs = await this.supplierModel
+      .find({ name: { $regex: `^${escaped}$`, $options: 'i' } })
+      .limit(2)
+      .lean();
+    if (docs.length === 0) return null;
+    if (docs.length > 1) {
+      throw new Error(`Multiple suppliers match name "${trimmed}"`);
+    }
+    return docs[0];
+  }
+
+  /** Create or update by supplier name (case-insensitive exact match). */
+  async upsertByName(
+    name: string,
+    dto: CreateSupplierDto,
+  ): Promise<{ created: boolean; supplier: unknown }> {
+    const trimmed = name.trim();
+    const existing = await this.findByName(trimmed);
+    if (existing) {
+      const { name: _name, ...rest } = dto;
+      const supplier = await this.update(String(existing._id), { ...rest, name: trimmed });
+      return { created: false, supplier };
+    }
+    const supplier = await this.create({ ...dto, name: trimmed });
+    return { created: true, supplier };
+  }
+
   async findById(id: string) {
     const doc = await this.supplierModel.findById(id).lean();
     if (!doc) throw new NotFoundException('Supplier not found');

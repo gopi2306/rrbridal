@@ -42,6 +42,10 @@ Response rows (one per product in the result set):
 
 Products with no ledger rows show zero quantities.
 
+## Export
+
+`GET /api/inventory/export` — download Excel, CSV, or PDF for the same `search` and `storeId` filters as the grid (all matching rows, max 10,000). See [inventory-export.md](./inventory-export.md).
+
 ## Document numbers
 
 SKU and procurement document numbers (PO, intent, return, RCV, GRN) are auto-generated from configurable prefixes and sequences. See [document-numbers.md](./document-numbers.md).

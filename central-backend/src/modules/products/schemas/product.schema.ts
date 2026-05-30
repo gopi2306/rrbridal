@@ -172,6 +172,14 @@ export class Product {
   @Prop()
   costPrice?: number;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Minimum gross margin % above costPrice. Selling rate below cost × (1 + margin/100) triggers a warning at billing.',
+  })
+  @Prop()
+  marginPercent?: number;
+
   @ApiProperty({ required: false })
   @Prop()
   mrp?: number;
