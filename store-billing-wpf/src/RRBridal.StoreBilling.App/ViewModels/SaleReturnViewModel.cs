@@ -203,7 +203,7 @@ public partial class SaleReturnViewModel : ObservableObject
             ? (decimal)lineBson["revisedTaxAmount"].ToDouble()
             : 0m;
         if (revisedAmount > 0 || revisedTax > 0)
-            return Math.Round(revisedAmount + revisedTax, 2, MidpointRounding.AwayFromZero);
+            return MoneyMath.RoundAmount(revisedAmount + revisedTax);
 
         var amount = (decimal)lineBson.GetValue("amount", 0).ToDouble();
         var cgst = (decimal)lineBson.GetValue("cgstAmount", 0).ToDouble();
@@ -211,12 +211,12 @@ public partial class SaleReturnViewModel : ObservableObject
         var igst = (decimal)lineBson.GetValue("igstAmount", 0).ToDouble();
         var taxFromLine = cgst + sgst + igst;
         if (amount > 0 || taxFromLine > 0)
-            return Math.Round(amount + taxFromLine, 2, MidpointRounding.AwayFromZero);
+            return MoneyMath.RoundAmount(amount + taxFromLine);
 
         var itemDisc = (decimal)lineBson.GetValue("discountAmount", 0).ToDouble();
         var cashDisc = (decimal)lineBson.GetValue("cashDiscountAmount", 0).ToDouble();
         var originalInclusive = BillingDiscountCalculator.ComputeOriginalInclusive(amount, taxPercent, isIgst);
-        return Math.Max(0m, Math.Round(originalInclusive - itemDisc - cashDisc, 2, MidpointRounding.AwayFromZero));
+        return Math.Max(0m, MoneyMath.RoundAmount(originalInclusive - itemDisc - cashDisc));
     }
 
     private void OnReturnLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -264,21 +264,21 @@ public partial class SaleReturnViewModel : ObservableObject
         var taxTotal = cgst + sgst + igst;
         var total = selected.Sum(l => l.LineReturnTotal);
 
-        GrossSubTotalFormatted = FormatRupee(grossSub);
-        ReturnDiscountFormatted = FormatRupee(returnDiscount);
-        TaxableSubTotalFormatted = FormatRupee(taxableSub);
-        TaxTotalFormatted = FormatRupee(taxTotal);
-        CgstTotalFormatted = FormatRupee(cgst);
-        SgstTotalFormatted = FormatRupee(sgst);
-        IgstTotalFormatted = FormatRupee(igst);
-        ReturnTotalFormatted = FormatRupee(total);
+        GrossSubTotalFormatted = MoneyMath.FormatRupee(grossSub);
+        ReturnDiscountFormatted = MoneyMath.FormatRupee(returnDiscount);
+        TaxableSubTotalFormatted = MoneyMath.FormatRupee(taxableSub);
+        TaxTotalFormatted = MoneyMath.FormatRupee(taxTotal);
+        CgstTotalFormatted = MoneyMath.FormatRupee(cgst);
+        SgstTotalFormatted = MoneyMath.FormatRupee(sgst);
+        IgstTotalFormatted = MoneyMath.FormatRupee(igst);
+        ReturnTotalFormatted = MoneyMath.FormatRupee(total);
 
         var replacementTotal = ExchangeLines.Sum(l => l.Total);
         var amountToCollect = Math.Max(0, replacementTotal - total);
         var creditBalance = Math.Max(0, total - replacementTotal);
-        ReplacementTotalFormatted = FormatRupee(replacementTotal);
-        AmountToCollectFormatted = FormatRupee(amountToCollect);
-        CreditBalanceFormatted = FormatRupee(creditBalance);
+        ReplacementTotalFormatted = MoneyMath.FormatRupee(replacementTotal);
+        AmountToCollectFormatted = MoneyMath.FormatPayable(amountToCollect);
+        CreditBalanceFormatted = MoneyMath.FormatRupee(creditBalance);
 
         var hasExchange = ExchangeLines.Any(l => l.Qty > 0);
         HasExchangeLines = hasExchange;
@@ -720,6 +720,4 @@ public partial class SaleReturnViewModel : ObservableObject
             sb.AppendLine(store.Website);
         sb.AppendLine(string.IsNullOrWhiteSpace(store.ThankYouLine) ? "Thank you" : store.ThankYouLine);
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 }

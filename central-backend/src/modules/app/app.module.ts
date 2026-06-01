@@ -50,6 +50,7 @@ import { SeedModule } from '../seed/seed.module';
 import { RoleAccessModule } from '../role-access/role-access.module';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 import { StoreSalesModule } from '../store-sales/store-sales.module';
+import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { StoreSalesModule } from '../store-sales/store-sales.module';
     RoleAccessModule,
     DocumentNumbersModule,
     StoreSalesModule,
+    PromotionSchemesModule,
   ],
   controllers: [AppController],
 })

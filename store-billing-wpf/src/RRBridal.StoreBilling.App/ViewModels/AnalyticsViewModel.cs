@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -43,7 +44,7 @@ public partial class AnalyticsViewModel : ObservableObject
 
             var snap = await _analyticsService.LoadAsync(storeId, dayCount: 14);
             PeriodSummary = snap.PeriodLabel;
-            TotalsSummary = $"{snap.TotalBillsInPeriod} bills · {FormatRupee(snap.TotalRevenueInPeriod)}";
+            TotalsSummary = $"{snap.TotalBillsInPeriod} bills · {MoneyMath.FormatRupee(snap.TotalRevenueInPeriod)}";
 
             DailyRows.Clear();
             foreach (var r in snap.DailyRows)
@@ -56,6 +57,4 @@ public partial class AnalyticsViewModel : ObservableObject
             StatusMessage = "Could not load analytics: " + ex.Message;
         }
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 }

@@ -23,15 +23,27 @@ export class SyncController {
     description:
       'Last stock transfer _id from pull (completed transfers for multi-device); pass 0 to bootstrap last 90d window',
   })
+  @ApiQuery({
+    name: 'sincePromotionCursor',
+    required: false,
+    description: 'Last promotion scheme _id from pull; pass 0 for first sync',
+  })
   @ApiQuery({ name: 'limit', required: false })
   async pull(
     @Query('storeId') storeId: string,
     @Query('sinceCursor') sinceCursor?: string,
     @Query('sinceTransferCursor') sinceTransferCursor?: string,
+    @Query('sincePromotionCursor') sincePromotionCursor?: string,
     @Query('limit') limit?: string,
   ) {
     const parsedLimit = limit ? Math.max(1, Math.min(1000, Number(limit))) : 200;
-    return await this.syncService.pull(storeId, sinceCursor ?? '0', parsedLimit, sinceTransferCursor ?? '0');
+    return await this.syncService.pull(
+      storeId,
+      sinceCursor ?? '0',
+      parsedLimit,
+      sinceTransferCursor ?? '0',
+      sincePromotionCursor ?? '0',
+    );
   }
 
   @Get('health')

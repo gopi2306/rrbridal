@@ -51,14 +51,10 @@ public partial class SaleReturnLineItem : ObservableObject
 
 
     public decimal ReturnItemDiscount =>
-
-        Math.Round(OriginalItemDiscount * ReturnRatio, 2, MidpointRounding.AwayFromZero);
-
-
+        MoneyMath.RoundAmount(OriginalItemDiscount * ReturnRatio);
 
     public decimal ReturnCashDiscount =>
-
-        Math.Round(OriginalCashDiscount * ReturnRatio, 2, MidpointRounding.AwayFromZero);
+        MoneyMath.RoundAmount(OriginalCashDiscount * ReturnRatio);
 
 
 
@@ -69,8 +65,7 @@ public partial class SaleReturnLineItem : ObservableObject
     /// <summary>Proportional tax-inclusive refund (matches billing payable for returned qty).</summary>
 
     public decimal ReturnInclusive =>
-
-        Math.Round(OriginalPaidInclusive * ReturnRatio, 2, MidpointRounding.AwayFromZero);
+        MoneyMath.RoundAmount(OriginalPaidInclusive * ReturnRatio);
 
 
 

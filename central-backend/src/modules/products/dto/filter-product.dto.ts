@@ -19,10 +19,15 @@ export class FilterProductDto {
 
   // ── Item Information ──
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Exact SKU match (takes precedence over skuContains)' })
   @IsString()
   @IsOptional()
   sku?: string;
+
+  @ApiProperty({ required: false, description: 'Case-insensitive SKU substring match' })
+  @IsString()
+  @IsOptional()
+  skuContains?: string;
 
   @ApiProperty({ required: false })
   @IsString()

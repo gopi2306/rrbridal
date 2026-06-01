@@ -9,6 +9,7 @@ import { ProductsService } from '../products/products.service';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
 import { StoreSalesSyncService } from '../store-sales/store-sales-sync.service';
+import { PromotionSchemesService } from '../promotion-schemes/promotion-schemes.service';
 
 @Injectable()
 export class SyncService {
@@ -20,6 +21,7 @@ export class SyncService {
     private readonly storesService: StoresService,
     private readonly stockTransfersService: StockTransfersService,
     private readonly storeSalesSyncService: StoreSalesSyncService,
+    private readonly promotionSchemesService: PromotionSchemesService,
   ) {}
 
   async push(events: SyncEventDto[]) {
@@ -87,7 +89,13 @@ export class SyncService {
     return results;
   }
 
-  async pull(storeId: string, sinceCursor: string, limit: number, sinceTransferCursor = '0') {
+  async pull(
+    storeId: string,
+    sinceCursor: string,
+    limit: number,
+    sinceTransferCursor = '0',
+    sincePromotionCursor = '0',
+  ) {
     // Upgrade: for now, sync pull delivers ProductUpserted deltas from central products.
     // Cursor is an ObjectId string corresponding to the last product _id sent.
     const cursorFilter =
@@ -100,6 +108,16 @@ export class SyncService {
     const completedTransfers = await this.stockTransfersService.listCompletedForStorePullWindow(
       storeId,
       sinceTransferCursor,
+      limit,
+    );
+
+    const promotionCursorFilter =
+      sincePromotionCursor && sincePromotionCursor !== '0' && Types.ObjectId.isValid(sincePromotionCursor)
+        ? { _id: { $gt: new Types.ObjectId(sincePromotionCursor) } }
+        : {};
+    const promotionSchemes = await this.promotionSchemesService.listDeltasForStore(
+      storeId,
+      promotionCursorFilter,
       limit,
     );
     const last = products.length > 0 ? products[products.length - 1] : undefined;
@@ -140,10 +158,29 @@ export class SyncService {
       };
     });
 
+    const promotionUpdates = promotionSchemes.map((scheme) => {
+      const row = scheme as typeof scheme & { _id?: unknown; updatedAt?: Date; deletedAt?: Date };
+      const isDeleted = Boolean(row.deletedAt);
+      return {
+        type: isDeleted ? 'PromotionSchemeDeleted' : 'PromotionSchemeUpserted',
+        storeId,
+        createdAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date().toISOString(),
+        payload: isDeleted
+          ? { schemeId: String(row._id), code: row.code }
+          : { scheme },
+      };
+    });
+
     let transferCursor = sinceTransferCursor ?? '0';
     if (completedTransfers.length > 0) {
       const lastT = completedTransfers[completedTransfers.length - 1] as { _id?: unknown };
       transferCursor = lastT._id ? String(lastT._id) : transferCursor;
+    }
+
+    let promotionCursor = sincePromotionCursor ?? '0';
+    if (promotionSchemes.length > 0) {
+      const lastP = promotionSchemes[promotionSchemes.length - 1] as { _id?: unknown };
+      promotionCursor = lastP._id ? String(lastP._id) : promotionCursor;
     }
 
     await this.syncCursorModel.updateOne(
@@ -155,7 +192,8 @@ export class SyncService {
     return {
       cursor,
       transferCursor,
-      updates: [...productUpdates, ...transferUpdates, ...completedTransferUpdates],
+      promotionCursor,
+      updates: [...productUpdates, ...transferUpdates, ...completedTransferUpdates, ...promotionUpdates],
     };
   }
 }

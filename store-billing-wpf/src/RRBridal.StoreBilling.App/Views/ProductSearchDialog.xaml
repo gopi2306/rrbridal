@@ -38,7 +38,7 @@
                 <GridView>
                     <GridViewColumn Header="SKU" DisplayMemberBinding="{Binding Sku}" Width="120"/>
                     <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="280"/>
-                    <GridViewColumn Header="Rate" Width="80" DisplayMemberBinding="{Binding SuggestedRate, StringFormat=₹ {0:N2}}"/>
+                    <GridViewColumn Header="Rate" Width="80" DisplayMemberBinding="{Binding SuggestedRate, StringFormat=₹ {0:N4}}"/>
                     <GridViewColumn Header="GST %" Width="60" DisplayMemberBinding="{Binding SuggestedTaxPercent, StringFormat={}{0:N0}}"/>
                 </GridView>
             </ListView.View>

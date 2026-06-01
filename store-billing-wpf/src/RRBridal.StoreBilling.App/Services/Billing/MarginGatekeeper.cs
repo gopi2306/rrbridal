@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
 /// <summary>
@@ -7,12 +5,10 @@ namespace RRBridal.StoreBilling.App.Services.Billing;
 /// </summary>
 public static class MarginGatekeeper
 {
-    private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
-
     public static decimal? MinimumRate(decimal costPrice, decimal marginPercent)
     {
         if (costPrice <= 0 || marginPercent <= 0) return null;
-        return Math.Round(costPrice * (1m + marginPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        return MoneyMath.RoundAmount(costPrice * (1m + marginPercent / 100m));
     }
 
     public static bool TryBuildWarning(
@@ -27,10 +23,8 @@ public static class MarginGatekeeper
         if (!floor.HasValue || rate >= floor.Value) return false;
 
         message =
-            $"Rate {FormatRupee(rate)} is below the minimum {FormatRupee(floor.Value)} " +
-            $"(cost {FormatRupee(costPrice)} + {marginPercent:N1}% margin) for {productLabel}.";
+            $"Rate {MoneyMath.FormatRupee(rate)} is below the minimum {MoneyMath.FormatRupee(floor.Value)} " +
+            $"(cost {MoneyMath.FormatRupee(costPrice)} + {marginPercent:N1}% margin) for {productLabel}.";
         return true;
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 }

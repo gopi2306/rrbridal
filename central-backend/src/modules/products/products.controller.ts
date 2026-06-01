@@ -16,21 +16,39 @@ export class ProductsController {
   }
 
   @Get()
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'sku', required: false })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Text search across itemName, shortName, alias, sku, upcEanCode',
+  })
+  @ApiQuery({ name: 'sku', required: false, description: 'Exact SKU match (takes precedence over skuContains)' })
+  @ApiQuery({ name: 'skuContains', required: false, description: 'Case-insensitive SKU substring match' })
   @ApiQuery({ name: 'upcEanCode', required: false })
-  @ApiQuery({ name: 'categoryId', required: false })
-  @ApiQuery({ name: 'supplierNameId', required: false })
+  @ApiQuery({ name: 'categoryId', required: false, description: '24-char hex category ObjectId' })
+  @ApiQuery({
+    name: 'supplierNameId',
+    required: false,
+    description: '24-char hex supplier ObjectId — list products for that supplier',
+  })
   async list(
     @Query('search') search?: string,
     @Query('sku') sku?: string,
+    @Query('skuContains') skuContains?: string,
     @Query('upcEanCode') upcEanCode?: string,
     @Query('categoryId') categoryId?: string,
     @Query('supplierNameId') supplierNameId?: string,
   ) {
-    const params: { search?: string; sku?: string; upcEanCode?: string; categoryId?: string; supplierNameId?: string } = {};
+    const params: {
+      search?: string;
+      sku?: string;
+      skuContains?: string;
+      upcEanCode?: string;
+      categoryId?: string;
+      supplierNameId?: string;
+    } = {};
     if (search) params.search = search;
     if (sku) params.sku = sku;
+    if (skuContains) params.skuContains = skuContains;
     if (upcEanCode) params.upcEanCode = upcEanCode;
     if (categoryId) params.categoryId = categoryId;
     if (supplierNameId) params.supplierNameId = supplierNameId;

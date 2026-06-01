@@ -25,6 +25,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.seedLayer4Procurement();
     await this.seedLayer5StoreOps();
     await this.seedLayer6Returns();
+    await this.seedLayer7PromotionSchemes();
 
     this.logger.log('Flow-wise test data seeding complete.');
   }
@@ -664,5 +665,80 @@ export class TestDataSeedService implements OnModuleInit {
       });
       this.logger.log('  + PR-001 created (SKU-003 x1 returned to Sharma Textiles)');
     }
+  }
+
+  // ─── Layer 7: Promotion schemes & offers (SKU-001 test promos) ─
+
+  private async seedLayer7PromotionSchemes() {
+    this.logger.log('Layer 7: Seeding promotion schemes & offers …');
+
+    const validFrom = new Date('2026-01-01T00:00:00.000Z');
+    const validTo = new Date('2026-12-31T23:59:59.999Z');
+
+    // Scheme: Buy 2 Get 1 free on SKU-001 (Bridal Red Lehenga) — scan qty 3 to see discount.
+    await this.upsert('PromotionScheme', { code: 'sku001-bxgy' }, {
+      name: 'SKU-001 Buy 2 Get 1',
+      description: 'Seed scheme — Buy 2 Get 1 free on Bridal Red Lehenga (cheapest unit free)',
+      kind: 'scheme',
+      type: 'item',
+      priority: 10,
+      isActive: true,
+      stacking: 'best_benefit',
+      storeIds: [],
+      validFrom,
+      validTo,
+      timeWindows: [],
+      conditions: {
+        skus: ['SKU-001'],
+        categoryIds: [],
+        brandIds: [],
+        offerGroupIds: [],
+        customerTypes: [],
+        customerCodes: [],
+        requiredSkus: [],
+        minLineQty: 3,
+      },
+      benefit: {
+        mode: 'buy_x_get_y',
+        buyQty: 2,
+        getQty: 1,
+        freeOn: 'cheapest',
+        slabs: [],
+        comboSkus: [],
+      },
+    });
+
+    // Offer: 5% off SKU-001 — applies on single-qty bills (best_benefit vs BXGY when qty ≥ 3).
+    await this.upsert('PromotionScheme', { code: 'sku001-offer-5pct' }, {
+      name: 'SKU-001 Wedding Offer 5%',
+      description: 'Seed marketing offer — 5% off Bridal Red Lehenga',
+      kind: 'offer',
+      type: 'item',
+      priority: 20,
+      isActive: true,
+      stacking: 'best_benefit',
+      storeIds: [],
+      validFrom,
+      validTo,
+      timeWindows: [],
+      conditions: {
+        skus: ['SKU-001'],
+        categoryIds: [],
+        brandIds: [],
+        offerGroupIds: [],
+        customerTypes: [],
+        customerCodes: [],
+        requiredSkus: [],
+      },
+      benefit: {
+        mode: 'percent_off',
+        discountPercent: 5,
+        slabs: [],
+        comboSkus: [],
+      },
+    });
+
+    this.logger.log('  + sku001-bxgy (scheme: Buy 2 Get 1 on SKU-001)');
+    this.logger.log('  + sku001-offer-5pct (offer: 5% off SKU-001)');
   }
 }

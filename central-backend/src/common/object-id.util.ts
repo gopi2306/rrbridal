@@ -10,6 +10,12 @@ export function toObjectId(value: string): Types.ObjectId {
   return new Types.ObjectId(value.trim());
 }
 
+/** Equality filter for ref fields stored as ObjectId or legacy hex string in MongoDB. */
+export function objectIdRefEquals(value: string): { $in: [Types.ObjectId, string] } {
+  const trimmed = value.trim();
+  return { $in: [new Types.ObjectId(trimmed), trimmed] };
+}
+
 /** Drops empty / invalid ObjectId ref values so Mongoose populate does not query `_id: { $in: [''] }`. */
 export function stripInvalidObjectIdRefs<T extends Record<string, unknown>>(
   doc: T,

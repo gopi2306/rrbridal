@@ -56,11 +56,11 @@
                                 <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="70"/>
                                 <DataGridTextColumn Header="Return Qty" Binding="{Binding ReturnQty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
                                 <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding ReturnDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Taxable amt" Binding="{Binding TaxableReturnAmount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding ReturnDiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Taxable amt" Binding="{Binding TaxableReturnAmount, StringFormat=N4}" IsReadOnly="True" Width="90"/>
                                 <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent}" IsReadOnly="True" Width="60"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N4}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N4}" IsReadOnly="True" Width="90"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -84,12 +84,12 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="110"/>
                                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
-                                <DataGridTextColumn Header="Avail" Binding="{Binding AvailableQty, StringFormat=N2}" IsReadOnly="True" Width="70"/>
+                                <DataGridTextColumn Header="Avail" Binding="{Binding AvailableQty, StringFormat=N4}" IsReadOnly="True" Width="70"/>
                                 <DataGridTextColumn Header="New Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
-                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N4}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N4}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N4}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N4}" IsReadOnly="True" Width="90"/>
                                 <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>

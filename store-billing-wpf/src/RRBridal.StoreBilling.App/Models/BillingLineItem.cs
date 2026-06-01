@@ -31,6 +31,13 @@ public partial class BillingLineItem : ObservableObject
     /// <summary>Cash discount share (₹) taken from tax-inclusive line total.</summary>
     [ObservableProperty] private decimal cashDiscountAmount;
 
+    /// <summary>Automatic scheme/offer discount (₹) from PromotionEngine.</summary>
+    [ObservableProperty] private decimal schemeDiscountAmount;
+
+    [ObservableProperty] private string categoryId = "";
+    [ObservableProperty] private string brandId = "";
+    [ObservableProperty] private string offerGroupId = "";
+
     [ObservableProperty] private decimal mrp;
 
     [ObservableProperty] private decimal costPrice;
@@ -91,10 +98,11 @@ public partial class BillingLineItem : ObservableObject
     partial void OnIsIgstChanged(bool value) => RecalcTax();
     partial void OnDiscountAmountChanged(decimal value) => RecalcTax();
     partial void OnCashDiscountAmountChanged(decimal value) => RecalcTax();
+    partial void OnSchemeDiscountAmountChanged(decimal value) => RecalcTax();
 
     private void Recalc()
     {
-        Amount = Math.Round(Qty * Rate, 2, MidpointRounding.AwayFromZero);
+        Amount = MoneyMath.RoundAmount(Qty * Rate);
         RecalcTax();
     }
 
@@ -118,7 +126,7 @@ public partial class BillingLineItem : ObservableObject
         OriginalInclusiveAmount = original.Inclusive;
 
         var revised = BillingDiscountCalculator.ComputeRevisedFromInclusiveDiscounts(
-            OriginalInclusiveAmount, DiscountAmount, CashDiscountAmount, TaxPercent, IsIgst);
+            OriginalInclusiveAmount, SchemeDiscountAmount, DiscountAmount, CashDiscountAmount, TaxPercent, IsIgst);
 
         RevisedAmount = revised.Taxable;
         CgstAmount = revised.Cgst;

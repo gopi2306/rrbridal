@@ -1,18 +1,32 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import {
   isValidObjectIdString,
+  objectIdRefEquals,
   PRODUCT_REF_OBJECT_ID_FIELDS,
   stripInvalidObjectIdRefs,
   toObjectId,
 } from '../../common/object-id.util';
+import { MONEY_DECIMAL_PLACES } from '../../common/money.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductSkuGenerator } from './product-sku.generator';
 import { Product, ProductDocument } from './schemas/product.schema';
 
+export type ProductListFilterParams = {
+  search?: string;
+  sku?: string;
+  skuContains?: string;
+  upcEanCode?: string;
+  categoryId?: string;
+  supplierNameId?: string;
+};
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 @Injectable()
 export class ProductsService {
@@ -27,6 +41,7 @@ export class ProductsService {
       ...dto,
       sku,
       isActive: dto.isActive ?? true,
+      decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
   }
 
@@ -80,15 +95,7 @@ export class ProductsService {
     return doc;
   }
 
-  async list(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-    skip?: number;
-    limit?: number;
-  }) {
+  async list(params: ProductListFilterParams & { skip?: number; limit?: number }) {
     const filter = this.buildProductListFilter(params);
     const skip = params.skip !== undefined ? Math.max(0, params.skip) : 0;
     const limit = params.limit !== undefined ? Math.min(500, Math.max(1, params.limit)) : 200;
@@ -96,37 +103,49 @@ export class ProductsService {
   }
 
   /** Same filter rules as {@link list}, without pagination — for counts. */
-  async countForListFilter(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-  }) {
+  async countForListFilter(params: ProductListFilterParams) {
     return await this.productModel.countDocuments(this.buildProductListFilter(params));
   }
 
-  private buildProductListFilter(params: {
-    search?: string;
-    sku?: string;
-    upcEanCode?: string;
-    categoryId?: string;
-    supplierNameId?: string;
-  }): FilterQuery<ProductDocument> {
+  private buildProductListFilter(params: ProductListFilterParams): FilterQuery<ProductDocument> {
     const filter: FilterQuery<ProductDocument> = {};
 
-    if (params.sku) filter.sku = params.sku;
-    if (params.upcEanCode) filter.upcEanCode = params.upcEanCode;
-    if (isValidObjectIdString(params.categoryId)) filter.categoryId = toObjectId(params.categoryId);
-    if (isValidObjectIdString(params.supplierNameId)) filter.supplierNameId = toObjectId(params.supplierNameId);
+    const skuExact = params.sku?.trim();
+    const skuPartial = params.skuContains?.trim();
+    if (skuExact) {
+      filter.sku = skuExact;
+    } else if (skuPartial) {
+      filter.sku = { $regex: escapeRegex(skuPartial), $options: 'i' };
+    }
 
-    if (params.search) {
+    const upc = params.upcEanCode?.trim();
+    if (upc) filter.upcEanCode = upc;
+
+    const categoryId = params.categoryId?.trim();
+    if (categoryId) {
+      if (!isValidObjectIdString(categoryId)) {
+        throw new BadRequestException('categoryId must be a valid 24-character hex ObjectId');
+      }
+      filter.categoryId = objectIdRefEquals(categoryId);
+    }
+
+    const supplierNameId = params.supplierNameId?.trim();
+    if (supplierNameId) {
+      if (!isValidObjectIdString(supplierNameId)) {
+        throw new BadRequestException('supplierNameId must be a valid 24-character hex ObjectId');
+      }
+      filter.supplierNameId = objectIdRefEquals(supplierNameId);
+    }
+
+    const search = params.search?.trim();
+    if (search) {
+      const rx = { $regex: escapeRegex(search), $options: 'i' };
       filter.$or = [
-        { itemName: { $regex: params.search, $options: 'i' } },
-        { shortName: { $regex: params.search, $options: 'i' } },
-        { alias: { $regex: params.search, $options: 'i' } },
-        { sku: { $regex: params.search, $options: 'i' } },
-        { upcEanCode: { $regex: params.search, $options: 'i' } },
+        { itemName: rx },
+        { shortName: rx },
+        { alias: rx },
+        { sku: rx },
+        { upcEanCode: rx },
       ];
     }
 
@@ -137,7 +156,6 @@ export class ProductsService {
     const filter: FilterQuery<ProductDocument> = {};
 
     const exactMatchFields = [
-      'sku',
       'upcEanCode',
       'manufacturerNameId',
       'supplierNameId',
@@ -168,7 +186,7 @@ export class ProductsService {
       const raw = dto[field];
       if (raw === undefined || raw === null) continue;
       if (typeof raw === 'string' && !isValidObjectIdString(raw)) continue;
-      filter[field] = typeof raw === 'string' ? toObjectId(raw) : raw;
+      filter[field] = typeof raw === 'string' ? objectIdRefEquals(raw) : raw;
     }
 
     if (dto.isActive !== undefined && dto.isActive !== null) {
@@ -187,13 +205,23 @@ export class ProductsService {
       if (dto.sellingPriceMax !== undefined) filter.sellingPrice.$lte = dto.sellingPriceMax;
     }
 
-    if (dto.search) {
+    const skuExact = dto.sku?.trim();
+    const skuPartial = dto.skuContains?.trim();
+    if (skuExact) {
+      filter.sku = skuExact;
+    } else if (skuPartial) {
+      filter.sku = { $regex: escapeRegex(skuPartial), $options: 'i' };
+    }
+
+    const searchText = dto.search?.trim();
+    if (searchText) {
+      const rx = { $regex: escapeRegex(searchText), $options: 'i' };
       filter.$or = [
-        { itemName: { $regex: dto.search, $options: 'i' } },
-        { shortName: { $regex: dto.search, $options: 'i' } },
-        { alias: { $regex: dto.search, $options: 'i' } },
-        { sku: { $regex: dto.search, $options: 'i' } },
-        { upcEanCode: { $regex: dto.search, $options: 'i' } },
+        { itemName: rx },
+        { shortName: rx },
+        { alias: rx },
+        { sku: rx },
+        { upcEanCode: rx },
       ];
     }
 

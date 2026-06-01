@@ -230,6 +230,21 @@ Used when central is already **`completed`** (e.g. another till already pushed `
 
 WPF billing uses `local_products_cache.stockQty` as the sales availability gate. Products with quantity below one are not added to a bill; the store creates a `PurchaseIntentCreated` reference requisition instead.
 
+## Promotion schemes
+
+Pull query adds **`sincePromotionCursor`** / response **`promotionCursor`** (ObjectId ordering on `promotion_schemes._id`, same pattern as product cursor).
+
+Local collection: **`local_promotion_schemes`** (keyed by central `schemeId` / `_id`).
+
+| Update type | Action |
+|-------------|--------|
+| `PromotionSchemeUpserted` | Upsert `payload.scheme` when `isActive` and not soft-deleted |
+| `PromotionSchemeDeleted` | Remove local row by `payload.schemeId` or deactivate |
+
+Schemes with empty `storeIds` apply to all stores; otherwise `storeIds` must contain the pulling store code.
+
+See [promotion-schemes.md](./promotion-schemes.md) for scheme shape and API examples.
+
 ## Receipt settings pull (store billing)
 
 After each **Run sync once** (best-effort), the WPF app may refresh local thermal receipt configuration from central:

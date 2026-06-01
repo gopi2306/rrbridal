@@ -52,7 +52,7 @@ Exports include **all** matching products (not limited to grid page size). Maxim
 | Warehouse qty | Ledger warehouse bucket |
 | In transit | Ledger in-transit bucket |
 | Store qty | Per `storeId` filter or sum of all stores |
-| Cost price | `product.costPrice` |
+| Cost price | `product.costPrice` (4 dp — [money-precision.md](./money-precision.md)) |
 | MRP | `product.mrp` |
 | Selling price | `product.sellingPrice` |
 | Store price | `product.storePrice` (falls back to selling price in grid logic) |

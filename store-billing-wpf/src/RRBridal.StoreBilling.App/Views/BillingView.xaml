@@ -144,15 +144,17 @@
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
                                 <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" IsReadOnly="True" Width="100"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
+                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="85"
+                                <DataGridTextColumn Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N4}" IsReadOnly="True" Width="85"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N4}" IsReadOnly="True" Width="95"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N4}" IsReadOnly="True" Width="95"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
@@ -166,7 +168,7 @@
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N4}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -227,6 +229,33 @@
                             <TextBlock Text="Cash discount" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding CashDiscAmountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
                         </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Scheme / offer discount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding SchemeDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <StackPanel Margin="0,0,0,8"
+                                    Visibility="{Binding HasAppliedSchemes, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Applied schemes" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding AppliedSchemes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding SchemeName}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding SavedAmountFormatted}" Margin="8,0,8,0"
+                                                       Foreground="{StaticResource BrushNegative}"/>
+                                            <Button Grid.Column="2" Content="Remove" Padding="6,2" FontSize="11"
+                                                    Command="{Binding DataContext.RemoveAppliedSchemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="Revised sub total" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding RevisedSubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>

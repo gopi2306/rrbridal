@@ -1,5 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Models;
 
@@ -18,12 +19,12 @@ public partial class AdjustmentLineItem : ObservableObject
     [ObservableProperty] private decimal _adjustedQty;
     [ObservableProperty] private decimal _adjustedRate;
 
-    public decimal AdjustedAmount => Math.Round(AdjustedQty * AdjustedRate, 2, MidpointRounding.AwayFromZero);
+    public decimal AdjustedAmount => MoneyMath.RoundAmount(AdjustedQty * AdjustedRate);
     public decimal DiffAmount => AdjustedAmount - OriginalAmount;
 
-    public decimal DiffCgst => IsIgst ? 0m : Math.Round(DiffAmount * (TaxPercent / 2m) / 100m, 2);
-    public decimal DiffSgst => IsIgst ? 0m : Math.Round(DiffAmount * (TaxPercent / 2m) / 100m, 2);
-    public decimal DiffIgst => IsIgst ? Math.Round(DiffAmount * TaxPercent / 100m, 2) : 0m;
+    public decimal DiffCgst => IsIgst ? 0m : MoneyMath.RoundAmount(DiffAmount * (TaxPercent / 2m) / 100m);
+    public decimal DiffSgst => IsIgst ? 0m : MoneyMath.RoundAmount(DiffAmount * (TaxPercent / 2m) / 100m);
+    public decimal DiffIgst => IsIgst ? MoneyMath.RoundAmount(DiffAmount * TaxPercent / 100m) : 0m;
     public decimal DiffTax => DiffCgst + DiffSgst + DiffIgst;
 
     partial void OnAdjustedQtyChanged(decimal value) => NotifyComputed();

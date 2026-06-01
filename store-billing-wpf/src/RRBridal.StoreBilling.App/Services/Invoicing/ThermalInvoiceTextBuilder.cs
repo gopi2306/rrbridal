@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -158,31 +159,31 @@ public static class ThermalInvoiceTextBuilder
             sb.AppendLine($"{line.LineNo} {Truncate(line.Description, w - 2)}");
             var hsn = string.IsNullOrWhiteSpace(line.Hsn) ? "—" : line.Hsn;
             var row =
-                $"{hsn} {line.TaxPercent,5:0.##}% {line.Qty,5:0.###} {line.Rate,7:0.00} {line.Mrp,7:0.00} {line.TaxableAmount,8:0.00}";
+                $"{hsn} {line.TaxPercent,5:0.##}% {line.Qty,5:0.###} {line.Rate,9:0.0000} {line.Mrp,9:0.0000} {line.TaxableAmount,11:0.0000}";
             sb.AppendLine(PadRowNumeric(row, w));
         }
 
         AddRule();
         sb.AppendLine(TwoCols($"No. of items: {input.ItemCount}", $"Total qty: {input.TotalQty:0.###}", w));
-        sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.00}", $"Total amount: {input.TotalTaxableAmount:0.00}", w));
+        sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.0000}", $"Total amount: {input.TotalTaxableAmount:0.0000}", w));
 
         if (input.ItemDiscount > 0 || input.CashDiscAmount > 0)
         {
             if (input.OriginalTaxTotal > 0)
-                sb.AppendLine(TwoCols($"GST before disc: {input.OriginalTaxTotal:0.00}", "", w));
+                sb.AppendLine(TwoCols($"GST before disc: {input.OriginalTaxTotal:0.0000}", "", w));
             if (input.RevisedSubTotal > 0)
-                sb.AppendLine(TwoCols($"Revised sub total: {input.RevisedSubTotal:0.00}", "", w));
+                sb.AppendLine(TwoCols($"Revised sub total: {input.RevisedSubTotal:0.0000}", "", w));
         }
 
         if (input.ItemDiscount > 0)
         if (input.CashDiscAmount > 0)
-            sb.AppendLine(TwoCols($"Cash discount: {input.CashDiscAmount:0.00}", "", w));
+            sb.AppendLine(TwoCols($"Cash discount: {input.CashDiscAmount:0.0000}", "", w));
         if (input.RoundOff != 0)
-            sb.AppendLine(TwoCols($"Round off: {input.RoundOff:0.00}", "", w));
+            sb.AppendLine(TwoCols($"Round off: {input.RoundOff:0.0000}", "", w));
 
-        sb.AppendLine(TwoCols("Other charges:", "0.00", w));
+        sb.AppendLine(TwoCols("Other charges:", "0.0000", w));
         AddRule();
-        sb.AppendLine(Center($"Bill Amount .: {input.Payable:0.00}", w));
+        sb.AppendLine(Center($"Bill Amount .: {input.Payable:0}", w));
         AddRule();
 
         var pay = input.Payments;
@@ -191,24 +192,24 @@ public static class ThermalInvoiceTextBuilder
         else if (pay != null)
         {
             if (pay.CashReceived is > 0)
-                sb.AppendLine(TwoCols($"Cash Received: {pay.CashReceived:0.00}", "", w));
+                sb.AppendLine(TwoCols($"Cash Received: {pay.CashReceived:0.0000}", "", w));
             if (pay.BalanceReturn is > 0)
-                sb.AppendLine(TwoCols($"Balance Return: {pay.BalanceReturn:0.00}", "", w));
-            sb.AppendLine(TwoCols("Cash paid:", $"{pay.CashPaid:0.00}", w));
-            sb.AppendLine(TwoCols("Card paid:", $"{pay.CardPaid:0.00}", w));
-            sb.AppendLine(TwoCols("Online paid:", $"{pay.UpiPaid:0.00}", w));
-            sb.AppendLine(TwoCols("Credit Note paid:", $"{pay.CreditNotePaid:0.00}", w));
+                sb.AppendLine(TwoCols($"Balance Return: {pay.BalanceReturn:0.0000}", "", w));
+            sb.AppendLine(TwoCols("Cash paid:", $"{pay.CashPaid:0.0000}", w));
+            sb.AppendLine(TwoCols("Card paid:", $"{pay.CardPaid:0.0000}", w));
+            sb.AppendLine(TwoCols("Online paid:", $"{pay.UpiPaid:0.0000}", w));
+            sb.AppendLine(TwoCols("Credit Note paid:", $"{pay.CreditNotePaid:0.0000}", w));
         }
         else
         {
-            sb.AppendLine(TwoCols("Cash paid:", "0.00", w));
-            sb.AppendLine(TwoCols("Card paid:", "0.00", w));
-            sb.AppendLine(TwoCols("Online paid:", "0.00", w));
-            sb.AppendLine(TwoCols("Credit Note paid:", "0.00", w));
+            sb.AppendLine(TwoCols("Cash paid:", "0.0000", w));
+            sb.AppendLine(TwoCols("Card paid:", "0.0000", w));
+            sb.AppendLine(TwoCols("Online paid:", "0.0000", w));
+            sb.AppendLine(TwoCols("Credit Note paid:", "0.0000", w));
         }
 
         if (input.Savings > 0)
-            sb.AppendLine(Center($"You Have Saved (Rs.) : {input.Savings:0.00}", w));
+            sb.AppendLine(Center($"You Have Saved (Rs.) : {input.Savings:0.0000}", w));
 
         AddRule();
 
@@ -238,21 +239,21 @@ public static class ThermalInvoiceTextBuilder
             if (input.IsInterState)
             {
                 sumIgst += tax;
-                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.00} {tax,0:0.00} {tax,0:0.00}", w));
+                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.0000} {tax,0:0.0000} {tax,0:0.0000}", w));
             }
             else
             {
-                var half = Math.Round(tax / 2m, 2, MidpointRounding.AwayFromZero);
+                var half = MoneyMath.RoundAmount(tax / 2m);
                 sumCgst += half;
                 sumSgst += half;
-                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.00} {half,0:0.00} {half,0:0.00} {tax,0:0.00}", w));
+                sb.AppendLine(PadRowNumeric($"{g.Key,0:0.##}% {goods,0:0.0000} {half,0:0.0000} {half,0:0.0000} {tax,0:0.0000}", w));
             }
         }
 
         if (input.IsInterState)
-            sb.AppendLine(PadRowNumeric($"TOTAL {sumGoods:0.00} {sumIgst:0.00} {sumGst:0.00}", w));
+            sb.AppendLine(PadRowNumeric($"TOTAL {sumGoods:0.0000} {sumIgst:0.0000} {sumGst:0.0000}", w));
         else
-            sb.AppendLine(PadRowNumeric($"TOTAL {sumGoods:0.00} {sumCgst:0.00} {sumSgst:0.00} {sumGst:0.00}", w));
+            sb.AppendLine(PadRowNumeric($"TOTAL {sumGoods:0.0000} {sumCgst:0.0000} {sumSgst:0.0000} {sumGst:0.0000}", w));
         AddRule();
 
         foreach (var p in Wrap(s.TermsAndConditions, w))

@@ -27,13 +27,13 @@ public static class BillingDiscountCalculator
 
         if (isIgst)
         {
-            var igst = Math.Round(taxable * taxPercent / 100m, 2, MidpointRounding.AwayFromZero);
+            var igst = MoneyMath.RoundAmount(taxable * taxPercent / 100m);
             return new GstTaxBreakdown(taxable, 0, 0, igst, igst);
         }
 
         var halfRate = Math.Round(taxPercent / 2m, 2);
-        var cgst = Math.Round(taxable * halfRate / 100m, 2, MidpointRounding.AwayFromZero);
-        var sgst = Math.Round(taxable * halfRate / 100m, 2, MidpointRounding.AwayFromZero);
+        var cgst = MoneyMath.RoundAmount(taxable * halfRate / 100m);
+        var sgst = MoneyMath.RoundAmount(taxable * halfRate / 100m);
         return new GstTaxBreakdown(taxable, cgst, sgst, 0, cgst + sgst);
     }
 
@@ -43,16 +43,16 @@ public static class BillingDiscountCalculator
             return new GstTaxBreakdown(0, 0, 0, 0, 0);
 
         if (taxPercent <= 0)
-            return new GstTaxBreakdown(Math.Round(inclusive, 2, MidpointRounding.AwayFromZero), 0, 0, 0, 0);
+            return new GstTaxBreakdown(MoneyMath.RoundAmount(inclusive), 0, 0, 0, 0);
 
         var divisor = 1m + taxPercent / 100m;
-        var taxable = Math.Round(inclusive / divisor, 2, MidpointRounding.AwayFromZero);
-        var totalTax = Math.Round(inclusive - taxable, 2, MidpointRounding.AwayFromZero);
+        var taxable = MoneyMath.RoundAmount(inclusive / divisor);
+        var totalTax = MoneyMath.RoundAmount(inclusive - taxable);
 
         if (isIgst)
             return new GstTaxBreakdown(taxable, 0, 0, totalTax, totalTax);
 
-        var cgst = Math.Round(totalTax / 2m, 2, MidpointRounding.AwayFromZero);
+        var cgst = MoneyMath.RoundAmount(totalTax / 2m);
         var sgst = totalTax - cgst;
         return new GstTaxBreakdown(taxable, cgst, sgst, 0, totalTax);
     }
@@ -60,12 +60,13 @@ public static class BillingDiscountCalculator
     /// <summary>Discounts (₹) reduce tax-inclusive total; revised taxable and GST come from reverse split.</summary>
     public static GstTaxBreakdown ComputeRevisedFromInclusiveDiscounts(
         decimal originalInclusive,
+        decimal schemeDisc,
         decimal itemDisc,
         decimal cashDisc,
         decimal taxPercent,
         bool isIgst)
     {
-        var revisedInclusive = Math.Max(0m, originalInclusive - itemDisc - cashDisc);
+        var revisedInclusive = Math.Max(0m, originalInclusive - schemeDisc - itemDisc - cashDisc);
         if (revisedInclusive <= 0)
             return new GstTaxBreakdown(0, 0, 0, 0, 0);
 

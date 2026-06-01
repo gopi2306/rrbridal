@@ -1,4 +1,5 @@
 import type { ResolvedDateRange, StoreSalesPeriodPreset } from './store-sales-dashboard.types';
+import { roundMoney } from '../../common/money.util';
 
 const MONTH_NAMES = [
   'Jan',
@@ -20,7 +21,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function readNumber(value: unknown): number {
   if (value === undefined || value === null || value === '') return 0;
   const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? roundMoney(n) : 0;
 }
 
 export function readString(value: unknown): string | undefined {

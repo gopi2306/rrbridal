@@ -48,12 +48,12 @@
                                 <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="100"/>
                                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
                                 <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="65"/>
-                                <DataGridTextColumn Header="Orig Rate" Binding="{Binding OriginalRate, StringFormat=N2}" IsReadOnly="True" Width="75"/>
-                                <DataGridTextColumn Header="Orig Amt" Binding="{Binding OriginalAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Orig Rate" Binding="{Binding OriginalRate, StringFormat=N4}" IsReadOnly="True" Width="75"/>
+                                <DataGridTextColumn Header="Orig Amt" Binding="{Binding OriginalAmount, StringFormat=N4}" IsReadOnly="True" Width="80"/>
                                 <DataGridTextColumn Header="Adj Qty" Binding="{Binding AdjustedQty, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
                                 <DataGridTextColumn Header="Adj Rate" Binding="{Binding AdjustedRate, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
-                                <DataGridTextColumn Header="Adj Amt" Binding="{Binding AdjustedAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
-                                <DataGridTextColumn Header="Diff" Binding="{Binding DiffAmount, StringFormat=N2}" IsReadOnly="True" Width="70"/>
+                                <DataGridTextColumn Header="Adj Amt" Binding="{Binding AdjustedAmount, StringFormat=N4}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Diff" Binding="{Binding DiffAmount, StringFormat=N4}" IsReadOnly="True" Width="70"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>

@@ -16,6 +16,7 @@ using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Products;
+using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -25,6 +26,7 @@ public sealed class SyncEngine : ISyncEngine
     private readonly IMongoCollection<BsonDocument> _syncState;
     private readonly IMongoCollection<BsonDocument> _products;
     private readonly IMongoCollection<BsonDocument> _transfers;
+    private readonly IMongoCollection<BsonDocument> _promotionSchemes;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
     private readonly MasterDataService _masterData;
@@ -43,6 +45,7 @@ public sealed class SyncEngine : ISyncEngine
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
         _products = localDb.GetCollection<BsonDocument>("local_products_cache");
         _transfers = localDb.GetCollection<BsonDocument>("local_stock_transfers");
+        _promotionSchemes = localDb.GetCollection<BsonDocument>("local_promotion_schemes");
         _centralApi = centralApi;
         _storeContext = storeContext;
         _masterData = masterData;
@@ -134,10 +137,11 @@ public sealed class SyncEngine : ISyncEngine
         var state = await _syncState.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync(ct);
         var cursor = state?.GetValue("cursor", "0").AsString ?? "0";
         var transferCursor = state?.GetValue("transferCursor", "0").AsString ?? "0";
+        var promotionCursor = state?.GetValue("promotionCursor", "0").AsString ?? "0";
 
         var storeId = _storeContext.StoreId;
         var url =
-            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&limit=200";
+            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&sincePromotionCursor={Uri.EscapeDataString(promotionCursor)}&limit=200";
 
         var res = await _centralApi.GetAsync(url, ct);
         res.EnsureSuccessStatusCode();
@@ -149,6 +153,12 @@ public sealed class SyncEngine : ISyncEngine
         {
             var tcs = tcEl.GetString();
             if (!string.IsNullOrEmpty(tcs)) newTransferCursor = tcs;
+        }
+        var newPromotionCursor = promotionCursor;
+        if (payload.TryGetProperty("promotionCursor", out var pcEl) && pcEl.ValueKind == JsonValueKind.String)
+        {
+            var pcs = pcEl.GetString();
+            if (!string.IsNullOrEmpty(pcs)) newPromotionCursor = pcs;
         }
 
         var pullWarnings = new List<string>();
@@ -180,6 +190,16 @@ public sealed class SyncEngine : ISyncEngine
                 {
                     var transfer = upd.GetProperty("payload").GetProperty("transfer");
                     await ApplyStockTransferCompletedAsync(transfer, ct, pullWarnings);
+                }
+                else if (type == "PromotionSchemeUpserted")
+                {
+                    var scheme = upd.GetProperty("payload").GetProperty("scheme");
+                    await UpsertPromotionSchemeAsync(scheme, ct);
+                }
+                else if (type == "PromotionSchemeDeleted")
+                {
+                    var payloadEl = upd.GetProperty("payload");
+                    await DeletePromotionSchemeAsync(payloadEl, ct);
                 }
             }
         }
@@ -213,6 +233,7 @@ public sealed class SyncEngine : ISyncEngine
         {
             { "cursor", newCursor },
             { "transferCursor", newTransferCursor },
+            { "promotionCursor", newPromotionCursor },
             { "updatedAt", DateTime.UtcNow.ToString("O") },
             { "diagnosticsSummary", diagnosticsSummary },
         };
@@ -777,6 +798,34 @@ public sealed class SyncEngine : ISyncEngine
         }
 
         return lines;
+    }
+
+    private async Task UpsertPromotionSchemeAsync(JsonElement scheme, CancellationToken ct)
+    {
+        var id = scheme.TryGetProperty("_id", out var idEl) ? idEl.GetString() : null;
+        if (string.IsNullOrWhiteSpace(id)) return;
+
+        var doc = BsonDocument.Parse(scheme.GetRawText());
+        doc["schemeId"] = id;
+        doc["lastSyncedAt"] = DateTime.UtcNow.ToString("O");
+
+        var isActive = doc.GetValue("isActive", true).ToBoolean();
+        var deleted = doc.Contains("deletedAt") && !doc["deletedAt"].IsBsonNull;
+        if (!isActive || deleted)
+        {
+            await _promotionSchemes.DeleteOneAsync(Builders<BsonDocument>.Filter.Eq("schemeId", id), ct);
+            return;
+        }
+
+        var filter = Builders<BsonDocument>.Filter.Eq("schemeId", id);
+        await _promotionSchemes.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
+    }
+
+    private async Task DeletePromotionSchemeAsync(JsonElement payload, CancellationToken ct)
+    {
+        var schemeId = payload.TryGetProperty("schemeId", out var idEl) ? idEl.GetString() : null;
+        if (string.IsNullOrWhiteSpace(schemeId)) return;
+        await _promotionSchemes.DeleteOneAsync(Builders<BsonDocument>.Filter.Eq("schemeId", schemeId), ct);
     }
 }
 

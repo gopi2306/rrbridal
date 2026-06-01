@@ -128,7 +128,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         _billingReservedCreditAmount = billingReservedCreditAmount;
         _skipPaymentOutbox = skipPaymentOutbox;
         InvoicePayableAmount = payableAmount;
-        PayableFormatted = FormatRupee(payableAmount);
+        PayableFormatted = MoneyMath.FormatPayable(payableAmount);
         AmountReceived = payableAmount;
         CreditNoteAmount = payableAmount;
 
@@ -137,7 +137,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         if (HasBillingCreditReserved)
         {
             BillingCreditReservedBanner =
-                $"Invoice credit {FormatRupee(billingReservedCreditAmount)} from {_billingReservedCreditNoteNo} already applied.";
+                $"Invoice credit {MoneyMath.FormatRupee(billingReservedCreditAmount)} from {_billingReservedCreditNoteNo} already applied.";
         }
 
         _customerCode = customerCode?.Trim() ?? "";
@@ -222,9 +222,9 @@ public partial class PaymentDialogViewModel : ObservableObject
         selected.RefreshDisplayLabel();
 
         SelectedPaymentCreditLabel = selected.CreditNoteNo;
-        PaymentOriginalCreditFormatted = FormatRupee(selected.OriginalAmount);
-        PaymentApplyingCreditFormatted = FormatRupee(maxApply);
-        PaymentRemainingAfterFormatted = FormatRupee(selected.RemainingAfterApply);
+        PaymentOriginalCreditFormatted = MoneyMath.FormatRupee(selected.OriginalAmount);
+        PaymentApplyingCreditFormatted = MoneyMath.FormatRupee(maxApply);
+        PaymentRemainingAfterFormatted = MoneyMath.FormatRupee(selected.RemainingAfterApply);
         UpdateCollectibleAmounts();
     }
 
@@ -234,8 +234,8 @@ public partial class PaymentDialogViewModel : ObservableObject
             ? 0
             : GetMaxCreditForNote(_selectedPaymentCreditNoteNo);
         CollectibleAmount = Math.Max(0, InvoicePayableAmount - PaymentCreditAmount);
-        CollectibleFormatted = FormatRupee(CollectibleAmount);
-        PaymentCreditAppliedFormatted = FormatRupee(PaymentCreditAmount);
+        CollectibleFormatted = MoneyMath.FormatRupee(CollectibleAmount);
+        PaymentCreditAppliedFormatted = MoneyMath.FormatRupee(PaymentCreditAmount);
         HasPaymentCreditApplied = PaymentCreditAmount > 0;
     }
 
@@ -268,7 +268,7 @@ public partial class PaymentDialogViewModel : ObservableObject
     private void UpdateCashChange()
     {
         var change = AmountReceived - CollectibleAmount;
-        ChangeDueFormatted = change >= 0 ? FormatRupee(change) : "-" + FormatRupee(Math.Abs(change));
+        ChangeDueFormatted = change >= 0 ? MoneyMath.FormatRupee(change) : "-" + MoneyMath.FormatRupee(Math.Abs(change));
         IsCashShortfall = change < 0;
     }
 
@@ -293,7 +293,7 @@ public partial class PaymentDialogViewModel : ObservableObject
             return;
         }
 
-        CreditNoteMaxFormatted = $"Max from note: {FormatRupee(GetMaxCreditForNote(_selectedPaymentCreditNoteNo))}";
+        CreditNoteMaxFormatted = $"Max from note: {MoneyMath.FormatRupee(GetMaxCreditForNote(_selectedPaymentCreditNoteNo))}";
     }
 
     partial void OnSelectedModeChanged(PaymentMode value)
@@ -336,7 +336,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         var allocatedCashLike = SplitCashAmount + SplitCardAmount + SplitUpiAmount;
         var remainingRaw = CollectibleAmount - allocatedCashLike;
         var remainingDisplay = Math.Max(0m, remainingRaw);
-        SplitRemainingFormatted = FormatRupee(remainingDisplay);
+        SplitRemainingFormatted = MoneyMath.FormatRupee(remainingDisplay);
         IsSplitBalanced = remainingRaw == 0
             && (SplitCashAmount > 0 || SplitCardAmount > 0 || SplitUpiAmount > 0 || SplitCreditNoteAmount > 0);
     }
@@ -420,7 +420,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         var max = GetMaxCreditForNote(creditNoteNo);
         if (amount > max)
         {
-            ErrorMessage = $"Amount exceeds available credit ({FormatRupee(max)}).";
+            ErrorMessage = $"Amount exceeds available credit ({MoneyMath.FormatRupee(max)}).";
             return false;
         }
 
@@ -665,6 +665,4 @@ public partial class PaymentDialogViewModel : ObservableObject
         Outcome = new PaymentOutcome { Confirmed = false };
         CloseDialog?.Invoke(false);
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 }

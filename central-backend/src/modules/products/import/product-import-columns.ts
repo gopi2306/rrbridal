@@ -90,7 +90,7 @@ export const PRODUCT_IMPORT_EXAMPLE_ROW: Record<string, string | number | boolea
   subUomConversion: 1,
   grindingCharge: 0,
   weightGms: 2000,
-  decimalPoint: 2,
+  decimalPoint: 4,
   minimumShelfFit: 1,
   itemPerUnit: 1,
   costPrice: 50000,

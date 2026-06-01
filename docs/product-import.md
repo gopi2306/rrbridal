@@ -62,7 +62,7 @@ Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master r
 
 Master name columns: `subCategoryName`, `manufacturerName`, `brandName`, `colourName`, `productStatusName`, `hsnName`, `gstUomName`, `uomSubName`, `weightSizeName`, `weightUnitName`, `offerGroupName`, `skuTypeName`, `skuOrderGroupName`, `indentTypeName`, `batchExpiryDetailName`, `itemPrepStatusName`, `packedConfirmationName`, `poQtyPolicyName`, `sellByName`, `batchSelectionName`.
 
-Scalars: `shortName`, `alias`, `itemProductType`, `gstCode`, `gstPercent`, `upcEanCode`, `costPrice`, `marginPercent`, `mrp`, `sellingPrice`, `storePrice`, `unit`, `isActive`, `itemDiscountAllowed`, `isWeighable`, and other numeric fields from the template.
+Scalars: `shortName`, `alias`, `itemProductType`, `gstCode`, `gstPercent`, `upcEanCode`, `decimalPoint` (default **4** — see [money-precision.md](./money-precision.md)), `costPrice`, `marginPercent`, `mrp`, `sellingPrice`, `storePrice`, `unit`, `isActive`, `itemDiscountAllowed`, `isWeighable`, and other numeric fields from the template.
 
 Header aliases are supported (e.g. `Item Name` → `itemName`).
 

@@ -12,6 +12,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -89,7 +90,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
                     Description = lineBson.GetValue("description", "").AsString,
                     OriginalQty = qty,
                     OriginalRate = rate,
-                    OriginalAmount = Math.Round(qty * rate, 2),
+                    OriginalAmount = MoneyMath.RoundAmount(qty * rate),
                     TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
                     IsIgst = IsInterState,
                     AdjustedQty = qty,
@@ -101,7 +102,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         }
 
         var origPayable = doc.Contains("payable") ? (decimal)doc["payable"].ToDouble() : 0m;
-        OriginalPayableFormatted = FormatRupee(origPayable);
+        OriginalPayableFormatted = MoneyMath.FormatPayable(origPayable);
 
         BillLoaded = true;
         RecalculateTotals();
@@ -130,16 +131,16 @@ public partial class AdjustmentBillViewModel : ObservableObject
         {
             var amt = l.AdjustedAmount;
             if (l.IsIgst)
-                return Math.Round(amt * l.TaxPercent / 100m, 2);
-            return Math.Round(amt * (l.TaxPercent / 2m) / 100m, 2) * 2;
+                return MoneyMath.RoundAmount(amt * l.TaxPercent / 100m);
+            return MoneyMath.RoundAmount(amt * (l.TaxPercent / 2m) / 100m) * 2;
         });
 
-        DiffSubTotalFormatted = FormatRupee(diffSub);
-        DiffCgstFormatted = FormatRupee(diffCgst);
-        DiffSgstFormatted = FormatRupee(diffSgst);
-        DiffIgstFormatted = FormatRupee(diffIgst);
-        DiffPayableFormatted = FormatRupee(diffPayable);
-        AdjustedPayableFormatted = FormatRupee(adjSub + adjTax);
+        DiffSubTotalFormatted = MoneyMath.FormatRupee(diffSub);
+        DiffCgstFormatted = MoneyMath.FormatRupee(diffCgst);
+        DiffSgstFormatted = MoneyMath.FormatRupee(diffSgst);
+        DiffIgstFormatted = MoneyMath.FormatRupee(diffIgst);
+        DiffPayableFormatted = MoneyMath.FormatRupee(diffPayable);
+        AdjustedPayableFormatted = MoneyMath.FormatPayable(adjSub + adjTax);
     }
 
     [RelayCommand]
@@ -189,8 +190,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
             var adjTax = (double)AdjustmentLines.Sum(l =>
             {
                 var amt = l.AdjustedAmount;
-                if (l.IsIgst) return Math.Round(amt * l.TaxPercent / 100m, 2);
-                return Math.Round(amt * (l.TaxPercent / 2m) / 100m, 2) * 2;
+                if (l.IsIgst) return MoneyMath.RoundAmount(amt * l.TaxPercent / 100m);
+                return MoneyMath.RoundAmount(amt * (l.TaxPercent / 2m) / 100m) * 2;
             });
             var adjustedPayable = adjSub + adjTax;
             var diffPayable = adjustedPayable - origPayable;
@@ -273,10 +274,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
         AdjustmentLines.Clear();
         BillLoaded = false;
         _originalBillDoc = null;
-        OriginalPayableFormatted = FormatRupee(0);
+        OriginalPayableFormatted = MoneyMath.FormatPayable(0);
         await AssignAdjustmentNoAsync();
         RecalculateTotals();
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 }

@@ -1,4 +1,5 @@
 import type { WarehouseStoreGridRow } from '../inventory.service';
+import { formatMoneyOrEmpty } from '../../../common/money.util';
 
 export const INVENTORY_EXPORT_HEADERS = [
   'SKU',
@@ -24,8 +25,8 @@ export function readPopulatedName(ref: unknown): string {
   return typeof name === 'string' ? name.trim() : '';
 }
 
-function readNumber(value: unknown): number | '' {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+function readGstPercent(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return '';
 }
 
@@ -40,11 +41,11 @@ export function gridRowToExportCells(row: WarehouseStoreGridRow): string[] {
     String(row.warehouseQty),
     String(row.inTransitQty),
     String(row.storeQty),
-    String(readNumber(product.costPrice)),
-    String(readNumber(row.mrp)),
-    String(readNumber(product.sellingPrice)),
-    String(readNumber(row.storePrice)),
-    String(readNumber(product.gstPercent)),
+    formatMoneyOrEmpty(product.costPrice),
+    formatMoneyOrEmpty(row.mrp),
+    formatMoneyOrEmpty(product.sellingPrice),
+    formatMoneyOrEmpty(row.storePrice),
+    readGstPercent(product.gstPercent),
   ];
 }
 

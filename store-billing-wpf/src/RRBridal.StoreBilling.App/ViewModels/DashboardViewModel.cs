@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Inventory;
 using RRBridal.StoreBilling.App.Services.Store;
 
@@ -113,11 +114,11 @@ public partial class DashboardViewModel : ObservableObject
                 _storeContext.DeviceId,
                 posFilter);
 
-            BillsTodaySummary = $"{snap.BillsTodayCount} bills · {FormatRupee(snap.BillsTodayRevenue)}";
+            BillsTodaySummary = $"{snap.BillsTodayCount} bills · {MoneyMath.FormatRupee(snap.BillsTodayRevenue)}";
             StoreWideTodaySummary = string.IsNullOrWhiteSpace(posFilter) && snap.StoreWideBillsTodayCount is int st
-                ? $"Store-wide today: {st} bills · {FormatRupee(snap.StoreWideBillsTodayRevenue ?? 0)}"
+                ? $"Store-wide today: {st} bills · {MoneyMath.FormatRupee(snap.StoreWideBillsTodayRevenue ?? 0)}"
                 : "";
-            BillsWeekSummary = $"{snap.BillsLast7DaysCount} bills · {FormatRupee(snap.BillsLast7DaysRevenue)}";
+            BillsWeekSummary = $"{snap.BillsLast7DaysCount} bills · {MoneyMath.FormatRupee(snap.BillsLast7DaysRevenue)}";
             PendingOutboxSummary = snap.PendingOutboxCount.ToString(InCulture);
             SyncSummary = string.IsNullOrWhiteSpace(snap.SyncUpdatedAt)
                 ? $"Cursor {snap.SyncCursor}"
@@ -236,8 +237,6 @@ public partial class DashboardViewModel : ObservableObject
             InventoryPagerLabel = "";
         }
     }
-
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
 
     private static string GetStockFilterLabel(InventoryStockFilter filter) =>
         filter switch

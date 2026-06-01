@@ -1,5 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Models;
 
@@ -16,15 +17,15 @@ public partial class SaleExchangeLineItem : ObservableObject
     public decimal TaxPercent { get; init; }
     public bool IsIgst { get; init; }
 
-    public decimal Amount => Math.Round(Qty * Rate, 2, MidpointRounding.AwayFromZero);
+    public decimal Amount => MoneyMath.RoundAmount(Qty * Rate);
 
     public decimal CgstPercent => IsIgst ? 0m : Math.Round(TaxPercent / 2m, 2);
     public decimal SgstPercent => IsIgst ? 0m : Math.Round(TaxPercent / 2m, 2);
     public decimal IgstPercent => IsIgst ? TaxPercent : 0m;
 
-    public decimal CgstAmount => Math.Round(Amount * CgstPercent / 100m, 2);
-    public decimal SgstAmount => Math.Round(Amount * SgstPercent / 100m, 2);
-    public decimal IgstAmount => Math.Round(Amount * IgstPercent / 100m, 2);
+    public decimal CgstAmount => MoneyMath.RoundAmount(Amount * CgstPercent / 100m);
+    public decimal SgstAmount => MoneyMath.RoundAmount(Amount * SgstPercent / 100m);
+    public decimal IgstAmount => MoneyMath.RoundAmount(Amount * IgstPercent / 100m);
     public decimal TaxAmount => CgstAmount + SgstAmount + IgstAmount;
     public decimal Total => Amount + TaxAmount;
 

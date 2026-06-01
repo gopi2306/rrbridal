@@ -14,6 +14,7 @@ using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
@@ -71,6 +72,8 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _grossTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _itemDiscountFormatted = "₹ 0.00";
     [ObservableProperty] private string _cashDiscAmountFormatted = "₹ 0.00";
+    [ObservableProperty] private string _schemeDiscountFormatted = "₹ 0.00";
+    [ObservableProperty] private bool _hasAppliedSchemes;
     [ObservableProperty] private string _roundOffFormatted = "₹ 0.00";
     [ObservableProperty] private string _payableTotalFormatted = "₹ 0.00";
     [ObservableProperty] private string _payableBeforeCreditFormatted = "₹ 0.00";
@@ -106,6 +109,15 @@ public partial class BillingViewModel : ObservableObject
     /// <summary>Total cash discount (₹), sum of proportional line cash discounts.</summary>
     public decimal CashDiscAmount => Lines.Sum(l => l.CashDiscountAmount);
 
+    /// <summary>Total automatic scheme discount on lines (₹).</summary>
+    public decimal SchemeLineDiscount => Lines.Sum(l => l.SchemeDiscountAmount);
+
+    public ObservableCollection<AppliedSchemeDisplayItem> AppliedSchemes { get; } = new();
+
+    private readonly HashSet<string> _excludedSchemeCodes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly PromotionEngine _promotionEngine;
+    private decimal _schemeBillDiscount;
+
     [ObservableProperty] private string _roundOffText = "";
 
     [ObservableProperty] private decimal _roundOff;
@@ -125,7 +137,7 @@ public partial class BillingViewModel : ObservableObject
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
     private string? _resumingDraftBillNo;
-    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
 
@@ -135,6 +147,7 @@ public partial class BillingViewModel : ObservableObject
         _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _promotionEngine = new PromotionEngine(new PromotionSchemeRepository(services.LocalDb));
         AssignNewBillIdentity();
         ApplyLoggedInSalesman();
         Lines.CollectionChanged += OnLinesCollectionChanged;
@@ -203,6 +216,7 @@ public partial class BillingViewModel : ObservableObject
             or nameof(BillingLineItem.TaxAmount)
             or nameof(BillingLineItem.DiscountAmount)
             or nameof(BillingLineItem.CashDiscountAmount)
+            or nameof(BillingLineItem.SchemeDiscountAmount)
             or nameof(BillingLineItem.OriginalTaxAmount)
             or nameof(BillingLineItem.RevisedAmount)
             or nameof(BillingLineItem.RevisedInclusiveAmount))
@@ -238,7 +252,7 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        var totalInclusive = active.Sum(s => s.OriginalInclusive);
+        var totalInclusive = active.Sum(s => Math.Max(0m, s.OriginalInclusive - s.Line.SchemeDiscountAmount));
         if (totalInclusive <= 0)
         {
             foreach (var line in Lines)
@@ -246,16 +260,17 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        var totalDisc = Math.Round(totalInclusive * ItemDiscountPercent / 100m, 2, MidpointRounding.AwayFromZero);
+        var totalDisc = MoneyMath.RoundAmount(totalInclusive * ItemDiscountPercent / 100m);
         var allocated = 0m;
         for (var i = 0; i < active.Count; i++)
         {
             var (line, originalInclusive) = active[i];
+            var baseInc = Math.Max(0m, originalInclusive - line.SchemeDiscountAmount);
             if (i == active.Count - 1)
                 line.DiscountAmount = Math.Max(0m, totalDisc - allocated);
             else
             {
-                var share = Math.Round(originalInclusive / totalInclusive * totalDisc, 2, MidpointRounding.AwayFromZero);
+                var share = MoneyMath.RoundAmount(baseInc / totalInclusive * totalDisc);
                 line.DiscountAmount = share;
                 allocated += share;
             }
@@ -276,7 +291,7 @@ public partial class BillingViewModel : ObservableObject
 
         var active = snapshots
             .Where(s => s.Line.Amount > 0)
-            .Select(s => (s.Line, InclusiveAfterItem: Math.Max(0m, s.OriginalInclusive - s.Line.DiscountAmount)))
+            .Select(s => (s.Line, InclusiveAfterItem: Math.Max(0m, s.OriginalInclusive - s.Line.SchemeDiscountAmount - s.Line.DiscountAmount)))
             .Where(x => x.InclusiveAfterItem > 0)
             .ToList();
 
@@ -288,7 +303,7 @@ public partial class BillingViewModel : ObservableObject
         }
 
         var totalBase = active.Sum(x => x.InclusiveAfterItem);
-        var totalCash = Math.Round(_cashDiscTarget, 2, MidpointRounding.AwayFromZero);
+        var totalCash = MoneyMath.RoundAmount(_cashDiscTarget);
         var allocated = 0m;
         for (var i = 0; i < active.Count; i++)
         {
@@ -297,7 +312,7 @@ public partial class BillingViewModel : ObservableObject
                 line.CashDiscountAmount = Math.Max(0m, totalCash - allocated);
             else
             {
-                var share = Math.Round(inclusiveAfterItem / totalBase * totalCash, 2, MidpointRounding.AwayFromZero);
+                var share = MoneyMath.RoundAmount(inclusiveAfterItem / totalBase * totalCash);
                 line.CashDiscountAmount = share;
                 allocated += share;
             }
@@ -317,11 +332,13 @@ public partial class BillingViewModel : ObservableObject
 
     /// <summary>Empty display when numeric value is zero (placeholder-style inputs).</summary>
     private static string FormatEditableDecimalText(decimal value) =>
-        value == 0 ? "" : value.ToString("0.##", CultureInfo.InvariantCulture);
+        value == 0 ? "" : MoneyMath.RoundAmount(value).ToString("0.####", CultureInfo.InvariantCulture);
 
     private sealed record BillTotals(
         decimal SubTotal,
         decimal OriginalInclusiveTotal,
+        decimal SchemeLineDiscount,
+        decimal SchemeBillDiscount,
         decimal ItemDiscount,
         decimal CashDiscount,
         decimal OriginalTaxTotal,
@@ -335,6 +352,98 @@ public partial class BillingViewModel : ObservableObject
         decimal PayableBeforeCredit,
         decimal AppliedCredit,
         decimal Payable);
+
+    private void EvaluatePromotions()
+    {
+        foreach (var line in Lines)
+            line.SchemeDiscountAmount = 0;
+        _schemeBillDiscount = 0;
+        AppliedSchemes.Clear();
+
+        var billLines = Lines.Where(l => l.Amount > 0 && !l.IsEntryRow).ToList();
+        if (billLines.Count == 0)
+        {
+            HasAppliedSchemes = false;
+            return;
+        }
+
+        var context = new BillContext
+        {
+            Lines = billLines.Select(l => new BillLineContext
+            {
+                LineNo = l.LineNo,
+                Sku = l.ProductCode,
+                CategoryId = string.IsNullOrWhiteSpace(l.CategoryId) ? null : l.CategoryId,
+                BrandId = string.IsNullOrWhiteSpace(l.BrandId) ? null : l.BrandId,
+                OfferGroupId = string.IsNullOrWhiteSpace(l.OfferGroupId) ? null : l.OfferGroupId,
+                Qty = l.Qty,
+                Rate = l.Rate,
+                Amount = l.Amount,
+                TaxPercent = l.TaxPercent,
+                IsIgst = l.IsIgst,
+                OriginalInclusive = LineOriginalInclusive(l),
+            }).ToList(),
+            CustomerCode = CustomerCode,
+            StoreId = _services.StoreContext.StoreId,
+            BillDateTime = DateTime.Now,
+            Subtotal = billLines.Sum(l => l.Amount),
+            InclusiveTotal = billLines.Sum(LineOriginalInclusive),
+            ExcludedSchemeCodes = _excludedSchemeCodes,
+        };
+
+        var result = _promotionEngine.Evaluate(context);
+        foreach (var adj in result.LineAdjustments)
+        {
+            var line = Lines.FirstOrDefault(l => l.LineNo == adj.LineNo);
+            if (line != null)
+                line.SchemeDiscountAmount = adj.SchemeDiscountAmount;
+        }
+
+        _schemeBillDiscount = result.BillAdjustment;
+        if (_schemeBillDiscount > 0)
+            ApplyProportionalBillSchemeDiscount(billLines, _schemeBillDiscount);
+
+        foreach (var scheme in result.AppliedSchemes)
+        {
+            AppliedSchemes.Add(new AppliedSchemeDisplayItem
+            {
+                SchemeCode = scheme.SchemeCode,
+                SchemeName = scheme.SchemeName,
+                SavedAmount = scheme.SavedAmount,
+            });
+        }
+
+        HasAppliedSchemes = AppliedSchemes.Count > 0;
+    }
+
+    private void ApplyProportionalBillSchemeDiscount(IReadOnlyList<BillingLineItem> lines, decimal totalBillScheme)
+    {
+        var active = lines
+            .Select(l => (Line: l, Base: Math.Max(0m, LineOriginalInclusive(l) - l.SchemeDiscountAmount)))
+            .Where(x => x.Base > 0)
+            .ToList();
+        if (active.Count == 0) return;
+
+        var baseTotal = active.Sum(x => x.Base);
+        var allocated = 0m;
+        for (var i = 0; i < active.Count; i++)
+        {
+            var (line, baseInc) = active[i];
+            var share = i == active.Count - 1
+                ? totalBillScheme - allocated
+                : MoneyMath.RoundAmount(totalBillScheme * baseInc / baseTotal);
+            line.SchemeDiscountAmount = MoneyMath.RoundAmount(line.SchemeDiscountAmount + share);
+            allocated += share;
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveAppliedScheme(AppliedSchemeDisplayItem? item)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(item.SchemeCode)) return;
+        _excludedSchemeCodes.Add(item.SchemeCode.Trim());
+        RecalculateTotals();
+    }
 
     private BillTotals ComputeBillTotals()
     {
@@ -351,6 +460,8 @@ public partial class BillingViewModel : ObservableObject
 
     private BillTotals ComputeBillTotalsCore()
     {
+        EvaluatePromotions();
+
         var snapshots = Lines
             .Where(l => l.Amount > 0)
             .Select(l => (Line: l, OriginalInclusive: LineOriginalInclusive(l)))
@@ -361,6 +472,8 @@ public partial class BillingViewModel : ObservableObject
 
         var sub = Lines.Sum(l => l.Amount);
         var originalInclusive = snapshots.Sum(s => s.OriginalInclusive);
+        var schemeLine = SchemeLineDiscount;
+        var schemeBill = _schemeBillDiscount;
         var itemDisc = ItemDiscount;
         var cashDisc = CashDiscAmount;
         var originalTax = Lines.Sum(l => l.OriginalTaxAmount);
@@ -391,7 +504,7 @@ public partial class BillingViewModel : ObservableObject
 
         var payableBeforeCredit = grandBeforeRound + roundOff;
         return new BillTotals(
-            sub, originalInclusive, itemDisc, cashDisc, originalTax, revisedSub,
+            sub, originalInclusive, schemeLine, schemeBill, itemDisc, cashDisc, originalTax, revisedSub,
             cgst, sgst, igst, tax, grandBeforeRound, roundOff, payableBeforeCredit, 0, payableBeforeCredit);
     }
 
@@ -412,22 +525,24 @@ public partial class BillingViewModel : ObservableObject
         var payable = Math.Max(0, payableBeforeCredit - appliedCredit);
         _lastBillTotals = core with { AppliedCredit = appliedCredit, Payable = payable };
 
-        SubTotalFormatted = FormatRupee(_lastBillTotals.SubTotal);
-        OriginalTaxTotalFormatted = FormatRupee(_lastBillTotals.OriginalTaxTotal);
-        RevisedSubTotalFormatted = FormatRupee(_lastBillTotals.RevisedSubTotal);
-        TaxTotalFormatted = FormatRupee(_lastBillTotals.TaxTotal);
-        CgstTotalFormatted = FormatRupee(_lastBillTotals.Cgst);
-        SgstTotalFormatted = FormatRupee(_lastBillTotals.Sgst);
-        IgstTotalFormatted = FormatRupee(_lastBillTotals.Igst);
-        GrossTotalFormatted = FormatRupee(_lastBillTotals.OriginalInclusiveTotal);
-        ItemDiscountFormatted = FormatRupee(_lastBillTotals.ItemDiscount);
-        CashDiscAmountFormatted = FormatRupee(_lastBillTotals.CashDiscount);
-        RoundOffFormatted = FormatRupee(_lastBillTotals.RoundOff);
-        PayableBeforeCreditFormatted = FormatRupee(payableBeforeCredit);
+        SubTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.SubTotal);
+        OriginalTaxTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.OriginalTaxTotal);
+        RevisedSubTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.RevisedSubTotal);
+        TaxTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.TaxTotal);
+        CgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Cgst);
+        SgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Sgst);
+        IgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Igst);
+        GrossTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.OriginalInclusiveTotal);
+        ItemDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.ItemDiscount);
+        CashDiscAmountFormatted = MoneyMath.FormatRupee(_lastBillTotals.CashDiscount);
+        SchemeDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.SchemeLineDiscount + _lastBillTotals.SchemeBillDiscount);
+        HasAppliedSchemes = AppliedSchemes.Count > 0;
+        RoundOffFormatted = MoneyMath.FormatRupee(_lastBillTotals.RoundOff);
+        PayableBeforeCreditFormatted = MoneyMath.FormatRupee(payableBeforeCredit);
         AppliedCreditAmount = appliedCredit;
-        CreditAppliedFormatted = FormatRupee(appliedCredit);
+        CreditAppliedFormatted = MoneyMath.FormatRupee(appliedCredit);
         HasAppliedCredit = appliedCredit > 0;
-        PayableTotalFormatted = FormatRupee(payable);
+        PayableTotalFormatted = MoneyMath.FormatPayable(payable);
 
         CustomerCreditNoteOption? selectedOption = null;
         foreach (var note in AvailableCreditNotes)
@@ -448,8 +563,8 @@ public partial class BillingViewModel : ObservableObject
         }
 
         SelectedCreditNoteLabel = selectedOption?.CreditNoteNo ?? "";
-        OriginalCreditBalanceFormatted = selectedOption != null ? FormatRupee(selectedOption.OriginalAmount) : "";
-        RemainingAfterCreditFormatted = selectedOption != null ? FormatRupee(selectedOption.RemainingAfterApply) : "";
+        OriginalCreditBalanceFormatted = selectedOption != null ? MoneyMath.FormatRupee(selectedOption.OriginalAmount) : "";
+        RemainingAfterCreditFormatted = selectedOption != null ? MoneyMath.FormatRupee(selectedOption.RemainingAfterApply) : "";
     }
 
     private void ClearCreditSelection()
@@ -602,8 +717,6 @@ public partial class BillingViewModel : ObservableObject
         RecalculateTotals();
     }
 
-    private static string FormatRupee(decimal value) => "₹ " + value.ToString("N2", InCulture);
-
     public void ApplyCustomerRegistration(CustomerRegistrationResult result)
     {
         _suppressPhoneAutoSearch = true;
@@ -684,6 +797,7 @@ public partial class BillingViewModel : ObservableObject
             ClearCustomerProfile();
         else
             NotifyPostBillCanExecute();
+        RecalculateTotals();
     }
 
     [RelayCommand]
@@ -1043,6 +1157,31 @@ public partial class BillingViewModel : ObservableObject
         line.TaxPercent = p.SuggestedTaxPercent;
     }
 
+    private void EnrichLineProductMetadata(BillingLineItem line)
+    {
+        if (line.IsEntryRow || string.IsNullOrWhiteSpace(line.ProductCode)) return;
+        var products = _services.LocalDb.GetCollection<BsonDocument>("local_products_cache");
+        var filter = !string.IsNullOrWhiteSpace(line.CentralProductId)
+            ? Builders<BsonDocument>.Filter.Eq("centralProductId", line.CentralProductId)
+            : Builders<BsonDocument>.Filter.Eq("sku", line.ProductCode.Trim());
+        var doc = products.Find(filter).FirstOrDefault();
+        if (doc == null) return;
+        line.CategoryId = ReadProductRef(doc, "categoryId");
+        line.BrandId = ReadProductRef(doc, "brandId");
+        line.OfferGroupId = ReadProductRef(doc, "offerGroupId");
+    }
+
+    private static string ReadProductRef(BsonDocument doc, string key)
+    {
+        if (!doc.TryGetValue(key, out var v) || v.IsBsonNull) return "";
+        return v.BsonType switch
+        {
+            BsonType.ObjectId => v.AsObjectId.ToString(),
+            BsonType.String => v.AsString,
+            _ => v.ToString() ?? "",
+        };
+    }
+
     private void WarnIfBelowMargin(BillingLineItem line)
     {
         if (line.IsEntryRow || line.Qty <= 0 || line.Rate <= 0) return;
@@ -1081,6 +1220,7 @@ public partial class BillingViewModel : ObservableObject
         if (entry != null)
         {
             FillLineFromCatalog(entry, p);
+            EnrichLineProductMetadata(entry);
             entry.IsIgst = IsInterState;
             WarnIfBelowMargin(entry);
             EnsureEntryRow();
@@ -1090,6 +1230,7 @@ public partial class BillingViewModel : ObservableObject
 
         var line = new BillingLineItem { IsIgst = IsInterState };
         FillLineFromCatalog(line, p);
+        EnrichLineProductMetadata(line);
         WarnIfBelowMargin(line);
         Lines.Add(line);
         EnsureEntryRow();
@@ -1145,6 +1286,8 @@ public partial class BillingViewModel : ObservableObject
         ClearCreditSelection();
         AvailableCreditNotes.Clear();
         HasAvailableCredit = false;
+        _excludedSchemeCodes.Clear();
+        AppliedSchemes.Clear();
         EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
@@ -1270,6 +1413,7 @@ public partial class BillingViewModel : ObservableObject
                     { "amount", (double)line.Amount },
                     { "discountAmount", (double)line.DiscountAmount },
                     { "cashDiscountAmount", (double)line.CashDiscountAmount },
+                    { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
                     { "originalTaxAmount", (double)line.OriginalTaxAmount },
                     { "revisedAmount", (double)line.RevisedAmount },
                     { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
@@ -1323,6 +1467,9 @@ public partial class BillingViewModel : ObservableObject
                 { "itemDiscountPercent", (double)ItemDiscountPercent },
                 { "itemDiscount", (double)totals.ItemDiscount },
                 { "cashDiscAmount", (double)totals.CashDiscount },
+                { "schemeLineDiscount", (double)totals.SchemeLineDiscount },
+                { "schemeBillDiscount", (double)totals.SchemeBillDiscount },
+                { "appliedSchemes", BuildAppliedSchemesBsonArray() },
                 { "roundOff", (double)totals.RoundOff },
                 { "subTotal", (double)totals.SubTotal },
                 { "originalInclusiveTotal", (double)totals.OriginalInclusiveTotal },
@@ -1633,6 +1780,21 @@ public partial class BillingViewModel : ObservableObject
         NotifyPostBillCanExecute();
     }
 
+    private BsonArray BuildAppliedSchemesBsonArray()
+    {
+        var arr = new BsonArray();
+        foreach (var scheme in AppliedSchemes)
+        {
+            arr.Add(new BsonDocument
+            {
+                { "schemeCode", scheme.SchemeCode },
+                { "schemeName", scheme.SchemeName },
+                { "savedAmount", (double)scheme.SavedAmount },
+            });
+        }
+        return arr;
+    }
+
     private BsonDocument BuildBillBsonDocument(string status, BsonArray? payments, string paymentMode)
     {
         RecalculateTotals();
@@ -1652,6 +1814,7 @@ public partial class BillingViewModel : ObservableObject
                 { "amount", (double)line.Amount },
                 { "discountAmount", (double)line.DiscountAmount },
                 { "cashDiscountAmount", (double)line.CashDiscountAmount },
+                { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
                 { "originalTaxAmount", (double)line.OriginalTaxAmount },
                 { "revisedAmount", (double)line.RevisedAmount },
                 { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
@@ -1689,6 +1852,9 @@ public partial class BillingViewModel : ObservableObject
             { "itemDiscountPercent", (double)ItemDiscountPercent },
             { "itemDiscount", (double)totals.ItemDiscount },
             { "cashDiscAmount", (double)totals.CashDiscount },
+            { "schemeLineDiscount", (double)totals.SchemeLineDiscount },
+            { "schemeBillDiscount", (double)totals.SchemeBillDiscount },
+            { "appliedSchemes", BuildAppliedSchemesBsonArray() },
             { "roundOff", (double)totals.RoundOff },
             { "subTotal", (double)totals.SubTotal },
             { "originalInclusiveTotal", (double)totals.OriginalInclusiveTotal },

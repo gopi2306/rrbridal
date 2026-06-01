@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { roundMoney } from '../../common/money.util';
 import { StoreCreditNote, StoreCreditNoteDocument } from '../store-sales/schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from '../store-sales/schemas/store-sale-return.schema';
@@ -230,7 +231,7 @@ export class StoreSalesDashboardService {
         grossSales,
         netSales,
         invoices: invoiceCount,
-        avgBasket: invoiceCount > 0 ? Math.round(netSales / invoiceCount) : 0,
+        avgBasket: invoiceCount > 0 ? roundMoney(netSales / invoiceCount) : 0,
         itemsSold: Math.max(0, itemsSold),
         returnsCount,
         returnValue,
