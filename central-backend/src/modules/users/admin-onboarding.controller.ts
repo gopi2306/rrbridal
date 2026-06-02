@@ -1,9 +1,10 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { InitialAdminDto } from './dto/initial-admin.dto';
+import { UpdateInitialAdminDto } from './dto/update-initial-admin.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('admin-onboarding')
@@ -14,8 +15,18 @@ import { UsersService } from './users.service';
 export class AdminOnboardingController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('initial-admin')
+  async getInitialAdmin() {
+    return await this.usersService.getInitialAdmin();
+  }
+
   @Post('initial-admin')
   async createInitialAdmin(@Body() dto: InitialAdminDto) {
     return await this.usersService.createInitialAdmin(dto);
+  }
+
+  @Patch('initial-admin')
+  async updateInitialAdmin(@Body() dto: UpdateInitialAdminDto) {
+    return await this.usersService.updateInitialAdmin(dto);
   }
 }

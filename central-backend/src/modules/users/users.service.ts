@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcryptjs';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
@@ -9,6 +15,7 @@ import { BootstrapAdminDto } from './dto/bootstrap-admin.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { InitialAdminDto } from './dto/initial-admin.dto';
+import { UpdateInitialAdminDto } from './dto/update-initial-admin.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserDocument, UserLocationKind, UserRole, UserStatus } from './schemas/user.schema';
 
@@ -164,6 +171,21 @@ export class UsersService {
     return this.toPublic(created.toObject() as unknown as Record<string, unknown>)!;
   }
 
+  /**
+   * Read-only onboarding status: returns whether the operational admin exists,
+   * and its public details if present.
+   */
+  async getInitialAdmin(): Promise<{ exists: boolean; admin: PublicUser | null }> {
+    const doc = await this.userModel
+      .findOne({
+        role: 'admin',
+        status: { $in: ['active', 'invited'] },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+    return { exists: !!doc, admin: this.toPublic(doc as unknown as Record<string, unknown>) };
+  }
+
   /** One-time: super_admin creates the single operational admin (enforced by caller + conflict checks). */
   async createInitialAdmin(dto: InitialAdminDto): Promise<PublicUser> {
     const adminExists = await this.userModel.exists({
@@ -186,6 +208,50 @@ export class UsersService {
       status: 'active' as const,
     });
     return this.toPublic(created.toObject() as unknown as Record<string, unknown>)!;
+  }
+
+  /**
+   * Onboarding-only maintenance for the operational admin user.
+   * Allows updating name/email/password for the single admin user.
+   */
+  async updateInitialAdmin(dto: UpdateInitialAdminDto): Promise<PublicUser> {
+    const existing = await this.userModel
+      .findOne({
+        role: 'admin',
+        status: { $in: ['active', 'invited'] },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (!existing) throw new NotFoundException('Operational admin not found');
+
+    const set: Record<string, unknown> = {};
+
+    if (dto.name !== undefined) {
+      set.name = dto.name.trim();
+    }
+
+    if (dto.email !== undefined) {
+      const normalized = dto.email.trim().toLowerCase();
+      const dup = await this.userModel
+        .findOne({ email: normalized, _id: { $ne: (existing as { _id: Types.ObjectId })._id } })
+        .lean();
+      if (dup) throw new ConflictException('Email already registered');
+      set.email = normalized;
+    }
+
+    if (dto.password !== undefined) {
+      set.passwordHash = await bcrypt.hash(dto.password, 10);
+    }
+
+    if (Object.keys(set).length === 0) {
+      return this.toPublic(existing as unknown as Record<string, unknown>)!;
+    }
+
+    const updated = await this.userModel
+      .findByIdAndUpdate((existing as { _id: Types.ObjectId })._id, { $set: set }, { new: true })
+      .lean();
+    if (!updated) throw new NotFoundException('Operational admin not found');
+    return this.toPublic(updated as unknown as Record<string, unknown>)!;
   }
 
   async create(dto: CreateUserDto): Promise<PublicUser> {
