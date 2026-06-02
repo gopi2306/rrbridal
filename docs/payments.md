@@ -1,6 +1,6 @@
-# Payments (WPF)
+# Payments (store client)
 
-The store billing app supports multiple payment providers. Cashier selects provider per transaction.
+The store billing client supports multiple payment providers. Cashier selects provider per transaction.
 
 ## Provider strategy
 - **Pine Labs**: terminal-based in-store payments (card/UPI). Integration is typically via vendor SDK (DLL/COM/HTTP).

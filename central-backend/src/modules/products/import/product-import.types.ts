@@ -38,6 +38,10 @@ export interface ParsedProductImportRow {
   gstUomName?: string;
   uomSubName?: string;
   weightSizeName?: string;
+  /** 24-char hex ObjectId; used when spreadsheet has id instead of weightSizeName */
+  weightAndSizeId?: string;
+  /** WeightSize master code (e.g. ws-001); alternative to weightSizeName */
+  weightSizeCode?: string;
   weightUnitName?: string;
   offerGroupName?: string;
   skuTypeName?: string;

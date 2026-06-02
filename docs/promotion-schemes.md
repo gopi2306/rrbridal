@@ -1,6 +1,6 @@
 # Promotion schemes & offers (POS engine)
 
-Central backend stores configurable **promotion schemes** (`promotion_schemes` collection). Store billing WPF syncs active schemes and applies them at runtime via `PromotionEngine`, separate from manual item % and cash discounts.
+Central backend stores configurable **promotion schemes** (`promotion_schemes` collection). Store clients sync active schemes and apply them at runtime, separate from manual item % and cash discounts.
 
 ## Concepts
 

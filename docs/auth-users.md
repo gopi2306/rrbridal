@@ -82,9 +82,9 @@ Admin APIs (JWT + role `admin` or `super_admin`):
 | `PATCH` | `/admin/role-access/:id` | Update `allow` / `status`. |
 | `DELETE` | `/admin/role-access/:id` | Soft-disable (`status: inactive`, `allow: false`). |
 
-## Store WPF client
+## Store client
 
-- On startup, loads `%LocalAppData%\RRBridal\StoreBilling\central_auth.json` if present and sets `Authorization: Bearer` on the shared `HttpClient`.
+- On startup, loads a local session file (if present) and sets `Authorization: Bearer` on the shared HTTP client.
 - Main window: email + password fields (demo uses a plain `TextBox` for password; replace with a secure pattern for production), **Login** / **Logout**.
 - Logout deletes the session file and clears the bearer header.
 

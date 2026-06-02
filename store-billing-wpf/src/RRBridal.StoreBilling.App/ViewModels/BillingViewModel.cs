@@ -1208,7 +1208,25 @@ public partial class BillingViewModel : ObservableObject
                 && string.Equals((l.ProductCode ?? "").Trim(), sku, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
+                var productLabel = string.IsNullOrWhiteSpace(existing.Description)
+                    ? sku
+                    : $"{existing.Description} ({sku})";
+                var confirm = MessageBox.Show(
+                    $"\"{productLabel}\" is already on this bill (qty {existing.Qty:0.###}).\n\nAdd 1 more to quantity?",
+                    "RR Bridal Billing",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.Yes);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    ClearEntryRowProductCode();
+                    EnsureEntryRow();
+                    RequestFocusEntryProductCode?.Invoke();
+                    return;
+                }
+
                 existing.Qty += 1;
+                WarnIfBelowMargin(existing);
                 ClearEntryRowProductCode();
                 EnsureEntryRow();
                 RequestFocusEntryProductCode?.Invoke();

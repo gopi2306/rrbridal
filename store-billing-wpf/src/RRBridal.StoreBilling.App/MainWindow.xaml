@@ -6,6 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
         xmlns:views="clr-namespace:RRBridal.StoreBilling.App.Views"
+        xmlns:controls="clr-namespace:RRBridal.StoreBilling.App.Views.Controls"
         mc:Ignorable="d"
         Title="{Binding WindowTitleText}"
         MinHeight="640"
@@ -40,11 +41,18 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CompanyTitle}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
-                    <TextBlock Text="{Binding StoreDisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,2,0,0"/>
-                    <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
-                </StackPanel>
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:AppLogoMark Grid.Column="0" LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CompanyTitle}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
+                        <TextBlock Text="{Binding StoreDisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Billing}" Margin="0,0,16,0">

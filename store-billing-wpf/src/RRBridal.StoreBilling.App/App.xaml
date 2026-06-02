@@ -10,6 +10,9 @@
                 <ResourceDictionary Source="Resources/ThemeColors.xaml"/>
                 <ResourceDictionary Source="Resources/ControlStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <BitmapImage x:Key="AppLogoImage"
+                         UriSource="pack://application:,,,/Resources/Assets/TruBillLogo.png"
+                         CacheOption="OnLoad"/>
             <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
             <conv:InvertBoolConverter x:Key="InvertBool"/>
             <conv:EnumBoolConverter x:Key="EnumBoolConverter"/>

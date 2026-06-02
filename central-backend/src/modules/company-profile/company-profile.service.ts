@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { normalizeMediaPublicUrl } from '../../common/media-url.util';
 import { PatchCompanyProfileDto } from './dto/patch-company-profile.dto';
 import { CompanyProfile, CompanyProfileDocument, COMPANY_PROFILE_KEY } from './schemas/company-profile.schema';
 
@@ -14,13 +15,25 @@ export class CompanyProfileService {
     return t === '' ? undefined : t;
   }
 
+  private apiPublicOrigin(): string | undefined {
+    return process.env.API_PUBLIC_ORIGIN?.trim() || undefined;
+  }
+
+  private withNormalizedLogo<T extends { companyLogo?: string }>(doc: T): T {
+    if (!doc.companyLogo) return doc;
+    return {
+      ...doc,
+      companyLogo: normalizeMediaPublicUrl(doc.companyLogo, this.apiPublicOrigin()),
+    };
+  }
+
   async get() {
     let doc = await this.model.findOne({ settingsKey: COMPANY_PROFILE_KEY }).lean();
     if (!doc) {
       await this.model.create({ settingsKey: COMPANY_PROFILE_KEY });
       doc = await this.model.findOne({ settingsKey: COMPANY_PROFILE_KEY }).lean();
     }
-    return doc!;
+    return this.withNormalizedLogo(doc!);
   }
 
   async patch(dto: PatchCompanyProfileDto) {
@@ -34,7 +47,12 @@ export class CompanyProfileService {
     if (dto.pinCode !== undefined) set.pinCode = this.trimOrUndef(dto.pinCode);
     if (dto.phone !== undefined) set.phone = this.trimOrUndef(dto.phone);
     if (dto.email !== undefined) set.email = this.trimOrUndef(dto.email);
-    if (dto.companyLogo !== undefined) set.companyLogo = this.trimOrUndef(dto.companyLogo);
+    if (dto.companyLogo !== undefined) {
+      const trimmed = this.trimOrUndef(dto.companyLogo);
+      set.companyLogo = trimmed
+        ? normalizeMediaPublicUrl(trimmed, this.apiPublicOrigin())
+        : undefined;
+    }
     if (dto.fssaiNo !== undefined) set.fssaiNo = this.trimOrUndef(dto.fssaiNo);
     if (dto.website !== undefined) set.website = this.trimOrUndef(dto.website);
     if (dto.termsAndConditions !== undefined) set.termsAndConditions = this.trimOrUndef(dto.termsAndConditions);
@@ -48,7 +66,11 @@ export class CompanyProfileService {
       return await this.get();
     }
 
-    await this.model.findOneAndUpdate({ settingsKey: COMPANY_PROFILE_KEY }, { $set: set }, { upsert: true, new: true });
-    return await this.get();
+    const updated = await this.model.findOneAndUpdate(
+      { settingsKey: COMPANY_PROFILE_KEY },
+      { $set: set },
+      { upsert: true, new: true },
+    );
+    return this.withNormalizedLogo(updated.toObject());
   }
 }

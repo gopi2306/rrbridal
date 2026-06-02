@@ -1,6 +1,7 @@
 <Window x:Class="RRBridal.StoreBilling.App.Views.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:RRBridal.StoreBilling.App.Views.Controls"
         Title="{Binding WindowTitleText}"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
@@ -8,6 +9,7 @@
         Background="{StaticResource BrushBackground}">
     <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="340">
         <StackPanel>
+            <controls:AppLogoMark LogoHeight="52" LogoMaxWidth="300" HorizontalAlignment="Center" Margin="0,0,0,16"/>
             <TextBlock Text="{Binding CompanyTitle}" FontSize="28" FontWeight="Bold"
                        Foreground="{StaticResource BrushAccent}"
                        HorizontalAlignment="Center" Margin="0,0,0,4"/>

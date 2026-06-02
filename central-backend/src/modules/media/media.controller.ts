@@ -7,7 +7,26 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync, readdirSync } from 'fs';
 import { randomUUID } from 'crypto';
+import { mediaFilePublicPath } from '../../common/media-url.util';
 import { ProductsService } from '../products/products.service';
+
+function mimeForFilename(filename: string): string | undefined {
+  switch (extname(filename).toLowerCase()) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.pdf':
+      return 'application/pdf';
+    default:
+      return undefined;
+  }
+}
 
 function ensureDir(dir: string) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -90,7 +109,7 @@ export class MediaController {
         originalName: file.originalname,
         mimetype: file.mimetype,
         size: file.size,
-        url: `/media/files/${folder.trim()}/${file.filename}`,
+        url: mediaFilePublicPath(folder.trim(), file.filename),
       };
     }
 
@@ -100,7 +119,7 @@ export class MediaController {
       originalName: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
-      url: `/media/files/general/${file.filename}`,
+      url: mediaFilePublicPath('general', file.filename),
     };
   }
 
@@ -153,7 +172,7 @@ export class MediaController {
         originalName: f.originalname,
         mimetype: f.mimetype,
         size: f.size,
-        url: `/media/files/${subDir}/${f.filename}`,
+        url: mediaFilePublicPath(subDir, f.filename),
       })),
     };
   }
@@ -168,6 +187,8 @@ export class MediaController {
   ) {
     const filePath = join(process.cwd(), 'uploads', folder, filename);
     if (!existsSync(filePath)) return res.status(404).json({ message: 'File not found' });
+    const mime = mimeForFilename(filename);
+    if (mime) res.type(mime);
     return res.sendFile(filePath);
   }
 
@@ -180,7 +201,7 @@ export class MediaController {
     if (!existsSync(dir)) return [];
     const files = readdirSync(dir).map((name) => ({
       filename: name,
-      url: `/media/files/${folder}/${name}`,
+      url: mediaFilePublicPath(folder, name),
     }));
     return files;
   }

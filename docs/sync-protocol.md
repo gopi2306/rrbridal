@@ -1,6 +1,6 @@
 # Sync protocol (Store ↔ Central)
 
-This document defines the offline-first sync protocol used by the **Store WPF** app (with local MongoDB) to synchronize with the **Central NestJS API** (MongoDB).
+This document defines the offline-first sync protocol used by the **store client** (with local MongoDB) to synchronize with the **Central NestJS API** (MongoDB).
 
 ## Design goals
 - **Offline-first**: store can create invoices/payments without internet.
@@ -22,7 +22,7 @@ This document defines the offline-first sync protocol used by the **Store WPF** 
 - **Separate local Mongo per PC (typical: each till has its own MongoDB)**  
   Only the machine that pulls while central status is `awaiting_intake` used to get `StockTransferAwaitingStoreIntake`. After another device pushed `StockTransferReceived`, central moves to `completed` and other machines **never** saw that awaiting update. They now consume **`StockTransferCompleted`** pull updates (see below) using `transferCursor`, in addition to the awaiting-intake path.
 
-## Store sync run order (WPF `RunOnceAsync`)
+## Store sync run order (client run)
 
 Each **Run sync once** performs **pull then push** (then best-effort masters and store users):
 
@@ -90,7 +90,7 @@ Store rules:
 
 ### Event: `StockTransferReceived`
 
-Raised by the **Store WPF** app after it receives a central stock transfer into the local MongoDB inventory cache.
+Raised by the store client after it receives a central stock transfer into the local MongoDB inventory cache.
 
 `payload` shape:
 
@@ -115,9 +115,9 @@ Rules:
 - Central treats a transfer that is already `completed` as applied and does not post inventory ledger entries again.
 - For a transfer in `awaiting_intake`, central moves it to `completed`:
   - **In:** in_transit −, store + (central ledger).
-  - **Out:** in_transit −, warehouse + (central ledger). WPF has already decremented local stock on pull.
+  - **Out:** in_transit −, warehouse + (central ledger). The store client has already decremented local stock on pull.
 
-### Store billing document numbers (WPF)
+### Store billing document numbers
 
 Local format (per counter / device): `{yyyyMMdd}-{storeLast3}-{posCounter}-{seq:D4}` where `storeLast3` is derived from `storeId` (e.g. `store-001` → `001`). Returns prefix `RET-`, adjustments `ADJ-`.
 
@@ -189,13 +189,13 @@ Server builds `updates` as: **all `ProductUpserted`**, then **all `StockTransfer
 
 ### Local `local_products_cache` consistency (SKU vs `centralProductId`)
 
-Transfers increment stock by **SKU**. Product sync upserts by **`centralProductId`**. If a transfer created a SKU-only stub before the canonical product row existed, the store may have held quantity on a duplicate row. On each `ProductUpserted`, the WPF app **merges** stock from other `local_products_cache` documents with the same `sku` that are not the canonical `centralProductId` into the upserted row and **deletes** those duplicate documents. Transfer intake also **collapses** multiple rows with the same SKU into the row that has `centralProductId` when present.
+Transfers increment stock by **SKU**. Product sync upserts by **`centralProductId`**. If a transfer created a SKU-only stub before the canonical product row existed, the store may have held quantity on a duplicate row. On each `ProductUpserted`, the store client **merges** stock from other `local_products_cache` documents with the same `sku` that are not the canonical `centralProductId` into the upserted row and **deletes** those duplicate documents. Transfer intake also **collapses** multiple rows with the same SKU into the row that has `centralProductId` when present.
 
 ### Diagnostics (empty transfer lines)
 
 If a stock transfer update has no parsable lines (`lines` missing, empty, or invalid `qty`), the store **does not** silently skip: it records a warning into `sync_state.lastError` (visible in Settings sync status) so operators can fix data or report the issue.
 
-### Pull diagnostics summary (WPF Settings)
+### Pull diagnostics summary (Settings)
 
 After each successful pull, the store persists `sync_state.diagnosticsSummary` with: current `STORE_ID`, counts of each `updates[].type` in that response, result of `GET /api/stores/{STORE_ID}` when a bearer token is present (`OK`, `MISSING_fix_STORE_ID` if 404, `unknown_notLoggedIn` if 401), `localTransfersPending` (local `local_stock_transfers` where `stockApplied` is not true), and `localProductsInStock` (rows in `local_products_cache` with `stockQty` > 0). This is shown under **Sync diagnostics** in Settings and helps confirm whether `StockTransferAwaitingStoreIntake` payloads are arriving and whether `STORE_ID` matches central.
 
@@ -228,7 +228,7 @@ Used when central is already **`completed`** (e.g. another till already pushed `
 
 ### Sales stock rule
 
-WPF billing uses `local_products_cache.stockQty` as the sales availability gate. Products with quantity below one are not added to a bill; the store creates a `PurchaseIntentCreated` reference requisition instead.
+Store billing uses `local_products_cache.stockQty` as the sales availability gate. Products with quantity below one are not added to a bill; the store creates a `PurchaseIntentCreated` reference requisition instead.
 
 ## Promotion schemes
 
@@ -247,7 +247,7 @@ See [promotion-schemes.md](./promotion-schemes.md) for scheme shape and API exam
 
 ## Receipt settings pull (store billing)
 
-After each **Run sync once** (best-effort), the WPF app may refresh local thermal receipt configuration from central:
+After each **Run sync once** (best-effort), the store client may refresh local thermal receipt configuration from central:
 
 | Endpoint | Purpose |
 |----------|---------|

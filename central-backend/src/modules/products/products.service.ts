@@ -37,12 +37,25 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     const sku = await this.resolveSkuForCreate(dto.sku);
-    return await this.productModel.create({
+    const payload = this.normalizeProductWritePayload({
       ...dto,
       sku,
       isActive: dto.isActive ?? true,
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
+    return await this.productModel.create(payload);
+  }
+
+  private normalizeProductWritePayload(dto: Record<string, unknown>): Record<string, unknown> {
+    const doc = { ...dto };
+    stripInvalidObjectIdRefs(doc, PRODUCT_REF_OBJECT_ID_FIELDS);
+    for (const field of PRODUCT_REF_OBJECT_ID_FIELDS) {
+      const v = doc[field];
+      if (typeof v === 'string' && isValidObjectIdString(v)) {
+        doc[field] = toObjectId(v);
+      }
+    }
+    return doc;
   }
 
   private async resolveSkuForCreate(skuInput?: string): Promise<string> {
@@ -90,7 +103,10 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto) {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
-    const doc = await this.productModel.findByIdAndUpdate(toObjectId(id), { $set: dto }, { new: true }).lean();
+    const payload = this.normalizeProductWritePayload({ ...dto } as Record<string, unknown>);
+    const doc = await this.productModel
+      .findByIdAndUpdate(toObjectId(id), { $set: payload }, { new: true })
+      .lean();
     if (!doc) throw new NotFoundException('Product not found');
     return doc;
   }

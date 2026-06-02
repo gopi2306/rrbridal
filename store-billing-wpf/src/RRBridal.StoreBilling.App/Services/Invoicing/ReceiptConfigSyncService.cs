@@ -138,7 +138,7 @@ public sealed class ReceiptConfigSyncService
 
         var logo = GetString(profile, "companyLogo");
         if (!string.IsNullOrWhiteSpace(logo))
-            store.LogoUrl = logo;
+            store.LogoUrl = ResolveCentralMediaUrl(logo);
 
         store.FssaiNo = GetString(profile, "fssaiNo") ?? GetExtraString(profile, "fssaiNo") ?? store.FssaiNo;
         store.BranchCode = GetExtraString(profile, "branchCode")
@@ -287,5 +287,33 @@ public sealed class ReceiptConfigSyncService
         if (!TryGetProperty(profile, "extraFields", out var extra))
             return null;
         return GetString(extra, key);
+    }
+
+    /// <summary>
+    /// Turns upload paths like /media/files/logo/... into a full central API URL (includes /api).
+    /// </summary>
+    private string? ResolveCentralMediaUrl(string? logo)
+    {
+        if (string.IsNullOrWhiteSpace(logo))
+            return null;
+
+        var trimmed = logo.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+
+        var baseUri = _centralHttp.BaseAddress;
+        if (baseUri == null)
+            return trimmed;
+
+        if (trimmed.StartsWith("/media/files/", StringComparison.OrdinalIgnoreCase))
+            trimmed = "/api" + trimmed;
+        else if (trimmed.StartsWith("media/files/", StringComparison.OrdinalIgnoreCase))
+            trimmed = "/api/" + trimmed;
+
+        if (trimmed.StartsWith('/'))
+            return new Uri(baseUri, trimmed).ToString();
+
+        return new Uri(baseUri, trimmed).ToString();
     }
 }

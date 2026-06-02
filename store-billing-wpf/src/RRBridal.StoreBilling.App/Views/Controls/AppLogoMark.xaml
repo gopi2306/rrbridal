@@ -1,0 +1,22 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.Controls.AppLogoMark"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             SnapsToDevicePixels="True"
+             ClipToBounds="False">
+    <StackPanel x:Name="RootPanel" Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock x:Name="TruText"
+                   Text="Tru"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource BrushAccent}"
+                   VerticalAlignment="Center"
+                   Margin="0,0,2,0"/>
+        <Viewbox x:Name="LogoViewbox" Stretch="Uniform" VerticalAlignment="Center">
+            <Image x:Name="LogoImage"
+                   Source="{StaticResource AppLogoImage}"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+        </Viewbox>
+    </StackPanel>
+</UserControl>

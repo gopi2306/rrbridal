@@ -62,6 +62,8 @@ Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master r
 
 Master name columns: `subCategoryName`, `manufacturerName`, `brandName`, `colourName`, `productStatusName`, `hsnName`, `gstUomName`, `uomSubName`, `weightSizeName`, `weightUnitName`, `offerGroupName`, `skuTypeName`, `skuOrderGroupName`, `indentTypeName`, `batchExpiryDetailName`, `itemPrepStatusName`, `packedConfirmationName`, `poQtyPolicyName`, `sellByName`, `batchSelectionName`.
 
+Weight/size on the product (`weightAndSizeId`): use `weightSizeName` (display name, e.g. `Heavy`), or `weightSizeCode` (e.g. `ws-002`), or `weightAndSizeId` (24-char MongoDB ObjectId). Header aliases include `Weight Size` and `weight and size id`.
+
 Scalars: `shortName`, `alias`, `itemProductType`, `gstCode`, `gstPercent`, `upcEanCode`, `decimalPoint` (default **4** — see [money-precision.md](./money-precision.md)), `costPrice`, `marginPercent`, `mrp`, `sellingPrice`, `storePrice`, `unit`, `isActive`, `itemDiscountAllowed`, `isWeighable`, and other numeric fields from the template.
 
 Header aliases are supported (e.g. `Item Name` → `itemName`).
@@ -94,6 +96,6 @@ After import, stores receive products on the next sync pull as `ProductUpserted`
 
 ## Errors
 
-- **Duplicate master name** — two departments (etc.) with the same name → row fails; fix data or merge masters in admin.
+- **Duplicate master name** — import picks the oldest active master when several share a name (common for `Default Batch` after seed + import). Clean up extras in admin if you need a specific record.
 - **Missing required column** — row skipped with message in `errors`.
 - **Ambiguous category** — use unique category names per department or pre-create categories.

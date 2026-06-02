@@ -24,21 +24,10 @@ formatMoneyOrEmpty(value)
 
 Used in inventory export columns, store sales dashboard KPI parsing, and product `decimalPoint` default on create.
 
-### Store billing WPF — [`MoneyMath.cs`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Billing/MoneyMath.cs)
-
-```csharp
-MoneyMath.RoundAmount(decimal)   // 4dp calculation
-MoneyMath.FormatAmount(decimal)  // N4
-MoneyMath.FormatRupee(decimal)   // "₹ 1,234.5678"
-MoneyMath.FormatPayable(decimal) // "₹ 1,235" whole rupee
-```
-
-Billing models, GST calculator, returns/exchanges, and ViewModels use `RoundAmount` instead of `Math.Round(..., 2)`.
-
 ## Product master
 
 - Field `decimalPoint` on products defaults to **4** on create and in the import template.
-- Per-product `decimalPoint` is stored but WPF billing currently uses the global 4dp constant.
+- Per-product `decimalPoint` is stored; clients should use the same 4dp rule unless explicitly overridden.
 
 ## Payable round-off
 

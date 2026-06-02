@@ -81,6 +81,19 @@ export class MasterLookupService {
     return `${kind}::${scope ?? ''}::${name.trim().toLowerCase()}`;
   }
 
+  /** When several masters share a name/code, pick one deterministically (import must not fail). */
+  private pickBestMasterMatch<T extends { _id: unknown; isActive?: boolean }>(matches: T[]): T | null {
+    if (matches.length === 0) return null;
+    const active = matches.filter((m) => m.isActive !== false);
+    const pool = active.length > 0 ? active : matches;
+    return pool[0] ?? null;
+  }
+
+  private looksLikeMasterCode(value: string, prefix: string): boolean {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escaped}\\d+$`, 'i').test(value.trim());
+  }
+
   private async findByNameExact(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     model: Model<any>,
@@ -94,12 +107,27 @@ export class MasterLookupService {
         ...extraFilter,
         name: { $regex: new RegExp(`^${escaped}$`, 'i') },
       })
-      .limit(2)
+      .sort({ isActive: -1, _id: 1 })
       .lean();
-    if (matches.length > 1) {
-      throw new Error(`Multiple ${model.modelName} records match name '${trimmed}'`);
-    }
-    return (matches[0] as NameDoc | undefined) ?? null;
+    return this.pickBestMasterMatch(matches as unknown as Array<NameDoc & { isActive?: boolean }>);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async findByCodeExact(
+    model: Model<any>,
+    code: string,
+    extraFilter: Record<string, unknown> = {},
+  ): Promise<NameDoc | null> {
+    const trimmed = code.trim();
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = await model
+      .find({
+        ...extraFilter,
+        code: { $regex: new RegExp(`^${escaped}$`, 'i') },
+      })
+      .sort({ isActive: -1, _id: 1 })
+      .lean();
+    return this.pickBestMasterMatch(matches as unknown as Array<NameDoc & { isActive?: boolean }>);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,6 +162,16 @@ export class MasterLookupService {
       this.cache.set(key, id);
       return id;
     }
+
+    if (this.looksLikeMasterCode(name, prefix)) {
+      const byCode = await this.findByCodeExact(model, name);
+      if (byCode) {
+        const id = String(byCode._id);
+        this.cache.set(key, id);
+        return id;
+      }
+    }
+
     if (!createMissing) throw new Error(`${label} '${name.trim()}' not found`);
 
     const code = await this.nextCode(model, prefix);
@@ -146,6 +184,25 @@ export class MasterLookupService {
     const id = String(created._id);
     this.cache.set(key, id);
     return id;
+  }
+
+  private async resolveWeightAndSizeId(
+    row: ParsedProductImportRow,
+    createMissing: boolean,
+  ): Promise<string | undefined> {
+    const direct = MasterLookupService.tryObjectId(row.weightAndSizeId);
+    if (direct) return direct;
+
+    const nameOrCode = row.weightSizeName?.trim() || row.weightSizeCode?.trim();
+    if (!nameOrCode) return undefined;
+
+    return await this.resolveCodeMaster(
+      'WeightSize',
+      this.weightSizeModel,
+      'ws-',
+      nameOrCode,
+      createMissing,
+    );
   }
 
   async resolveSupplier(name: string | undefined, createMissing: boolean): Promise<string | undefined> {
@@ -253,13 +310,11 @@ export class MasterLookupService {
         isActive: { $ne: false },
         $or: [{ name: regex }, { hsnCode: regex }],
       })
-      .limit(2)
+      .sort({ _id: 1 })
       .lean();
-    if (matches.length > 1) {
-      throw new Error(`Multiple HSN records match '${trimmed}'`);
-    }
-    if (matches[0]) {
-      const id = String(matches[0]._id);
+    const best = this.pickBestMasterMatch(matches as Array<{ _id: unknown; isActive?: boolean }>);
+    if (best) {
+      const id = String(best._id);
       this.cache.set(key, id);
       return id;
     }
@@ -346,13 +401,7 @@ export class MasterLookupService {
       hsnCodeId: await this.resolveHsnCode(row.hsnName, row.gstPercent, createMissing),
       gstUomId: await this.resolveCodeMaster('GstUom', this.gstUomModel, 'guom-', row.gstUomName, createMissing),
       uomSubId: await this.resolveCodeMaster('UomSub', this.uomSubModel, 'usub-', row.uomSubName, createMissing),
-      weightAndSizeId: await this.resolveCodeMaster(
-        'WeightSize',
-        this.weightSizeModel,
-        'ws-',
-        row.weightSizeName,
-        createMissing,
-      ),
+      weightAndSizeId: await this.resolveWeightAndSizeId(row, createMissing),
       weightPerGmOrMlId: await this.resolveCodeMaster(
         'WeightUnit',
         this.weightUnitModel,

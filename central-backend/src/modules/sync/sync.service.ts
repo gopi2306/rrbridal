@@ -159,8 +159,15 @@ export class SyncService {
     });
 
     const promotionUpdates = promotionSchemes.map((scheme) => {
-      const row = scheme as typeof scheme & { _id?: unknown; updatedAt?: Date; deletedAt?: Date };
-      const isDeleted = Boolean(row.deletedAt);
+      const row = scheme as typeof scheme & {
+        _id?: unknown;
+        updatedAt?: Date;
+        deletedAt?: Date;
+        isActive?: boolean;
+        code?: string;
+      };
+      // Store should not keep inactive or soft-deleted schemes.
+      const isDeleted = Boolean(row.deletedAt) || row.isActive === false;
       return {
         type: isDeleted ? 'PromotionSchemeDeleted' : 'PromotionSchemeUpserted',
         storeId,
