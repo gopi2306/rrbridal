@@ -1,15 +1,23 @@
 # Monetary precision (4 decimal places)
 
-All **money amounts** in RR Bridal use **4 digits after the decimal point** for calculations, storage boundaries, and display (except final bill payable — see below).
+All **money amounts** use **4 digits after the decimal point** for calculations, storage, and API boundaries. **Display** differs by client (see WPF below).
 
 ## Rule
 
 | Kind | Precision | Notes |
 |------|-----------|--------|
-| Prices, line amounts, tax amounts, discounts, credit notes | **4 dp** | `50000.0000`, `1234.5678` |
-| Final bill **payable** (after round-off) | **Whole rupee** | Unchanged round-off to nearest ₹1 |
+| Prices, line amounts, tax amounts, discounts, credit notes (calc/storage) | **4 dp** | `50000.0000`, `1234.5678` |
+| Final bill **payable** (value after round-off) | **Whole rupee** | Rounded in `ComputeBillTotalsCore`; see WPF display |
 | Quantities | Unchanged | Weighable qty may show 3 dp on thermal |
 | GST **percent** display | 0–2 dp | Percent splits, not rupee amounts |
+
+## WPF display (store billing)
+
+The store billing WPF app (`MoneyMath` in [`store-billing-wpf/.../MoneyMath.cs`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Billing/MoneyMath.cs)) shows **2 decimal places** (en-IN) for all rupee amounts in UI and thermal receipts:
+
+- `FormatRupee`, `FormatPayable`, grids (`N2`), editable fields (`0.00`)
+- Internal `RoundAmount` remains **4 dp** for GST splits, discounts, and sync payloads
+- Payable is still computed with whole-rupee round-off; the UI shows it as e.g. `₹ 1,250.00`
 
 ## Helpers
 

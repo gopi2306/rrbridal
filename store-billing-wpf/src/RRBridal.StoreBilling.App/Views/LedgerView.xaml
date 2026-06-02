@@ -56,7 +56,7 @@
                             <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="70"/>
                             <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
                             <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
-                            <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N0}}" Width="110"/>
+                            <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
                             <DataGridTextColumn Header="Posted UTC" Binding="{Binding PostedAtUtc}" Width="160"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
                         </DataGrid.Columns>
@@ -78,7 +78,7 @@
                             <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="70"/>
                             <DataGridTextColumn Header="Invoice no" Binding="{Binding InvoiceNo}" Width="120"/>
                             <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" Width="100"/>
-                            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N4}}" Width="100"/>
+                            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N2}}" Width="100"/>
                             <DataGridTextColumn Header="Currency" Binding="{Binding Currency}" Width="70"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
                             <DataGridTextColumn Header="Reference" Binding="{Binding ProviderReference}" Width="*"/>

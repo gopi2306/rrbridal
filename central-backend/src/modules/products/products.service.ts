@@ -115,7 +115,25 @@ export class ProductsService {
     const filter = this.buildProductListFilter(params);
     const skip = params.skip !== undefined ? Math.max(0, params.skip) : 0;
     const limit = params.limit !== undefined ? Math.min(500, Math.max(1, params.limit)) : 200;
-    return await this.productModel.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean();
+    const rawData = await this.productModel
+      .find(filter)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    return await this.populateProductRefLookups(rawData);
+  }
+
+  /** Expand each ObjectId ref to its master document (same as POST /products/filter). */
+  private async populateProductRefLookups(rawData: unknown[]): Promise<Record<string, unknown>[]> {
+    const data = rawData.map((row) =>
+      stripInvalidObjectIdRefs({ ...(row as Record<string, unknown>) }, PRODUCT_REF_OBJECT_ID_FIELDS),
+    );
+    await this.productModel.populate(
+      data,
+      PRODUCT_REF_OBJECT_ID_FIELDS.map((path) => ({ path })),
+    );
+    return data;
   }
 
   /** Same filter rules as {@link list}, without pagination — for counts. */
@@ -257,13 +275,7 @@ export class ProductsService {
       this.productModel.countDocuments(filter),
     ]);
 
-    const data = rawData.map((row) =>
-      stripInvalidObjectIdRefs({ ...row } as Record<string, unknown>, PRODUCT_REF_OBJECT_ID_FIELDS),
-    );
-    await this.productModel.populate(
-      data,
-      PRODUCT_REF_OBJECT_ID_FIELDS.map((path) => ({ path })),
-    );
+    const data = await this.populateProductRefLookups(rawData);
 
     return {
       data,

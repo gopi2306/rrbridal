@@ -139,24 +139,24 @@
                                 <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged}" Width="90"
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" IsReadOnly="True" Width="100"
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" IsReadOnly="True" Width="100"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="90"
+                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N4}" IsReadOnly="True" Width="90"
+                                <DataGridTextColumn Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N4}" IsReadOnly="True" Width="85"
+                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="85"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N4}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N4}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" Width="80"
+                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
                                 <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"
@@ -168,7 +168,7 @@
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N4}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>

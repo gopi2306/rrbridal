@@ -81,7 +81,7 @@
                         <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
                         <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="130"/>
                         <DataGridTextColumn Header="Posted (UTC)" Binding="{Binding CreatedAtDisplay}" Width="*"/>
-                        <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N0}}" Width="110"/>
+                        <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>
@@ -135,8 +135,8 @@
                         <DataGridTextColumn Header="UPC/EAN" Binding="{Binding UpcEanCode}" Width="100"/>
                         <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*"/>
                         <DataGridTextColumn Header="Local store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="120"/>
-                        <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N4}}" Width="85"/>
-                        <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N4}}" Width="95"/>
+                        <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N2}}" Width="85"/>
+                        <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N2}}" Width="95"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>

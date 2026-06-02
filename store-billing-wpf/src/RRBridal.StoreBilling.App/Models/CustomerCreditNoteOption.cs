@@ -1,12 +1,9 @@
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace RRBridal.StoreBilling.App.Models;
 
 public partial class CustomerCreditNoteOption : ObservableObject
 {
-    private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
-
     public required string CreditNoteNo { get; init; }
     public required string ReturnNo { get; init; }
     public required decimal OriginalAmount { get; init; }
@@ -28,7 +25,7 @@ public partial class CustomerCreditNoteOption : ObservableObject
 
     public void RefreshDisplayLabel() => OnPropertyChanged(nameof(DisplayLabel));
 
-    private static string Fmt(decimal v) => "₹ " + v.ToString("N2", InCulture);
+    private static string Fmt(decimal v) => Services.Billing.MoneyMath.FormatRupee(v);
 
     public static CustomerCreditNoteOption FromRecord(Services.Billing.CustomerCreditNoteRecord r) =>
         new()

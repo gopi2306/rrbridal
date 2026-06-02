@@ -46,7 +46,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Day (UTC)" Binding="{Binding DayLabel}" Width="*"/>
                     <DataGridTextColumn Header="Bills" Binding="{Binding BillsCount}" Width="80"/>
-                    <DataGridTextColumn Header="Revenue" Binding="{Binding Revenue, StringFormat=₹ {0:N4}}" Width="130"/>
+                    <DataGridTextColumn Header="Revenue" Binding="{Binding Revenue, StringFormat=₹ {0:N2}}" Width="130"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

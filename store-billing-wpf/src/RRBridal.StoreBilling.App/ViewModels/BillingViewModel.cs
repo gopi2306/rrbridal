@@ -332,7 +332,7 @@ public partial class BillingViewModel : ObservableObject
 
     /// <summary>Empty display when numeric value is zero (placeholder-style inputs).</summary>
     private static string FormatEditableDecimalText(decimal value) =>
-        value == 0 ? "" : MoneyMath.RoundAmount(value).ToString("0.####", CultureInfo.InvariantCulture);
+        MoneyMath.FormatEditableAmount(value);
 
     private sealed record BillTotals(
         decimal SubTotal,
@@ -1770,7 +1770,7 @@ public partial class BillingViewModel : ObservableObject
         PrintInvoice = doc.GetValue("printInvoice", true).AsBoolean;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
-        CashDiscAmountText = doc.GetValue("cashDiscAmount", 0).ToDouble().ToString("0.##", InCulture);
+        CashDiscAmountText = MoneyMath.FormatEditableAmount((decimal)doc.GetValue("cashDiscAmount", 0).ToDouble());
 
         if (doc.TryGetValue("lines", out var linesVal) && linesVal.IsBsonArray)
         {

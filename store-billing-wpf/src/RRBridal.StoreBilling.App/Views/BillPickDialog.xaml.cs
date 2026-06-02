@@ -6,18 +6,17 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using MongoDB.Bson;
+using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Views;
 
 public sealed class BillPickEntry
 {
-    private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
-
     public string BillNo { get; init; } = "";
     public string BillDate { get; init; } = "";
     public string CustomerName { get; init; } = "";
     public decimal Payable { get; init; }
-    public string PayableDisplay => "₹ " + Payable.ToString("N2", InCulture);
+    public string PayableDisplay => MoneyMath.FormatRupee(Payable);
 
     public static BillPickEntry FromBson(BsonDocument doc)
     {
