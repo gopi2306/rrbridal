@@ -53,4 +53,18 @@ export class AuthSettingsService {
     await doc.save();
     return doc.toObject();
   }
+
+  /** Replace quotas entirely (e.g. production bootstrap with super_admin only). */
+  async replaceRoleQuotas(quotas: Record<string, number>) {
+    await this.ensureDefault();
+    const doc = await this.model.findOne({ settingsKey: AUTH_SETTINGS_KEY });
+    if (!doc) throw new Error('auth_settings missing');
+    const cleaned: Record<string, number> = {};
+    for (const [k, v] of Object.entries(quotas)) {
+      if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) cleaned[k] = v;
+    }
+    doc.roleQuotas = cleaned;
+    await doc.save();
+    return doc.toObject();
+  }
 }

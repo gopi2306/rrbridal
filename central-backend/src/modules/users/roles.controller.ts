@@ -1,16 +1,53 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { RoleDefinition, RoleDefinitionDocument } from './schemas/role-definition.schema';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CreateRoleDefinitionDto } from './dto/create-role-definition.dto';
+import { UpdateRoleDefinitionDto } from './dto/update-role-definition.dto';
+import { RolesService } from './roles.service';
 
 @ApiTags('roles')
+@ApiBearerAuth()
 @Controller('roles')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('super_admin', 'admin')
 export class RolesController {
-  constructor(@InjectModel(RoleDefinition.name) private readonly roleModel: Model<RoleDefinitionDocument>) {}
+  constructor(private readonly rolesService: RolesService) {}
+
+  @Post()
+  async create(@Body() dto: CreateRoleDefinitionDto) {
+    return await this.rolesService.create(dto);
+  }
 
   @Get()
-  async list() {
-    return await this.roleModel.find().sort({ sortOrder: 1 }).lean();
+  @ApiQuery({
+    name: 'includeInactive',
+    required: false,
+    description: 'Include roles with isActive=false (still excludes soft-deleted)',
+  })
+  async list(@Query('includeInactive') includeInactive?: string) {
+    const include = includeInactive === 'true' || includeInactive === '1';
+    return await this.rolesService.list(include);
+  }
+
+  @Get('code/:code')
+  async getByCode(@Param('code') code: string) {
+    return await this.rolesService.findByCode(code);
+  }
+
+  @Get(':id')
+  async get(@Param('id') id: string) {
+    return await this.rolesService.findById(id);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() dto: UpdateRoleDefinitionDto) {
+    return await this.rolesService.update(id, dto);
+  }
+
+  @Delete(':id')
+  async softDelete(@Param('id') id: string) {
+    return await this.rolesService.softDelete(id);
   }
 }

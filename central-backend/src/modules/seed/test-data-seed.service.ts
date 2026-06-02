@@ -3,6 +3,42 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
 import { GoodsReceiptsService } from '../goods-receipts/goods-receipts.service';
 import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
+import {
+  TEST_SEED_BATCH_EXPIRY_CODES,
+  TEST_SEED_BATCH_SELECTION_CODES,
+  TEST_SEED_BRANCH_CODES,
+  TEST_SEED_BRAND_CODES,
+  TEST_SEED_CATEGORY_CODES,
+  TEST_SEED_COLOUR_CODES,
+  TEST_SEED_CUSTOMER_CODES,
+  TEST_SEED_DEPARTMENT_CODES,
+  TEST_SEED_DIVISION_CODES,
+  TEST_SEED_GST_UOM_CODES,
+  TEST_SEED_HSN_CODES,
+  TEST_SEED_INDENT_TYPE_CODES,
+  TEST_SEED_INTENT_NOS,
+  TEST_SEED_ITEM_PREP_CODES,
+  TEST_SEED_LOCATION_CODES,
+  TEST_SEED_MANUFACTURER_CODES,
+  TEST_SEED_OFFER_GROUP_CODES,
+  TEST_SEED_PACKED_CONFIRMATION_CODES,
+  TEST_SEED_PO_NOS,
+  TEST_SEED_PO_QTY_POLICY_CODES,
+  TEST_SEED_PRODUCT_STATUS_CODES,
+  TEST_SEED_PROMOTION_CODES,
+  TEST_SEED_PURCHASE_RETURN_NOS,
+  TEST_SEED_RECEIPT_NOS,
+  TEST_SEED_SELL_BY_CODES,
+  TEST_SEED_SKU_ORDER_GROUP_CODES,
+  TEST_SEED_SKU_TYPE_CODES,
+  TEST_SEED_SKUS,
+  TEST_SEED_SUB_CATEGORY_CODES,
+  TEST_SEED_SUPPLIER_NAMES,
+  TEST_SEED_TRANSFER_NOS,
+  TEST_SEED_UOM_SUB_CODES,
+  TEST_SEED_WEIGHT_SIZE_CODES,
+  TEST_SEED_WEIGHT_UNIT_CODES,
+} from './test-data-seed.keys';
 
 @Injectable()
 export class TestDataSeedService implements OnModuleInit {
@@ -740,5 +776,64 @@ export class TestDataSeedService implements OnModuleInit {
 
     this.logger.log('  + sku001-bxgy (scheme: Buy 2 Get 1 on SKU-001)');
     this.logger.log('  + sku001-offer-5pct (offer: 5% off SKU-001)');
+  }
+
+  /** Removes documents created by flow-wise test seed (SEED_TEST_DATA). Does not touch users/stores/company profile. */
+  async clearTestData(): Promise<void> {
+    this.logger.log('Clearing flow-wise test seed data …');
+
+    const del = async (modelName: string, filter: Record<string, unknown>) => {
+      const result = await this.connection.model(modelName).deleteMany(filter);
+      if (result.deletedCount > 0) {
+        this.logger.log(`  - ${modelName}: deleted ${result.deletedCount}`);
+      }
+    };
+
+    await del('PromotionScheme', { code: { $in: [...TEST_SEED_PROMOTION_CODES] } });
+    await del('PurchaseReturn', { purchaseReturnNo: { $in: [...TEST_SEED_PURCHASE_RETURN_NOS] } });
+    await del('StockTransfer', { transferNo: { $in: [...TEST_SEED_TRANSFER_NOS] } });
+    await del('PurchaseIntent', { intentNo: { $in: [...TEST_SEED_INTENT_NOS] } });
+    await del('GoodsReceipt', { receiptNo: { $in: [...TEST_SEED_RECEIPT_NOS] } });
+    await del('PurchaseOrder', { poNo: { $in: [...TEST_SEED_PO_NOS] } });
+
+    const db = this.connection.db;
+    if (!db) throw new Error('MongoDB connection is not ready');
+    const ledger = await db
+      .collection('inventoryledgerentries')
+      .deleteMany({ sku: { $in: [...TEST_SEED_SKUS] } });
+    if (ledger.deletedCount > 0) {
+      this.logger.log(`  - inventoryledgerentries: deleted ${ledger.deletedCount}`);
+    }
+
+    await del('Product', { sku: { $in: [...TEST_SEED_SKUS] } });
+    await del('Customer', { customerCode: { $in: [...TEST_SEED_CUSTOMER_CODES] } });
+    await del('Supplier', { name: { $in: [...TEST_SEED_SUPPLIER_NAMES] } });
+    await del('Manufacturer', { code: { $in: [...TEST_SEED_MANUFACTURER_CODES] } });
+    await del('SubCategory', { code: { $in: [...TEST_SEED_SUB_CATEGORY_CODES] } });
+    await del('Category', { code: { $in: [...TEST_SEED_CATEGORY_CODES] } });
+    await del('Branch', { code: { $in: [...TEST_SEED_BRANCH_CODES] } });
+    await del('Division', { code: { $in: [...TEST_SEED_DIVISION_CODES] } });
+    await del('Location', { code: { $in: [...TEST_SEED_LOCATION_CODES] } });
+    await del('Department', { code: { $in: [...TEST_SEED_DEPARTMENT_CODES] } });
+    await del('Brand', { code: { $in: [...TEST_SEED_BRAND_CODES] } });
+    await del('Colour', { code: { $in: [...TEST_SEED_COLOUR_CODES] } });
+    await del('HsnCode', { code: { $in: [...TEST_SEED_HSN_CODES] } });
+    await del('GstUom', { code: { $in: [...TEST_SEED_GST_UOM_CODES] } });
+    await del('WeightSize', { code: { $in: [...TEST_SEED_WEIGHT_SIZE_CODES] } });
+    await del('WeightUnit', { code: { $in: [...TEST_SEED_WEIGHT_UNIT_CODES] } });
+    await del('OfferGroup', { code: { $in: [...TEST_SEED_OFFER_GROUP_CODES] } });
+    await del('ProductStatus', { code: { $in: [...TEST_SEED_PRODUCT_STATUS_CODES] } });
+    await del('UomSub', { code: { $in: [...TEST_SEED_UOM_SUB_CODES] } });
+    await del('BatchExpiryDetail', { code: { $in: [...TEST_SEED_BATCH_EXPIRY_CODES] } });
+    await del('ItemPrepStatus', { code: { $in: [...TEST_SEED_ITEM_PREP_CODES] } });
+    await del('PackedConfirmation', { code: { $in: [...TEST_SEED_PACKED_CONFIRMATION_CODES] } });
+    await del('PoQtyPolicy', { code: { $in: [...TEST_SEED_PO_QTY_POLICY_CODES] } });
+    await del('SellByType', { code: { $in: [...TEST_SEED_SELL_BY_CODES] } });
+    await del('BatchSelection', { code: { $in: [...TEST_SEED_BATCH_SELECTION_CODES] } });
+    await del('SkuType', { code: { $in: [...TEST_SEED_SKU_TYPE_CODES] } });
+    await del('SkuOrderGroup', { code: { $in: [...TEST_SEED_SKU_ORDER_GROUP_CODES] } });
+    await del('IndentType', { code: { $in: [...TEST_SEED_INDENT_TYPE_CODES] } });
+
+    this.logger.log('Test seed data cleared.');
   }
 }

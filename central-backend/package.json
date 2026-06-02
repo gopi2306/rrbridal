@@ -8,7 +8,9 @@
     "build": "tsc -p tsconfig.json",
     "lint": "node -e \"console.log('lint: add eslint later')\"",
     "test": "node -e \"console.log('test: add jest later')\"",
-    "seed": "ts-node -r reflect-metadata scripts/run-seed-once.ts"
+    "seed": "ts-node -r reflect-metadata scripts/run-seed-once.ts",
+    "seed:clear-test-data": "ts-node -r reflect-metadata scripts/clear-test-seed-data.ts",
+    "seed:clear-users-roles": "ts-node -r reflect-metadata scripts/clear-seed-users-roles.ts"
   },
   "keywords": [],
   "author": "",

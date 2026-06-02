@@ -7,5 +7,6 @@ import { TestDataSeedService } from './test-data-seed.service';
 @Module({
   imports: [GoodsReceiptsModule, StockTransfersModule, PromotionSchemesModule],
   providers: [TestDataSeedService],
+  exports: [TestDataSeedService],
 })
 export class SeedModule {}

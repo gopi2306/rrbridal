@@ -10,6 +10,7 @@ import { AdminOnboardingController } from './admin-onboarding.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AuthSettingsService } from './auth-settings.service';
 import { RolesController } from './roles.controller';
+import { RolesService } from './roles.service';
 import { StoreUsersController } from './store-users.controller';
 import { AuthSettings, AuthSettingsSchema } from './schemas/auth-settings.schema';
 import { RoleDefinition, RoleDefinitionSchema } from './schemas/role-definition.schema';
@@ -37,7 +38,7 @@ import { UsersService } from './users.service';
     RolesController,
     StoreUsersController,
   ],
-  providers: [UsersService, AuthSettingsService, UsersSeedService, JwtAuthGuard, RolesGuard],
-  exports: [UsersService],
+  providers: [UsersService, AuthSettingsService, UsersSeedService, RolesService, JwtAuthGuard, RolesGuard],
+  exports: [UsersService, UsersSeedService, RolesService],
 })
 export class UsersModule {}
