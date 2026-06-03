@@ -99,6 +99,8 @@ public static class BillThermalMapper
             IsDuplicateCopy = isDuplicate,
             DuplicatePrintedBy = duplicatePrintedBy ?? "",
             DuplicatePrintedAtUtc = duplicatePrintedAtUtc,
+            Stitching = doc.GetValue("stitching", false).AsBoolean,
+            DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean,
         };
     }
 

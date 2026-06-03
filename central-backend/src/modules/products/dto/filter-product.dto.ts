@@ -44,6 +44,11 @@ export class FilterProductDto {
   @IsOptional()
   supplierNameId?: string;
 
+  @ApiProperty({ required: false, description: 'Alias for supplierNameId' })
+  @IsString()
+  @IsOptional()
+  supplierId?: string;
+
   // ── Category Filters ──
 
   @ApiProperty({ required: false })

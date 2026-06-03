@@ -31,6 +31,7 @@
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,0" VerticalAlignment="Center"/>
                                 <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}" Margin="0,0,12,0" VerticalAlignment="Center"/>
                                 <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Grid>

@@ -59,6 +59,7 @@ public partial class BillingViewModel : ObservableObject
 
     [ObservableProperty] private bool _holdBills;
     [ObservableProperty] private bool _doorDelivery;
+    [ObservableProperty] private bool _stitching;
     [ObservableProperty] private bool _printInvoice = true;
 
     [ObservableProperty] private string _billNo = "";
@@ -1300,6 +1301,9 @@ public partial class BillingViewModel : ObservableObject
         _roundOffUserEdited = false;
         _suppressDiscountTextSync = false;
         IsInterState = false;
+        HoldBills = false;
+        DoorDelivery = false;
+        Stitching = false;
         SearchText = "";
         ClearCreditSelection();
         AvailableCreditNotes.Clear();
@@ -1480,6 +1484,7 @@ public partial class BillingViewModel : ObservableObject
                 { "fullAddress", "" },
                 { "holdBills", HoldBills },
                 { "doorDelivery", DoorDelivery },
+                { "stitching", Stitching },
                 { "printInvoice", PrintInvoice },
                 { "isInterState", IsInterState },
                 { "itemDiscountPercent", (double)ItemDiscountPercent },
@@ -1681,6 +1686,8 @@ public partial class BillingViewModel : ObservableObject
             TotalTaxableAmount = totalTaxable,
             Savings = savings,
             Payments = paySnap,
+            Stitching = Stitching,
+            DoorDelivery = DoorDelivery,
         };
     }
 
@@ -1767,6 +1774,7 @@ public partial class BillingViewModel : ObservableObject
         Salesman = doc.GetValue("salesman", "").AsString;
         HoldBills = doc.GetValue("holdBills", false).AsBoolean;
         DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean;
+        Stitching = doc.GetValue("stitching", false).AsBoolean;
         PrintInvoice = doc.GetValue("printInvoice", true).AsBoolean;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
@@ -1865,6 +1873,7 @@ public partial class BillingViewModel : ObservableObject
             { "fullAddress", "" },
             { "holdBills", HoldBills },
             { "doorDelivery", DoorDelivery },
+            { "stitching", Stitching },
             { "printInvoice", PrintInvoice },
             { "isInterState", IsInterState },
             { "itemDiscountPercent", (double)ItemDiscountPercent },

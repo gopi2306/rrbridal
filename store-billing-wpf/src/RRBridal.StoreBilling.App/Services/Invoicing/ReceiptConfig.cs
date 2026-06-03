@@ -3,6 +3,13 @@ using System.Collections.Generic;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
+public enum InvoicePrintFormat
+{
+    Thermal,
+    A4,
+    A5,
+}
+
 public sealed class ReceiptConfigDocument
 {
     public StoreProfile Store { get; set; } = new();
@@ -64,6 +71,8 @@ public sealed class ReceiptPrintSettings
 
     /// <summary>Monospace receipt width in characters (80mm thermal ~42–48).</summary>
     public int ReceiptCharWidth { get; set; } = 48;
+
+    public InvoicePrintFormat PrintFormat { get; set; } = InvoicePrintFormat.Thermal;
 
     public string? CentralPrinterHint { get; set; }
 

@@ -87,6 +87,10 @@ public sealed class ThermalInvoiceInput
     public string DuplicatePrintedBy { get; init; } = "";
 
     public DateTime? DuplicatePrintedAtUtc { get; init; }
+
+    public bool Stitching { get; init; }
+
+    public bool DoorDelivery { get; init; }
 }
 
 /// <summary>Plain-text thermal receipt (fixed-width, dashed rules).</summary>

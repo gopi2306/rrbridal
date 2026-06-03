@@ -22,16 +22,37 @@ public static class InvoicePrintFlow
                 return false;
             }
 
-            var text = ThermalInvoiceTextBuilder.Build(input);
+            var printFormat = services.ReceiptConfig.Current.Print.PrintFormat;
             var assets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
                 services.ReceiptConfig.Current,
                 input.BillNo,
                 services.ReceiptLogoCache);
-            var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
-            var doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+
+            string text;
+            System.Windows.Documents.FlowDocument doc;
+            if (printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5)
+            {
+                text = ThermalInvoiceTextBuilder.Build(input);
+                var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
+                    ? (148.0, 210.0)
+                    : (210.0, 297.0);
+                doc = A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH);
+            }
+            else
+            {
+                text = ThermalInvoiceTextBuilder.Build(input);
+                var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
+                doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+            }
+
+            var isA5 = printFormat == InvoicePrintFormat.A5;
+            var isTaxInvoice = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5;
             var dlg = new Views.InvoicePrintPreviewWindow(services, doc, text, printInvoiceEnabled)
             {
                 Owner = Application.Current.MainWindow,
+                Width = isA5 ? 508 : isTaxInvoice ? 720 : 420,
+                Height = isA5 ? 720 : isTaxInvoice ? 820 : 560,
+                Title = isA5 ? "A5 invoice preview" : printFormat == InvoicePrintFormat.A4 ? "A4 invoice preview" : "Invoice preview",
             };
             dlg.ShowDialog();
             return dlg.PrintSucceeded;

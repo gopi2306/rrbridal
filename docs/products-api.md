@@ -52,7 +52,8 @@ Paginated filter with populated master refs. Supports the same text/SKU/supplier
 | `search` | Same fields as GET |
 | `sku` | Exact |
 | `skuContains` | Partial (ignored when `sku` set) |
-| `supplierNameId` | ObjectId; invalid values are skipped (not 400) |
+| `supplierNameId` | ObjectId (24-char hex); invalid values return **400** |
+| `supplierId` | GET only — alias for `supplierNameId` |
 
 See `FilterProductDto` for full filter surface (category, brand, price ranges, etc.).
 

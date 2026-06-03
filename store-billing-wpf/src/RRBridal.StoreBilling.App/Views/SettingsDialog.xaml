@@ -38,8 +38,8 @@
 
             <Separator Margin="0,8,0,16"/>
 
-            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Invoice / receipt (thermal)" Foreground="{StaticResource BrushText}"/>
-            <TextBlock Margin="0,4,0,6" Text="Printed bill header, footer, and default Windows printer for F10 print." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Invoice / receipt" Foreground="{StaticResource BrushText}"/>
+            <TextBlock Margin="0,4,0,6" Text="Printed bill header, footer, print format (thermal, A4, or A5), and default Windows printer for F10 print." Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
             <TextBlock Margin="0,0,0,12" Text="Saved locally in %LocalAppData%\RRBridal\StoreBilling\receipt_config.json (not store MongoDB). Company profile comes from central database rr_bridal_central."
                        Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" FontSize="11"/>
 
@@ -77,13 +77,26 @@
                 <Button Content="Refresh printer list" Style="{StaticResource OutlineButton}" Command="{Binding RefreshPrintersCommand}" Margin="0,0,8,0"/>
                 <CheckBox Content="Always use Windows print dialog" IsChecked="{Binding ReceiptAlwaysUsePrintDialog}" VerticalAlignment="Center"/>
             </StackPanel>
+            <TextBlock Text="Print format" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <StackPanel Margin="0,0,0,4">
+                <RadioButton Content="Thermal receipt (80mm)" GroupName="PrintFormat" Margin="0,0,0,4"
+                             IsChecked="{Binding IsThermalReceiptFormat, Mode=TwoWay}"/>
+                <RadioButton Content="A4 tax invoice" GroupName="PrintFormat" Margin="0,0,0,4"
+                             IsChecked="{Binding IsA4ReceiptFormat, Mode=TwoWay}"/>
+                <RadioButton Content="A5 tax invoice" GroupName="PrintFormat"
+                             IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
+            </StackPanel>
+            <TextBlock Text="A4/A5: office laser/inkjet — load matching paper in the tray. Thermal: existing 80mm receipt (unchanged)."
+                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
             <TextBlock Text="Default bill printer" Margin="0,0,0,4"/>
             <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PrinterOptions}" DisplayMemberPath="Display"
                       SelectedValuePath="FullName" SelectedValue="{Binding SelectedPrinterFullName, Mode=TwoWay}" Margin="0,0,0,8"/>
-            <TextBlock Text="Receipt width (characters)" Margin="0,0,0,4"/>
-            <TextBlock Text="3-inch / 80mm thermal (e.g. TVS RP 3200 Lite): use 48 chars; adjust if text wraps."
-                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCharWidth, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+            <StackPanel Visibility="{Binding IsThermalReceiptFormat, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Receipt width (characters)" Margin="0,0,0,4"/>
+                <TextBlock Text="3-inch / 80mm thermal (e.g. TVS RP 3200 Lite): use 48 chars; adjust if text wraps."
+                           TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding ReceiptCharWidth, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+            </StackPanel>
 
             <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsCommand}" Margin="0,0,0,16"/>
 

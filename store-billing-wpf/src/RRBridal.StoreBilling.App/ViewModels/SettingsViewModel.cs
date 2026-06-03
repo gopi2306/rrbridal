@@ -56,6 +56,8 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private int _receiptCharWidth = 48;
 
+    [ObservableProperty] private InvoicePrintFormat _receiptPrintFormat = InvoicePrintFormat.Thermal;
+
     [ObservableProperty] private string _receiptCentralSyncText = "(not synced from central yet)";
 
     [ObservableProperty] private string _receiptPrinterHintText = "";
@@ -65,6 +67,43 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
+
+    public bool IsThermalReceiptFormat
+    {
+        get => ReceiptPrintFormat == InvoicePrintFormat.Thermal;
+        set
+        {
+            if (value)
+                ReceiptPrintFormat = InvoicePrintFormat.Thermal;
+        }
+    }
+
+    public bool IsA4ReceiptFormat
+    {
+        get => ReceiptPrintFormat == InvoicePrintFormat.A4;
+        set
+        {
+            if (value)
+                ReceiptPrintFormat = InvoicePrintFormat.A4;
+        }
+    }
+
+    public bool IsA5ReceiptFormat
+    {
+        get => ReceiptPrintFormat == InvoicePrintFormat.A5;
+        set
+        {
+            if (value)
+                ReceiptPrintFormat = InvoicePrintFormat.A5;
+        }
+    }
+
+    partial void OnReceiptPrintFormatChanged(InvoicePrintFormat value)
+    {
+        OnPropertyChanged(nameof(IsThermalReceiptFormat));
+        OnPropertyChanged(nameof(IsA4ReceiptFormat));
+        OnPropertyChanged(nameof(IsA5ReceiptFormat));
+    }
 
     public SettingsViewModel(AppServices services)
     {
@@ -125,6 +164,8 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptAlwaysUsePrintDialog = c.Print.AlwaysUsePrintDialog;
         SelectedPrinterFullName = c.Print.BillPrinterFullName;
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
+        ReceiptPrintFormat = c.Print.PrintFormat;
+        OnPropertyChanged(nameof(IsThermalReceiptFormat));
         ReceiptCentralSyncText = c.LastReceiptSettingsSyncUtc.HasValue
             ? $"Last synced: {s.StoreName} at {c.LastReceiptSettingsSyncUtc.Value.ToLocalTime():g}"
             : "(not synced from central yet)";
@@ -213,6 +254,7 @@ public partial class SettingsViewModel : ObservableObject
         if (w > 56) w = 56;
         ReceiptCharWidth = w;
         c.Print.ReceiptCharWidth = w;
+        c.Print.PrintFormat = ReceiptPrintFormat;
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
         UpdatePrinterWarning();
         LastActionText = "Receipt and printer settings saved.";

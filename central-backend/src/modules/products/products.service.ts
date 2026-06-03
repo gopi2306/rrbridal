@@ -2,8 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import {
+  applyObjectIdRefFilter,
   isValidObjectIdString,
-  objectIdRefEquals,
   PRODUCT_REF_OBJECT_ID_FIELDS,
   stripInvalidObjectIdRefs,
   toObjectId,
@@ -159,21 +159,8 @@ export class ProductsService {
     const upc = params.upcEanCode?.trim();
     if (upc) filter.upcEanCode = upc;
 
-    const categoryId = params.categoryId?.trim();
-    if (categoryId) {
-      if (!isValidObjectIdString(categoryId)) {
-        throw new BadRequestException('categoryId must be a valid 24-character hex ObjectId');
-      }
-      filter.categoryId = objectIdRefEquals(categoryId);
-    }
-
-    const supplierNameId = params.supplierNameId?.trim();
-    if (supplierNameId) {
-      if (!isValidObjectIdString(supplierNameId)) {
-        throw new BadRequestException('supplierNameId must be a valid 24-character hex ObjectId');
-      }
-      filter.supplierNameId = objectIdRefEquals(supplierNameId);
-    }
+    applyObjectIdRefFilter(filter, 'categoryId', params.categoryId);
+    applyObjectIdRefFilter(filter, 'supplierNameId', params.supplierNameId);
 
     const search = params.search?.trim();
     if (search) {
@@ -193,10 +180,16 @@ export class ProductsService {
   async filter(dto: FilterProductDto) {
     const filter: FilterQuery<ProductDocument> = {};
 
+    applyObjectIdRefFilter(
+      filter,
+      'supplierNameId',
+      dto.supplierNameId ?? dto.supplierId,
+    );
+
     const exactMatchFields = [
       'upcEanCode',
       'manufacturerNameId',
-      'supplierNameId',
+      // supplierNameId handled above (supports supplierId alias)
       'departmentId',
       'categoryId',
       'subCategoryId',
@@ -221,10 +214,7 @@ export class ProductsService {
     ] as const;
 
     for (const field of exactMatchFields) {
-      const raw = dto[field];
-      if (raw === undefined || raw === null) continue;
-      if (typeof raw === 'string' && !isValidObjectIdString(raw)) continue;
-      filter[field] = typeof raw === 'string' ? objectIdRefEquals(raw) : raw;
+      applyObjectIdRefFilter(filter, field, dto[field]);
     }
 
     if (dto.isActive !== undefined && dto.isActive !== null) {
