@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, PayloadTooLargeException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
+import { Location, LocationDocument } from '../locations/schemas/location.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ProductsService } from '../products/products.service';
 import { InventoryLedgerEntry, InventoryLedgerDocument, InventoryLocationKind } from './schemas/inventory-ledger.schema';
@@ -14,6 +15,20 @@ export type LedgerEntryInput = {
   note?: string;
   locationKind?: InventoryLocationKind;
   storeId?: string;
+  locationCode?: string;
+};
+
+export type WarehouseSkuQtyMaps = {
+  warehouseBySku: Map<string, number>;
+  inTransitBySku: Map<string, number>;
+  stockUnits: number;
+  inTransitUnits: number;
+};
+
+export type WarehouseSkuQtyScope = {
+  locationCode: string;
+  /** Legacy ledger rows without locationCode count only against this location */
+  legacyDefaultLocationCode: string;
 };
 
 export type WarehouseStoreGridRow = {
@@ -38,6 +53,7 @@ export class InventoryService {
   constructor(
     @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Location.name) private readonly locationModel: Model<LocationDocument>,
     private readonly productsService: ProductsService,
   ) {}
 
@@ -56,7 +72,11 @@ export class InventoryService {
         locationKind: loc,
       };
       if (e.note !== undefined) row.note = e.note;
-      if (loc === 'store' && e.storeId) row.storeId = String(e.storeId).trim();
+      if (loc === 'store' && e.storeId) row.storeId = String(e.storeId).trim().toLowerCase();
+      if (loc === 'warehouse' || loc === 'in_transit') {
+        const code = e.locationCode?.trim().toLowerCase();
+        if (code) row.locationCode = code;
+      }
       return row;
     });
     return await this.ledgerModel.insertMany(docs);
@@ -153,23 +173,160 @@ export class InventoryService {
 
   /** Warehouse on-hand qty per SKU (global pool from ledger `locationKind: warehouse`). */
   async getWarehouseQtyBySkus(skus: string[]): Promise<Map<string, number>> {
+    const maps = await this.getWarehouseSkuQtyMaps();
     const trimmed = [...new Set(skus.map((s) => s.trim()).filter(Boolean))];
-    const balanceMap = await this.aggregateBalancesForSkus(trimmed);
     const result = new Map<string, number>();
     for (const sku of trimmed) {
-      result.set(sku, balanceMap.get(sku)?.warehouseQty ?? 0);
+      result.set(sku, maps.warehouseBySku.get(sku) ?? 0);
     }
     return result;
   }
 
+  /** Warehouse on-hand qty per SKU at a single warehouse location. */
+  async getWarehouseQtyBySkusAtLocation(
+    locationCode: string,
+    skus: string[],
+    legacyDefaultLocationCode: string,
+  ): Promise<Map<string, number>> {
+    const maps = await this.getWarehouseSkuQtyMaps({
+      locationCode: locationCode.trim().toLowerCase(),
+      legacyDefaultLocationCode: legacyDefaultLocationCode.trim().toLowerCase(),
+    });
+    const trimmed = [...new Set(skus.map((s) => s.trim()).filter(Boolean))];
+    const result = new Map<string, number>();
+    for (const sku of trimmed) {
+      result.set(sku, maps.warehouseBySku.get(sku) ?? 0);
+    }
+    return result;
+  }
+
+  /** First active warehouse location code (for legacy GRN posting and default dashboard scope). */
+  async getDefaultWarehouseLocationCode(): Promise<string | undefined> {
+    const loc = await this.locationModel
+      .findOne({ isActive: true, type: 'warehouse' })
+      .sort({ code: 1 })
+      .select('code')
+      .lean();
+    return loc?.code?.trim().toLowerCase() || undefined;
+  }
+
+  /**
+   * Aggregates warehouse and in-transit quantities.
+   * Without scope: global totals (all locations, including legacy rows without locationCode).
+   * With scope: only rows for that warehouse, plus legacy rows attributed to legacyDefaultLocationCode.
+   */
+  async getWarehouseSkuQtyMaps(scope?: WarehouseSkuQtyScope): Promise<WarehouseSkuQtyMaps> {
+    type AggRow = {
+      _id: { sku: string; loc: string; locationCode: string | null };
+      qty: number;
+    };
+
+    const rows = await this.ledgerModel.aggregate<AggRow>([
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: { $in: ['warehouse', 'in_transit'] } } },
+      {
+        $group: {
+          _id: {
+            sku: '$sku',
+            loc: '$loc',
+            locationCode: { $ifNull: ['$locationCode', null] },
+          },
+          qty: { $sum: '$qtyDelta' },
+        },
+      },
+    ]);
+
+    const warehouseBySku = new Map<string, number>();
+    const inTransitBySku = new Map<string, number>();
+    let stockUnits = 0;
+    let inTransitUnits = 0;
+
+    for (const row of rows) {
+      if (scope && !this.rowMatchesWarehouseScope(row._id.locationCode, scope)) continue;
+
+      const sku = row._id.sku;
+      const qty = row.qty;
+      if (row._id.loc === 'warehouse') {
+        warehouseBySku.set(sku, (warehouseBySku.get(sku) ?? 0) + qty);
+        if (qty > 0) stockUnits += qty;
+      } else if (row._id.loc === 'in_transit') {
+        inTransitBySku.set(sku, (inTransitBySku.get(sku) ?? 0) + qty);
+        if (qty > 0) inTransitUnits += qty;
+      }
+    }
+
+    return { warehouseBySku, inTransitBySku, stockUnits, inTransitUnits };
+  }
+
+  private rowMatchesWarehouseScope(
+    rowLocationCode: string | null,
+    scope: WarehouseSkuQtyScope,
+  ): boolean {
+    const normalized = rowLocationCode?.trim().toLowerCase() ?? null;
+    if (!normalized) {
+      return scope.locationCode === scope.legacyDefaultLocationCode;
+    }
+    return normalized === scope.locationCode;
+  }
+
   /** Store on-hand qty per SKU for a single store (ledger `locationKind: store`). */
   async getStoreQtyBySkus(storeId: string, skus: string[]): Promise<Map<string, number>> {
-    const sid = storeId.trim();
+    const sid = storeId.trim().toLowerCase();
     const trimmed = [...new Set(skus.map((s) => s.trim()).filter(Boolean))];
     const balanceMap = await this.aggregateBalancesForSkus(trimmed);
     const result = new Map<string, number>();
     for (const sku of trimmed) {
       result.set(sku, balanceMap.get(sku)?.storeById.get(sid) ?? 0);
+    }
+    return result;
+  }
+
+  /** All on-hand SKU quantities for one store. */
+  async getStoreSkuQtyMap(storeId: string): Promise<Map<string, number>> {
+    const sid = storeId.trim().toLowerCase();
+    type AggRow = { _id: string; qty: number };
+
+    const rows = await this.ledgerModel.aggregate<AggRow>([
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: 'store', storeId: { $exists: true, $nin: [null, ''] } } },
+      {
+        $addFields: {
+          normalizedStoreId: { $toLower: { $trim: { input: { $toString: '$storeId' } } } },
+        },
+      },
+      { $match: { normalizedStoreId: sid } },
+      { $group: { _id: '$sku', qty: { $sum: '$qtyDelta' } } },
+    ]);
+
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      if (row.qty !== 0) map.set(row._id, row.qty);
+    }
+    return map;
+  }
+
+  /** On-hand SKU quantities grouped by normalized store code (for multi-store views). */
+  async getAllStoreSkuQtyMaps(): Promise<Map<string, Map<string, number>>> {
+    type AggRow = { _id: { sku: string; storeId: string }; qty: number };
+
+    const rows = await this.ledgerModel.aggregate<AggRow>([
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: 'store', storeId: { $exists: true, $nin: [null, ''] } } },
+      {
+        $addFields: {
+          normalizedStoreId: { $toLower: { $trim: { input: { $toString: '$storeId' } } } },
+        },
+      },
+      { $group: { _id: { sku: '$sku', storeId: '$normalizedStoreId' }, qty: { $sum: '$qtyDelta' } } },
+    ]);
+
+    const result = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      const storeKey = row._id.storeId;
+      const sku = row._id.sku;
+      if (!result.has(storeKey)) result.set(storeKey, new Map());
+      const storeMap = result.get(storeKey)!;
+      if (row.qty !== 0) storeMap.set(sku, row.qty);
     }
     return result;
   }
@@ -241,7 +398,7 @@ export class InventoryService {
       } else if (row._id.loc === 'in_transit') {
         b.inTransitQty += row.qty;
       } else if (row._id.loc === 'store') {
-        const sid = row._id.storeId ? String(row._id.storeId) : '';
+        const sid = row._id.storeId ? String(row._id.storeId).trim().toLowerCase() : '';
         b.storeById.set(sid, (b.storeById.get(sid) ?? 0) + row.qty);
       }
     }

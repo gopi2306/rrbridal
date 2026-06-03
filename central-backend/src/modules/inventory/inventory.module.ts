@@ -6,6 +6,7 @@ import { StoresModule } from '../stores/stores.module';
 import { InventoryExportController } from './inventory-export.controller';
 import { InventoryExportService } from './inventory-export.service';
 import { InventoryController } from './inventory.controller';
+import { Location, LocationSchema } from '../locations/schemas/location.schema';
 import { InventoryLedgerEntry, InventoryLedgerSchema } from './schemas/inventory-ledger.schema';
 import { InventoryService } from './inventory.service';
 
@@ -14,6 +15,7 @@ import { InventoryService } from './inventory.service';
     MongooseModule.forFeature([
       { name: InventoryLedgerEntry.name, schema: InventoryLedgerSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: Location.name, schema: LocationSchema },
     ]),
     ProductsModule,
     StoresModule,

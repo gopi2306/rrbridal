@@ -14,7 +14,7 @@ Existing `GET /api/dashboard` is unchanged (procurement summary).
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `locationCode` | First active warehouse `Location` | Warehouse label in response (ledger is global today) |
+| `locationCode` | First active warehouse `Location` | Scope metrics to that warehouse; unknown codes return 404 |
 | `lowStockLimit` | `10` | Max low-stock table rows (1–50) |
 | `activityLimit` | `10` | Max merged activity items (1–50) |
 | `inboundDays` | `7` | Include POs with `deliveryDate` from today through today + N days (1–90) |
@@ -71,9 +71,9 @@ Format `metrics.stockValue` as INR on the client (e.g. `₹7.82 Cr`).
 | Field | Source |
 |-------|--------|
 | `totalSkus` | Distinct SKUs with warehouse on-hand &gt; 0 |
-| `stockUnits` | Sum of warehouse ledger quantities |
-| `stockValue` | Sum of `warehouseQty × costPrice` for active products |
-| `inTransitUnits` | Sum of `in_transit` ledger quantities (outbound to stores) |
+| `stockUnits` | Sum of warehouse ledger quantities for the scoped warehouse |
+| `stockValue` | Sum of `warehouseQty × costPrice` for active products at that warehouse |
+| `inTransitUnits` | Sum of `in_transit` ledger quantities dispatched from that warehouse |
 | `lowStockSkus` | Active products where `warehouseQty ≤ reorderLevel` (fallback `minStock`) |
 | `pendingActions` | Draft GRNs + transfers in `draft`, `in_transit`, or `awaiting_intake` |
 

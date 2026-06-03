@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
-import { InventoryLedgerEntry, InventoryLedgerDocument } from '../inventory/schemas/inventory-ledger.schema';
+import { InventoryService } from '../inventory/inventory.service';
 import {
   PurchaseIntent,
   PurchaseIntentDocument,
@@ -53,7 +53,7 @@ const INBOUND_TRANSFER_STATUSES = ['draft', 'in_transit', 'awaiting_intake'] as 
 @Injectable()
 export class StoreDashboardService {
   constructor(
-    @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
+    private readonly inventoryService: InventoryService,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     @InjectModel(Category.name) private readonly categoryModel: Model<CategoryDocument>,
     @InjectModel(StockTransfer.name) private readonly stModel: Model<StockTransferDocument>,
@@ -65,10 +65,10 @@ export class StoreDashboardService {
     const availableStores = await this.listActiveStores();
     const store = await this.resolveStore(options.storeId, availableStores);
 
-    const [allStoreQty, products, inTransitByStore, openRequests] = await Promise.all([
-      this.buildAllStoreQtyMaps(),
+    const [allStoreQty, products, inTransitUnits, openRequests] = await Promise.all([
+      this.inventoryService.getAllStoreSkuQtyMaps(),
       this.loadProductsForDashboard(),
-      this.sumInboundTransferPiecesByStore(),
+      this.sumInboundTransferPiecesForStore(store.code),
       this.countOpenIntents(store.code),
     ]);
 
@@ -97,7 +97,7 @@ export class StoreDashboardService {
       availableStores,
       metrics: {
         ...metricsSnapshot,
-        inTransitUnits: inTransitByStore.get(store.code) ?? 0,
+        inTransitUnits,
         openRequests,
       },
       storeNetwork,
@@ -123,7 +123,7 @@ export class StoreDashboardService {
       : available[0];
 
     if (!match) {
-      if (code) throw new NotFoundException(`Store '${code}' not found or inactive`);
+      if (code) throw new NotFoundException(`Store '${storeId}' not found or inactive`);
       throw new NotFoundException('No active stores configured');
     }
 
@@ -132,26 +132,6 @@ export class StoreDashboardService {
       name: match.name,
       subtitle: `Floor and back-room stock, transfers, and replenishment — ${match.name}.`,
     };
-  }
-
-  private async buildAllStoreQtyMaps(): Promise<AllStoresQty> {
-    type AggRow = { _id: { sku: string; storeId: string }; qty: number };
-
-    const rows = await this.ledgerModel.aggregate<AggRow>([
-      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
-      { $match: { loc: 'store', storeId: { $exists: true, $nin: [null, ''] } } },
-      { $group: { _id: { sku: '$sku', storeId: '$storeId' }, qty: { $sum: '$qtyDelta' } } },
-    ]);
-
-    const result: AllStoresQty = new Map();
-    for (const row of rows) {
-      const storeId = String(row._id.storeId);
-      const sku = row._id.sku;
-      if (!result.has(storeId)) result.set(storeId, new Map());
-      const storeMap = result.get(storeId)!;
-      storeMap.set(sku, (storeMap.get(sku) ?? 0) + row.qty);
-    }
-    return result;
   }
 
   private async loadProductsForDashboard(): Promise<ProductLean[]> {
@@ -203,6 +183,8 @@ export class StoreDashboardService {
     const rows: StoreLowStockRow[] = [];
 
     for (const p of products) {
+      if (!storeQty.has(p.sku)) continue;
+
       const threshold = this.getShelfThreshold(p);
       if (threshold === undefined) continue;
 
@@ -290,27 +272,27 @@ export class StoreDashboardService {
       .sort((a, b) => b.pieces - a.pieces);
   }
 
-  private async sumInboundTransferPiecesByStore(): Promise<Map<string, number>> {
+  private async sumInboundTransferPiecesForStore(storeId: string): Promise<number> {
+    const sid = storeId.trim().toLowerCase();
     const transfers = await this.stModel
       .find({
         direction: 'warehouse_to_store',
+        toStoreId: sid,
         status: { $in: [...INBOUND_TRANSFER_STATUSES] },
       })
-      .select('toStoreId lines')
+      .select('lines')
       .lean();
 
-    const map = new Map<string, number>();
+    let total = 0;
     for (const t of transfers) {
-      if (!t.toStoreId) continue;
-      const pieces = this.sumTransferQty(t.lines);
-      map.set(t.toStoreId, (map.get(t.toStoreId) ?? 0) + pieces);
+      total += this.sumTransferQty(t.lines);
     }
-    return map;
+    return total;
   }
 
   private async countOpenIntents(storeId: string): Promise<number> {
     return await this.intentModel.countDocuments({
-      storeId,
+      storeId: storeId.trim().toLowerCase(),
       status: { $in: [...OPEN_INTENT_STATUSES] },
     });
   }
@@ -321,13 +303,14 @@ export class StoreDashboardService {
     lowStockRows: StoreLowStockRow[],
     stores: Array<{ code: string; name: string }>,
   ): Promise<StoreRecentActivity[]> {
-    const storeName = stores.find((s) => s.code === storeId)?.name ?? storeId;
+    const sid = storeId.trim().toLowerCase();
+    const storeName = stores.find((s) => s.code === sid)?.name ?? sid;
 
     const [completedTransfers, pendingTransfers, intents] = await Promise.all([
       this.stModel
         .find({
           direction: 'warehouse_to_store',
-          toStoreId: storeId,
+          toStoreId: sid,
           status: 'completed',
         })
         .sort({ updatedAt: -1 })
@@ -336,14 +319,14 @@ export class StoreDashboardService {
       this.stModel
         .find({
           direction: 'warehouse_to_store',
-          toStoreId: storeId,
+          toStoreId: sid,
           status: { $in: ['in_transit', 'awaiting_intake'] },
         })
         .sort({ updatedAt: -1 })
         .limit(options.activityLimit)
         .lean(),
       this.intentModel
-        .find({ storeId, status: { $in: [...OPEN_INTENT_STATUSES] } })
+        .find({ storeId: sid, status: { $in: [...OPEN_INTENT_STATUSES] } })
         .sort({ updatedAt: -1 })
         .limit(options.activityLimit)
         .lean(),
@@ -409,12 +392,13 @@ export class StoreDashboardService {
     limit: number,
     stores: Array<{ code: string; name: string }>,
   ): Promise<StoreTransferScheduleRow[]> {
-    const storeName = stores.find((s) => s.code === storeId)?.name ?? storeId;
+    const sid = storeId.trim().toLowerCase();
+    const storeName = stores.find((s) => s.code === sid)?.name ?? sid;
 
     const transfers = await this.stModel
       .find({
         direction: 'warehouse_to_store',
-        toStoreId: storeId,
+        toStoreId: sid,
         status: { $in: [...INBOUND_TRANSFER_STATUSES] },
       })
       .sort({ transferDate: 1, createdAt: 1 })

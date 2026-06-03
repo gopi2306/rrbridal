@@ -5,6 +5,7 @@ import { PurchaseOrder, PurchaseOrderSchema } from '../purchase-orders/schemas/p
 import { GoodsReceipt, GoodsReceiptSchema } from '../goods-receipts/schemas/goods-receipt.schema';
 import { StockTransfer, StockTransferSchema } from '../stock-transfers/schemas/stock-transfer.schema';
 import { Supplier, SupplierSchema } from '../suppliers/schemas/supplier.schema';
+import { InventoryModule } from '../inventory/inventory.module';
 import { InventoryLedgerEntry, InventoryLedgerSchema } from '../inventory/schemas/inventory-ledger.schema';
 import { Location, LocationSchema } from '../locations/schemas/location.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
@@ -21,6 +22,7 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
 
 @Module({
   imports: [
+    InventoryModule,
     MongooseModule.forFeature([
       { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
       { name: GoodsReceipt.name, schema: GoodsReceiptSchema },

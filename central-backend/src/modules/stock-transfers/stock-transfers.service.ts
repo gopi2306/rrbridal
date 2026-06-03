@@ -104,7 +104,29 @@ export class StockTransfersService {
     return this.resolveWarehouseLocationId(locationId);
   }
 
-  private async assertSufficientWarehouseStock(lines: { sku: string; qty: number }[]) {
+  private async resolveWarehouseLocationCode(locationId: Types.ObjectId): Promise<string> {
+    const loc = await this.locationsService.findById(String(locationId));
+    return loc.code.trim().toLowerCase();
+  }
+
+  private async warehouseLocationCodeFromDoc(doc: {
+    direction?: string;
+    fromLocationId?: Types.ObjectId;
+    toLocationId?: Types.ObjectId;
+  }): Promise<string | undefined> {
+    if (this.resolveDirectionFromDoc(doc) === 'warehouse_to_store' && doc.fromLocationId) {
+      return await this.resolveWarehouseLocationCode(doc.fromLocationId);
+    }
+    if (doc.direction === 'store_to_warehouse' && doc.toLocationId) {
+      return await this.resolveWarehouseLocationCode(doc.toLocationId);
+    }
+    return undefined;
+  }
+
+  private async assertSufficientWarehouseStock(
+    lines: { sku: string; qty: number }[],
+    fromLocationId?: Types.ObjectId,
+  ) {
     const requestedBySku = new Map<string, number>();
     for (const line of lines) {
       const sku = line.sku.trim();
@@ -113,7 +135,22 @@ export class StockTransfersService {
     }
     if (requestedBySku.size === 0) return;
 
-    const availableBySku = await this.inventoryService.getWarehouseQtyBySkus([...requestedBySku.keys()]);
+    const skus = [...requestedBySku.keys()];
+    let availableBySku: Map<string, number>;
+    if (fromLocationId) {
+      const locationCode = await this.resolveWarehouseLocationCode(fromLocationId);
+      const legacyDefault = await this.inventoryService.getDefaultWarehouseLocationCode();
+      if (!legacyDefault) {
+        throw new BadRequestException('No active warehouse location configured for stock check');
+      }
+      availableBySku = await this.inventoryService.getWarehouseQtyBySkusAtLocation(
+        locationCode,
+        skus,
+        legacyDefault,
+      );
+    } else {
+      availableBySku = await this.inventoryService.getWarehouseQtyBySkus(skus);
+    }
     const shortages: string[] = [];
     for (const [sku, requested] of requestedBySku) {
       const available = availableBySku.get(sku) ?? 0;
@@ -214,7 +251,7 @@ export class StockTransfersService {
     const storeExists = await this.storesService.existsByCode(toStoreId);
     if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${toStoreId}'`);
     const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
-    await this.assertSufficientWarehouseStock(lines);
+    await this.assertSufficientWarehouseStock(lines, fromLocationId);
     const created = await this.model.create({
       transferNo,
       direction: 'warehouse_to_store' as const,
@@ -278,9 +315,9 @@ export class StockTransfersService {
       lines.push(line);
     }
 
-    await this.assertSufficientWarehouseStock(lines);
-    const transferNo = await this.nextTransferNo();
     const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
+    await this.assertSufficientWarehouseStock(lines, fromLocationId);
+    const transferNo = await this.nextTransferNo();
     const created = await this.model.create({
       transferNo,
       direction: 'warehouse_to_store' as const,
@@ -332,7 +369,7 @@ export class StockTransfersService {
         if (!fromStoreId) throw new BadRequestException('Transfer out is missing fromStoreId');
         await this.assertSufficientStoreStock(fromStoreId, lines);
       } else {
-        await this.assertSufficientWarehouseStock(lines);
+        await this.assertSufficientWarehouseStock(lines, current.fromLocationId);
       }
       set.lines = lines;
     }
@@ -618,6 +655,8 @@ export class StockTransfersService {
     const direction = this.resolveDirectionFromDoc(doc);
     const isOut = direction === 'store_to_warehouse';
     const storeId = this.owningStoreId(doc);
+    const whLoc = await this.warehouseLocationCodeFromDoc(doc);
+    const whLocOpt = whLoc ? { locationCode: whLoc } : {};
 
     if (from === 'draft' && to === 'in_transit') {
       if (isOut) {
@@ -639,10 +678,11 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
         ]);
       } else {
-        await this.assertSufficientWarehouseStock(lines);
+        await this.assertSufficientWarehouseStock(lines, doc.fromLocationId);
         await this.inventoryService.addLedgerEntries([
           ...lines.map((l) => ({
             sku: l.sku,
@@ -651,6 +691,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'warehouse' as const,
+            ...whLocOpt,
           })),
           ...lines.map((l) => ({
             sku: l.sku,
@@ -659,6 +700,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
         ]);
       }
@@ -675,6 +717,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
           ...lines.map((l) => ({
             sku: l.sku,
@@ -683,6 +726,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'warehouse' as const,
+            ...whLocOpt,
           })),
         ]);
       } else {
@@ -694,6 +738,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
           ...lines.map((l) => ({
             sku: l.sku,
@@ -719,6 +764,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
           ...lines.map((l) => ({
             sku: l.sku,
@@ -739,6 +785,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'in_transit' as const,
+            ...whLocOpt,
           })),
           ...lines.map((l) => ({
             sku: l.sku,
@@ -747,6 +794,7 @@ export class StockTransfersService {
             sourceId: transferId,
             note,
             locationKind: 'warehouse' as const,
+            ...whLocOpt,
           })),
         ]);
       }
