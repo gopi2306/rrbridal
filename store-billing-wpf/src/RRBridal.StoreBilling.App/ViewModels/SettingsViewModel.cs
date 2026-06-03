@@ -178,7 +178,7 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void PullReceiptFromCentralAsync()
+    public void PullReceiptFromCentral()
     {
         _services.ReceiptConfig.Reload();
         ApplyReceiptFieldsFromConfig();

@@ -87,6 +87,38 @@
                             </Border>
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Barcodes}" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="Barcodes" HorizontalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
+                                        <Setter Property="Opacity" Value="0.55"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Barcodes}">
+                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                <Setter Property="Opacity" Value="1"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Barcodes}">
+                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}" Margin="0,0,16,0"
                             Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
@@ -348,6 +380,9 @@
             <!-- Visibility on a wrapper Grid so page DataContext does not break shell bindings. -->
             <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
                 <views:BillingView DataContext="{Binding Billing}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsBarcodesPage, Converter={StaticResource BoolToVis}}">
+                <views:BarcodePrintingView DataContext="{Binding BarcodePrinting}"/>
             </Grid>
             <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
                 <views:DashboardView DataContext="{Binding Dashboard}"/>

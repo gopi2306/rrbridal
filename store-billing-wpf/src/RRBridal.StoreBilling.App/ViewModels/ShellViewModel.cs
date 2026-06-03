@@ -28,6 +28,8 @@ public partial class ShellViewModel : ObservableObject
 
     public DuplicateBillViewModel DuplicateBill { get; }
 
+    public BarcodePrintingViewModel BarcodePrinting { get; }
+
     [ObservableProperty] private ShellPage _currentPage = ShellPage.Billing;
 
     public string LoggedInUserName => _services.UserSession?.LoggedInUser.Name ?? "Unknown";
@@ -87,6 +89,7 @@ public partial class ShellViewModel : ObservableObject
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
         DuplicateBill = new DuplicateBillViewModel(services);
+        BarcodePrinting = new BarcodePrintingViewModel(services);
 
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
@@ -109,6 +112,7 @@ public partial class ShellViewModel : ObservableObject
         WindowTitleText = snap.WindowTitleText;
         Dashboard.ApplyBrandingFromShell();
         Ledger.ApplyBrandingFromShell();
+        BarcodePrinting.ApplyBrandingFromShell();
     }
 
     public async Task RefreshBrandingAsync()
@@ -131,6 +135,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
+        OnPropertyChanged(nameof(IsBarcodesPage));
     }
 
     private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
@@ -163,6 +168,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsDuplicateBillPage => CurrentPage == ShellPage.DuplicateBill;
 
+    public bool IsBarcodesPage => CurrentPage == ShellPage.Barcodes;
+
     partial void OnCurrentPageChanged(ShellPage value)
     {
         OnPropertyChanged(nameof(IsBillingPage));
@@ -173,6 +180,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
+        OnPropertyChanged(nameof(IsBarcodesPage));
 
         if (value == ShellPage.Dashboard)
             _ = Dashboard.RefreshCommand.ExecuteAsync(null);
@@ -184,12 +192,17 @@ public partial class ShellViewModel : ObservableObject
 
         if (value == ShellPage.Billing)
             RequestBillingSearchFocus();
+        if (value == ShellPage.Barcodes)
+            RequestBarcodeSkuFocus();
 
         PostBillCommand.NotifyCanExecuteChanged();
     }
 
     public void RequestBillingSearchFocus() =>
         _services.FocusSearch?.FocusBillingProductSearch();
+
+    public void RequestBarcodeSkuFocus() =>
+        _services.FocusBarcodeSkuEntry?.Invoke();
 
     partial void OnGlobalSearchTextChanged(string value)
     {
@@ -242,6 +255,8 @@ public partial class ShellViewModel : ObservableObject
     {
         if (CurrentPage == ShellPage.Billing)
             _services.FocusSearch?.FocusBillingProductSearch();
+        else if (CurrentPage == ShellPage.Barcodes)
+            RequestBarcodeSkuFocus();
         else
             _services.FocusSearch?.FocusGlobalSearch();
     }

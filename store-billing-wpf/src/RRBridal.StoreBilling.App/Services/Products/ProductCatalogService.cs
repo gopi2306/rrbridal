@@ -197,6 +197,7 @@ public sealed class ProductCatalogService
         {
             CentralId = id,
             Sku = sku,
+            UpcEanCode = ReadString(d, "upcEanCode"),
             Name = name,
             CostPrice = ReadDecimalBson(d, "costPrice"),
             MarginPercent = ReadDecimalBson(d, "marginPercent"),

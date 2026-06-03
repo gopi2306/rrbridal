@@ -33,6 +33,8 @@ public partial class MainWindow : Window, IFocusSearchService
             return;
         if (vm.CurrentPage == ShellPage.Billing)
             App.Services.FocusBillingProductSearch?.Invoke();
+        else if (vm.CurrentPage == ShellPage.Barcodes)
+            vm.RequestBarcodeSkuFocus();
         else
             vm.FocusGlobalSearchCommand.Execute(null);
         e.Handled = true;
@@ -95,6 +97,14 @@ public partial class MainWindow : Window, IFocusSearchService
     {
         if (App.Services.FocusBillingProductSearch != null)
             App.Services.FocusBillingProductSearch.Invoke();
+        else
+            FocusGlobalSearch();
+    }
+
+    public void FocusBarcodeSkuEntry()
+    {
+        if (App.Services.FocusBarcodeSkuEntry != null)
+            App.Services.FocusBarcodeSkuEntry.Invoke();
         else
             FocusGlobalSearch();
     }

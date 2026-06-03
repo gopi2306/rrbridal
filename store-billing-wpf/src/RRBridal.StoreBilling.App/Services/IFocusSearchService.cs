@@ -5,4 +5,6 @@ public interface IFocusSearchService
     void FocusGlobalSearch();
 
     void FocusBillingProductSearch();
+
+    void FocusBarcodeSkuEntry();
 }

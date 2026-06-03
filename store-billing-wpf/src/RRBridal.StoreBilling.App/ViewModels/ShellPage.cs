@@ -10,4 +10,5 @@ public enum ShellPage
     SaleReturn,
     Adjustments,
     DuplicateBill,
+    Barcodes,
 }

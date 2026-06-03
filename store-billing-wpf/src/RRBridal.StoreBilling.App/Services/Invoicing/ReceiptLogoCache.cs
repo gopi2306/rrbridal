@@ -51,21 +51,9 @@ public sealed class ReceiptLogoCache
         return LoadImageFromFile(_cachePath);
     }
 
-    private static ImageSource? LoadImageFromFile(string path)
-    {
-        try
-        {
-            var img = new BitmapImage();
-            img.BeginInit();
-            img.CacheOption = BitmapCacheOption.OnLoad;
-            img.UriSource = new Uri(path, UriKind.Absolute);
-            img.EndInit();
-            img.Freeze();
-            return img;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    /// <summary>Decode wide enough for 80mm thermal receipt (~640px at 203 DPI).</summary>
+    private const int ReceiptLogoDecodePixelWidth = 640;
+
+    private static ImageSource? LoadImageFromFile(string path) =>
+        ReceiptLogoImageHelper.LoadTrimmedForReceipt(path, ReceiptLogoDecodePixelWidth);
 }

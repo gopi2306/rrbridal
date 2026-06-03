@@ -22,6 +22,9 @@ public sealed class AppServices
     /// <summary>Focuses billing line-item product search (set by BillingView).</summary>
     public Action? FocusBillingProductSearch { get; set; }
 
+    /// <summary>Focuses barcode printing draft SKU row (set by BarcodePrintingView).</summary>
+    public Action? FocusBarcodeSkuEntry { get; set; }
+
     public required IMongoDatabase LocalDb { get; init; }
     public required HttpClient CentralApi { get; init; }
     public required ISyncEngine SyncEngine { get; init; }

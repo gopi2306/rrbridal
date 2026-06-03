@@ -11,7 +11,14 @@ public sealed class BillPrintService
     /// <summary>~80mm at 96 DPI.</summary>
     private const double DefaultPageWidthPx = 80.0 / 25.4 * 96.0;
 
-    private const double LogoMaxWidthPx = 72.0 / 25.4 * 96.0;
+    private const double PagePaddingPx = 8.0;
+
+    private const double PageTopPaddingWithLogoPx = 2.0;
+
+    private const double LogoBlockMarginBottomPx = 2.0;
+
+    /// <summary>Cap logo height so tall assets do not dominate the receipt.</summary>
+    private const double LogoMaxHeightPx = 28.0 / 25.4 * 96.0;
 
     private const double QrSlotWidthPx = 22.0 / 25.4 * 96.0;
 
@@ -24,23 +31,30 @@ public sealed class BillPrintService
         double fontSize = 10.0,
         double? pageWidthPx = null)
     {
+        var pageWidth = pageWidthPx ?? DefaultPageWidthPx;
+        var contentWidth = pageWidth - PagePaddingPx * 2;
+
+        var hasLogo = assets?.Logo != null;
         var doc = new FlowDocument
         {
-            PageWidth = pageWidthPx ?? DefaultPageWidthPx,
-            PagePadding = new Thickness(8, 8, 8, 8),
+            PageWidth = pageWidth,
+            PagePadding = hasLogo
+                ? new Thickness(PagePaddingPx, PageTopPaddingWithLogoPx, PagePaddingPx, PagePaddingPx)
+                : new Thickness(PagePaddingPx),
             FontFamily = new FontFamily("Consolas,Courier New"),
             FontSize = fontSize,
             Foreground = Brushes.Black,
             Background = Brushes.White,
         };
 
-        if (assets?.Logo != null)
+        if (hasLogo)
         {
-            var logoImg = CreateImage(assets.Logo, LogoMaxWidthPx);
+            var logoImg = CreateScaledImage(assets!.Logo!, contentWidth, LogoMaxHeightPx);
             var logoPara = new Paragraph(new InlineUIContainer(logoImg))
             {
                 TextAlignment = TextAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 6),
+                Margin = new Thickness(0, 0, 0, LogoBlockMarginBottomPx),
+                Padding = new Thickness(0),
             };
             doc.Blocks.Add(logoPara);
         }
@@ -77,7 +91,7 @@ public sealed class BillPrintService
                     TextAlignment = TextAlignment.Center,
                     Padding = new Thickness(2),
                 };
-                cell.Blocks.Add(new BlockUIContainer(CreateImage(qr.Image, QrSlotWidthPx)));
+                cell.Blocks.Add(new BlockUIContainer(CreateScaledImage(qr.Image, QrSlotWidthPx, null)));
                 if (!string.IsNullOrWhiteSpace(qr.Label))
                 {
                     cell.Blocks.Add(new Paragraph(new Run(qr.Label))
@@ -96,7 +110,7 @@ public sealed class BillPrintService
 
         if (assets.BillBarcode != null)
         {
-            var bcImg = CreateImage(assets.BillBarcode, LogoMaxWidthPx);
+            var bcImg = CreateScaledImage(assets.BillBarcode, contentWidth, null);
             var bcPara = new Paragraph(new InlineUIContainer(bcImg))
             {
                 TextAlignment = TextAlignment.Center,
@@ -117,16 +131,43 @@ public sealed class BillPrintService
         return doc;
     }
 
-    private static Image CreateImage(ImageSource source, double maxWidth)
+    /// <summary>
+    /// Sizes the image to fill <paramref name="targetWidth"/> (FlowDocument ignores MaxWidth-only upscaling).
+    /// </summary>
+    private static Image CreateScaledImage(ImageSource source, double targetWidth, double? maxHeightPx)
     {
-        var img = new Image
+        var (width, height) = ComputeScaledSize(source, targetWidth, maxHeightPx);
+        return new Image
         {
             Source = source,
             Stretch = Stretch.Uniform,
-            MaxWidth = maxWidth,
+            Width = width,
+            Height = height,
             HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0),
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true,
         };
-        return img;
+    }
+
+    private static (double Width, double Height) ComputeScaledSize(
+        ImageSource source,
+        double targetWidth,
+        double? maxHeightPx)
+    {
+        if (source.Width <= 0 || source.Height <= 0)
+            return (targetWidth, double.NaN);
+
+        var scale = targetWidth / source.Width;
+        var height = source.Height * scale;
+        if (maxHeightPx.HasValue && height > maxHeightPx.Value)
+        {
+            scale = maxHeightPx.Value / source.Height;
+            return (source.Width * scale, maxHeightPx.Value);
+        }
+
+        return (targetWidth, height);
     }
 
     /// <summary>Print to a specific queue, or return false if queue unavailable.</summary>
