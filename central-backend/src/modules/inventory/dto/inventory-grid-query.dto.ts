@@ -10,7 +10,8 @@ export class InventoryGridQueryDto {
 
   @ApiProperty({
     required: false,
-    description: 'When set, storeQty is quantity at this store only; when omitted, storeQty sums all store locations',
+    description:
+      'Store code; when set, returns only SKUs with on-hand stock at that store (storeQty > 0); warehouseQty and inTransitQty are 0',
   })
   @IsString()
   @IsOptional()

@@ -51,6 +51,8 @@ import { RoleAccessModule } from '../role-access/role-access.module';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 import { StoreSalesModule } from '../store-sales/store-sales.module';
 import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
+import { MyStoreModule } from '../my-store/my-store.module';
+import { MyWarehouseModule } from '../my-warehouse/my-warehouse.module';
 
 @Module({
   imports: [
@@ -109,6 +111,8 @@ import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.m
     DocumentNumbersModule,
     StoreSalesModule,
     PromotionSchemesModule,
+    MyStoreModule,
+    MyWarehouseModule,
   ],
   controllers: [AppController],
 })

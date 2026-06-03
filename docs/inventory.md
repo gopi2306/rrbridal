@@ -28,7 +28,7 @@ Query parameters:
 | Param | Description |
 |-------|-------------|
 | `search` | Optional; filters products by SKU, barcode, name (same rules as product list). |
-| `storeId` | Optional; when set, **`storeQty`** is on-hand for that store only. When omitted, **`storeQty`** is the sum across all stores. |
+| `storeId` | Optional store code; when set, only SKUs with **store on-hand &gt; 0** at that store are returned; `storeQty` is that store’s qty; `warehouseQty` and `inTransitQty` are `0`. When omitted, all products are listed and `storeQty` sums all stores. |
 | `limit` | Max rows (default 200, max 500). |
 
 Response rows (one per product in the result set):

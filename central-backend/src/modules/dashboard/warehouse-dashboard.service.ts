@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { GoodsReceipt, GoodsReceiptDocument } from '../goods-receipts/schemas/goods-receipt.schema';
+import { InventoryService, WarehouseSkuQtyMaps, WarehouseSkuQtyScope } from '../inventory/inventory.service';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
-import { InventoryLedgerEntry, InventoryLedgerDocument } from '../inventory/schemas/inventory-ledger.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { PurchaseOrder, PurchaseOrderDocument } from '../purchase-orders/schemas/purchase-order.schema';
 import { StockTransfer, StockTransferDocument } from '../stock-transfers/schemas/stock-transfer.schema';
@@ -16,11 +16,12 @@ import type {
   WarehouseRecentActivity,
 } from './warehouse-dashboard.types';
 
-type SkuQtyMaps = {
-  warehouseBySku: Map<string, number>;
-  inTransitBySku: Map<string, number>;
-  stockUnits: number;
-  inTransitUnits: number;
+type ResolvedWarehouse = {
+  warehouse: { code: string; name: string; subtitle: string };
+  locationId: string;
+  legacyDefaultLocationId: string;
+  legacyDefaultLocationCode: string;
+  qtyScope?: WarehouseSkuQtyScope;
 };
 
 type LowStockEval = {
@@ -31,7 +32,7 @@ type LowStockEval = {
 @Injectable()
 export class WarehouseDashboardService {
   constructor(
-    @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
+    private readonly inventoryService: InventoryService,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     @InjectModel(Category.name) private readonly categoryModel: Model<CategoryDocument>,
     @InjectModel(Location.name) private readonly locationModel: Model<LocationDocument>,
@@ -42,9 +43,9 @@ export class WarehouseDashboardService {
   ) {}
 
   async getWarehouseDashboard(options: WarehouseDashboardOptions): Promise<WarehouseDashboardResponse> {
-    const warehouse = await this.resolveWarehouse(options.locationCode);
+    const resolved = await this.resolveWarehouse(options.locationCode);
 
-    const qtyMaps = await this.buildSkuQtyMaps();
+    const qtyMaps = await this.inventoryService.getWarehouseSkuQtyMaps(resolved.qtyScope);
     const lowStockEval = await this.evaluateLowStock(qtyMaps.warehouseBySku, options.lowStockLimit);
 
     const [
@@ -55,14 +56,14 @@ export class WarehouseDashboardService {
       metricsExtras,
     ] = await Promise.all([
       this.getStockByCategory(qtyMaps.warehouseBySku),
-      this.countPendingActions(),
-      this.getRecentActivity(options, lowStockEval.rows),
+      this.countPendingActions(resolved),
+      this.getRecentActivity(options, lowStockEval.rows, resolved),
       this.getInboundPipeline(options.inboundDays),
       this.computeMetricsExtras(qtyMaps),
     ]);
 
     return {
-      warehouse,
+      warehouse: resolved.warehouse,
       metrics: {
         totalSkus: metricsExtras.totalSkus,
         stockUnits: qtyMaps.stockUnits,
@@ -78,52 +79,53 @@ export class WarehouseDashboardService {
     };
   }
 
-  private async resolveWarehouse(locationCode?: string) {
-    const code = locationCode?.trim().toLowerCase();
-    const loc = code
-      ? await this.locationModel.findOne({ code, isActive: true, type: 'warehouse' }).lean()
-      : await this.locationModel.findOne({ isActive: true, type: 'warehouse' }).sort({ code: 1 }).lean();
+  private async resolveWarehouse(locationCode?: string): Promise<ResolvedWarehouse> {
+    const defaultLoc = await this.locationModel
+      .findOne({ isActive: true, type: 'warehouse' })
+      .sort({ code: 1 })
+      .lean();
 
-    const name = loc?.name ?? 'Main Warehouse';
-    const resolvedCode = loc?.code ?? code ?? 'warehouse';
+    const code = locationCode?.trim().toLowerCase();
+    if (code) {
+      const loc = await this.locationModel.findOne({ code, isActive: true, type: 'warehouse' }).lean();
+      if (!loc) {
+        throw new NotFoundException(`Warehouse location '${locationCode}' not found`);
+      }
+      const legacyDefaultLocationId = defaultLoc ? String(defaultLoc._id) : String(loc._id);
+      const legacyDefaultLocationCode = defaultLoc ? defaultLoc.code : loc.code;
+      return {
+        warehouse: {
+          code: loc.code,
+          name: loc.name,
+          subtitle: `Bridal warehouse stock, receipts, outbound transfers to boutiques, and alerts — ${loc.name}.`,
+        },
+        locationId: String(loc._id),
+        legacyDefaultLocationId,
+        legacyDefaultLocationCode,
+        qtyScope: {
+          locationCode: loc.code,
+          legacyDefaultLocationCode,
+        },
+      };
+    }
+
+    if (!defaultLoc) {
+      throw new NotFoundException('No active warehouse location configured');
+    }
 
     return {
-      code: resolvedCode,
-      name,
-      subtitle: `Bridal warehouse stock, receipts, outbound transfers to boutiques, and alerts — ${name}.`,
+      warehouse: {
+        code: defaultLoc.code,
+        name: defaultLoc.name,
+        subtitle: `Bridal warehouse stock, receipts, outbound transfers to boutiques, and alerts — ${defaultLoc.name}.`,
+      },
+      locationId: String(defaultLoc._id),
+      legacyDefaultLocationId: String(defaultLoc._id),
+      legacyDefaultLocationCode: defaultLoc.code,
     };
   }
 
-  private async buildSkuQtyMaps(): Promise<SkuQtyMaps> {
-    type AggRow = { _id: { sku: string; loc: string }; qty: number };
-
-    const rows = await this.ledgerModel.aggregate<AggRow>([
-      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
-      { $match: { loc: { $in: ['warehouse', 'in_transit'] } } },
-      { $group: { _id: { sku: '$sku', loc: '$loc' }, qty: { $sum: '$qtyDelta' } } },
-    ]);
-
-    const warehouseBySku = new Map<string, number>();
-    const inTransitBySku = new Map<string, number>();
-    let stockUnits = 0;
-    let inTransitUnits = 0;
-
-    for (const row of rows) {
-      const sku = row._id.sku;
-      const qty = row.qty;
-      if (row._id.loc === 'warehouse') {
-        warehouseBySku.set(sku, (warehouseBySku.get(sku) ?? 0) + qty);
-        if (qty > 0) stockUnits += qty;
-      } else if (row._id.loc === 'in_transit') {
-        inTransitBySku.set(sku, (inTransitBySku.get(sku) ?? 0) + qty);
-        if (qty > 0) inTransitUnits += qty;
-      }
-    }
-
-    return { warehouseBySku, inTransitBySku, stockUnits, inTransitUnits };
-  }
-
-  private async computeMetricsExtras(qtyMaps: SkuQtyMaps) {
+  private async computeMetricsExtras(qtyMaps: WarehouseSkuQtyMaps) {
     const skusWithStock = [...qtyMaps.warehouseBySku.entries()]
       .filter(([, q]) => q > 0)
       .map(([sku]) => sku);
@@ -250,20 +252,52 @@ export class WarehouseDashboardService {
     return { rows: rows.slice(0, limit), count: rows.length };
   }
 
-  private async countPendingActions(): Promise<number> {
+  private async countPendingActions(resolved: ResolvedWarehouse): Promise<number> {
     const [draftGrn, openTransfers] = await Promise.all([
       this.grModel.countDocuments({ status: 'draft' }),
       this.stModel.countDocuments({
+        ...this.transferFilterForWarehouse(resolved),
         status: { $in: ['draft', 'in_transit', 'awaiting_intake'] },
       }),
     ]);
     return draftGrn + openTransfers;
   }
 
+  private transferFilterForWarehouse(resolved: ResolvedWarehouse): Record<string, unknown> {
+    const locationMatch = this.locationMatchOrLegacy(
+      resolved.locationId,
+      resolved.legacyDefaultLocationId,
+      'fromLocationId',
+    );
+    return {
+      direction: 'warehouse_to_store',
+      ...locationMatch,
+    };
+  }
+
+  private locationMatchOrLegacy(
+    locationId: string,
+    legacyDefaultLocationId: string,
+    field: 'fromLocationId',
+  ): Record<string, unknown> {
+    if (locationId === legacyDefaultLocationId) {
+      return {
+        $or: [
+          { [field]: new Types.ObjectId(locationId) },
+          { [field]: { $exists: false } },
+          { [field]: null },
+        ],
+      };
+    }
+    return { [field]: new Types.ObjectId(locationId) };
+  }
+
   private async getRecentActivity(
     options: WarehouseDashboardOptions,
     lowStockRows: WarehouseLowStockRow[],
+    resolved: ResolvedWarehouse,
   ): Promise<WarehouseRecentActivity[]> {
+    const transferBase = this.transferFilterForWarehouse(resolved);
     const [grns, transfers, pos] = await Promise.all([
       this.grModel
         .find({ status: 'posted' })
@@ -272,7 +306,7 @@ export class WarehouseDashboardService {
         .lean(),
       this.stModel
         .find({
-          direction: 'warehouse_to_store',
+          ...transferBase,
           status: { $in: ['in_transit', 'awaiting_intake'] },
         })
         .sort({ updatedAt: -1 })

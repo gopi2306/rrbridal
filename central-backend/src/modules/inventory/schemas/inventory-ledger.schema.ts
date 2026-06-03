@@ -24,6 +24,13 @@ export class InventoryLedgerEntry {
   @Prop({ index: true })
   storeId?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Warehouse Location.code when locationKind is warehouse or in_transit; legacy rows omit this',
+  })
+  @Prop({ trim: true, lowercase: true, index: true })
+  locationCode?: string;
+
   @ApiProperty()
   @Prop({ required: true, index: true })
   sourceType!: string; // e.g. GoodsReceiptPosted

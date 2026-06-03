@@ -259,6 +259,8 @@ export class GoodsReceiptsService {
     if (!doc) throw new NotFoundException('Goods receipt not found');
 
     const lines = doc.lines ?? [];
+    const defaultWarehouseLocationCode = await this.inventoryService.getDefaultWarehouseLocationCode();
+    const locOpt = defaultWarehouseLocationCode ? { locationCode: defaultWarehouseLocationCode } : {};
     const ledgerEntries = lines
       .filter((l) => (l.outcome ?? 'valid') === 'valid')
       .map((l) => ({
@@ -268,6 +270,7 @@ export class GoodsReceiptsService {
         sourceId: String(doc._id),
         note: doc.receiptNo,
         locationKind: 'warehouse' as const,
+        ...locOpt,
       }))
       .filter((e) => e.qtyDelta !== 0);
 
