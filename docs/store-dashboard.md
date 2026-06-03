@@ -14,10 +14,12 @@ Existing `GET /api/dashboard` and `GET /api/dashboard/warehouse` are unchanged.
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `storeId` | First active store `code` | Store code string; scopes metrics, activity, and transfers; unknown codes return 404 |
+| `storeId` | First active store `code` | Store code string; scopes the full response to that store when set; unknown codes return 404 |
 | `lowStockLimit` | `10` | Max low-stock rows (1–50) |
 | `activityLimit` | `10` | Max merged activity items (1–50) |
 | `transferLimit` | `10` | Max inbound transfer schedule rows (1–20) |
+
+When `storeId` is provided, `availableStores` and `storeNetwork` contain only that store. Omit `storeId` to default to the first active store while still listing all stores in `availableStores` / `storeNetwork`.
 
 ## Response
 

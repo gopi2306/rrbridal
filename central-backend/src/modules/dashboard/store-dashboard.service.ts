@@ -64,23 +64,37 @@ export class StoreDashboardService {
   async getStoreDashboard(options: StoreDashboardOptions): Promise<StoreDashboardResponse> {
     const availableStores = await this.listActiveStores();
     const store = await this.resolveStore(options.storeId, availableStores);
+    const isFiltered = Boolean(options.storeId?.trim());
+    const scopedStores = isFiltered
+      ? availableStores.filter((s) => s.code === store.code)
+      : availableStores;
 
-    const [allStoreQty, products, inTransitUnits, openRequests] = await Promise.all([
-      this.inventoryService.getAllStoreSkuQtyMaps(),
-      this.loadProductsForDashboard(),
+    const products = await this.loadProductsForDashboard();
+
+    let storeQty: StoreSkuMap;
+    let storeNetwork: StoreNetworkRow[];
+
+    if (isFiltered) {
+      storeQty = await this.inventoryService.getStoreSkuQtyMap(store.code);
+      const qtyByStore = new Map<string, StoreSkuMap>([[store.code, storeQty]]);
+      storeNetwork = this.buildStoreNetwork(
+        [{ code: store.code, name: store.name }],
+        qtyByStore,
+        products,
+      );
+    } else {
+      const allStoreQty = await this.inventoryService.getAllStoreSkuQtyMaps();
+      storeQty = allStoreQty.get(store.code) ?? new Map<string, number>();
+      storeNetwork = this.buildStoreNetwork(availableStores, allStoreQty, products);
+    }
+
+    const [inTransitUnits, openRequests] = await Promise.all([
       this.sumInboundTransferPiecesForStore(store.code),
       this.countOpenIntents(store.code),
     ]);
 
-    const storeQty = allStoreQty.get(store.code) ?? new Map<string, number>();
     const lowStockEval = this.evaluateLowStock(storeQty, products, options.lowStockLimit);
     const metricsSnapshot = this.computeStoreMetrics(storeQty, products, lowStockEval.count);
-
-    const storeNetwork = this.buildStoreNetwork(
-      availableStores,
-      allStoreQty,
-      products,
-    );
 
     const [
       categoryMix,
@@ -88,13 +102,13 @@ export class StoreDashboardService {
       transferSchedule,
     ] = await Promise.all([
       Promise.resolve(this.getCategoryMix(storeQty, products)),
-      this.getRecentActivity(store.code, options, lowStockEval.rows, availableStores),
-      this.getTransferSchedule(store.code, options.transferLimit, availableStores),
+      this.getRecentActivity(store.code, options, lowStockEval.rows, scopedStores),
+      this.getTransferSchedule(store.code, options.transferLimit, scopedStores),
     ]);
 
     return {
       store,
-      availableStores,
+      availableStores: scopedStores,
       metrics: {
         ...metricsSnapshot,
         inTransitUnits,

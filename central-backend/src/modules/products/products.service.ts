@@ -19,6 +19,8 @@ export type ProductListFilterParams = {
   search?: string;
   sku?: string;
   skuContains?: string;
+  /** When set, only products whose sku is in this list (used by inventory grid store filter). */
+  skus?: string[];
   upcEanCode?: string;
   categoryId?: string;
   supplierNameId?: string;
@@ -146,7 +148,9 @@ export class ProductsService {
 
     const skuExact = params.sku?.trim();
     const skuPartial = params.skuContains?.trim();
-    if (skuExact) {
+    if (params.skus?.length) {
+      filter.sku = { $in: params.skus };
+    } else if (skuExact) {
       filter.sku = skuExact;
     } else if (skuPartial) {
       filter.sku = { $regex: escapeRegex(skuPartial), $options: 'i' };

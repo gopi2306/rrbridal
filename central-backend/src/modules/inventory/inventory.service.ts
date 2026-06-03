@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
-import { ProductsService } from '../products/products.service';
+import { ProductsService, ProductListFilterParams } from '../products/products.service';
 import { InventoryLedgerEntry, InventoryLedgerDocument, InventoryLocationKind } from './schemas/inventory-ledger.schema';
 
 export type LedgerEntryInput = {
@@ -90,11 +90,40 @@ export class InventoryService {
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(500, Math.max(1, params.limit ?? 200));
     const skip = (page - 1) * limit;
+    const storeId = params.storeId?.trim().toLowerCase();
+
+    if (storeId) {
+      const storeQtyMap = await this.getStoreSkuQtyMap(storeId);
+      const skusWithStock = [...storeQtyMap.entries()]
+        .filter(([, qty]) => qty > 0)
+        .map(([sku]) => sku);
+      const scopedListParams = {
+        ...listParams,
+        skus: skusWithStock.length > 0 ? skusWithStock : ['__no_store_stock__'],
+      };
+
+      const [data, total] = await Promise.all([
+        this.fetchWarehouseStoreRows({
+          ...(params.search !== undefined && params.search !== '' ? { search: params.search } : {}),
+          storeId,
+          skip,
+          limit,
+        }),
+        this.productsService.countForListFilter(scopedListParams),
+      ]);
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
 
     const [data, total] = await Promise.all([
       this.fetchWarehouseStoreRows({
         ...(params.search !== undefined && params.search !== '' ? { search: params.search } : {}),
-        ...(params.storeId !== undefined && params.storeId !== '' ? { storeId: params.storeId } : {}),
         skip,
         limit,
       }),
@@ -118,7 +147,21 @@ export class InventoryService {
   }): Promise<WarehouseStoreGridRow[]> {
     const maxRows = params.maxRows ?? EXPORT_MAX_ROWS;
     const listParams = this.buildListParams(params.search);
-    const total = await this.productsService.countForListFilter(listParams);
+    const storeId = params.storeId?.trim().toLowerCase();
+
+    let countParams = listParams;
+    if (storeId) {
+      const storeQtyMap = await this.getStoreSkuQtyMap(storeId);
+      const skusWithStock = [...storeQtyMap.entries()]
+        .filter(([, qty]) => qty > 0)
+        .map(([sku]) => sku);
+      countParams = {
+        ...listParams,
+        skus: skusWithStock.length > 0 ? skusWithStock : ['__no_store_stock__'],
+      };
+    }
+
+    const total = await this.productsService.countForListFilter(countParams);
     if (total > maxRows) {
       throw new PayloadTooLargeException(
         `Export exceeds maximum of ${maxRows} rows (${total} match). Narrow filters and try again.`,
@@ -129,7 +172,7 @@ export class InventoryService {
     let skip = 0;
     const fetchParams = {
       ...(params.search !== undefined && params.search !== '' ? { search: params.search } : {}),
-      ...(params.storeId !== undefined && params.storeId !== '' ? { storeId: params.storeId } : {}),
+      ...(storeId ? { storeId } : {}),
     };
     while (true) {
       const batch = await this.fetchWarehouseStoreRows({
@@ -154,6 +197,35 @@ export class InventoryService {
     const listParams = this.buildListParams(params.search);
     const skip = Math.max(0, params.skip ?? 0);
     const limit = Math.min(500, Math.max(1, params.limit ?? 200));
+    const storeId = params.storeId?.trim().toLowerCase();
+
+    if (storeId) {
+      const storeQtyMap = await this.getStoreSkuQtyMap(storeId);
+      const skusWithStock = [...storeQtyMap.entries()]
+        .filter(([, qty]) => qty > 0)
+        .map(([sku]) => sku);
+      if (skusWithStock.length === 0) return [];
+
+      const products = await this.productsService.list({
+        ...listParams,
+        skus: skusWithStock,
+        skip,
+        limit,
+      });
+      if (products.length === 0) return [];
+
+      const enrichedProducts = await enrichProductDocuments(
+        this.productModel,
+        products as Array<Record<string, unknown>>,
+      );
+
+      return enrichedProducts.map((p) =>
+        this.mapProductToGridRow(p, new Map(), storeId, {
+          storeQtyOverride: storeQtyMap.get(typeof p.sku === 'string' ? p.sku : '') ?? 0,
+          storeOnly: true,
+        }),
+      );
+    }
 
     const products = await this.productsService.list({ ...listParams, skip, limit });
     if (products.length === 0) return [];
@@ -168,7 +240,7 @@ export class InventoryService {
       .filter(Boolean);
     const balanceMap = await this.aggregateBalancesForSkus(skus);
 
-    return enrichedProducts.map((p) => this.mapProductToGridRow(p, balanceMap, params.storeId));
+    return enrichedProducts.map((p) => this.mapProductToGridRow(p, balanceMap));
   }
 
   /** Warehouse on-hand qty per SKU (global pool from ledger `locationKind: warehouse`). */
@@ -331,8 +403,8 @@ export class InventoryService {
     return result;
   }
 
-  private buildListParams(search?: string): { search?: string } {
-    const listParams: { search?: string } = {};
+  private buildListParams(search?: string): ProductListFilterParams {
+    const listParams: ProductListFilterParams = {};
     if (search !== undefined && search !== '') listParams.search = search;
     return listParams;
   }
@@ -341,18 +413,19 @@ export class InventoryService {
     p: Record<string, unknown>,
     balanceMap: Map<string, BalanceBucket>,
     filterStoreId?: string,
+    opts?: { storeQtyOverride?: number; storeOnly?: boolean },
   ): WarehouseStoreGridRow {
     const sku = typeof p.sku === 'string' ? p.sku : '';
     const b = balanceMap.get(sku) ?? { warehouseQty: 0, inTransitQty: 0, storeById: new Map<string, number>() };
-    const storeQty = this.sumStoreQty(b.storeById, filterStoreId);
+    const storeQty = opts?.storeQtyOverride ?? this.sumStoreQty(b.storeById, filterStoreId);
     const storePrice =
       (typeof p.storePrice === 'number' ? p.storePrice : undefined) ??
       (typeof p.sellingPrice === 'number' ? p.sellingPrice : undefined);
     const row: WarehouseStoreGridRow = {
       sku,
       product: p,
-      warehouseQty: b.warehouseQty,
-      inTransitQty: b.inTransitQty,
+      warehouseQty: opts?.storeOnly ? 0 : b.warehouseQty,
+      inTransitQty: opts?.storeOnly ? 0 : b.inTransitQty,
       storeQty,
     };
     if (p._id != null) row.productId = String(p._id);
@@ -363,7 +436,7 @@ export class InventoryService {
   }
 
   private sumStoreQty(storeById: Map<string, number>, filterStoreId?: string): number {
-    if (filterStoreId) return storeById.get(filterStoreId) ?? 0;
+    if (filterStoreId) return storeById.get(filterStoreId.trim().toLowerCase()) ?? 0;
     let sum = 0;
     for (const q of storeById.values()) sum += q;
     return sum;
