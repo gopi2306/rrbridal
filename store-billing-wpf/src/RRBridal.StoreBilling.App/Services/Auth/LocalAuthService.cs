@@ -19,6 +19,18 @@ public sealed class LocalAuthService
         _storeContext = storeContext;
     }
 
+    public async Task<StoreUserRecord?> TryGetUserByEmailAsync(string email, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var doc = await _storeUsers
+            .Find(Builders<BsonDocument>.Filter.Eq("email", normalizedEmail))
+            .FirstOrDefaultAsync(ct);
+        return doc is null ? null : MapToRecord(doc);
+    }
+
     public async Task<IReadOnlyList<StoreUserRecord>> GetAllUsersAsync(CancellationToken ct = default)
     {
         var docs = await _storeUsers
@@ -112,6 +124,22 @@ public sealed class LocalAuthService
             Email = doc.GetValue("email", "").AsString,
             Role = doc.GetValue("role", "").AsString,
             StoreId = doc.GetValue("storeId", "").AsString,
+            MaxDiscountPercent = ReadMaxDiscountPercent(doc),
         };
+    }
+
+    private static decimal ReadMaxDiscountPercent(BsonDocument doc)
+    {
+        if (!doc.TryGetValue("maxDiscountPercent", out var v) || v.IsBsonNull)
+            return 100m;
+
+        decimal pct = v.IsDecimal128 ? (decimal)v.AsDecimal128
+            : v.IsDouble ? (decimal)v.AsDouble
+            : v.IsInt32 ? v.AsInt32
+            : v.IsInt64 ? v.AsInt64
+            : 100m;
+        if (pct < 0) return 0;
+        if (pct > 100) return 100;
+        return pct;
     }
 }

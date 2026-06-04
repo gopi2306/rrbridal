@@ -61,6 +61,13 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private bool _doorDelivery;
     [ObservableProperty] private bool _stitching;
     [ObservableProperty] private bool _printInvoice = true;
+    [ObservableProperty] private DateTime? _deliveryDate;
+
+    partial void OnStitchingChanged(bool value)
+    {
+        if (!value)
+            DeliveryDate = null;
+    }
 
     [ObservableProperty] private string _billNo = "";
     [ObservableProperty] private string _draftLabel = "DRAFT";
@@ -139,6 +146,19 @@ public partial class BillingViewModel : ObservableObject
     private bool _isComputingTotals;
     private string? _resumingDraftBillNo;
     private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+    private enum ManualDiscountEditSource { None, ItemPercent, CashAmount }
+
+    private ManualDiscountEditSource _lastManualDiscountEdit = ManualDiscountEditSource.None;
+    private decimal _lastValidItemDiscountPercent;
+    private decimal _lastValidCashDiscTarget;
+
+    /// <summary>From logged-in user (synced from central). 100 = no cap.</summary>
+    public decimal MaxDiscountPercent => _services.UserSession?.LoggedInUser.MaxDiscountPercent ?? 100m;
+
+    public bool ShowMaxDiscountHint => MaxDiscountPercent < 100m;
+
+    public string MaxDiscountPercentHint => $"Max manual discount: {MaxDiscountPercent:0.##}%";
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
 
@@ -235,6 +255,131 @@ public partial class BillingViewModel : ObservableObject
 
     private static decimal LineOriginalInclusive(BillingLineItem line) =>
         BillingDiscountCalculator.ComputeOriginalInclusive(line.Amount, line.TaxPercent, line.IsIgst);
+
+    private List<(BillingLineItem Line, decimal OriginalInclusive)> BuildDiscountSnapshots() =>
+        Lines
+            .Where(l => l.Amount > 0)
+            .Select(l => (Line: l, OriginalInclusive: LineOriginalInclusive(l)))
+            .ToList();
+
+    private decimal ComputeItemPercentForDiscountAmount(
+        IReadOnlyList<(BillingLineItem Line, decimal OriginalInclusive)> snapshots,
+        decimal targetItemDiscountRs)
+    {
+        var totalInclusive = snapshots
+            .Where(s => s.Line.Amount > 0)
+            .Sum(s => Math.Max(0m, s.OriginalInclusive - s.Line.SchemeDiscountAmount));
+        if (totalInclusive <= 0 || targetItemDiscountRs <= 0)
+            return 0;
+        return Math.Clamp(targetItemDiscountRs / totalInclusive * 100m, 0, 100);
+    }
+
+    private void SyncDiscountTextFromState()
+    {
+        _suppressDiscountTextSync = true;
+        ItemDiscountPercentText = ItemDiscountPercent > 0 ? FormatEditableDecimalText(ItemDiscountPercent) : "";
+        CashDiscAmountText = _cashDiscTarget > 0 ? FormatEditableDecimalText(_cashDiscTarget) : "";
+        _suppressDiscountTextSync = false;
+    }
+
+    /// <summary>Clamp manual discounts to user max % (item + cash vs base after schemes).</summary>
+    private bool EnforceManualDiscountCap(bool showMessage)
+    {
+        var snapshots = BuildDiscountSnapshots();
+        var manualBase = BillingDiscountCalculator.ComputeManualDiscountBase(
+            snapshots.Select(s => (s.OriginalInclusive, s.Line.SchemeDiscountAmount)));
+        if (manualBase <= 0)
+        {
+            _lastValidItemDiscountPercent = ItemDiscountPercent;
+            _lastValidCashDiscTarget = _cashDiscTarget;
+            return false;
+        }
+
+        var maxPct = MaxDiscountPercent;
+        var itemDisc = ItemDiscount;
+        var cashDisc = CashDiscAmount;
+        if (BillingDiscountCalculator.IsWithinMaxManualDiscount(manualBase, itemDisc, cashDisc, maxPct))
+        {
+            _lastValidItemDiscountPercent = ItemDiscountPercent;
+            _lastValidCashDiscTarget = _cashDiscTarget;
+            return false;
+        }
+
+        var maxRs = MoneyMath.RoundAmount(manualBase * maxPct / 100m);
+        var edited = _lastManualDiscountEdit;
+        var changed = false;
+
+        if (edited == ManualDiscountEditSource.CashAmount)
+        {
+            var allowedItem = Math.Max(0m, maxRs - cashDisc);
+            var newPct = ComputeItemPercentForDiscountAmount(snapshots, allowedItem);
+            if (newPct != ItemDiscountPercent)
+            {
+                ItemDiscountPercent = newPct;
+                changed = true;
+            }
+
+            ApplyProportionalItemDiscount(snapshots);
+            itemDisc = ItemDiscount;
+            var allowedCash = Math.Max(0m, maxRs - itemDisc);
+            if (_cashDiscTarget > allowedCash)
+            {
+                _cashDiscTarget = allowedCash;
+                changed = true;
+            }
+        }
+        else
+        {
+            itemDisc = ItemDiscount;
+            var allowedCash = Math.Max(0m, maxRs - itemDisc);
+            if (_cashDiscTarget > allowedCash)
+            {
+                _cashDiscTarget = allowedCash;
+                changed = true;
+            }
+
+            ApplyProportionalCashDiscount(snapshots);
+            cashDisc = CashDiscAmount;
+            if (itemDisc + cashDisc > maxRs + 0.01m)
+            {
+                _cashDiscTarget = 0;
+                ApplyProportionalCashDiscount(snapshots);
+                var allowedItem = maxRs;
+                ItemDiscountPercent = ComputeItemPercentForDiscountAmount(snapshots, allowedItem);
+                ApplyProportionalItemDiscount(snapshots);
+                changed = true;
+            }
+        }
+
+        _lastValidItemDiscountPercent = ItemDiscountPercent;
+        _lastValidCashDiscTarget = _cashDiscTarget;
+
+        if (changed)
+        {
+            SyncDiscountTextFromState();
+            if (showMessage)
+            {
+                MessageBox.Show(
+                    $"Discount cannot exceed {maxPct:0.##}% for your user account.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+
+        return changed;
+    }
+
+    private bool IsManualDiscountWithinCap()
+    {
+        var snapshots = BuildDiscountSnapshots();
+        var manualBase = BillingDiscountCalculator.ComputeManualDiscountBase(
+            snapshots.Select(s => (s.OriginalInclusive, s.Line.SchemeDiscountAmount)));
+        if (manualBase <= 0)
+            return true;
+        return BillingDiscountCalculator.IsWithinMaxManualDiscount(
+            manualBase, ItemDiscount, CashDiscAmount, MaxDiscountPercent);
+    }
 
     private void ApplyProportionalItemDiscount(IReadOnlyList<(BillingLineItem Line, decimal OriginalInclusive)> snapshots)
     {
@@ -471,6 +616,13 @@ public partial class BillingViewModel : ObservableObject
         ApplyProportionalItemDiscount(snapshots);
         ApplyProportionalCashDiscount(snapshots);
 
+        if (EnforceManualDiscountCap(showMessage: false))
+        {
+            snapshots = BuildDiscountSnapshots();
+            ApplyProportionalItemDiscount(snapshots);
+            ApplyProportionalCashDiscount(snapshots);
+        }
+
         var sub = Lines.Sum(l => l.Amount);
         var originalInclusive = snapshots.Sum(s => s.OriginalInclusive);
         var schemeLine = SchemeLineDiscount;
@@ -512,6 +664,10 @@ public partial class BillingViewModel : ObservableObject
     private void RecalculateTotals()
     {
         if (_isComputingTotals) return;
+
+        OnPropertyChanged(nameof(MaxDiscountPercent));
+        OnPropertyChanged(nameof(ShowMaxDiscountHint));
+        OnPropertyChanged(nameof(MaxDiscountPercentHint));
 
         var core = ComputeBillTotals();
         var payableBeforeCredit = core.PayableBeforeCredit;
@@ -629,6 +785,7 @@ public partial class BillingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(value))
         {
+            _lastManualDiscountEdit = ManualDiscountEditSource.ItemPercent;
             ItemDiscountPercent = 0;
             RecalculateTotals();
             return;
@@ -637,8 +794,11 @@ public partial class BillingViewModel : ObservableObject
         if (!TryParseDecimalInput(value, out var parsed))
             return;
 
+        _lastManualDiscountEdit = ManualDiscountEditSource.ItemPercent;
         ItemDiscountPercent = Math.Clamp(parsed, 0, 100);
         RecalculateTotals();
+        if (EnforceManualDiscountCap(showMessage: true))
+            RecalculateTotals();
     }
 
     partial void OnItemDiscountPercentChanged(decimal value)
@@ -657,6 +817,9 @@ public partial class BillingViewModel : ObservableObject
             _suppressDiscountTextSync = false;
         }
 
+        if (_lastManualDiscountEdit != ManualDiscountEditSource.ItemPercent)
+            _lastManualDiscountEdit = ManualDiscountEditSource.ItemPercent;
+
         RecalculateTotals();
     }
 
@@ -666,6 +829,7 @@ public partial class BillingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(value))
         {
+            _lastManualDiscountEdit = ManualDiscountEditSource.CashAmount;
             _cashDiscTarget = 0;
             RecalculateTotals();
             return;
@@ -674,8 +838,11 @@ public partial class BillingViewModel : ObservableObject
         if (!TryParseDecimalInput(value, out var parsed))
             return;
 
+        _lastManualDiscountEdit = ManualDiscountEditSource.CashAmount;
         _cashDiscTarget = Math.Max(0m, parsed);
         RecalculateTotals();
+        if (EnforceManualDiscountCap(showMessage: true))
+            RecalculateTotals();
     }
 
     partial void OnRoundOffTextChanged(string value)
@@ -1304,6 +1471,7 @@ public partial class BillingViewModel : ObservableObject
         HoldBills = false;
         DoorDelivery = false;
         Stitching = false;
+        DeliveryDate = null;
         SearchText = "";
         ClearCreditSelection();
         AvailableCreditNotes.Clear();
@@ -1337,6 +1505,22 @@ public partial class BillingViewModel : ObservableObject
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
+        }
+
+        RecalculateTotals();
+        if (!IsManualDiscountWithinCap())
+        {
+            EnforceManualDiscountCap(showMessage: true);
+            RecalculateTotals();
+            if (!IsManualDiscountWithinCap())
+            {
+                MessageBox.Show(
+                    $"Discount cannot exceed {MaxDiscountPercent:0.##}% for your user account.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
         }
 
         foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.ProductCode)))
@@ -1485,6 +1669,7 @@ public partial class BillingViewModel : ObservableObject
                 { "holdBills", HoldBills },
                 { "doorDelivery", DoorDelivery },
                 { "stitching", Stitching },
+                { "deliveryDate", FormatDeliveryDate() },
                 { "printInvoice", PrintInvoice },
                 { "isInterState", IsInterState },
                 { "itemDiscountPercent", (double)ItemDiscountPercent },
@@ -1688,6 +1873,7 @@ public partial class BillingViewModel : ObservableObject
             Payments = paySnap,
             Stitching = Stitching,
             DoorDelivery = DoorDelivery,
+            DeliveryDate = FormatDeliveryDate(),
         };
     }
 
@@ -1775,6 +1961,7 @@ public partial class BillingViewModel : ObservableObject
         HoldBills = doc.GetValue("holdBills", false).AsBoolean;
         DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean;
         Stitching = doc.GetValue("stitching", false).AsBoolean;
+        DeliveryDate = ParseDeliveryDate(doc.GetValue("deliveryDate", "").AsString);
         PrintInvoice = doc.GetValue("printInvoice", true).AsBoolean;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
@@ -1874,6 +2061,7 @@ public partial class BillingViewModel : ObservableObject
             { "holdBills", HoldBills },
             { "doorDelivery", DoorDelivery },
             { "stitching", Stitching },
+            { "deliveryDate", FormatDeliveryDate() },
             { "printInvoice", PrintInvoice },
             { "isInterState", IsInterState },
             { "itemDiscountPercent", (double)ItemDiscountPercent },
@@ -1898,6 +2086,23 @@ public partial class BillingViewModel : ObservableObject
             { "status", status },
             { "createdAtUtc", DateTime.UtcNow.ToString("O") },
         };
+    }
+
+    private string FormatDeliveryDate() =>
+        DeliveryDate?.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant() ?? "";
+
+    private static DateTime? ParseDeliveryDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return DateTime.TryParseExact(
+            value.Trim(),
+            "dd-MMM-yyyy",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var dt)
+            ? dt
+            : null;
     }
 
     [RelayCommand]

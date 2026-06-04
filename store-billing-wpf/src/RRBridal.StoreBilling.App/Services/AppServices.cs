@@ -116,13 +116,21 @@ public sealed class AppServices
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var syncSchedule = new SyncScheduleOptions();
-        var storeSyncRunner = new StoreSyncRunner(syncEngine, authSession, http, receiptConfigSync, shellBranding);
+        AppServices? servicesRef = null;
+        var storeSyncRunner = new StoreSyncRunner(
+            syncEngine,
+            authSession,
+            http,
+            receiptConfigSync,
+            shellBranding,
+            localAuth,
+            () => servicesRef?.UserSession);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 
         try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
 
-        return new AppServices
+        servicesRef = new AppServices
         {
             LocalDb = localDb,
             CentralApi = http,
@@ -151,6 +159,7 @@ public sealed class AppServices
             PeriodicSync = periodicSync,
             OutboxNotifications = outboxNotifications,
         };
+        return servicesRef;
     }
 }
 

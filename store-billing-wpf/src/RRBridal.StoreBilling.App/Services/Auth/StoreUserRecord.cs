@@ -8,5 +8,8 @@ public sealed class StoreUserRecord
     public string Role { get; set; } = "";
     public string StoreId { get; set; } = "";
 
+    /// <summary>Max combined manual discount % (item % + cash ₹). Default 100 when unset.</summary>
+    public decimal MaxDiscountPercent { get; set; } = 100m;
+
     public override string ToString() => Name;
 }

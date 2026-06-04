@@ -65,6 +65,10 @@ Send `Authorization: Bearer <accessToken>` on protected routes.
 
 `locationKind: store` requires a non-empty `storeId`.
 
+### Store billing: max manual discount
+
+Optional field on user documents: `maxDiscountPercent` (0–100). Caps **combined** manual discount on the store billing app: item discount % plus cash discount ₹, measured against the bill base after promotion/scheme discounts. Omitted in central = store app treats as **100** (no cap). Set via `POST /admin/users` or `PATCH /admin/users/:id`. Synced to tills on `GET /store-users` during store sync.
+
 ## Role access (screen permissions)
 
 Collection `role_access`: `role`, `area`, `screen`, `allow`, `status` (`active` | `inactive`). One row per `(role, area, screen)`.

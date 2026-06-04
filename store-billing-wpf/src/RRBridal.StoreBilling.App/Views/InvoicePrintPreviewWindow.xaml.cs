@@ -9,17 +9,30 @@ public partial class InvoicePrintPreviewWindow : Window
 {
     private readonly AppServices _services;
     private readonly FlowDocument _document;
+    private readonly FlowDocument? _thermalDocument;
+    private readonly bool _dualPrint;
     private readonly bool _printInvoiceEnabled;
 
     public bool PrintSucceeded { get; private set; }
 
-    public InvoicePrintPreviewWindow(AppServices services, FlowDocument document, string invoiceText, bool printInvoiceEnabled)
+    public InvoicePrintPreviewWindow(
+        AppServices services,
+        FlowDocument document,
+        string invoiceText,
+        bool printInvoiceEnabled,
+        FlowDocument? thermalDocument = null,
+        bool dualPrint = false)
     {
         InitializeComponent();
         _services = services;
         _document = document;
+        _thermalDocument = thermalDocument;
+        _dualPrint = dualPrint && thermalDocument != null;
         _printInvoiceEnabled = printInvoiceEnabled;
         PreviewViewer.Document = document;
+
+        if (_dualPrint)
+            PrintButton.Content = "Print thermal + invoice";
     }
 
     private void Print_OnClick(object sender, RoutedEventArgs e)
@@ -35,29 +48,19 @@ public partial class InvoicePrintPreviewWindow : Window
         }
 
         var print = _services.ReceiptConfig.Current.Print;
-        var printed = false;
 
-        if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(print.BillPrinterFullName))
+        if (_dualPrint && _thermalDocument != null)
         {
-            printed = BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
-        }
-        else if (BillPrintService.TryPrintToQueue(_document, print.BillPrinterFullName!, "RR Bridal bill"))
-        {
-            printed = true;
-        }
-        else
-        {
-            var r = MessageBox.Show(
-                $"Could not print to saved printer \"{print.BillPrinterFullName}\". Open the print dialog to pick a printer?",
-                "RR Bridal Billing",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (r == MessageBoxResult.Yes)
-                printed = BillPrintService.ShowPrintDialog(this, _document, "RR Bridal bill");
-        }
+            if (!BillPrintService.PrintDocument(this, _thermalDocument, print, "RR Bridal thermal receipt"))
+                return;
 
-        if (!printed)
+            if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal invoice"))
+                return;
+        }
+        else if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal bill"))
+        {
             return;
+        }
 
         PrintSucceeded = true;
         try

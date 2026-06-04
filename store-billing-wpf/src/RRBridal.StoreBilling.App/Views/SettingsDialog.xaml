@@ -86,6 +86,22 @@
                 <RadioButton Content="A5 tax invoice" GroupName="PrintFormat"
                              IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
             </StackPanel>
+            <CheckBox Content="Use pre-printed A5 paper (values only)"
+                      IsChecked="{Binding A5PrePrintedEnabled}"
+                      Visibility="{Binding IsA5ReceiptFormat, Converter={StaticResource BoolToVis}}"
+                      Margin="24,0,0,4"/>
+            <TextBlock Text="Pre-printed A5: load branded stationery; app prints bill data on the form lines only."
+                       Visibility="{Binding IsA5ReceiptFormat, Converter={StaticResource BoolToVis}}"
+                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="11"
+                       Margin="24,0,0,8"/>
+            <CheckBox Content="Also print thermal receipt first (80mm)"
+                      IsChecked="{Binding AlsoPrintThermalFirst}"
+                      Visibility="{Binding IsOfficeInvoiceFormat, Converter={StaticResource BoolToVis}}"
+                      Margin="0,0,0,4"/>
+            <TextBlock Text="Prints thermal receipt first, then the A4/A5 invoice on the same printer."
+                       Visibility="{Binding IsOfficeInvoiceFormat, Converter={StaticResource BoolToVis}}"
+                       TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="11"
+                       Margin="0,0,0,8"/>
             <TextBlock Text="A4/A5: office laser/inkjet — load matching paper in the tray. Thermal: existing 80mm receipt (unchanged)."
                        TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
             <TextBlock Text="Default bill printer" Margin="0,0,0,4"/>

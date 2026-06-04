@@ -216,8 +216,7 @@ public static class A4InvoiceDocumentBuilder
         var cbSize = Px(12, scale);
         flagsRow.Children.Add(RetailInvoiceVisuals.Text("STITCHING", font, FontWeights.Bold));
         flagsRow.Children.Add(RetailInvoiceVisuals.CreateCheckbox(input.Stitching, cbSize));
-        flagsRow.Children.Add(RetailInvoiceVisuals.Text("D/D:", font, FontWeights.Bold));
-        flagsRow.Children.Add(RetailInvoiceVisuals.CreateCheckbox(input.DoorDelivery, cbSize));
+        flagsRow.Children.Add(RetailInvoiceVisuals.CreateUnderlineField("D/D:", input.DeliveryDate, Px(28, scale), font, Px(80, scale)));
         stack.Children.Add(flagsRow);
 
         return stack;

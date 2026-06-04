@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, MinLength, ValidateIf } from 'class-validator';
 
 const roles = ['admin', 'warehouse', 'store', 'procurement'] as const;
 const locations = ['all', 'warehouse', 'store'] as const;
@@ -45,4 +45,16 @@ export class UpdateUserDto {
   @IsIn(statuses)
   @IsOptional()
   status?: (typeof statuses)[number];
+
+  @ApiProperty({
+    required: false,
+    minimum: 0,
+    maximum: 100,
+    description: 'Max combined manual discount % for store billing (item % + cash ₹)',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  maxDiscountPercent?: number;
 }

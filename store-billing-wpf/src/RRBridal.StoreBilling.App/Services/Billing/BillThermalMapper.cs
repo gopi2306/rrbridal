@@ -101,6 +101,7 @@ public static class BillThermalMapper
             DuplicatePrintedAtUtc = duplicatePrintedAtUtc,
             Stitching = doc.GetValue("stitching", false).AsBoolean,
             DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean,
+            DeliveryDate = ReadString(doc, "deliveryDate") ?? "",
         };
     }
 

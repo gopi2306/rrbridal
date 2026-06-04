@@ -91,6 +91,8 @@ public sealed class ThermalInvoiceInput
     public bool Stitching { get; init; }
 
     public bool DoorDelivery { get; init; }
+
+    public string DeliveryDate { get; init; } = "";
 }
 
 /// <summary>Plain-text thermal receipt (fixed-width, dashed rules).</summary>

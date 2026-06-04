@@ -58,6 +58,10 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private InvoicePrintFormat _receiptPrintFormat = InvoicePrintFormat.Thermal;
 
+    [ObservableProperty] private bool _a5PrePrintedEnabled;
+
+    [ObservableProperty] private bool _alsoPrintThermalFirst;
+
     [ObservableProperty] private string _receiptCentralSyncText = "(not synced from central yet)";
 
     [ObservableProperty] private string _receiptPrinterHintText = "";
@@ -98,11 +102,15 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool IsOfficeInvoiceFormat =>
+        ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5;
+
     partial void OnReceiptPrintFormatChanged(InvoicePrintFormat value)
     {
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
+        OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
     }
 
     public SettingsViewModel(AppServices services)
@@ -165,7 +173,12 @@ public partial class SettingsViewModel : ObservableObject
         SelectedPrinterFullName = c.Print.BillPrinterFullName;
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
         ReceiptPrintFormat = c.Print.PrintFormat;
+        A5PrePrintedEnabled = c.Print.A5PrePrintedEnabled;
+        AlsoPrintThermalFirst = c.Print.AlsoPrintThermalFirst;
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
+        OnPropertyChanged(nameof(IsA4ReceiptFormat));
+        OnPropertyChanged(nameof(IsA5ReceiptFormat));
+        OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         ReceiptCentralSyncText = c.LastReceiptSettingsSyncUtc.HasValue
             ? $"Last synced: {s.StoreName} at {c.LastReceiptSettingsSyncUtc.Value.ToLocalTime():g}"
             : "(not synced from central yet)";
@@ -255,6 +268,9 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptCharWidth = w;
         c.Print.ReceiptCharWidth = w;
         c.Print.PrintFormat = ReceiptPrintFormat;
+        c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
+        c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+            && AlsoPrintThermalFirst;
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
         UpdatePrinterWarning();
         LastActionText = "Receipt and printer settings saved.";

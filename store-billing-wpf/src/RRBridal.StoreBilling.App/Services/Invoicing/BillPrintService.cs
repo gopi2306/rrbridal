@@ -172,4 +172,22 @@ public sealed class BillPrintService
         dlg.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, jobName);
         return true;
     }
+
+    /// <summary>Print using saved queue, dialog, or queue-fallback prompt.</summary>
+    public static bool PrintDocument(Window? owner, FlowDocument document, ReceiptPrintSettings print, string jobName)
+    {
+        if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(print.BillPrinterFullName))
+            return ShowPrintDialog(owner, document, jobName);
+
+        if (TryPrintToQueue(document, print.BillPrinterFullName!, jobName))
+            return true;
+
+        var r = MessageBox.Show(
+            owner,
+            $"Could not print to saved printer \"{print.BillPrinterFullName}\". Open the print dialog to pick a printer?",
+            "RR Bridal Billing",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        return r == MessageBoxResult.Yes && ShowPrintDialog(owner, document, jobName);
+    }
 }

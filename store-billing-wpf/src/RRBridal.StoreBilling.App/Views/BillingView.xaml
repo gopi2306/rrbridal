@@ -19,6 +19,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,12">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -35,7 +36,13 @@
                                 <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Grid>
-                        <Grid Grid.Row="1">
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Margin="0,0,0,12"
+                                    Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <DatePicker SelectedDate="{Binding DeliveryDate}" MinWidth="140"/>
+                        </StackPanel>
+                        <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="*"/>
@@ -358,6 +365,10 @@
                         <CheckBox Content="Inter-state (IGST)" Style="{StaticResource ThemedCheckBox}"
                                   IsChecked="{Binding IsInterState}" Margin="0,0,0,10"/>
 
+                        <TextBlock Text="{Binding MaxDiscountPercentHint}"
+                                   Visibility="{Binding ShowMaxDiscountHint, Converter={StaticResource BoolToVis}}"
+                                   Foreground="{StaticResource BrushTextMuted}" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>

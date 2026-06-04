@@ -299,6 +299,7 @@ public sealed class SyncEngine : ISyncEngine
                 { "passwordHash", el.TryGetProperty("passwordHash", out var ph) ? ph.GetString() ?? "" : "" },
                 { "storeId", el.TryGetProperty("storeId", out var s) ? s.GetString() ?? "" : "" },
                 { "locationKind", el.TryGetProperty("locationKind", out var lk) ? lk.GetString() ?? "" : "" },
+                { "maxDiscountPercent", ReadMaxDiscountPercentFromJson(el) },
                 { "lastSyncedAt", DateTime.UtcNow.ToString("O") },
             };
 
@@ -826,6 +827,20 @@ public sealed class SyncEngine : ISyncEngine
         var schemeId = payload.TryGetProperty("schemeId", out var idEl) ? idEl.GetString() : null;
         if (string.IsNullOrWhiteSpace(schemeId)) return;
         await _promotionSchemes.DeleteOneAsync(Builders<BsonDocument>.Filter.Eq("schemeId", schemeId), ct);
+    }
+    private static decimal ReadMaxDiscountPercentFromJson(JsonElement el)
+    {
+        if (!el.TryGetProperty("maxDiscountPercent", out var prop) || prop.ValueKind == JsonValueKind.Null)
+            return 100m;
+
+        decimal pct = prop.ValueKind switch
+        {
+            JsonValueKind.Number => prop.GetDecimal(),
+            _ => 100m,
+        };
+        if (pct < 0) return 0;
+        if (pct > 100) return 100;
+        return pct;
     }
 }
 

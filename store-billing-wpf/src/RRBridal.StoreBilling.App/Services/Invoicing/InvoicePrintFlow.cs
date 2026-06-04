@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Documents;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -22,37 +23,62 @@ public static class InvoicePrintFlow
                 return false;
             }
 
-            var printFormat = services.ReceiptConfig.Current.Print.PrintFormat;
+            var printSettings = services.ReceiptConfig.Current.Print;
+            var printFormat = printSettings.PrintFormat;
+            var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && printSettings.A5PrePrintedEnabled;
+            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5;
+            var dualPrint = isOfficeFormat && printSettings.AlsoPrintThermalFirst;
+
             var assets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
                 services.ReceiptConfig.Current,
                 input.BillNo,
                 services.ReceiptLogoCache);
+            var text = ThermalInvoiceTextBuilder.Build(input);
 
-            string text;
-            System.Windows.Documents.FlowDocument doc;
-            if (printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5)
+            FlowDocument doc;
+            FlowDocument? thermalDoc = null;
+
+            if (dualPrint)
             {
-                text = ThermalInvoiceTextBuilder.Build(input);
-                var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
-                    ? (148.0, 210.0)
-                    : (210.0, 297.0);
-                doc = A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH);
+                var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
+                thermalDoc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted);
+            }
+            else if (isA5PrePrinted)
+            {
+                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input);
+            }
+            else if (isOfficeFormat)
+            {
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted);
             }
             else
             {
-                text = ThermalInvoiceTextBuilder.Build(input);
                 var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
                 doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
             }
 
             var isA5 = printFormat == InvoicePrintFormat.A5;
-            var isTaxInvoice = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5;
-            var dlg = new Views.InvoicePrintPreviewWindow(services, doc, text, printInvoiceEnabled)
+            var isTaxInvoice = isOfficeFormat;
+            var title = isA5PrePrinted
+                ? "A5 pre-printed preview"
+                : isA5
+                    ? "A5 invoice preview"
+                    : printFormat == InvoicePrintFormat.A4
+                        ? "A4 invoice preview"
+                        : "Invoice preview";
+            var dlg = new Views.InvoicePrintPreviewWindow(
+                services,
+                doc,
+                text,
+                printInvoiceEnabled,
+                thermalDoc,
+                dualPrint)
             {
                 Owner = Application.Current.MainWindow,
                 Width = isA5 ? 508 : isTaxInvoice ? 720 : 420,
                 Height = isA5 ? 720 : isTaxInvoice ? 820 : 560,
-                Title = isA5 ? "A5 invoice preview" : printFormat == InvoicePrintFormat.A4 ? "A4 invoice preview" : "Invoice preview",
+                Title = title,
             };
             dlg.ShowDialog();
             return dlg.PrintSucceeded;
@@ -62,5 +88,20 @@ public static class InvoicePrintFlow
             MessageBox.Show($"Could not open invoice preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
+    }
+
+    private static FlowDocument BuildInvoiceDocument(
+        ThermalInvoiceInput input,
+        ThermalReceiptAssets assets,
+        InvoicePrintFormat printFormat,
+        bool isA5PrePrinted)
+    {
+        if (isA5PrePrinted)
+            return A5PrePrintedInvoiceDocumentBuilder.Create(input);
+
+        var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
+            ? (148.0, 210.0)
+            : (210.0, 297.0);
+        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH);
     }
 }

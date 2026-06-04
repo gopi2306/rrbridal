@@ -33,6 +33,15 @@ export class User {
   @Prop({ index: true })
   storeId?: string;
 
+  @ApiProperty({
+    required: false,
+    minimum: 0,
+    maximum: 100,
+    description: 'Max combined manual discount % (item % + cash ₹) allowed on store billing',
+  })
+  @Prop({ type: Number, min: 0, max: 100 })
+  maxDiscountPercent?: number;
+
   @ApiProperty({ required: false, description: 'Location.code when role is warehouse and locationKind is warehouse' })
   @Prop({ trim: true, lowercase: true, index: true })
   warehouseLocationCode?: string;

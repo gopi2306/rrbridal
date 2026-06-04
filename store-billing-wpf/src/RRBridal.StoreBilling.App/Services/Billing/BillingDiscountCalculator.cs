@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
@@ -72,4 +74,23 @@ public static class BillingDiscountCalculator
 
         return ReverseSplitFromInclusive(revisedInclusive, taxPercent, isIgst);
     }
+
+    /// <summary>Tax-inclusive total after scheme discounts, before manual item/cash discounts.</summary>
+    public static decimal ComputeManualDiscountBase(
+        IEnumerable<(decimal OriginalInclusive, decimal SchemeDiscount)> lines) =>
+        lines.Sum(x => Math.Max(0m, x.OriginalInclusive - x.SchemeDiscount));
+
+    public static decimal ComputeCombinedDiscountPercent(decimal manualDiscountBase, decimal itemDisc, decimal cashDisc)
+    {
+        if (manualDiscountBase <= 0)
+            return 0;
+        return (itemDisc + cashDisc) / manualDiscountBase * 100m;
+    }
+
+    public static bool IsWithinMaxManualDiscount(
+        decimal manualDiscountBase,
+        decimal itemDisc,
+        decimal cashDisc,
+        decimal maxPercent) =>
+        ComputeCombinedDiscountPercent(manualDiscountBase, itemDisc, cashDisc) <= maxPercent + 0.001m;
 }

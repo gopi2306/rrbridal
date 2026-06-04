@@ -77,4 +77,10 @@ public sealed class ReceiptPrintSettings
     public string? CentralPrinterHint { get; set; }
 
     public string? CentralPrinterModel { get; set; }
+
+    /// <summary>When A5 format: print data values only on pre-printed stationery.</summary>
+    public bool A5PrePrintedEnabled { get; set; }
+
+    /// <summary>When PrintFormat is A4 or A5: also print 80mm thermal receipt before the invoice.</summary>
+    public bool AlsoPrintThermalFirst { get; set; }
 }

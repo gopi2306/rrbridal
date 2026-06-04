@@ -297,6 +297,7 @@ export class UsersService {
     if (dto.role === 'warehouse' && dto.locationKind === 'warehouse' && dto.warehouseLocationCode) {
       row.warehouseLocationCode = dto.warehouseLocationCode.trim().toLowerCase();
     }
+    if (dto.maxDiscountPercent !== undefined) row.maxDiscountPercent = dto.maxDiscountPercent;
     const created = await this.userModel.create(row);
     return this.toPublic(created.toObject() as unknown as Record<string, unknown>)!;
   }
@@ -369,6 +370,7 @@ export class UsersService {
     if (dto.locationKind !== undefined) set.locationKind = dto.locationKind;
     if (dto.status !== undefined) set.status = dto.status;
     if (dto.password !== undefined) set.passwordHash = await bcrypt.hash(dto.password, 10);
+    if (dto.maxDiscountPercent !== undefined) set.maxDiscountPercent = dto.maxDiscountPercent;
     if (nextLocation === 'store' && nextStoreId) set.storeId = String(nextStoreId).trim().toLowerCase();
     if (nextRole === 'warehouse' && nextLocation === 'warehouse' && nextWarehouseLocationCode) {
       set.warehouseLocationCode = nextWarehouseLocationCode;

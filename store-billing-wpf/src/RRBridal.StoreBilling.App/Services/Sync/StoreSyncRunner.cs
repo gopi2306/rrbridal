@@ -14,6 +14,8 @@ public sealed class StoreSyncRunner
     private readonly HttpClient _centralApi;
     private readonly ReceiptConfigSyncService _receiptConfigSync;
     private readonly ShellBrandingService? _shellBranding;
+    private readonly LocalAuthService? _localAuth;
+    private readonly Func<UserSession?>? _getUserSession;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public StoreSyncRunner(
@@ -21,13 +23,17 @@ public sealed class StoreSyncRunner
         CentralAuthSession authSession,
         HttpClient centralApi,
         ReceiptConfigSyncService receiptConfigSync,
-        ShellBrandingService? shellBranding = null)
+        ShellBrandingService? shellBranding = null,
+        LocalAuthService? localAuth = null,
+        Func<UserSession?>? getUserSession = null)
     {
         _syncEngine = syncEngine;
         _authSession = authSession;
         _centralApi = centralApi;
         _receiptConfigSync = receiptConfigSync;
         _shellBranding = shellBranding;
+        _localAuth = localAuth;
+        _getUserSession = getUserSession;
     }
 
     public SemaphoreSlim SyncLock => _syncLock;
@@ -65,6 +71,12 @@ public sealed class StoreSyncRunner
                 catch { /* best-effort */ }
             }
 
+            try
+            {
+                await RefreshLoggedInUserFromLocalAsync(ct).ConfigureAwait(false);
+            }
+            catch { /* best-effort */ }
+
             return SyncRunResult.Ok($"Sync complete. {receiptNote}");
         }
         catch (Exception ex)
@@ -75,5 +87,24 @@ public sealed class StoreSyncRunner
         {
             _syncLock.Release();
         }
+    }
+
+    private async Task RefreshLoggedInUserFromLocalAsync(CancellationToken ct)
+    {
+        if (_localAuth is null || _getUserSession is null)
+            return;
+
+        var session = _getUserSession();
+        var email = session?.LoggedInUser.Email;
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        var updated = await _localAuth.TryGetUserByEmailAsync(email, ct).ConfigureAwait(false);
+        if (updated is null)
+            return;
+
+        session!.LoggedInUser = updated;
+        if (string.Equals(session.SelectedBillingUser?.Email, email, StringComparison.OrdinalIgnoreCase))
+            session.SelectedBillingUser = updated;
     }
 }
