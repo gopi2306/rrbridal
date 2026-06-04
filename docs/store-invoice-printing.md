@@ -15,7 +15,7 @@ Setting is stored locally in `%LocalAppData%\RRBridal\StoreBilling\receipt_confi
 
 A4 and A5 (full template) share the same **branded retail invoice** layout: dark green patterned background, cream arched panel, centered store header, customer meta fields, 4-column line table (Description, Qty, Rate, Amount), terms footer, and signature line. A5 scales proportionally (~70.5% of A4 width).
 
-**A5 pre-printed mode:** When **A5 tax invoice** is selected and **Use pre-printed A5 paper (values only)** is checked, the app prints **only bill data** (no background, labels, borders, or headers) at fixed positions aligned to pre-printed form lines. Tune alignment in [`A5PrePrintedInvoiceLayout.cs`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceLayout.cs) after a test print on physical paper.
+**A5 pre-printed mode:** When **A5 tax invoice** is selected and **Use pre-printed A5 paper (values only)** is checked, the app prints **only bill data** (no background, labels, borders, or headers) at fixed positions aligned to pre-printed form lines. Values use **Arial**. **BILL TO** shows up to 15 characters; longer names print as the first 15 characters plus `...`. Tune alignment in [`A5PrePrintedInvoiceLayout.cs`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceLayout.cs) after a test print on physical paper.
 
 **Stitching** checkbox and **D/D delivery date** appear on full A4/A5 and pre-printed A5 when stitching is selected and a date is entered.
 
@@ -43,7 +43,7 @@ Store name, address, contact, logo, and terms come from receipt settings (synced
 
 | Form line | Data printed |
 |-----------|--------------|
-| BILL TO | Customer name |
+| BILL TO | Customer name (max 15 chars + `...` if longer) |
 | INV. NO. | Bill number |
 | DATE | Bill date |
 | CONTACT | Customer phone |

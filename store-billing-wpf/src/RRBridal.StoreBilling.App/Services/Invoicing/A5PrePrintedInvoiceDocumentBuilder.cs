@@ -44,8 +44,8 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         var bodyFont = A5PrePrintedInvoiceLayout.BodyFontPt;
         var totalFont = A5PrePrintedInvoiceLayout.TotalFontPt;
 
-        PlaceText(canvas, input.CustomerName, A5PrePrintedInvoiceLayout.BillToLeftMm, A5PrePrintedInvoiceLayout.BillToTopMm,
-            A5PrePrintedInvoiceLayout.BillToWidthMm, bodyFont, TextAlignment.Left);
+        PlaceText(canvas, A5PrePrintedText.FormatBillTo(input.CustomerName), A5PrePrintedInvoiceLayout.BillToLeftMm, A5PrePrintedInvoiceLayout.BillToTopMm,
+            A5PrePrintedInvoiceLayout.BillToWidthMm, bodyFont, TextAlignment.Left, singleLine: true);
         PlaceText(canvas, input.BillNo, A5PrePrintedInvoiceLayout.InvNoLeftMm, A5PrePrintedInvoiceLayout.InvNoTopMm,
             A5PrePrintedInvoiceLayout.InvNoWidthMm, bodyFont, TextAlignment.Left);
         PlaceText(canvas, input.BillDate, A5PrePrintedInvoiceLayout.DateLeftMm, A5PrePrintedInvoiceLayout.DateTopMm,
@@ -93,7 +93,8 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         double fontPt,
         TextAlignment align,
         FontWeight? weight = null,
-        bool useTableOffset = false)
+        bool useTableOffset = false,
+        bool singleLine = false)
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
@@ -101,12 +102,13 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         var tb = new TextBlock
         {
             Text = text,
-            FontFamily = RetailInvoiceVisuals.BodyFont,
+            FontFamily = A5PrePrintedText.PrintFont,
             FontSize = fontPt,
             FontWeight = weight ?? FontWeights.Normal,
             Foreground = Brushes.Black,
             Width = InvoiceImageScaling.MmToPx(widthMm),
-            TextWrapping = TextWrapping.Wrap,
+            TextWrapping = singleLine ? TextWrapping.NoWrap : TextWrapping.Wrap,
+            TextTrimming = TextTrimming.None,
             TextAlignment = align,
             Padding = new Thickness(0, 0, 0, 0),
         };
