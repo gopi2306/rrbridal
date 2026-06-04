@@ -100,3 +100,21 @@ export interface MyWarehouseQueryLimits {
   transferOutLimit: number;
   inventoryPreviewLimit: number;
 }
+
+/** Paginated warehouse inventory grid row (inventory grid preview UI). */
+export type MyWarehouseInventoryGridRow = MyWarehouseInventoryPreviewRow;
+
+export interface MyWarehouseInventoryListResponse {
+  locationCode: string;
+  data: MyWarehouseInventoryGridRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface MyWarehouseInventoryListParams {
+  page: number;
+  limit: number;
+  search?: string;
+}

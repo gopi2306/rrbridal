@@ -49,8 +49,46 @@ GET /api/my-warehouse?locationCode=loc-001
 - **Transfers out**: `warehouse_to_store` transfers where `fromLocationId` matches the warehouse (with the same legacy-null rule on the default warehouse).
 - **Goods receipts & purchase orders**: Global lists (receipts sorted by recency; POs in open pipeline statuses).
 
+## Warehouse inventory grid (paginated)
+
+```
+GET /api/my-warehouse/inventory?locationCode=loc-001&page=1&limit=20
+```
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `locationCode` | yes | — | Warehouse location filter |
+| `search` | no | — | SKU, barcode, or product name |
+| `page` | no | `1` | Page number |
+| `limit` | no | `20` | Page size (max `100`) |
+
+Returns SKUs with on-hand stock at the warehouse (scoped by `locationCode`), sorted by warehouse quantity (highest first).
+
+```json
+{
+  "locationCode": "loc-001",
+  "data": [
+    {
+      "sku": "BRD-LHG-001",
+      "productName": "Zari Bridal Lehenga",
+      "productSubtitle": "RR Style - Bridal Lehenga",
+      "barcode": "8901001000012",
+      "warehouseQty": 44,
+      "inTransitQty": 8,
+      "costPrice": 14500,
+      "sellingPrice": 22999
+    }
+  ],
+  "total": 120,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 6
+}
+```
+
 ## Example
 
 ```bash
 curl "http://localhost:3000/api/my-warehouse?locationCode=loc-001"
+curl "http://localhost:3000/api/my-warehouse/inventory?locationCode=loc-001&page=1&limit=20"
 ```
