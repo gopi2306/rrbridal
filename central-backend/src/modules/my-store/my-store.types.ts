@@ -83,3 +83,21 @@ export interface MyStoreQueryLimits {
   transferOutLimit: number;
   inventoryPreviewLimit: number;
 }
+
+/** Paginated store inventory grid row (inventory grid preview UI). */
+export type MyStoreInventoryGridRow = MyStoreInventoryPreviewRow;
+
+export interface MyStoreInventoryListResponse {
+  storeCode: string;
+  data: MyStoreInventoryGridRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface MyStoreInventoryListParams {
+  page: number;
+  limit: number;
+  search?: string;
+}

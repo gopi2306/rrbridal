@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
 import { InventoryService } from '../inventory/inventory.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { ProductsService } from '../products/products.service';
 import {
   PurchaseIntent,
   PurchaseIntentDocument,
@@ -16,6 +17,9 @@ import type {
   MyStoreProfile,
   MyStorePurchaseIndent,
   MyStoreQueryLimits,
+  MyStoreInventoryGridRow,
+  MyStoreInventoryListParams,
+  MyStoreInventoryListResponse,
   MyStoreTransferCard,
   MyStoreWorkspaceResponse,
 } from './my-store.types';
@@ -48,11 +52,82 @@ type IntentLean = {
 export class MyStoreService {
   constructor(
     private readonly inventoryService: InventoryService,
+    private readonly productsService: ProductsService,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     @InjectModel(PurchaseIntent.name) private readonly intentModel: Model<PurchaseIntentDocument>,
     @InjectModel(StockTransfer.name) private readonly transferModel: Model<StockTransferDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
   ) {}
+
+  async listStoreInventory(
+    storeCode: string,
+    params: MyStoreInventoryListParams,
+  ): Promise<MyStoreInventoryListResponse> {
+    const storeDoc = await this.resolveStore(storeCode);
+    const sid = storeDoc.code;
+    const page = Math.max(1, params.page);
+    const limit = Math.min(100, Math.max(1, params.limit));
+
+    const [storeQtyMap, inboundInTransitBySku] = await Promise.all([
+      this.inventoryService.getStoreSkuQtyMap(sid),
+      this.getInboundInTransitBySku(sid),
+    ]);
+
+    let ranked = [...storeQtyMap.entries()]
+      .filter(([, qty]) => qty > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    const search = params.search?.trim();
+    if (search && ranked.length > 0) {
+      const stockSkus = ranked.map(([sku]) => sku);
+      const matching = await this.productsService.list({
+        skus: stockSkus,
+        search,
+        skip: 0,
+        limit: stockSkus.length,
+      });
+      const matchSet = new Set(
+        matching.map((p) => (typeof p.sku === 'string' ? p.sku : '')).filter(Boolean),
+      );
+      ranked = ranked.filter(([sku]) => matchSet.has(sku));
+    }
+
+    const total = ranked.length;
+    const skip = (page - 1) * limit;
+    const pageSlice = ranked.slice(skip, skip + limit);
+
+    if (pageSlice.length === 0) {
+      return {
+        storeCode: sid,
+        data: [],
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+      };
+    }
+
+    const skus = pageSlice.map(([sku]) => sku);
+    const products = await this.productModel.find({ sku: { $in: skus } }).lean();
+    const enriched = await enrichProductDocuments(
+      this.productModel,
+      products as Array<Record<string, unknown>>,
+    );
+    const bySku = new Map(enriched.map((p) => [typeof p.sku === 'string' ? p.sku : '', p]));
+
+    const data: MyStoreInventoryGridRow[] = pageSlice.map(([sku, storeQty]) =>
+      this.mapInventoryGridRow(bySku.get(sku) ?? {}, sku, storeQty, inboundInTransitBySku.get(sku) ?? 0),
+    );
+
+    return {
+      storeCode: sid,
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
   async getWorkspace(
     storeId: string | undefined,
@@ -280,23 +355,36 @@ export class MyStoreService {
     );
     const bySku = new Map(enriched.map((p) => [typeof p.sku === 'string' ? p.sku : '', p]));
 
-    return ranked.map(([sku, storeQty]) => {
-      const p = bySku.get(sku) ?? {};
-      const storePrice =
-        (typeof p.storePrice === 'number' ? p.storePrice : undefined) ??
-        (typeof p.sellingPrice === 'number' ? p.sellingPrice : undefined) ??
-        null;
-      return {
+    return ranked.map(([sku, storeQty]) =>
+      this.mapInventoryGridRow(
+        bySku.get(sku) ?? {},
         sku,
-        productName: typeof p.itemName === 'string' ? p.itemName : sku,
-        productSubtitle: this.productSubtitle(p),
-        barcode: typeof p.upcEanCode === 'string' ? p.upcEanCode : null,
         storeQty,
-        inTransitQty: inboundInTransitBySku.get(sku) ?? 0,
-        mrp: typeof p.mrp === 'number' ? p.mrp : null,
-        storePrice,
-      };
-    });
+        inboundInTransitBySku.get(sku) ?? 0,
+      ),
+    );
+  }
+
+  private mapInventoryGridRow(
+    product: Record<string, unknown>,
+    sku: string,
+    storeQty: number,
+    inTransitQty: number,
+  ): MyStoreInventoryGridRow {
+    const storePrice =
+      (typeof product.storePrice === 'number' ? product.storePrice : undefined) ??
+      (typeof product.sellingPrice === 'number' ? product.sellingPrice : undefined) ??
+      null;
+    return {
+      sku,
+      productName: typeof product.itemName === 'string' ? product.itemName : sku,
+      productSubtitle: this.productSubtitle(product),
+      barcode: typeof product.upcEanCode === 'string' ? product.upcEanCode : null,
+      storeQty,
+      inTransitQty,
+      mrp: typeof product.mrp === 'number' ? product.mrp : null,
+      storePrice,
+    };
   }
 
   private async getInboundInTransitBySku(storeId: string): Promise<Map<string, number>> {

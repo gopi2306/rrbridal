@@ -50,8 +50,46 @@ GET /api/my-store?storeId=store-001
 - **Inventory summary `storeQty` / `retailValue`**: On-hand at the selected store.
 - **Inventory summary `inTransitQty` / preview `inTransitQty`**: Pieces on open inbound transfers (`warehouse_to_store` in `draft`, `in_transit`, or `awaiting_intake`) to that store.
 
+## Store inventory grid (paginated)
+
+```
+GET /api/my-store/inventory?storeCode=store-001&page=1&limit=20
+```
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `storeCode` | yes | — | Store code filter |
+| `search` | no | — | SKU, barcode, or product name |
+| `page` | no | `1` | Page number |
+| `limit` | no | `20` | Page size (max `100`) |
+
+Returns SKUs with on-hand stock at the store, sorted by store quantity (highest first). `inTransitQty` is inbound transfer quantity for that store.
+
+```json
+{
+  "storeCode": "store-001",
+  "data": [
+    {
+      "sku": "BRD-LHG-001",
+      "productName": "Zari Bridal Lehenga",
+      "productSubtitle": "RR Style - Bridal Lehenga",
+      "barcode": "8901001000012",
+      "storeQty": 12,
+      "inTransitQty": 8,
+      "mrp": 24999,
+      "storePrice": 21999
+    }
+  ],
+  "total": 48,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 3
+}
+```
+
 ## Example
 
 ```bash
 curl "http://localhost:3000/api/my-store?storeId=store-001"
+curl "http://localhost:3000/api/my-store/inventory?storeCode=store-001&page=1&limit=20"
 ```
