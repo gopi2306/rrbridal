@@ -10,6 +10,7 @@ import { PurchaseOrder, PurchaseOrderSchema } from '../purchase-orders/schemas/p
 import { StockTransfer, StockTransferSchema } from '../stock-transfers/schemas/stock-transfer.schema';
 import { Store, StoreSchema } from '../stores/schemas/store.schema';
 import { MyWarehouseController } from './my-warehouse.controller';
+import { MyWarehouseInventoryExportService } from './my-warehouse-inventory-export.service';
 import { MyWarehouseService } from './my-warehouse.service';
 
 @Module({
@@ -27,6 +28,6 @@ import { MyWarehouseService } from './my-warehouse.service';
     ]),
   ],
   controllers: [MyWarehouseController],
-  providers: [MyWarehouseService],
+  providers: [MyWarehouseService, MyWarehouseInventoryExportService],
 })
 export class MyWarehouseModule {}

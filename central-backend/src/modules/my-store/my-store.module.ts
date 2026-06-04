@@ -7,6 +7,7 @@ import { PurchaseIntent, PurchaseIntentSchema } from '../purchase-intents/schema
 import { StockTransfer, StockTransferSchema } from '../stock-transfers/schemas/stock-transfer.schema';
 import { Store, StoreSchema } from '../stores/schemas/store.schema';
 import { MyStoreController } from './my-store.controller';
+import { MyStoreInventoryExportService } from './my-store-inventory-export.service';
 import { MyStoreService } from './my-store.service';
 
 @Module({
@@ -21,6 +22,6 @@ import { MyStoreService } from './my-store.service';
     ]),
   ],
   controllers: [MyStoreController],
-  providers: [MyStoreService],
+  providers: [MyStoreService, MyStoreInventoryExportService],
 })
 export class MyStoreModule {}

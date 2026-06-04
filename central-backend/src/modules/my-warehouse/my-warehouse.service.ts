@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
+import { TABULAR_EXPORT_MAX_ROWS } from '../../common/tabular-export';
 import {
   GoodsReceipt,
   GoodsReceiptDocument,
@@ -98,22 +99,55 @@ export class MyWarehouseService {
     locationCode: string,
     params: MyWarehouseInventoryListParams,
   ): Promise<MyWarehouseInventoryListResponse> {
-    const resolved = await this.resolveWarehouse(locationCode);
     const page = Math.max(1, params.page);
     const limit = Math.min(100, Math.max(1, params.limit));
+    const { locationCode: code, ranked, inTransitBySku } = await this.resolveWarehouseInventoryRanked(
+      locationCode,
+      params.search,
+    );
 
+    const total = ranked.length;
+    const pageSlice = ranked.slice((page - 1) * limit, page * limit);
+    const data = await this.mapRankedToWarehouseGridRows(pageSlice, inTransitBySku);
+
+    return {
+      locationCode: code,
+      data,
+      total,
+      page,
+      limit,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
+  }
+
+  async fetchAllWarehouseInventoryRows(
+    locationCode: string,
+    search?: string,
+    maxRows = TABULAR_EXPORT_MAX_ROWS,
+  ): Promise<MyWarehouseInventoryGridRow[]> {
+    const { ranked, inTransitBySku } = await this.resolveWarehouseInventoryRanked(locationCode, search);
+    if (ranked.length > maxRows) {
+      throw new PayloadTooLargeException(
+        `Export exceeds maximum of ${maxRows} rows (${ranked.length} match). Narrow search and try again.`,
+      );
+    }
+    return this.mapRankedToWarehouseGridRows(ranked, inTransitBySku);
+  }
+
+  private async resolveWarehouseInventoryRanked(locationCode: string, search?: string) {
+    const resolved = await this.resolveWarehouse(locationCode);
     const qtyMaps = await this.inventoryService.getWarehouseSkuQtyMaps(resolved.qtyScope);
 
     let ranked = [...qtyMaps.warehouseBySku.entries()]
       .filter(([, qty]) => qty > 0)
       .sort((a, b) => b[1] - a[1]);
 
-    const search = params.search?.trim();
-    if (search && ranked.length > 0) {
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch && ranked.length > 0) {
       const stockSkus = ranked.map(([sku]) => sku);
       const matching = await this.productsService.list({
         skus: stockSkus,
-        search,
+        search: trimmedSearch,
         skip: 0,
         limit: stockSkus.length,
       });
@@ -123,22 +157,20 @@ export class MyWarehouseService {
       ranked = ranked.filter(([sku]) => matchSet.has(sku));
     }
 
-    const total = ranked.length;
-    const skip = (page - 1) * limit;
-    const pageSlice = ranked.slice(skip, skip + limit);
+    return {
+      locationCode: resolved.profile.code,
+      ranked,
+      inTransitBySku: qtyMaps.inTransitBySku,
+    };
+  }
 
-    if (pageSlice.length === 0) {
-      return {
-        locationCode: resolved.profile.code,
-        data: [],
-        total,
-        page,
-        limit,
-        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
-      };
-    }
+  private async mapRankedToWarehouseGridRows(
+    ranked: Array<[string, number]>,
+    inTransitBySku: Map<string, number>,
+  ): Promise<MyWarehouseInventoryGridRow[]> {
+    if (ranked.length === 0) return [];
 
-    const skus = pageSlice.map(([sku]) => sku);
+    const skus = ranked.map(([sku]) => sku);
     const products = await this.productModel.find({ sku: { $in: skus } }).lean();
     const enriched = await enrichProductDocuments(
       this.productModel,
@@ -146,23 +178,9 @@ export class MyWarehouseService {
     );
     const bySku = new Map(enriched.map((p) => [typeof p.sku === 'string' ? p.sku : '', p]));
 
-    const data: MyWarehouseInventoryGridRow[] = pageSlice.map(([sku, warehouseQty]) =>
-      this.mapInventoryGridRow(
-        bySku.get(sku) ?? {},
-        sku,
-        warehouseQty,
-        qtyMaps.inTransitBySku.get(sku) ?? 0,
-      ),
+    return ranked.map(([sku, warehouseQty]) =>
+      this.mapInventoryGridRow(bySku.get(sku) ?? {}, sku, warehouseQty, inTransitBySku.get(sku) ?? 0),
     );
-
-    return {
-      locationCode: resolved.profile.code,
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
   }
 
   async getWorkspace(

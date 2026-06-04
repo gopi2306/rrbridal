@@ -86,9 +86,26 @@ Returns SKUs with on-hand stock at the warehouse (scoped by `locationCode`), sor
 }
 ```
 
+## Warehouse inventory export
+
+```
+GET /api/my-warehouse/inventory/export?format=xlsx&locationCode=loc-001
+```
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `format` | yes | `xlsx`, `csv`, or `pdf` |
+| `locationCode` | yes | Warehouse location (same as inventory list) |
+| `search` | no | Same search filter as inventory list |
+
+Exports all matching rows (not paginated). Maximum **10,000** rows; returns `413` if exceeded.
+
+Filename: `warehouse-inventory-{locationCode}-{date}.{ext}`
+
 ## Example
 
 ```bash
 curl "http://localhost:3000/api/my-warehouse?locationCode=loc-001"
 curl "http://localhost:3000/api/my-warehouse/inventory?locationCode=loc-001&page=1&limit=20"
+curl -O -J "http://localhost:3000/api/my-warehouse/inventory/export?format=pdf&locationCode=loc-001"
 ```

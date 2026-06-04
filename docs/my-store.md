@@ -87,9 +87,26 @@ Returns SKUs with on-hand stock at the store, sorted by store quantity (highest 
 }
 ```
 
+## Store inventory export
+
+```
+GET /api/my-store/inventory/export?format=xlsx&storeCode=store-001
+```
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `format` | yes | `xlsx`, `csv`, or `pdf` |
+| `storeCode` | yes | Store code (same as inventory list) |
+| `search` | no | Same search filter as inventory list |
+
+Exports all matching rows (not paginated). Maximum **10,000** rows; returns `413` if exceeded.
+
+Filename: `store-inventory-{storeCode}-{date}.{ext}`
+
 ## Example
 
 ```bash
 curl "http://localhost:3000/api/my-store?storeId=store-001"
 curl "http://localhost:3000/api/my-store/inventory?storeCode=store-001&page=1&limit=20"
+curl -O -J "http://localhost:3000/api/my-store/inventory/export?format=xlsx&storeCode=store-001"
 ```

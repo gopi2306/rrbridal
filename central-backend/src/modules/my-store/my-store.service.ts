@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
+import { TABULAR_EXPORT_MAX_ROWS } from '../../common/tabular-export';
 import { InventoryService } from '../inventory/inventory.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ProductsService } from '../products/products.service';
@@ -63,10 +64,44 @@ export class MyStoreService {
     storeCode: string,
     params: MyStoreInventoryListParams,
   ): Promise<MyStoreInventoryListResponse> {
-    const storeDoc = await this.resolveStore(storeCode);
-    const sid = storeDoc.code;
     const page = Math.max(1, params.page);
     const limit = Math.min(100, Math.max(1, params.limit));
+    const { storeCode: sid, ranked, inboundInTransitBySku } = await this.resolveStoreInventoryRanked(
+      storeCode,
+      params.search,
+    );
+
+    const total = ranked.length;
+    const pageSlice = ranked.slice((page - 1) * limit, page * limit);
+    const data = await this.mapRankedToStoreGridRows(pageSlice, inboundInTransitBySku);
+
+    return {
+      storeCode: sid,
+      data,
+      total,
+      page,
+      limit,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
+  }
+
+  async fetchAllStoreInventoryRows(
+    storeCode: string,
+    search?: string,
+    maxRows = TABULAR_EXPORT_MAX_ROWS,
+  ): Promise<MyStoreInventoryGridRow[]> {
+    const { ranked, inboundInTransitBySku } = await this.resolveStoreInventoryRanked(storeCode, search);
+    if (ranked.length > maxRows) {
+      throw new PayloadTooLargeException(
+        `Export exceeds maximum of ${maxRows} rows (${ranked.length} match). Narrow search and try again.`,
+      );
+    }
+    return this.mapRankedToStoreGridRows(ranked, inboundInTransitBySku);
+  }
+
+  private async resolveStoreInventoryRanked(storeCode: string, search?: string) {
+    const storeDoc = await this.resolveStore(storeCode);
+    const sid = storeDoc.code;
 
     const [storeQtyMap, inboundInTransitBySku] = await Promise.all([
       this.inventoryService.getStoreSkuQtyMap(sid),
@@ -77,12 +112,12 @@ export class MyStoreService {
       .filter(([, qty]) => qty > 0)
       .sort((a, b) => b[1] - a[1]);
 
-    const search = params.search?.trim();
-    if (search && ranked.length > 0) {
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch && ranked.length > 0) {
       const stockSkus = ranked.map(([sku]) => sku);
       const matching = await this.productsService.list({
         skus: stockSkus,
-        search,
+        search: trimmedSearch,
         skip: 0,
         limit: stockSkus.length,
       });
@@ -92,22 +127,16 @@ export class MyStoreService {
       ranked = ranked.filter(([sku]) => matchSet.has(sku));
     }
 
-    const total = ranked.length;
-    const skip = (page - 1) * limit;
-    const pageSlice = ranked.slice(skip, skip + limit);
+    return { storeCode: sid, ranked, inboundInTransitBySku };
+  }
 
-    if (pageSlice.length === 0) {
-      return {
-        storeCode: sid,
-        data: [],
-        total,
-        page,
-        limit,
-        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
-      };
-    }
+  private async mapRankedToStoreGridRows(
+    ranked: Array<[string, number]>,
+    inboundInTransitBySku: Map<string, number>,
+  ): Promise<MyStoreInventoryGridRow[]> {
+    if (ranked.length === 0) return [];
 
-    const skus = pageSlice.map(([sku]) => sku);
+    const skus = ranked.map(([sku]) => sku);
     const products = await this.productModel.find({ sku: { $in: skus } }).lean();
     const enriched = await enrichProductDocuments(
       this.productModel,
@@ -115,18 +144,9 @@ export class MyStoreService {
     );
     const bySku = new Map(enriched.map((p) => [typeof p.sku === 'string' ? p.sku : '', p]));
 
-    const data: MyStoreInventoryGridRow[] = pageSlice.map(([sku, storeQty]) =>
+    return ranked.map(([sku, storeQty]) =>
       this.mapInventoryGridRow(bySku.get(sku) ?? {}, sku, storeQty, inboundInTransitBySku.get(sku) ?? 0),
     );
-
-    return {
-      storeCode: sid,
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
   }
 
   async getWorkspace(
