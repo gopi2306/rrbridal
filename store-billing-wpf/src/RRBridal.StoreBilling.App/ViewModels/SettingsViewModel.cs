@@ -5,6 +5,8 @@ using System.Linq;
 using System.Printing;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Documents;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -12,6 +14,7 @@ using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.PurchaseIntents;
+using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -72,6 +75,20 @@ public partial class SettingsViewModel : ObservableObject
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
+    public A5PrePrintedLayoutSettingsViewModel A5Layout { get; } = new();
+
+    public IReadOnlyList<string> A5FontFamilyOptions { get; } =
+    [
+        "Arial",
+        "Calibri",
+        "Times New Roman",
+        "Courier New",
+        "Segoe UI",
+    ];
+
+    public bool IsA5PrePrintedSettingsVisible =>
+        IsA5ReceiptFormat && A5PrePrintedEnabled;
+
     public bool IsThermalReceiptFormat
     {
         get => ReceiptPrintFormat == InvoicePrintFormat.Thermal;
@@ -111,7 +128,11 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
+        OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
     }
+
+    partial void OnA5PrePrintedEnabledChanged(bool value) =>
+        OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
 
     public SettingsViewModel(AppServices services)
     {
@@ -175,6 +196,7 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptPrintFormat = c.Print.PrintFormat;
         A5PrePrintedEnabled = c.Print.A5PrePrintedEnabled;
         AlsoPrintThermalFirst = c.Print.AlsoPrintThermalFirst;
+        A5Layout.ApplyFrom(c.Print.A5PrePrintedLayout ?? A5PrePrintedLayoutSettings.CreateDefault());
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
@@ -271,12 +293,60 @@ public partial class SettingsViewModel : ObservableObject
         c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
         c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
             && AlsoPrintThermalFirst;
+        c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
         UpdatePrinterWarning();
         LastActionText = "Receipt and printer settings saved.";
     }
 
     partial void OnSelectedPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
+
+    [RelayCommand]
+    public void ResetA5PrePrintedLayoutToDefaults()
+    {
+        A5Layout.ApplyFrom(A5PrePrintedLayoutSettings.CreateDefault());
+        LastActionText = "A5 pre-printed alignment reset to defaults (save to persist).";
+    }
+
+    [RelayCommand]
+    public void PreviewA5PrePrintedAlignment()
+    {
+        var layout = A5Layout.ToSettings();
+        var store = _services.ReceiptConfig.Current.Store;
+        var input = new ThermalInvoiceInput
+        {
+            Store = store,
+            CharWidth = ReceiptCharWidth,
+            BillNo = "TEST-001",
+            BillDate = DateTime.Now.ToString("dd-MMM-yyyy").ToUpperInvariant(),
+            UserName = "Test",
+            Time = DateTime.Now.ToString("HH:mm"),
+            Counter = "01",
+            CustomerName = "Sample Customer Name Long",
+            CustomerPhone = "9876543210",
+            Stitching = true,
+            DeliveryDate = DateTime.Now.AddDays(7).ToString("dd-MMM-yyyy").ToUpperInvariant(),
+            Lines =
+            [
+                new InvoiceLineSnap { LineNo = 1, Description = "Bridal Lehenga", Qty = 1, Rate = 15000, Amount = 15000, TaxableAmount = 15000 },
+                new InvoiceLineSnap { LineNo = 2, Description = "Dupatta", Qty = 2, Rate = 500, Amount = 1000, TaxableAmount = 1000 },
+            ],
+            Payable = 16000,
+            SubTotal = 16000,
+            RevisedSubTotal = 16000,
+            ItemCount = 2,
+        };
+
+        var doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, layout);
+        var dlg = new InvoicePrintPreviewWindow(_services, doc, "", printInvoiceEnabled: true)
+        {
+            Owner = Application.Current.MainWindow,
+            Width = 508,
+            Height = 720,
+            Title = "A5 pre-printed test layout",
+        };
+        dlg.ShowDialog();
+    }
 
     [RelayCommand]
     public async Task LoginCentralAsync()

@@ -12,8 +12,12 @@ public static class A5PrePrintedInvoiceDocumentBuilder
 {
     private static readonly CultureInfo In = CultureInfo.GetCultureInfo("en-IN");
 
-    public static FlowDocument Create(ThermalInvoiceInput input)
+    public static FlowDocument Create(ThermalInvoiceInput input, A5PrePrintedLayoutSettings? layoutSettings = null)
     {
+        var settings = layoutSettings ?? A5PrePrintedLayoutSettings.CreateDefault();
+        var layout = A5PrePrintedInvoiceLayout.FromSettings(settings);
+        var printFont = A5PrePrintedText.ResolvePrintFont(settings.PrintFontFamily);
+
         var pageWidth = InvoiceImageScaling.MmToPx(A5PrePrintedInvoiceLayout.PageWidthMm);
         var pageHeight = InvoiceImageScaling.MmToPx(A5PrePrintedInvoiceLayout.PageHeightMm);
 
@@ -28,11 +32,17 @@ public static class A5PrePrintedInvoiceDocumentBuilder
             Background = Brushes.White,
         };
 
-        doc.Blocks.Add(new BlockUIContainer(BuildCanvas(input, pageWidth, pageHeight)));
+        doc.Blocks.Add(new BlockUIContainer(BuildCanvas(input, layout, settings, printFont, pageWidth, pageHeight)));
         return doc;
     }
 
-    private static Canvas BuildCanvas(ThermalInvoiceInput input, double pageWidth, double pageHeight)
+    private static Canvas BuildCanvas(
+        ThermalInvoiceInput input,
+        A5PrePrintedInvoiceLayout layout,
+        A5PrePrintedLayoutSettings settings,
+        FontFamily printFont,
+        double pageWidth,
+        double pageHeight)
     {
         var canvas = new Canvas
         {
@@ -41,45 +51,47 @@ public static class A5PrePrintedInvoiceDocumentBuilder
             Background = Brushes.White,
         };
 
-        var bodyFont = A5PrePrintedInvoiceLayout.BodyFontPt;
-        var totalFont = A5PrePrintedInvoiceLayout.TotalFontPt;
+        var bodyFont = layout.BodyFontPt;
+        var totalFont = layout.TotalFontPt;
 
-        PlaceText(canvas, A5PrePrintedText.FormatBillTo(input.CustomerName), A5PrePrintedInvoiceLayout.BillToLeftMm, A5PrePrintedInvoiceLayout.BillToTopMm,
-            A5PrePrintedInvoiceLayout.BillToWidthMm, bodyFont, TextAlignment.Left, singleLine: true);
-        PlaceText(canvas, input.BillNo, A5PrePrintedInvoiceLayout.InvNoLeftMm, A5PrePrintedInvoiceLayout.InvNoTopMm,
-            A5PrePrintedInvoiceLayout.InvNoWidthMm, bodyFont, TextAlignment.Left);
-        PlaceText(canvas, input.BillDate, A5PrePrintedInvoiceLayout.DateLeftMm, A5PrePrintedInvoiceLayout.DateTopMm,
-            A5PrePrintedInvoiceLayout.DateWidthMm, bodyFont, TextAlignment.Left);
-        PlaceText(canvas, input.CustomerPhone, A5PrePrintedInvoiceLayout.ContactLeftMm, A5PrePrintedInvoiceLayout.MetaRow2TopMm,
-            A5PrePrintedInvoiceLayout.ContactWidthMm, bodyFont, TextAlignment.Left);
+        PlaceText(canvas, A5PrePrintedText.FormatBillTo(input.CustomerName, settings.BillToMaxChars),
+            layout.BillToLeftMm, layout.BillToTopMm, layout.BillToWidthMm, bodyFont, printFont,
+            TextAlignment.Left, singleLine: true, layout: layout);
+        PlaceText(canvas, input.BillNo, layout.InvNoLeftMm, layout.InvNoTopMm, layout.InvNoWidthMm,
+            bodyFont, printFont, TextAlignment.Left, layout: layout);
+        PlaceText(canvas, input.BillDate, layout.DateLeftMm, layout.DateTopMm, layout.DateWidthMm,
+            bodyFont, printFont, TextAlignment.Left, layout: layout);
+        PlaceText(canvas, input.CustomerPhone, layout.ContactLeftMm, layout.MetaRow2TopMm, layout.ContactWidthMm,
+            bodyFont, printFont, TextAlignment.Left, layout: layout);
 
         if (input.Stitching)
         {
-            PlaceText(canvas, "✓", A5PrePrintedInvoiceLayout.StitchingTickLeftMm, A5PrePrintedInvoiceLayout.StitchingTickTopMm,
-                A5PrePrintedInvoiceLayout.StitchingTickSizeMm, bodyFont, TextAlignment.Center, FontWeights.Bold);
-            PlaceText(canvas, input.DeliveryDate, A5PrePrintedInvoiceLayout.DeliveryDateLeftMm, A5PrePrintedInvoiceLayout.DeliveryDateTopMm,
-                A5PrePrintedInvoiceLayout.DeliveryDateWidthMm, bodyFont, TextAlignment.Left);
+            PlaceText(canvas, "✓", layout.StitchingTickLeftMm, layout.StitchingTickTopMm, layout.StitchingTickSizeMm,
+                bodyFont, printFont, TextAlignment.Center, FontWeights.Bold, layout: layout);
+            PlaceText(canvas, input.DeliveryDate, layout.DeliveryDateLeftMm, layout.DeliveryDateTopMm,
+                layout.DeliveryDateWidthMm, bodyFont, printFont, TextAlignment.Left, layout: layout);
         }
 
-        var lines = input.Lines.Where(l => l.Amount > 0 || l.TaxableAmount > 0).Take(A5PrePrintedInvoiceLayout.MaxLineRows).ToList();
+        var lines = input.Lines.Where(l => l.Amount > 0 || l.TaxableAmount > 0).Take(layout.MaxLineRows).ToList();
         for (var i = 0; i < lines.Count; i++)
         {
             var line = lines[i];
-            var top = A5PrePrintedInvoiceLayout.TableTopMm + i * A5PrePrintedInvoiceLayout.LineRowHeightMm;
+            var top = layout.TableTopMm + i * layout.LineRowHeightMm;
             var amount = line.TaxableAmount > 0 ? line.TaxableAmount : line.Amount;
 
-            PlaceText(canvas, line.Description, A5PrePrintedInvoiceLayout.ColDescLeftMm, top,
-                A5PrePrintedInvoiceLayout.ColDescWidthMm, bodyFont, TextAlignment.Left, useTableOffset: true);
-            PlaceText(canvas, $"{line.Qty:0.###}", A5PrePrintedInvoiceLayout.ColQtyLeftMm, top,
-                A5PrePrintedInvoiceLayout.ColQtyWidthMm, bodyFont, TextAlignment.Center, useTableOffset: true);
-            PlaceText(canvas, Money(line.Rate), A5PrePrintedInvoiceLayout.ColRateLeftMm, top,
-                A5PrePrintedInvoiceLayout.ColRateWidthMm, bodyFont, TextAlignment.Right, useTableOffset: true);
-            PlaceText(canvas, Money(amount), A5PrePrintedInvoiceLayout.ColAmountLeftMm, top,
-                A5PrePrintedInvoiceLayout.ColAmountWidthMm, bodyFont, TextAlignment.Right, useTableOffset: true);
+            PlaceText(canvas, line.Description, layout.ColDescLeftMm, top, layout.ColDescWidthMm,
+                bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
+            PlaceText(canvas, $"{line.Qty:0.###}", layout.ColQtyLeftMm, top, layout.ColQtyWidthMm,
+                bodyFont, printFont, TextAlignment.Center, useTableOffset: true, layout: layout);
+            PlaceText(canvas, Money(line.Rate), layout.ColRateLeftMm, top, layout.ColRateWidthMm,
+                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
+            PlaceText(canvas, Money(amount), layout.ColAmountLeftMm, top, layout.ColAmountWidthMm,
+                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
         }
 
-        PlaceText(canvas, Money(input.Payable), A5PrePrintedInvoiceLayout.TotalAmountLeftMm, A5PrePrintedInvoiceLayout.TotalAmountTopMm,
-            A5PrePrintedInvoiceLayout.TotalAmountWidthMm, totalFont, TextAlignment.Right, FontWeights.Bold, useTableOffset: true);
+        PlaceText(canvas, Money(input.Payable), layout.TotalAmountLeftMm, layout.TotalAmountTopMm,
+            layout.TotalAmountWidthMm, totalFont, printFont, TextAlignment.Right, FontWeights.Bold,
+            useTableOffset: true, layout: layout);
 
         return canvas;
     }
@@ -91,18 +103,22 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         double topMm,
         double widthMm,
         double fontPt,
+        FontFamily printFont,
         TextAlignment align,
         FontWeight? weight = null,
         bool useTableOffset = false,
-        bool singleLine = false)
+        bool singleLine = false,
+        A5PrePrintedInvoiceLayout? layout = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
 
+        layout ??= A5PrePrintedInvoiceLayout.FromSettings(A5PrePrintedLayoutSettings.CreateDefault());
+
         var tb = new TextBlock
         {
             Text = text,
-            FontFamily = A5PrePrintedText.PrintFont,
+            FontFamily = printFont,
             FontSize = fontPt,
             FontWeight = weight ?? FontWeights.Normal,
             Foreground = Brushes.Black,
@@ -112,10 +128,10 @@ public static class A5PrePrintedInvoiceDocumentBuilder
             TextAlignment = align,
             Padding = new Thickness(0, 0, 0, 0),
         };
-        var yMm = topMm + A5PrePrintedInvoiceLayout.TextBaselineNudgeMm;
-        Canvas.SetLeft(tb, InvoiceImageScaling.MmToPx(A5PrePrintedInvoiceLayout.X(leftMm)));
+        var yMm = topMm + layout.TextBaselineNudgeMm;
+        Canvas.SetLeft(tb, InvoiceImageScaling.MmToPx(layout.X(leftMm)));
         Canvas.SetTop(tb, InvoiceImageScaling.MmToPx(
-            useTableOffset ? A5PrePrintedInvoiceLayout.TableY(yMm) : A5PrePrintedInvoiceLayout.Y(yMm)));
+            useTableOffset ? layout.TableY(yMm) : layout.Y(yMm)));
         canvas.Children.Add(tb);
     }
 

@@ -76,6 +76,22 @@ export class ProductsService {
     return await this.productModel.findOne({ sku: trimmed }).lean();
   }
 
+  /** Import upsert lookup: match by SKU first, then exact itemName (description). */
+  async findExistingForImport(sku?: string, itemName?: string) {
+    const skuTrim = sku?.trim();
+    if (skuTrim) {
+      const bySku = await this.findBySku(skuTrim);
+      if (bySku) return bySku;
+    }
+
+    const nameTrim = itemName?.trim();
+    if (nameTrim) {
+      return await this.productModel.findOne({ itemName: nameTrim }).lean();
+    }
+
+    return null;
+  }
+
   async findById(id: string) {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
     const doc = await this.productModel.findById(toObjectId(id)).lean();
@@ -83,20 +99,24 @@ export class ProductsService {
     return doc;
   }
 
-  /** Create or update by SKU. When sku is omitted on create, server allocates next SKU. */
+  /** Create or update by SKU, or by itemName when SKU is missing or not found. */
   async upsertBySku(dto: CreateProductDto): Promise<{ created: boolean; product: unknown }> {
-    const skuInput = dto.sku?.trim();
-    if (skuInput) {
-      const existing = await this.findBySku(skuInput);
-      if (existing) {
-        const { sku: _sku, ...rest } = dto;
-        const cleaned = stripInvalidObjectIdRefs(
-          { ...rest } as Record<string, unknown>,
-          PRODUCT_REF_OBJECT_ID_FIELDS,
-        );
-        const product = await this.update(String(existing._id), cleaned as UpdateProductDto);
-        return { created: false, product };
+    const existing = await this.findExistingForImport(dto.sku, dto.itemName);
+    if (existing) {
+      const { sku: skuInput, ...rest } = dto;
+      const payload = { ...rest } as UpdateProductDto;
+      const newSku = skuInput?.trim();
+      if (newSku) {
+        const conflict = await this.productModel
+          .findOne({ sku: newSku, _id: { $ne: existing._id } })
+          .lean();
+        if (conflict) {
+          throw new ConflictException(`SKU '${newSku}' is already in use`);
+        }
+        payload.sku = newSku;
       }
+      const product = await this.update(String(existing._id), payload);
+      return { created: false, product };
     }
 
     const product = await this.create(dto);

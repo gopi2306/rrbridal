@@ -1,73 +1,105 @@
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
 /// <summary>Absolute mm positions for values on pre-printed A5 PAKEEZA-style invoice (148×210).</summary>
-public static class A5PrePrintedInvoiceLayout
+public sealed class A5PrePrintedInvoiceLayout
 {
     public const double PageWidthMm = 148;
     public const double PageHeightMm = 210;
 
-    /// <summary>Global nudge (positive = right). Meta/header fields use this.</summary>
-    public const double OffsetXMm = 0;
+    public double OffsetXMm { get; }
+    public double OffsetYMm { get; }
+    public double TableOffsetYMm { get; }
+    public double BodyFontPt { get; }
+    public double TotalFontPt { get; }
+    public double TextBaselineNudgeMm { get; }
 
-    /// <summary>Global nudge (negative = up). Header + row 2 only; table uses TableOffsetYMm.</summary>
-    public const double OffsetYMm = -8;
+    public double BillToTopMm { get; }
+    public double BillToLeftMm { get; }
+    public double BillToWidthMm { get; }
 
-    /// <summary>Extra vertical nudge for line items + total (positive = down on paper).</summary>
-    public const double TableOffsetYMm = 4;
+    public double InvNoTopMm { get; }
+    public double InvNoLeftMm { get; }
+    public double InvNoWidthMm { get; }
 
-    public const double BodyFontPt = 9.5;
-    public const double TotalFontPt = 9;
+    public double DateTopMm { get; }
+    public double DateLeftMm { get; }
+    public double DateWidthMm { get; }
 
-    public const double TextBaselineNudgeMm = 0;
+    public double MetaRow2TopMm { get; }
+    public double ContactLeftMm { get; }
+    public double ContactWidthMm { get; }
 
-    // --- Row 1: BILL TO / INV. NO. / DATE value lines ---
+    public double StitchingTickLeftMm { get; }
+    public double StitchingTickTopMm { get; }
+    public double StitchingTickSizeMm { get; }
 
-    public const double BillToTopMm = 81;
-    public const double BillToLeftMm = 34;
-    public const double BillToWidthMm = 30;
+    public double DeliveryDateLeftMm { get; }
+    public double DeliveryDateTopMm { get; }
+    public double DeliveryDateWidthMm { get; }
 
-    public const double InvNoTopMm = 81;
-    public const double InvNoLeftMm = 79;
-    public const double InvNoWidthMm = 32;
+    public double TableTopMm { get; }
+    public double LineRowHeightMm { get; }
+    public int MaxLineRows { get; }
 
-    public const double DateTopMm = 81;
-    public const double DateLeftMm = 115;
-    public const double DateWidthMm = 26;
+    public double ColDescLeftMm { get; }
+    public double ColDescWidthMm { get; }
+    public double ColQtyLeftMm { get; }
+    public double ColQtyWidthMm { get; }
+    public double ColRateLeftMm { get; }
+    public double ColRateWidthMm { get; }
+    public double ColAmountLeftMm { get; }
+    public double ColAmountWidthMm { get; }
 
-    // --- Row 2: CONTACT / stitching / D/D ---
+    public double TotalAmountLeftMm { get; }
+    public double TotalAmountTopMm { get; }
+    public double TotalAmountWidthMm { get; }
 
-    public const double MetaRow2TopMm = 90;
-    public const double ContactLeftMm = 40;
-    public const double ContactWidthMm = 32;
+    private A5PrePrintedInvoiceLayout(A5PrePrintedLayoutSettings s)
+    {
+        OffsetXMm = s.OffsetXMm;
+        OffsetYMm = s.OffsetYMm;
+        TableOffsetYMm = s.TableOffsetYMm;
+        BodyFontPt = s.BodyFontPt;
+        TotalFontPt = s.TotalFontPt;
+        TextBaselineNudgeMm = s.TextBaselineNudgeMm;
+        BillToTopMm = s.BillToTopMm;
+        BillToLeftMm = s.BillToLeftMm;
+        BillToWidthMm = s.BillToWidthMm;
+        InvNoTopMm = s.InvNoTopMm;
+        InvNoLeftMm = s.InvNoLeftMm;
+        InvNoWidthMm = s.InvNoWidthMm;
+        DateTopMm = s.DateTopMm;
+        DateLeftMm = s.DateLeftMm;
+        DateWidthMm = s.DateWidthMm;
+        MetaRow2TopMm = s.MetaRow2TopMm;
+        ContactLeftMm = s.ContactLeftMm;
+        ContactWidthMm = s.ContactWidthMm;
+        StitchingTickLeftMm = s.StitchingTickLeftMm;
+        StitchingTickTopMm = s.StitchingTickTopMm;
+        StitchingTickSizeMm = s.StitchingTickSizeMm;
+        DeliveryDateLeftMm = s.DeliveryDateLeftMm;
+        DeliveryDateTopMm = s.DeliveryDateTopMm;
+        DeliveryDateWidthMm = s.DeliveryDateWidthMm;
+        TableTopMm = s.TableTopMm;
+        LineRowHeightMm = s.LineRowHeightMm;
+        MaxLineRows = s.MaxLineRows;
+        ColDescLeftMm = s.ColDescLeftMm;
+        ColDescWidthMm = s.ColDescWidthMm;
+        ColQtyLeftMm = s.ColQtyLeftMm;
+        ColQtyWidthMm = s.ColQtyWidthMm;
+        ColRateLeftMm = s.ColRateLeftMm;
+        ColRateWidthMm = s.ColRateWidthMm;
+        ColAmountLeftMm = s.ColAmountLeftMm;
+        ColAmountWidthMm = s.ColAmountWidthMm;
+        TotalAmountLeftMm = s.TotalAmountLeftMm;
+        TotalAmountTopMm = s.TotalAmountTopMm;
+        TotalAmountWidthMm = s.TotalAmountWidthMm;
+    }
 
-    public const double StitchingTickLeftMm = 97;
-    public const double StitchingTickTopMm = 91;
-    public const double StitchingTickSizeMm = 5;
+    public static A5PrePrintedInvoiceLayout FromSettings(A5PrePrintedLayoutSettings settings) =>
+        new(settings ?? A5PrePrintedLayoutSettings.CreateDefault());
 
-    public const double DeliveryDateLeftMm = 113;
-    public const double DeliveryDateTopMm = 91;
-    public const double DeliveryDateWidthMm = 28;
-
-    // --- Line items (first row inside table body, below column headers) ---
-
-    public const double TableTopMm = 108;
-    public const double LineRowHeightMm = 7.2;
-    public const int MaxLineRows = 12;
-
-    public const double ColDescLeftMm = 25;
-    public const double ColDescWidthMm = 56;
-    public const double ColQtyLeftMm = 85;
-    public const double ColQtyWidthMm = 9;
-    public const double ColRateLeftMm = 90;
-    public const double ColRateWidthMm = 15;
-    public const double ColAmountLeftMm = 102;
-    public const double ColAmountWidthMm = 18;
-
-    public const double TotalAmountLeftMm = 102;
-    public const double TotalAmountTopMm = 190;
-    public const double TotalAmountWidthMm = 25;
-
-    public static double X(double mm) => mm + OffsetXMm;
-    public static double Y(double mm) => mm + OffsetYMm;
-    public static double TableY(double mm) => mm + OffsetYMm + TableOffsetYMm;
+    public double X(double mm) => mm + OffsetXMm;
+    public double Y(double mm) => mm + OffsetYMm;
+    public double TableY(double mm) => mm + OffsetYMm + TableOffsetYMm;
 }

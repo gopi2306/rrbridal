@@ -49,3 +49,5 @@ Products with no ledger rows show zero quantities.
 ## Document numbers
 
 SKU and procurement document numbers (PO, intent, return, RCV, GRN) are auto-generated from configurable prefixes and sequences. See [document-numbers.md](./document-numbers.md).
+
+Purchase order **refresh** (recalculate lines from product master): see [purchase-orders.md](./purchase-orders.md).

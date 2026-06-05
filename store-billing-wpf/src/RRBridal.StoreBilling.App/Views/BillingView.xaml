@@ -6,6 +6,13 @@
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
+    <UserControl.Resources>
+        <Style x:Key="CompactProfileTextBox" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+    </UserControl.Resources>
     <Grid Background="{StaticResource BrushBackground}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*"/>
@@ -14,14 +21,14 @@
 
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
             <StackPanel>
-                <Border Style="{StaticResource CardBorder}">
+                <Border Style="{StaticResource CardBorder}" Padding="12,10">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock FontWeight="SemiBold" FontSize="15" Text="Customer profiles" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
@@ -37,10 +44,10 @@
                             </StackPanel>
                         </Grid>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
-                                    Margin="0,0,0,12"
+                                    Margin="0,0,0,6"
                                     Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <DatePicker SelectedDate="{Binding DeliveryDate}" MinWidth="140"/>
+                            <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                            <DatePicker SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28" FontSize="13"/>
                         </StackPanel>
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
@@ -53,18 +60,17 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactProfileTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
 
-                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBox}" Text="{Binding Salesman}"
-                                     IsReadOnly="True" IsTabStop="False" Margin="0,0,0,8"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource CompactProfileTextBox}" Text="{Binding Salesman}"
+                                     IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                            <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,0,0,8"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
+                            <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Margin="0,0,0,0"
                                     CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" SnapsToDevicePixels="True">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -93,16 +99,16 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource RoundedTextBox}"
+                                <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource CompactProfileTextBox}"
                                          Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                          MaxLength="10"
                                          KeyDown="CustomerPhoneBox_OnKeyDown"
                                          LostFocus="CustomerPhoneBox_OnLostFocus"/>
                             </Border>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Customer name" VerticalAlignment="Center"/>
-                            <TextBox x:Name="CustomerNameBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
-                                     Style="{StaticResource RoundedTextBox}"
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" VerticalAlignment="Center" FontSize="13"/>
+                            <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="4"
+                                     Style="{StaticResource CompactProfileTextBox}"
                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="CustomerNameBox_OnKeyDown"/>
                         </Grid>

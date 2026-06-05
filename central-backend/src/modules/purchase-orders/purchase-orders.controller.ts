@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { FilterPurchaseOrderDto } from './dto/filter-purchase-order.dto';
@@ -46,6 +46,16 @@ export class PurchaseOrdersController {
     return await this.poService.setStatus(id, 'received');
   }
 
+  @Post(':id/refresh')
+  async refresh(@Param('id') id: string) {
+    return await this.poService.refresh(id);
+  }
+
+  @Delete(':id')
+  async removePermanent(@Param('id') id: string) {
+    return await this.poService.removePermanent(id);
+  }
+
   @Get()
   @ApiQuery({ name: 'search', required: false, description: 'Search by PO number or supplier name' })
   @ApiQuery({ name: 'supplierId', required: false })
@@ -57,5 +67,6 @@ export class PurchaseOrdersController {
     if (status) params.status = status;
     return await this.poService.list(params);
   }
+
 }
 

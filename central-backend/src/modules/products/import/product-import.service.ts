@@ -99,13 +99,9 @@ export class ProductImportService {
       try {
         const dto = await this.rowToCreateDto(row, createMissing);
         if (dryRun) {
-          if (row.sku) {
-            const existing = await this.productsService.findBySku(row.sku);
-            if (existing) result.updated++;
-            else result.created++;
-          } else {
-            result.created++;
-          }
+          const existing = await this.productsService.findExistingForImport(row.sku, row.itemName);
+          if (existing) result.updated++;
+          else result.created++;
           continue;
         }
 

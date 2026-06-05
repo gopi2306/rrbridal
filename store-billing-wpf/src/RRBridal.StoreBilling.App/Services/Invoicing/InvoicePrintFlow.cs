@@ -42,15 +42,15 @@ public static class InvoicePrintFlow
             {
                 var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
                 thermalDoc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
-                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted);
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted, printSettings.A5PrePrintedLayout);
             }
             else if (isA5PrePrinted)
             {
-                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input);
+                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, printSettings.A5PrePrintedLayout);
             }
             else if (isOfficeFormat)
             {
-                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted);
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted, printSettings.A5PrePrintedLayout);
             }
             else
             {
@@ -94,10 +94,11 @@ public static class InvoicePrintFlow
         ThermalInvoiceInput input,
         ThermalReceiptAssets assets,
         InvoicePrintFormat printFormat,
-        bool isA5PrePrinted)
+        bool isA5PrePrinted,
+        A5PrePrintedLayoutSettings? a5Layout)
     {
         if (isA5PrePrinted)
-            return A5PrePrintedInvoiceDocumentBuilder.Create(input);
+            return A5PrePrintedInvoiceDocumentBuilder.Create(input, a5Layout);
 
         var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
             ? (148.0, 210.0)

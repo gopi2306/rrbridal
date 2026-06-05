@@ -83,4 +83,7 @@ public sealed class ReceiptPrintSettings
 
     /// <summary>When PrintFormat is A4 or A5: also print 80mm thermal receipt before the invoice.</summary>
     public bool AlsoPrintThermalFirst { get; set; }
+
+    /// <summary>mm alignment and font for A5 pre-printed value-only mode.</summary>
+    public A5PrePrintedLayoutSettings A5PrePrintedLayout { get; set; } = A5PrePrintedLayoutSettings.CreateDefault();
 }

@@ -5,18 +5,31 @@ namespace RRBridal.StoreBilling.App.Services.Invoicing;
 /// <summary>Text rules for A5 pre-printed value-only invoices.</summary>
 public static class A5PrePrintedText
 {
-    public const int BillToMaxChars = 15;
+    public const string DefaultFontFamily = "Arial";
 
-    public static readonly FontFamily PrintFont = new("Arial");
-
-    /// <summary>First 15 characters of customer name, then "..." if longer.</summary>
-    public static string FormatBillTo(string? customerName, int maxChars = BillToMaxChars)
+    /// <summary>First N characters of customer name, then "..." if longer.</summary>
+    public static string FormatBillTo(string? customerName, int maxChars = 15)
     {
         var s = (customerName ?? "").Trim();
         if (s.Length == 0)
             return "";
+        if (maxChars < 1)
+            maxChars = 1;
         if (s.Length <= maxChars)
             return s;
         return s.Substring(0, maxChars) + "...";
+    }
+
+    public static FontFamily ResolvePrintFont(string? fontFamilyName)
+    {
+        var name = string.IsNullOrWhiteSpace(fontFamilyName) ? DefaultFontFamily : fontFamilyName.Trim();
+        try
+        {
+            return new FontFamily(name);
+        }
+        catch
+        {
+            return new FontFamily(DefaultFontFamily);
+        }
     }
 }

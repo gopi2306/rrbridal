@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings &amp; sync"
         Width="520"
-        Height="720"
+        Height="820"
         Loaded="SettingsDialog_OnLoaded"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BrushBackground}">
@@ -94,6 +94,214 @@
                        Visibility="{Binding IsA5ReceiptFormat, Converter={StaticResource BoolToVis}}"
                        TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="11"
                        Margin="24,0,0,8"/>
+
+            <Border Visibility="{Binding IsA5PrePrintedSettingsVisible, Converter={StaticResource BoolToVis}}"
+                    Margin="24,0,0,12" Padding="12" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="A5 pre-printed alignment (mm)" Margin="0,0,0,4"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,8"
+                               Text="All fields print by default (BILL TO, INV, DATE, CONTACT, stitching, D/D, lines, total). Saved with Save receipt settings. Uses Default bill printer above. Print on PAKEEZA paper to verify."/>
+
+                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="Global" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Offset X" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.OffsetXMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Offset Y" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.OffsetYMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Table offset Y" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TableOffsetYMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Baseline nudge" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Row="1" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TextBaselineNudgeMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Row 1 — Bill To / Inv / Date" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="72"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="56"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Field" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Top" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Width" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Bill To" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.BillToTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.BillToLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.BillToWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Inv No" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.InvNoTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.InvNoLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="2" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.InvNoWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Date" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.DateTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.DateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="3" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.DateWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Row 2 — Contact / stitching / D/D" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Meta row 2 top" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.MetaRow2TopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Contact left" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ContactLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Contact width" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ContactWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Tick left / top" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Width="36" Text="{Binding A5Layout.StitchingTickLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Width="36" Text="{Binding A5Layout.StitchingTickTopMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Tick size" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.StitchingTickSizeMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="2" Text="D/D left / top" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal">
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Width="36" Text="{Binding A5Layout.DeliveryDateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Width="36" Text="{Binding A5Layout.DeliveryDateTopMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="D/D width" VerticalAlignment="Center" Margin="0,4,8,0"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.DeliveryDateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Table" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Table top" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TableTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Row height" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.LineRowHeightMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Max rows" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.MaxLineRows, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="72"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="56"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Column" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Width" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Description" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColDescLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColDescWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Qty" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColQtyLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColQtyWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Rate" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColRateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColRateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Amount" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ColAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Total" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Left" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TotalAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="2" Text="Top" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TotalAmountTopMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Total width" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TotalAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Font" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Body pt" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.BodyFontPt, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Total pt" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TotalFontPt, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Font family" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding A5FontFamilyOptions}"
+                                          SelectedItem="{Binding A5Layout.PrintFontFamily, Mode=TwoWay}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Bill to max chars" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.BillToMaxChars, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Reset to defaults" Style="{StaticResource OutlineButton}"
+                                Command="{Binding ResetA5PrePrintedLayoutToDefaultsCommand}" Margin="0,0,8,0"/>
+                        <Button Content="Preview test layout" Style="{StaticResource OutlineButton}"
+                                Command="{Binding PreviewA5PrePrintedAlignmentCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <CheckBox Content="Also print thermal receipt first (80mm)"
                       IsChecked="{Binding AlsoPrintThermalFirst}"
                       Visibility="{Binding IsOfficeInvoiceFormat, Converter={StaticResource BoolToVis}}"

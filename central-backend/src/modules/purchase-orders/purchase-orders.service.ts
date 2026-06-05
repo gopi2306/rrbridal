@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { DocumentNumberService } from '../../common/document-number.service';
+import { isValidObjectIdString, toObjectId } from '../../common/object-id.util';
 import {
   attachLineProducts,
   enrichDocWithLineProducts,
@@ -9,10 +10,16 @@ import {
 } from '../../common/product-line-enrichment';
 import { DocumentNumberAllocatorService } from '../document-numbers/document-number-allocator.service';
 import { DocumentNumberConfigService } from '../document-numbers/document-number-config.service';
+import { GoodsReceipt, GoodsReceiptDocument } from '../goods-receipts/schemas/goods-receipt.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreatePurchaseOrderDto, CreatePurchaseOrderLineDto } from './dto/create-purchase-order.dto';
 import { FilterPurchaseOrderDto } from './dto/filter-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
+import {
+  PoRefreshProductSnapshot,
+  refreshPurchaseOrderLine,
+  rollupPurchaseOrderHeaderTotals,
+} from './purchase-order-line-calculator';
 import {
   PurchaseOrder,
   PurchaseOrderDocument,
@@ -20,11 +27,15 @@ import {
   PurchaseOrderStatus,
 } from './schemas/purchase-order.schema';
 
+const REFRESHABLE_PO_STATUSES: PurchaseOrderStatus[] = ['open', 'awaiting_approval'];
+const DELETABLE_PO_STATUSES: PurchaseOrderStatus[] = ['open', 'awaiting_approval'];
+
 @Injectable()
 export class PurchaseOrdersService {
   constructor(
     @InjectModel(PurchaseOrder.name) private readonly poModel: Model<PurchaseOrderDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(GoodsReceipt.name) private readonly grModel: Model<GoodsReceiptDocument>,
     private readonly allocator: DocumentNumberAllocatorService,
     private readonly configService: DocumentNumberConfigService,
   ) {}
@@ -172,6 +183,158 @@ export class PurchaseOrdersService {
     const doc = await this.poModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Purchase order not found');
     return await enrichDocWithLineProducts(this.productModel, doc as unknown as Record<string, unknown>);
+  }
+
+  private async loadProductsForPoLines(lines: PurchaseOrderLine[]): Promise<{
+    byId: Map<string, PoRefreshProductSnapshot>;
+    bySku: Map<string, PoRefreshProductSnapshot>;
+  }> {
+    const productIds = new Set<string>();
+    const skus = new Set<string>();
+
+    for (const line of lines) {
+      if (line.productId != null) {
+        const pid = String(line.productId);
+        if (isValidObjectIdString(pid)) productIds.add(pid);
+      }
+      const sku = line.sku?.trim();
+      if (sku) skus.add(sku);
+    }
+
+    const byId = new Map<string, PoRefreshProductSnapshot>();
+    if (productIds.size > 0) {
+      const rows = await this.productModel
+        .find({ _id: { $in: [...productIds].map((id) => toObjectId(id)) } })
+        .select('_id itemName shortName upcEanCode costPrice sellingPrice mrp gstPercent sku')
+        .lean();
+      for (const row of rows) {
+        if (row._id != null) byId.set(String(row._id), row as PoRefreshProductSnapshot);
+      }
+    }
+
+    const bySku = new Map<string, PoRefreshProductSnapshot>();
+    if (skus.size > 0) {
+      const rows = await this.productModel
+        .find({ sku: { $in: [...skus] } })
+        .select('_id itemName shortName upcEanCode costPrice sellingPrice mrp gstPercent sku')
+        .lean();
+      for (const row of rows) {
+        if (typeof row.sku === 'string') bySku.set(row.sku, row as PoRefreshProductSnapshot);
+        if (row._id != null) byId.set(String(row._id), row as PoRefreshProductSnapshot);
+      }
+    }
+
+    return { byId, bySku };
+  }
+
+  async refresh(id: string) {
+    if (!isValidObjectIdString(id)) {
+      throw new BadRequestException('Invalid purchase order id');
+    }
+
+    const po = await this.poModel.findById(id).lean();
+    if (!po) throw new NotFoundException('Purchase order not found');
+
+    if (!REFRESHABLE_PO_STATUSES.includes(po.status)) {
+      throw new BadRequestException(
+        `Purchase order refresh is only allowed when status is ${REFRESHABLE_PO_STATUSES.join(' or ')}`,
+      );
+    }
+
+    const existingLines = po.lines ?? [];
+    const { byId, bySku } = await this.loadProductsForPoLines(existingLines);
+    const refreshWarnings: string[] = [];
+    const refreshedLines: PurchaseOrderLine[] = [];
+
+    for (const line of existingLines) {
+      const sku = line.sku?.trim() ?? '';
+      const pid = line.productId != null ? String(line.productId) : '';
+      const product =
+        (pid && byId.get(pid)) ??
+        (sku && bySku.get(sku)) ??
+        undefined;
+
+      if (!product) {
+        refreshWarnings.push(`SKU ${sku || '(empty)'}: product not found`);
+        refreshedLines.push({
+          ...line,
+          recdQty: Math.max(0, line.recdQty ?? 0),
+          freeQty: Math.max(0, line.freeQty ?? 0),
+        });
+        continue;
+      }
+
+      refreshedLines.push(refreshPurchaseOrderLine(line, product));
+    }
+
+    const header = rollupPurchaseOrderHeaderTotals(
+      refreshedLines,
+      po.cashDiscPercent,
+      po.supplier,
+    );
+
+    const doc = await this.poModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            lines: refreshedLines,
+            itemDiscAmount: header.itemDiscAmount,
+            surchargeAmount: header.surchargeAmount,
+            taxAmount: header.taxAmount,
+            cgstAmount: header.cgstAmount,
+            sgstAmount: header.sgstAmount,
+            cashDiscPercent: header.cashDiscPercent,
+            cashDiscount: header.cashDiscount,
+            netAmount: header.netAmount,
+          },
+        },
+        { new: true },
+      )
+      .lean();
+
+    if (!doc) throw new NotFoundException('Purchase order not found');
+
+    const enriched = await enrichDocWithLineProducts(
+      this.productModel,
+      doc as unknown as Record<string, unknown>,
+    );
+
+    if (refreshWarnings.length > 0) {
+      return { ...enriched, refreshWarnings };
+    }
+
+    return enriched;
+  }
+
+  async removePermanent(id: string) {
+    if (!isValidObjectIdString(id)) {
+      throw new BadRequestException('Invalid purchase order id');
+    }
+
+    const po = await this.poModel.findById(id).lean();
+    if (!po) throw new NotFoundException('Purchase order not found');
+
+    if (!DELETABLE_PO_STATUSES.includes(po.status)) {
+      throw new BadRequestException(
+        `Purchase order permanent delete is only allowed when status is ${DELETABLE_PO_STATUSES.join(' or ')}`,
+      );
+    }
+
+    const linkedGr = await this.grModel.exists({ poId: id }).lean();
+    if (linkedGr) {
+      throw new ConflictException(
+        'Cannot delete purchase order: one or more goods receipts reference this PO',
+      );
+    }
+
+    await this.poModel.findByIdAndDelete(id);
+
+    return {
+      deleted: true,
+      id,
+      poNo: po.poNo,
+    };
   }
 
   async filter(dto: FilterPurchaseOrderDto) {

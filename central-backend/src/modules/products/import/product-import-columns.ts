@@ -114,6 +114,8 @@ const HEADER_ALIASES: Record<string, keyof ParsedProductImportRow> = {
   sku: 'sku',
   itemname: 'itemName',
   'item name': 'itemName',
+  description: 'itemName',
+  'product description': 'itemName',
   shortname: 'shortName',
   'short name': 'shortName',
   alias: 'alias',

@@ -1,0 +1,146 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using RRBridal.StoreBilling.App.Services.Invoicing;
+
+namespace RRBridal.StoreBilling.App.ViewModels;
+
+public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
+{
+    [ObservableProperty] private double _offsetXMm;
+    [ObservableProperty] private double _offsetYMm = -8;
+    [ObservableProperty] private double _tableOffsetYMm = 4;
+    [ObservableProperty] private double _bodyFontPt = 9.5;
+    [ObservableProperty] private double _totalFontPt = 9;
+    [ObservableProperty] private double _textBaselineNudgeMm;
+    [ObservableProperty] private double _billToTopMm = 81;
+    [ObservableProperty] private double _billToLeftMm = 34;
+    [ObservableProperty] private double _billToWidthMm = 30;
+    [ObservableProperty] private double _invNoTopMm = 81;
+    [ObservableProperty] private double _invNoLeftMm = 79;
+    [ObservableProperty] private double _invNoWidthMm = 32;
+    [ObservableProperty] private double _dateTopMm = 81;
+    [ObservableProperty] private double _dateLeftMm = 115;
+    [ObservableProperty] private double _dateWidthMm = 26;
+    [ObservableProperty] private double _metaRow2TopMm = 90;
+    [ObservableProperty] private double _contactLeftMm = 40;
+    [ObservableProperty] private double _contactWidthMm = 32;
+    [ObservableProperty] private double _stitchingTickLeftMm = 97;
+    [ObservableProperty] private double _stitchingTickTopMm = 91;
+    [ObservableProperty] private double _stitchingTickSizeMm = 5;
+    [ObservableProperty] private double _deliveryDateLeftMm = 113;
+    [ObservableProperty] private double _deliveryDateTopMm = 91;
+    [ObservableProperty] private double _deliveryDateWidthMm = 28;
+    [ObservableProperty] private double _tableTopMm = 108;
+    [ObservableProperty] private double _lineRowHeightMm = 7.2;
+    [ObservableProperty] private int _maxLineRows = 12;
+    [ObservableProperty] private double _colDescLeftMm = 25;
+    [ObservableProperty] private double _colDescWidthMm = 56;
+    [ObservableProperty] private double _colQtyLeftMm = 85;
+    [ObservableProperty] private double _colQtyWidthMm = 9;
+    [ObservableProperty] private double _colRateLeftMm = 90;
+    [ObservableProperty] private double _colRateWidthMm = 15;
+    [ObservableProperty] private double _colAmountLeftMm = 102;
+    [ObservableProperty] private double _colAmountWidthMm = 18;
+    [ObservableProperty] private double _totalAmountLeftMm = 102;
+    [ObservableProperty] private double _totalAmountTopMm = 190;
+    [ObservableProperty] private double _totalAmountWidthMm = 25;
+    [ObservableProperty] private string _printFontFamily = "Arial";
+    [ObservableProperty] private int _billToMaxChars = 15;
+
+    public void ApplyFrom(A5PrePrintedLayoutSettings s)
+    {
+        OffsetXMm = s.OffsetXMm;
+        OffsetYMm = s.OffsetYMm;
+        TableOffsetYMm = s.TableOffsetYMm;
+        BodyFontPt = s.BodyFontPt;
+        TotalFontPt = s.TotalFontPt;
+        TextBaselineNudgeMm = s.TextBaselineNudgeMm;
+        BillToTopMm = s.BillToTopMm;
+        BillToLeftMm = s.BillToLeftMm;
+        BillToWidthMm = s.BillToWidthMm;
+        InvNoTopMm = s.InvNoTopMm;
+        InvNoLeftMm = s.InvNoLeftMm;
+        InvNoWidthMm = s.InvNoWidthMm;
+        DateTopMm = s.DateTopMm;
+        DateLeftMm = s.DateLeftMm;
+        DateWidthMm = s.DateWidthMm;
+        MetaRow2TopMm = s.MetaRow2TopMm;
+        ContactLeftMm = s.ContactLeftMm;
+        ContactWidthMm = s.ContactWidthMm;
+        StitchingTickLeftMm = s.StitchingTickLeftMm;
+        StitchingTickTopMm = s.StitchingTickTopMm;
+        StitchingTickSizeMm = s.StitchingTickSizeMm;
+        DeliveryDateLeftMm = s.DeliveryDateLeftMm;
+        DeliveryDateTopMm = s.DeliveryDateTopMm;
+        DeliveryDateWidthMm = s.DeliveryDateWidthMm;
+        TableTopMm = s.TableTopMm;
+        LineRowHeightMm = s.LineRowHeightMm;
+        MaxLineRows = s.MaxLineRows;
+        ColDescLeftMm = s.ColDescLeftMm;
+        ColDescWidthMm = s.ColDescWidthMm;
+        ColQtyLeftMm = s.ColQtyLeftMm;
+        ColQtyWidthMm = s.ColQtyWidthMm;
+        ColRateLeftMm = s.ColRateLeftMm;
+        ColRateWidthMm = s.ColRateWidthMm;
+        ColAmountLeftMm = s.ColAmountLeftMm;
+        ColAmountWidthMm = s.ColAmountWidthMm;
+        TotalAmountLeftMm = s.TotalAmountLeftMm;
+        TotalAmountTopMm = s.TotalAmountTopMm;
+        TotalAmountWidthMm = s.TotalAmountWidthMm;
+        PrintFontFamily = s.PrintFontFamily;
+        BillToMaxChars = s.BillToMaxChars;
+    }
+
+    public A5PrePrintedLayoutSettings ToSettings()
+    {
+        var maxRows = MaxLineRows;
+        if (maxRows < 1) maxRows = 1;
+        if (maxRows > 24) maxRows = 24;
+        var billToMax = BillToMaxChars;
+        if (billToMax < 1) billToMax = 1;
+        if (billToMax > 40) billToMax = 40;
+
+        return new A5PrePrintedLayoutSettings
+        {
+            OffsetXMm = OffsetXMm,
+            OffsetYMm = OffsetYMm,
+            TableOffsetYMm = TableOffsetYMm,
+            BodyFontPt = BodyFontPt,
+            TotalFontPt = TotalFontPt,
+            TextBaselineNudgeMm = TextBaselineNudgeMm,
+            BillToTopMm = BillToTopMm,
+            BillToLeftMm = BillToLeftMm,
+            BillToWidthMm = BillToWidthMm,
+            InvNoTopMm = InvNoTopMm,
+            InvNoLeftMm = InvNoLeftMm,
+            InvNoWidthMm = InvNoWidthMm,
+            DateTopMm = DateTopMm,
+            DateLeftMm = DateLeftMm,
+            DateWidthMm = DateWidthMm,
+            MetaRow2TopMm = MetaRow2TopMm,
+            ContactLeftMm = ContactLeftMm,
+            ContactWidthMm = ContactWidthMm,
+            StitchingTickLeftMm = StitchingTickLeftMm,
+            StitchingTickTopMm = StitchingTickTopMm,
+            StitchingTickSizeMm = StitchingTickSizeMm,
+            DeliveryDateLeftMm = DeliveryDateLeftMm,
+            DeliveryDateTopMm = DeliveryDateTopMm,
+            DeliveryDateWidthMm = DeliveryDateWidthMm,
+            TableTopMm = TableTopMm,
+            LineRowHeightMm = LineRowHeightMm,
+            MaxLineRows = maxRows,
+            ColDescLeftMm = ColDescLeftMm,
+            ColDescWidthMm = ColDescWidthMm,
+            ColQtyLeftMm = ColQtyLeftMm,
+            ColQtyWidthMm = ColQtyWidthMm,
+            ColRateLeftMm = ColRateLeftMm,
+            ColRateWidthMm = ColRateWidthMm,
+            ColAmountLeftMm = ColAmountLeftMm,
+            ColAmountWidthMm = ColAmountWidthMm,
+            TotalAmountLeftMm = TotalAmountLeftMm,
+            TotalAmountTopMm = TotalAmountTopMm,
+            TotalAmountWidthMm = TotalAmountWidthMm,
+            PrintFontFamily = string.IsNullOrWhiteSpace(PrintFontFamily) ? "Arial" : PrintFontFamily.Trim(),
+            BillToMaxChars = billToMax,
+        };
+    }
+}

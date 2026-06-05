@@ -1,6 +1,6 @@
 # Product bulk import
 
-Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master references in the file use **display names** (e.g. `Bridal Wear`, `Sharma Textiles`), not MongoDB IDs. Missing masters can be created automatically. Products are **upserted by SKU**: existing SKU → update; new SKU → create.
+Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master references in the file use **display names** (e.g. `Bridal Wear`, `Sharma Textiles`), not MongoDB IDs. Missing masters can be created automatically. Products are **upserted** by **`sku`** or **`itemName`** (description): if either matches an existing product → update; otherwise → create.
 
 ## Endpoints
 
@@ -47,7 +47,7 @@ Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master r
 
 | Column | Description |
 |--------|-------------|
-| `itemName` | Product name |
+| `itemName` | Product name / description; upsert key when SKU is empty or not found |
 | `supplierName` | Supplier display name |
 | `departmentName` | Department display name |
 | `categoryName` | Category display name (scoped by department when duplicate names exist) |
@@ -56,7 +56,7 @@ Central API for importing products from **CSV** or **Excel** (`.xlsx`). Master r
 
 | Column | Description |
 |--------|-------------|
-| `sku` | Upsert key; omit to auto-generate SKU on create |
+| `sku` | Upsert key (checked first); omit to match by `itemName` only or auto-generate SKU on create |
 
 ## Optional columns
 
@@ -66,7 +66,7 @@ Weight/size on the product (`weightAndSizeId`): use `weightSizeName` (display na
 
 Scalars: `shortName`, `alias`, `itemProductType`, `gstCode`, `gstPercent`, `upcEanCode`, `decimalPoint` (default **4** — see [money-precision.md](./money-precision.md)), `costPrice`, `marginPercent`, `mrp`, `sellingPrice`, `storePrice`, `unit`, `isActive`, `itemDiscountAllowed`, `isWeighable`, and other numeric fields from the template.
 
-Header aliases are supported (e.g. `Item Name` → `itemName`).
+Header aliases are supported (e.g. `Item Name`, `Description` → `itemName`).
 
 ## Typical workflow
 

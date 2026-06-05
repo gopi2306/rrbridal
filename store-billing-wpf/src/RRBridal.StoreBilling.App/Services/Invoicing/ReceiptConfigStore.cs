@@ -84,6 +84,9 @@ public sealed class ReceiptConfigStore
             if (doc.Store.PolicyLines == null)
                 doc.Store.PolicyLines = new List<string>();
 
+            if (doc.Print.A5PrePrintedLayout == null)
+                doc.Print.A5PrePrintedLayout = A5PrePrintedLayoutSettings.CreateDefault();
+
             _current = doc;
             _hasLoadedFromDisk = true;
         }
