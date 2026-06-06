@@ -95,11 +95,6 @@ public sealed class BillDocumentService
         return rows;
     }
 
-    public async Task<IReadOnlyList<BillSearchRow>> ListDraftsAsync(int limit = 50, CancellationToken ct = default)
-    {
-        return await SearchBillsAsync(null, null, null, null, "draft", limit, ct);
-    }
-
     public async Task<bool> BillNoExistsAsync(string billNo, string? excludeBillNo = null, CancellationToken ct = default)
     {
         var trimmed = billNo.Trim();
@@ -148,16 +143,6 @@ public sealed class BillDocumentService
                 Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
             Builders<BsonDocument>.Update.Push("printAudit", entry),
             cancellationToken: ct);
-    }
-
-    public async Task DeleteDraftAsync(string billNo, CancellationToken ct = default)
-    {
-        await _bills.DeleteOneAsync(
-            Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
-                Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
-                Builders<BsonDocument>.Filter.Eq("status", "draft")),
-            ct);
     }
 
     private static bool InDateRange(DateTime utc, DateTime? from, DateTime? to)

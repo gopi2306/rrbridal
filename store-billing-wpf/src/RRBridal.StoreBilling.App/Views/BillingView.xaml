@@ -218,6 +218,20 @@
                             <Border Background="#33FFFFFF" CornerRadius="4" Padding="6,2">
                                 <TextBlock Text="{Binding DraftLabel}" Foreground="White" FontSize="11"/>
                             </Border>
+                            <TextBlock Text="{Binding HoldNo, StringFormat=HOLD NO: {0}}"
+                                       Foreground="White" Margin="12,0,0,0"
+                                       VerticalAlignment="Center" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HoldNo}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                             <TextBlock Text="{Binding BillNo, StringFormat=BILL NO: {0}}" Foreground="White" Margin="12,0,0,0"
                                        VerticalAlignment="Center" TextWrapping="Wrap"/>
                         </StackPanel>

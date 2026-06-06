@@ -46,6 +46,7 @@ public sealed class AppServices
     public required BillingOutboxPublisher BillingOutbox { get; init; }
     public required PosBillingSettingsStore PosBillingSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
+    public required HeldBillService HeldBills { get; init; }
     public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
     public required ShellBrandingService ShellBranding { get; init; }
     public required StoreInfoClient StoreInfo { get; init; }
@@ -114,6 +115,7 @@ public sealed class AppServices
         var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
+        var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
@@ -129,6 +131,7 @@ public sealed class AppServices
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 
         try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
+        try { _ = heldBills.MigrateDraftsFromStoreBillsAsync(); } catch { /* best-effort migration */ }
 
         servicesRef = new AppServices
         {
@@ -152,6 +155,7 @@ public sealed class AppServices
             BillingOutbox = billingOutbox,
             PosBillingSettings = posBillingSettings,
             BillDocuments = billDocuments,
+            HeldBills = heldBills,
             CustomerCreditNotes = customerCreditNotes,
             ShellBranding = shellBranding,
             StoreInfo = storeInfoClient,

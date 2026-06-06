@@ -23,6 +23,9 @@ public sealed class BillNumberGenerator
     public Task<string> NextBillAsync(CancellationToken ct = default) =>
         NextAsync("billNo", "", ct);
 
+    public Task<string> NextHoldAsync(CancellationToken ct = default) =>
+        NextAsync("holdNo", "HOLD-", ct);
+
     public Task<string> NextReturnAsync(CancellationToken ct = default) =>
         NextAsync("returnNo", "RET-", ct);
 

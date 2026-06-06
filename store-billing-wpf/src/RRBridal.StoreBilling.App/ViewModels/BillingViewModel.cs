@@ -69,7 +69,8 @@ public partial class BillingViewModel : ObservableObject
             DeliveryDate = null;
     }
 
-    [ObservableProperty] private string _billNo = "";
+    [ObservableProperty] private string _billNo = "—";
+    [ObservableProperty] private string _holdNo = "";
     [ObservableProperty] private string _draftLabel = "DRAFT";
     [ObservableProperty] private string _billDateDisplay = "";
 
@@ -144,7 +145,7 @@ public partial class BillingViewModel : ObservableObject
 
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
-    private string? _resumingDraftBillNo;
+    private string? _activeHoldNo;
     private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     private enum ManualDiscountEditSource { None, ItemPercent, CashAmount }
@@ -187,10 +188,11 @@ public partial class BillingViewModel : ObservableObject
 
     private void AssignNewBillIdentity()
     {
-        _resumingDraftBillNo = null;
+        _activeHoldNo = null;
+        HoldNo = "";
+        DraftLabel = "DRAFT";
         BillDateDisplay = DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
-        BillNo = $"{DateTime.Now:yyyyMMdd}-{_services.StoreContext.PosCounter}-draft";
-        _ = AssignBillNumberAsync();
+        BillNo = "—";
     }
 
     private async Task AssignBillNumberAsync()
@@ -1541,6 +1543,8 @@ public partial class BillingViewModel : ObservableObject
         RecalculateTotals();
         var totals = _lastBillTotals;
 
+        await AssignBillNumberAsync();
+
         PaymentOutcome paymentOutcome;
         if (totals.Payable > 0)
         {
@@ -1702,16 +1706,14 @@ public partial class BillingViewModel : ObservableObject
                 doc.Add("payableBeforeCredit", (double)totals.PayableBeforeCredit);
             }
 
-            if (!string.IsNullOrEmpty(_resumingDraftBillNo))
-            {
-                await coll.DeleteOneAsync(Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-                    Builders<BsonDocument>.Filter.Eq("billNo", _resumingDraftBillNo),
-                    Builders<BsonDocument>.Filter.Eq("status", "draft")));
-            }
-
             await coll.InsertOneAsync(doc);
-            _resumingDraftBillNo = null;
+
+            if (!string.IsNullOrEmpty(_activeHoldNo))
+            {
+                await _services.HeldBills.DeleteAsync(_activeHoldNo);
+                _activeHoldNo = null;
+                HoldNo = "";
+            }
 
             await _services.BillingOutbox.PublishInvoiceCreatedAsync(doc);
 
@@ -1844,7 +1846,7 @@ public partial class BillingViewModel : ObservableObject
         {
             Store = store,
             CharWidth = print.ReceiptCharWidth is >= 32 and <= 56 ? print.ReceiptCharWidth : 48,
-            BillNo = BillNo,
+            BillNo = BillNo is "—" or { Length: 0 } ? (HoldNo.Length > 0 ? HoldNo : "PREVIEW") : BillNo,
             BillDate = BillDateDisplay,
             UserName = Salesman,
             Time = DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
@@ -1889,22 +1891,19 @@ public partial class BillingViewModel : ObservableObject
         }
 
         RecalculateTotals();
-        if (string.IsNullOrWhiteSpace(BillNo))
-            await AssignBillNumberAsync();
 
         try
         {
-            var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
-            var doc = BuildBillBsonDocument("draft", payments: null, paymentMode: "");
-            var storeId = _services.StoreContext.StoreId;
-            var filter = Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-                Builders<BsonDocument>.Filter.Eq("billNo", BillNo),
-                Builders<BsonDocument>.Filter.Eq("status", "draft"));
+            if (string.IsNullOrEmpty(_activeHoldNo))
+            {
+                _activeHoldNo = await _services.BillNumberGenerator.NextHoldAsync();
+                HoldNo = _activeHoldNo;
+            }
 
-            await coll.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true });
-            _resumingDraftBillNo = BillNo;
-            MessageBox.Show($"Bill {BillNo} held. Use Resume held bills to continue.", "Hold bill",
+            DraftLabel = "HELD";
+            var doc = BuildHeldBillDocument(_activeHoldNo);
+            await _services.HeldBills.UpsertAsync(doc);
+            MessageBox.Show($"Hold {HoldNo} saved. Use Resume held bills to continue.", "Hold bill",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             ClearForNewBill();
         }
@@ -1919,14 +1918,14 @@ public partial class BillingViewModel : ObservableObject
     {
         try
         {
-            var rows = await _services.BillDocuments.ListDraftsAsync();
+            var rows = await _services.HeldBills.ListAsync();
             var dlg = new HeldBillsDialog(rows) { Owner = Application.Current.MainWindow };
             if (dlg.ShowDialog() != true)
                 return;
 
             if (dlg.DeleteRequested && dlg.SelectedRow != null)
             {
-                await _services.BillDocuments.DeleteDraftAsync(dlg.SelectedRow.BillNo);
+                await _services.HeldBills.DeleteAsync(dlg.SelectedRow.HoldNo);
                 MessageBox.Show("Held bill deleted.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -1934,14 +1933,14 @@ public partial class BillingViewModel : ObservableObject
             if (!dlg.ResumeRequested || dlg.SelectedRow == null)
                 return;
 
-            var doc = await _services.BillDocuments.GetByBillNoAsync(dlg.SelectedRow.BillNo);
+            var doc = await _services.HeldBills.GetByHoldNoAsync(dlg.SelectedRow.HoldNo);
             if (doc == null)
             {
                 MessageBox.Show("Held bill not found.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            LoadFromDraftDocument(doc);
+            LoadFromHeldDocument(doc);
         }
         catch (Exception ex)
         {
@@ -1949,11 +1948,13 @@ public partial class BillingViewModel : ObservableObject
         }
     }
 
-    public void LoadFromDraftDocument(BsonDocument doc)
+    public void LoadFromHeldDocument(BsonDocument doc)
     {
         ClearForNewBill();
-        _resumingDraftBillNo = doc.GetValue("billNo", "").AsString;
-        BillNo = _resumingDraftBillNo;
+        _activeHoldNo = doc.GetValue("holdNo", "").AsString;
+        HoldNo = _activeHoldNo;
+        DraftLabel = "HELD";
+        BillNo = "—";
         BillDateDisplay = doc.GetValue("billDate", BillDateDisplay).AsString;
         CustomerCode = doc.GetValue("customerCode", "").AsString;
         CustomerName = doc.GetValue("customerName", "").AsString;
@@ -2009,45 +2010,34 @@ public partial class BillingViewModel : ObservableObject
         return arr;
     }
 
+    private BsonDocument BuildHeldBillDocument(string holdNo)
+    {
+        var doc = BuildBillPayloadCore();
+        doc["holdNo"] = holdNo.Trim();
+        doc["deviceId"] = _services.StoreContext.DeviceId;
+        doc["posCounter"] = _services.StoreContext.PosCounter;
+        return doc;
+    }
+
     private BsonDocument BuildBillBsonDocument(string status, BsonArray? payments, string paymentMode)
+    {
+        var doc = BuildBillPayloadCore();
+        doc["billNo"] = BillNo.Trim();
+        doc["payments"] = payments ?? new BsonArray();
+        doc["paymentMode"] = paymentMode;
+        doc["status"] = status;
+        doc["createdAtUtc"] = DateTime.UtcNow.ToString("O");
+        return doc;
+    }
+
+    private BsonDocument BuildBillPayloadCore()
     {
         RecalculateTotals();
         var totals = _lastBillTotals;
-        var linesArr = new BsonArray();
-        foreach (var line in Lines.Where(l => l.Amount > 0))
-        {
-            linesArr.Add(new BsonDocument
-            {
-                { "lineNo", line.LineNo },
-                { "centralProductId", line.CentralProductId ?? "" },
-                { "sku", line.ProductCode },
-                { "description", line.Description },
-                { "hsn", line.HsnCode ?? "" },
-                { "qty", (double)line.Qty },
-                { "rate", (double)line.Rate },
-                { "amount", (double)line.Amount },
-                { "discountAmount", (double)line.DiscountAmount },
-                { "cashDiscountAmount", (double)line.CashDiscountAmount },
-                { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
-                { "originalTaxAmount", (double)line.OriginalTaxAmount },
-                { "revisedAmount", (double)line.RevisedAmount },
-                { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
-                { "revisedTaxAmount", (double)line.RevisedTaxAmount },
-                { "mrp", (double)line.Mrp },
-                { "taxPercent", (double)line.TaxPercent },
-                { "cgstPercent", (double)line.CgstPercent },
-                { "sgstPercent", (double)line.SgstPercent },
-                { "igstPercent", (double)line.IgstPercent },
-                { "cgstAmount", (double)line.CgstAmount },
-                { "sgstAmount", (double)line.SgstAmount },
-                { "igstAmount", (double)line.IgstAmount },
-                { "taxAmount", (double)line.TaxAmount },
-            });
-        }
+        var linesArr = BuildLinesBsonArray();
 
         return new BsonDocument
         {
-            { "billNo", BillNo.Trim() },
             { "billDate", BillDateDisplay },
             { "storeId", _services.StoreContext.StoreId },
             { "deviceId", _services.StoreContext.DeviceId },
@@ -2082,11 +2072,44 @@ public partial class BillingViewModel : ObservableObject
             { "taxTotal", (double)totals.TaxTotal },
             { "payable", (double)totals.Payable },
             { "lines", linesArr },
-            { "payments", payments ?? new BsonArray() },
-            { "paymentMode", paymentMode },
-            { "status", status },
-            { "createdAtUtc", DateTime.UtcNow.ToString("O") },
         };
+    }
+
+    private BsonArray BuildLinesBsonArray()
+    {
+        var linesArr = new BsonArray();
+        foreach (var line in Lines.Where(l => l.Amount > 0))
+        {
+            linesArr.Add(new BsonDocument
+            {
+                { "lineNo", line.LineNo },
+                { "centralProductId", line.CentralProductId ?? "" },
+                { "sku", line.ProductCode },
+                { "description", line.Description },
+                { "hsn", line.HsnCode ?? "" },
+                { "qty", (double)line.Qty },
+                { "rate", (double)line.Rate },
+                { "amount", (double)line.Amount },
+                { "discountAmount", (double)line.DiscountAmount },
+                { "cashDiscountAmount", (double)line.CashDiscountAmount },
+                { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
+                { "originalTaxAmount", (double)line.OriginalTaxAmount },
+                { "revisedAmount", (double)line.RevisedAmount },
+                { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
+                { "revisedTaxAmount", (double)line.RevisedTaxAmount },
+                { "mrp", (double)line.Mrp },
+                { "taxPercent", (double)line.TaxPercent },
+                { "cgstPercent", (double)line.CgstPercent },
+                { "sgstPercent", (double)line.SgstPercent },
+                { "igstPercent", (double)line.IgstPercent },
+                { "cgstAmount", (double)line.CgstAmount },
+                { "sgstAmount", (double)line.SgstAmount },
+                { "igstAmount", (double)line.IgstAmount },
+                { "taxAmount", (double)line.TaxAmount },
+            });
+        }
+
+        return linesArr;
     }
 
     private string FormatDeliveryDate() =>

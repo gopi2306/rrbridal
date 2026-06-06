@@ -7,13 +7,13 @@ namespace RRBridal.StoreBilling.App.Views;
 
 public partial class HeldBillsDialog
 {
-    public BillSearchRow? SelectedRow { get; private set; }
+    public HeldBillRow? SelectedRow { get; private set; }
 
     public bool ResumeRequested { get; private set; }
 
     public bool DeleteRequested { get; private set; }
 
-    public HeldBillsDialog(IReadOnlyList<BillSearchRow> rows)
+    public HeldBillsDialog(IReadOnlyList<HeldBillRow> rows)
     {
         InitializeComponent();
         BillsGrid.ItemsSource = rows;
@@ -24,7 +24,7 @@ public partial class HeldBillsDialog
 
     private void BillsGrid_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        SelectedRow = BillsGrid.SelectedItem as BillSearchRow;
+        SelectedRow = BillsGrid.SelectedItem as HeldBillRow;
     }
 
     private void Resume_Click(object sender, RoutedEventArgs e)
@@ -48,7 +48,7 @@ public partial class HeldBillsDialog
             return;
         }
 
-        if (MessageBox.Show($"Delete held bill {SelectedRow.BillNo}?", "Held bills", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show($"Delete held bill {SelectedRow.HoldNo}?", "Held bills", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         DeleteRequested = true;

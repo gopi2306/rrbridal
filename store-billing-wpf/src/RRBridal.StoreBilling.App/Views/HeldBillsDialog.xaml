@@ -18,10 +18,11 @@
                   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                   SelectionMode="Single" SelectionChanged="BillsGrid_OnSelectionChanged">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="130"/>
+                <DataGridTextColumn Header="Hold no" Binding="{Binding HoldNo}" Width="160"/>
                 <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
                 <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
-                <DataGridTextColumn Header="Saved" Binding="{Binding PostedAtUtc}" Width="140"/>
+                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
+                <DataGridTextColumn Header="Held" Binding="{Binding HeldAtUtc}" Width="140"/>
             </DataGrid.Columns>
         </DataGrid>
         <TextBlock x:Name="StatusText" Grid.Row="2" Margin="0,8,0,8" Foreground="{StaticResource BrushTextMuted}"/>

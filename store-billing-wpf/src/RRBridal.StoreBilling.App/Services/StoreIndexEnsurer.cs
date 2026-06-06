@@ -44,5 +44,21 @@ public static class StoreIndexEnsurer
                 Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("creditNoteNo"),
                 new CreateIndexOptions { Name = "creditNoteNo", Unique = true }),
             cancellationToken: ct);
+
+        var holds = db.GetCollection<MongoDB.Bson.BsonDocument>("held_bills");
+        await holds.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("holdNo"),
+                new CreateIndexOptions { Name = "storeId_holdNo", Unique = true }),
+            cancellationToken: ct);
+        await holds.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Descending("updatedAtUtc"),
+                new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
+            cancellationToken: ct);
     }
 }
