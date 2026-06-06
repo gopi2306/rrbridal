@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -15,6 +16,7 @@ public static class A5PrePrintedInvoiceDocumentBuilder
     public static FlowDocument Create(ThermalInvoiceInput input, A5PrePrintedLayoutSettings? layoutSettings = null)
     {
         var settings = layoutSettings ?? A5PrePrintedLayoutSettings.CreateDefault();
+        settings.EnsureAlignmentDefaults();
         var layout = A5PrePrintedInvoiceLayout.FromSettings(settings);
         var printFont = A5PrePrintedText.ResolvePrintFont(settings.PrintFontFamily);
 
@@ -32,17 +34,48 @@ public static class A5PrePrintedInvoiceDocumentBuilder
             Background = Brushes.White,
         };
 
-        doc.Blocks.Add(new BlockUIContainer(BuildCanvas(input, layout, settings, printFont, pageWidth, pageHeight)));
+        var activeLines = InvoiceLinePagination.ActiveLines(input);
+        var chunks = InvoiceLinePagination.ChunkLines(activeLines, layout.MaxLineRows);
+        var pageCount = chunks.Count;
+
+        for (var pageIndex = 0; pageIndex < pageCount; pageIndex++)
+        {
+            var isLastPage = pageIndex == pageCount - 1;
+            var hasMorePages = !isLastPage;
+            var canvas = BuildCanvas(
+                input,
+                chunks[pageIndex],
+                layout,
+                settings,
+                printFont,
+                pageWidth,
+                pageHeight,
+                isLastPage,
+                hasMorePages);
+
+            if (pageIndex == 0)
+                doc.Blocks.Add(new BlockUIContainer(canvas));
+            else
+            {
+                var section = new Section { BreakPageBefore = true };
+                section.Blocks.Add(new BlockUIContainer(canvas));
+                doc.Blocks.Add(section);
+            }
+        }
+
         return doc;
     }
 
     private static Canvas BuildCanvas(
         ThermalInvoiceInput input,
+        IReadOnlyList<InvoiceLineSnap> pageLines,
         A5PrePrintedInvoiceLayout layout,
         A5PrePrintedLayoutSettings settings,
         FontFamily printFont,
         double pageWidth,
-        double pageHeight)
+        double pageHeight,
+        bool isLastPage,
+        bool hasMorePages)
     {
         var canvas = new Canvas
         {
@@ -54,6 +87,70 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         var bodyFont = layout.BodyFontPt;
         var totalFont = layout.TotalFontPt;
 
+        PlaceHeader(canvas, input, layout, settings, printFont, bodyFont);
+
+        for (var i = 0; i < pageLines.Count; i++)
+        {
+            var line = pageLines[i];
+            var top = layout.TableTopMm + i * layout.LineRowHeightMm;
+            var amount = line.TaxableAmount > 0 ? line.TaxableAmount : line.Amount;
+
+            PlaceText(canvas, line.Description, layout.ColDescLeftMm, top, layout.ColDescWidthMm,
+                bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
+            PlaceText(canvas, $"{line.Qty:0.###}", layout.ColQtyLeftMm, top, layout.ColQtyWidthMm,
+                bodyFont, printFont, TextAlignment.Center, useTableOffset: true, layout: layout);
+            PlaceText(canvas, Money(line.Rate), layout.ColRateLeftMm, top, layout.ColRateWidthMm,
+                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
+            PlaceText(canvas, Money(amount), layout.ColAmountLeftMm, top, layout.ColAmountWidthMm,
+                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
+        }
+
+        if (hasMorePages)
+        {
+            var totalQtyTop = layout.TableTopMm + pageLines.Count * layout.LineRowHeightMm;
+            PlaceText(canvas, A5PrePrintedText.FormatTotalQty(input.TotalQty),
+                layout.TotalQtyLeftMm, totalQtyTop, layout.TotalQtyWidthMm,
+                bodyFont, printFont, TextAlignment.Center, useTableOffset: true, layout: layout);
+
+            var continuedTop = totalQtyTop + layout.LineRowHeightMm;
+            PlaceText(canvas, A5PrePrintedText.ContinuedLabel,
+                layout.ColDescLeftMm, continuedTop, layout.ColDescWidthMm,
+                bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
+        }
+
+        if (isLastPage)
+        {
+            if (input.ItemDiscountPercent > 0 || input.ManualDiscountAmount > 0)
+            {
+                PlaceText(canvas, A5PrePrintedText.FormatDiscountName(input.ItemDiscountPercent),
+                    layout.DiscountPercentLeftMm, layout.DiscountPercentTopMm, layout.DiscountPercentWidthMm,
+                    bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
+
+                var discountAmountText = A5PrePrintedText.FormatDiscountAmount(input.ManualDiscountAmount);
+                if (!string.IsNullOrEmpty(discountAmountText))
+                {
+                    PlaceText(canvas, discountAmountText,
+                        layout.DiscountAmountLeftMm, layout.DiscountAmountTopMm, layout.DiscountAmountWidthMm,
+                        bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
+                }
+            }
+
+            PlaceText(canvas, Money(input.Payable), layout.TotalAmountLeftMm, layout.TotalAmountTopMm,
+                layout.TotalAmountWidthMm, totalFont, printFont, TextAlignment.Right, FontWeights.Bold,
+                useTableOffset: true, layout: layout);
+        }
+
+        return canvas;
+    }
+
+    private static void PlaceHeader(
+        Canvas canvas,
+        ThermalInvoiceInput input,
+        A5PrePrintedInvoiceLayout layout,
+        A5PrePrintedLayoutSettings settings,
+        FontFamily printFont,
+        double bodyFont)
+    {
         PlaceText(canvas, A5PrePrintedText.FormatBillTo(input.CustomerName, settings.BillToMaxChars),
             layout.BillToLeftMm, layout.BillToTopMm, layout.BillToWidthMm, bodyFont, printFont,
             TextAlignment.Left, singleLine: true, layout: layout);
@@ -71,29 +168,6 @@ public static class A5PrePrintedInvoiceDocumentBuilder
             PlaceText(canvas, input.DeliveryDate, layout.DeliveryDateLeftMm, layout.DeliveryDateTopMm,
                 layout.DeliveryDateWidthMm, bodyFont, printFont, TextAlignment.Left, layout: layout);
         }
-
-        var lines = input.Lines.Where(l => l.Amount > 0 || l.TaxableAmount > 0).Take(layout.MaxLineRows).ToList();
-        for (var i = 0; i < lines.Count; i++)
-        {
-            var line = lines[i];
-            var top = layout.TableTopMm + i * layout.LineRowHeightMm;
-            var amount = line.TaxableAmount > 0 ? line.TaxableAmount : line.Amount;
-
-            PlaceText(canvas, line.Description, layout.ColDescLeftMm, top, layout.ColDescWidthMm,
-                bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
-            PlaceText(canvas, $"{line.Qty:0.###}", layout.ColQtyLeftMm, top, layout.ColQtyWidthMm,
-                bodyFont, printFont, TextAlignment.Center, useTableOffset: true, layout: layout);
-            PlaceText(canvas, Money(line.Rate), layout.ColRateLeftMm, top, layout.ColRateWidthMm,
-                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
-            PlaceText(canvas, Money(amount), layout.ColAmountLeftMm, top, layout.ColAmountWidthMm,
-                bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
-        }
-
-        PlaceText(canvas, Money(input.Payable), layout.TotalAmountLeftMm, layout.TotalAmountTopMm,
-            layout.TotalAmountWidthMm, totalFont, printFont, TextAlignment.Right, FontWeights.Bold,
-            useTableOffset: true, layout: layout);
-
-        return canvas;
     }
 
     private static void PlaceText(

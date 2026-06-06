@@ -102,6 +102,7 @@ public partial class BillingLineItem : ObservableObject
 
     private void Recalc()
     {
+        // Rate from product master is GST-inclusive selling price.
         Amount = MoneyMath.RoundAmount(Qty * Rate);
         RecalcTax();
     }
@@ -121,7 +122,7 @@ public partial class BillingLineItem : ObservableObject
             IgstPercent = 0;
         }
 
-        var original = BillingDiscountCalculator.ComputeOriginalTax(Amount, TaxPercent, IsIgst);
+        var original = BillingDiscountCalculator.ReverseSplitFromInclusive(Amount, TaxPercent, IsIgst);
         OriginalTaxAmount = original.TotalTax;
         OriginalInclusiveAmount = original.Inclusive;
 

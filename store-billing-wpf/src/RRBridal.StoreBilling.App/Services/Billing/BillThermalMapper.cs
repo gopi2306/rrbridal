@@ -65,6 +65,18 @@ public static class BillThermalMapper
             ? ""
             : createdUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
+        var itemDiscount = ReadDecimal(doc, "itemDiscount");
+        var cashDiscAmount = ReadDecimal(doc, "cashDiscAmount");
+        var itemDiscountPercent = ReadDecimal(doc, "itemDiscountPercent");
+        if (itemDiscountPercent <= 0 && itemDiscount > 0)
+        {
+            var discountBase = ReadDecimal(doc, "originalInclusiveTotal");
+            if (discountBase <= 0)
+                discountBase = ReadDecimal(doc, "subTotal");
+            if (discountBase > 0)
+                itemDiscountPercent = Math.Round(itemDiscount / discountBase * 100m, 2, MidpointRounding.AwayFromZero);
+        }
+
         return new ThermalInvoiceInput
         {
             Store = store,
@@ -85,8 +97,9 @@ public static class BillThermalMapper
             CgstTotal = ReadDecimal(doc, "cgstTotal"),
             SgstTotal = ReadDecimal(doc, "sgstTotal"),
             IgstTotal = ReadDecimal(doc, "igstTotal"),
-            ItemDiscount = ReadDecimal(doc, "itemDiscount"),
-            CashDiscAmount = ReadDecimal(doc, "cashDiscAmount"),
+            ItemDiscountPercent = itemDiscountPercent,
+            ItemDiscount = itemDiscount,
+            CashDiscAmount = cashDiscAmount,
             RoundOff = ReadDecimal(doc, "roundOff"),
             Payable = ReadDecimal(doc, "payable"),
             TotalQty = active.Sum(l => l.Qty),

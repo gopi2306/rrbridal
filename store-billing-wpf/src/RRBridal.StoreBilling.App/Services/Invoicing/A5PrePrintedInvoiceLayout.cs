@@ -54,6 +54,18 @@ public sealed class A5PrePrintedInvoiceLayout
     public double TotalAmountTopMm { get; }
     public double TotalAmountWidthMm { get; }
 
+    public double DiscountPercentLeftMm { get; }
+    public double DiscountPercentTopMm { get; }
+    public double DiscountPercentWidthMm { get; }
+
+    public double DiscountAmountLeftMm { get; }
+    public double DiscountAmountTopMm { get; }
+    public double DiscountAmountWidthMm { get; }
+
+    public double TotalQtyLeftMm { get; }
+    public double TotalQtyTopMm { get; }
+    public double TotalQtyWidthMm { get; }
+
     private A5PrePrintedInvoiceLayout(A5PrePrintedLayoutSettings s)
     {
         OffsetXMm = s.OffsetXMm;
@@ -94,6 +106,15 @@ public sealed class A5PrePrintedInvoiceLayout
         TotalAmountLeftMm = s.TotalAmountLeftMm;
         TotalAmountTopMm = s.TotalAmountTopMm;
         TotalAmountWidthMm = s.TotalAmountWidthMm;
+        DiscountPercentLeftMm = s.DiscountPercentLeftMm;
+        DiscountPercentTopMm = s.DiscountPercentTopMm;
+        DiscountPercentWidthMm = s.DiscountPercentWidthMm;
+        DiscountAmountLeftMm = s.DiscountAmountLeftMm;
+        DiscountAmountTopMm = s.DiscountAmountTopMm;
+        DiscountAmountWidthMm = s.DiscountAmountWidthMm;
+        TotalQtyLeftMm = s.TotalQtyLeftMm;
+        TotalQtyTopMm = s.TotalQtyTopMm;
+        TotalQtyWidthMm = s.TotalQtyWidthMm;
     }
 
     public static A5PrePrintedInvoiceLayout FromSettings(A5PrePrintedLayoutSettings settings) =>

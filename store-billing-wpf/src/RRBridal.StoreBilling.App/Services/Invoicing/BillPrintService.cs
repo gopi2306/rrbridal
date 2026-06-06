@@ -6,6 +6,12 @@ using System.Windows.Media;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
+public enum BillPrinterKind
+{
+    Thermal,
+    OfficeInvoice,
+}
+
 public sealed class BillPrintService
 {
     /// <summary>~80mm at 96 DPI.</summary>
@@ -173,18 +179,39 @@ public sealed class BillPrintService
         return true;
     }
 
-    /// <summary>Print using saved queue, dialog, or queue-fallback prompt.</summary>
-    public static bool PrintDocument(Window? owner, FlowDocument document, ReceiptPrintSettings print, string jobName)
+    public static string? ResolvePrinterQueue(ReceiptPrintSettings print, BillPrinterKind kind)
     {
-        if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(print.BillPrinterFullName))
+        var dedicated = kind switch
+        {
+            BillPrinterKind.Thermal => print.ThermalPrinterFullName,
+            BillPrinterKind.OfficeInvoice => print.OfficeInvoicePrinterFullName,
+            _ => null,
+        };
+
+        if (!string.IsNullOrWhiteSpace(dedicated))
+            return dedicated.Trim();
+
+        return string.IsNullOrWhiteSpace(print.BillPrinterFullName) ? null : print.BillPrinterFullName.Trim();
+    }
+
+    /// <summary>Print using saved queue, dialog, or queue-fallback prompt.</summary>
+    public static bool PrintDocument(
+        Window? owner,
+        FlowDocument document,
+        ReceiptPrintSettings print,
+        string jobName,
+        BillPrinterKind kind = BillPrinterKind.OfficeInvoice)
+    {
+        var queueName = ResolvePrinterQueue(print, kind);
+        if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(queueName))
             return ShowPrintDialog(owner, document, jobName);
 
-        if (TryPrintToQueue(document, print.BillPrinterFullName!, jobName))
+        if (TryPrintToQueue(document, queueName, jobName))
             return true;
 
         var r = MessageBox.Show(
             owner,
-            $"Could not print to saved printer \"{print.BillPrinterFullName}\". Open the print dialog to pick a printer?",
+            $"Could not print to saved printer \"{queueName}\". Open the print dialog to pick a printer?",
             "RR Bridal Billing",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);

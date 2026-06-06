@@ -52,9 +52,14 @@ public sealed class ThermalInvoiceInput
 
     public decimal TaxTotal { get; init; }
 
+    public decimal ItemDiscountPercent { get; init; }
+
     public decimal ItemDiscount { get; init; }
 
     public decimal CashDiscAmount { get; init; }
+
+    /// <summary>Manual bill discount (item + cash); excludes scheme/offer discounts.</summary>
+    public decimal ManualDiscountAmount => ItemDiscount + CashDiscAmount;
 
     public decimal RoundOff { get; init; }
 
@@ -171,7 +176,7 @@ public static class ThermalInvoiceTextBuilder
 
         AddRule();
         sb.AppendLine(TwoCols($"No. of items: {input.ItemCount}", $"Total qty: {input.TotalQty:0.###}", w));
-        sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.00}", $"Total amount: {input.TotalTaxableAmount:0.00}", w));
+        sb.AppendLine(TwoCols($"Total MRP: {input.TotalMrp:0.00}", $"Taxable amount: {input.TotalTaxableAmount:0.00}", w));
 
         if (input.ItemDiscount > 0 || input.CashDiscAmount > 0)
         {

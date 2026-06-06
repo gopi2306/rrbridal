@@ -51,15 +51,19 @@ public partial class InvoicePrintPreviewWindow : Window
 
         if (_dualPrint && _thermalDocument != null)
         {
-            if (!BillPrintService.PrintDocument(this, _thermalDocument, print, "RR Bridal thermal receipt"))
+            if (!BillPrintService.PrintDocument(this, _thermalDocument, print, "RR Bridal thermal receipt", BillPrinterKind.Thermal))
                 return;
 
-            if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal invoice"))
+            if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal invoice", BillPrinterKind.OfficeInvoice))
                 return;
         }
-        else if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal bill"))
+        else
         {
-            return;
+            var kind = print.PrintFormat == InvoicePrintFormat.Thermal
+                ? BillPrinterKind.Thermal
+                : BillPrinterKind.OfficeInvoice;
+            if (!BillPrintService.PrintDocument(this, _document, print, "RR Bridal bill", kind))
+                return;
         }
 
         PrintSucceeded = true;

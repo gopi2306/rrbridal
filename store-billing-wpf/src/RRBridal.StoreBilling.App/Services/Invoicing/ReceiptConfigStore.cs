@@ -86,6 +86,8 @@ public sealed class ReceiptConfigStore
 
             if (doc.Print.A5PrePrintedLayout == null)
                 doc.Print.A5PrePrintedLayout = A5PrePrintedLayoutSettings.CreateDefault();
+            else
+                doc.Print.A5PrePrintedLayout.EnsureAlignmentDefaults();
 
             _current = doc;
             _hasLoadedFromDisk = true;

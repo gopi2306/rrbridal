@@ -23,11 +23,14 @@ public partial class SaleExchangeLineItem : ObservableObject
     public decimal SgstPercent => IsIgst ? 0m : Math.Round(TaxPercent / 2m, 2);
     public decimal IgstPercent => IsIgst ? TaxPercent : 0m;
 
-    public decimal CgstAmount => MoneyMath.RoundAmount(Amount * CgstPercent / 100m);
-    public decimal SgstAmount => MoneyMath.RoundAmount(Amount * SgstPercent / 100m);
-    public decimal IgstAmount => MoneyMath.RoundAmount(Amount * IgstPercent / 100m);
-    public decimal TaxAmount => CgstAmount + SgstAmount + IgstAmount;
-    public decimal Total => Amount + TaxAmount;
+    private GstTaxBreakdown TaxBreakdown =>
+        BillingDiscountCalculator.ReverseSplitFromInclusive(Amount, TaxPercent, IsIgst);
+
+    public decimal CgstAmount => TaxBreakdown.Cgst;
+    public decimal SgstAmount => TaxBreakdown.Sgst;
+    public decimal IgstAmount => TaxBreakdown.Igst;
+    public decimal TaxAmount => TaxBreakdown.TotalTax;
+    public decimal Total => TaxBreakdown.Inclusive;
 
     partial void OnQtyChanged(decimal value)
     {

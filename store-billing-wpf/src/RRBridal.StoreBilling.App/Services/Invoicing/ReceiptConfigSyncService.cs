@@ -186,7 +186,13 @@ public sealed class ReceiptConfigSyncService
 
         var resolved = PrinterQueueResolver.ResolveFullName(queueHint, modelHint);
         if (!string.IsNullOrWhiteSpace(resolved))
+        {
             print.BillPrinterFullName = resolved;
+            if (string.IsNullOrWhiteSpace(print.ThermalPrinterFullName))
+                print.ThermalPrinterFullName = resolved;
+            if (string.IsNullOrWhiteSpace(print.OfficeInvoicePrinterFullName))
+                print.OfficeInvoicePrinterFullName = resolved;
+        }
     }
 
     private static List<string> ParsePolicyLines(JsonElement profile)

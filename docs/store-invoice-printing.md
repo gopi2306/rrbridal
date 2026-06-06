@@ -13,7 +13,17 @@ The WPF store billing app supports three bill print layouts, chosen in **Setting
 
 Setting is stored locally in `%LocalAppData%\RRBridal\StoreBilling\receipt_config.json` under `print.printFormat` (`Thermal`, `A4`, or `A5`), `print.a5PrePrintedEnabled`, `print.a5PrePrintedLayout` (mm alignment + font), and `print.alsoPrintThermalFirst`. It is **not** synced from central in v1.
 
-A4 and A5 (full template) share the same **branded retail invoice** layout: dark green patterned background, cream arched panel, centered store header, customer meta fields, 4-column line table (Description, Qty, Rate, Amount), terms footer, and signature line. A5 scales proportionally (~70.5% of A4 width).
+A4 and A5 (full template) share the same **branded retail invoice** layout: dark green patterned background, cream arched panel, centered store header, customer meta fields, 4-column line table (Description, Qty, Rate, Amount), optional **DISC %** / **DISCOUNT** footer rows (manual item + cash discounts only), terms footer, and signature line. A5 scales proportionally (~70.5% of A4 width).
+
+**A5 multi-page pagination:** When a bill has more line items than **Lines per page** (default **10**, from `print.a5PrePrintedLayout.maxLineRows`), both **full A5** and **A5 pre-printed** print multiple sheets:
+
+- **Every page:** same header/meta (BILL TO, INV NO, DATE, CONTACT, stitching tick, D/D).
+- **Page 1** (when bill continues): items 1..N → **Total Qty** (whole-bill sum, e.g. `18.000`) → **Continued** in Description column on the next row.
+- **Page 2+:** header repeated + remaining line items only (no Total Qty repeat).
+- **Last page:** remaining lines + discount + payable total (+ terms/signature on full A5).
+- **Single page** (≤ Lines per page): no Continued row; layout unchanged from before.
+
+A4 format remains single-page regardless of line count.
 
 **A5 pre-printed mode:** When **A5 tax invoice** is selected and **Use pre-printed A5 paper (values only)** is checked, the app prints **only bill data** (no background, labels, borders, or headers) at mm positions aligned to pre-printed form lines. Font family, body/total point sizes, and **BILL TO** max length are configurable in Settings (default font **Arial**, default **15** chars + `...` if longer). Tune alignment in **Settings → A5 pre-printed alignment (mm)**; use **Preview test layout** then **Save receipt settings**, then verify on physical PAKEEZA paper via F10.
 
@@ -26,9 +36,9 @@ A4 and A5 (full template) share the same **branded retail invoice** layout: dark
    - **Thermal receipt (80mm)** — existing monospace receipt; **Receipt width (characters)** applies (typically 48).
    - **A4 retail invoice** — full branded layout on A4.
    - **A5 retail invoice** — full branded layout on A5, or enable **Use pre-printed A5 paper (values only)** for branded stationery.
-3. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
-4. When **A4** or **A5** is selected, optionally enable **Also print thermal receipt first (80mm)** to print the 80mm thermal receipt first, then the A4/A5 invoice on the same printer (two print jobs in order).
-5. Set **Default bill printer** (load A4 or A5 paper to match the selected format). Pre-printed A5 uses this same queue.
+3. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, **Lines per page** (multi-page chunk size), Total Qty alignment (page 1 only), font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
+4. When **A4** or **A5** is selected, optionally enable **Also print thermal receipt first (80mm)** to print the 80mm thermal receipt first, then the A4/A5 invoice (two print jobs to separate printers).
+5. Set **Thermal receipt printer (80mm)** and **A4 / A5 invoice printer** (load matching paper in each tray). Pre-printed A5 uses the office invoice printer.
 6. Click **Save receipt settings**.
 
 Store name, address, contact, logo, and terms come from receipt settings (synced from central company master) and apply to full A4/A5 only—not pre-printed overlay mode.
@@ -37,7 +47,7 @@ Store name, address, contact, logo, and terms come from receipt settings (synced
 
 - **F10** on billing, duplicate bill reprint, and ledger reprint use [`InvoicePrintFlow`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/InvoicePrintFlow.cs).
 - Preview opens in **Invoice print preview**; **Print** uses the saved queue or Windows print dialog.
-- When **Also print thermal receipt first** is enabled (A4 or A5 format only), **Print** sends two jobs in order: (1) 80mm thermal receipt, (2) A4/A5/A5 pre-printed invoice. Both use the same default bill printer. If **Always use Windows print dialog** is checked, the user sees two dialogs in sequence.
+- When **Also print thermal receipt first** is enabled (A4 or A5 format only), **Print** sends two jobs in order: (1) 80mm thermal receipt → thermal printer, (2) A4/A5/A5 pre-printed invoice → office invoice printer. If **Always use Windows print dialog** is checked, the user sees two dialogs in sequence.
 - **Sale return exchange** receipts always use thermal monospace (unchanged).
 
 ## Pre-printed A5 — fields printed
@@ -50,8 +60,21 @@ Store name, address, contact, logo, and terms come from receipt settings (synced
 | CONTACT | Customer phone |
 | STITCHING box | ✓ when stitching checked |
 | D/D | Delivery date |
-| Table rows | Description, Qty, Rate, Amount per line |
+| Table rows | Description, Qty, Rate, Amount per line (chunked by **Lines per page**) |
+| Total Qty (page 1, multi-page) | Whole-bill quantity sum in Qty column area (e.g. `18.000`) |
+| Continued (page 1, multi-page) | **Continued** in Description column; Qty/Rate/Amount blank |
+| Discount name cell | `Discount 10%` — label **Discount** is fixed; **10** is actual item discount % (hidden when no manual discount) |
+| Discount amount cell | Actual manual discount as negative, e.g. `-249.90` (item + cash; scheme excluded) |
 | TOTAL amount cell | Payable total |
+
+Manual discount fields on the billing screen map to invoice print as follows:
+
+| Billing input | Printed value |
+|---------------|-----------------|
+| **Item discount (%)** | Discount name column, e.g. `Discount 10%` (percent from bill; label fixed) |
+| **Item discount (₹)** + **Cash disc amt** | Discount amount column as negative, e.g. `-249.90` |
+| **Item discount (₹)** + **Cash disc amt** | Discount amount (hidden when zero) |
+| Scheme / offer discount | Not shown on these invoice fields |
 
 ## Billing flags
 
@@ -72,7 +95,7 @@ Flags and delivery date reset when starting a new bill after post/print.
 ## Implementation
 
 - Thermal: [`ThermalInvoiceTextBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/ThermalInvoiceTextBuilder.cs) + [`BillPrintService.CreateReceiptDocument`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/BillPrintService.cs)
-- A4 / A5 full: [`A4InvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A4InvoiceDocumentBuilder.cs)
+- A4 / A5 full: [`A4InvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A4InvoiceDocumentBuilder.cs) (A5-only pagination via [`InvoiceLinePagination`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/InvoiceLinePagination.cs))
 - A5 pre-printed: [`A5PrePrintedInvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceDocumentBuilder.cs) + [`A5PrePrintedLayoutSettings`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedLayoutSettings.cs) (persisted) + [`A5PrePrintedInvoiceLayout`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceLayout.cs) (runtime resolver)
 
 ## Test checklist
@@ -88,6 +111,14 @@ Flags and delivery date reset when starting a new bill after post/print.
 9. Thermal-only format → dual checkbox hidden; print behaves as before.
 10. A4 and thermal-only unchanged when dual setting off.
 11. Restart app → `print.a5PrePrintedLayout` persists from JSON.
+12. Bill with **Item discount 10%** and **Cash disc amt** → full A5 shows DISC % / DISCOUNT rows above TOTAL; pre-printed A5 shows both values at configured mm positions.
+13. Bill with scheme discount only → no discount % / amount on A5 invoices (scheme is separate on billing panel).
+14. Duplicate reprint → discount fields read from stored `itemDiscountPercent`, `itemDiscount`, `cashDiscAmount`.
+15. Bill with **15 items**, **Lines per page = 10** → page 1: items 1–10, **Total Qty** (whole bill, e.g. `18.000`), **Continued** row; page 2: items 11–15 + discount + payable. Applies to pre-printed and full A5.
+16. Page 1 Total Qty uses whole-bill `totalQty`, not page-1 line sum only.
+17. Single-page bill (≤10 items): no Continued, no extra Total Qty row.
+18. A4 format with many lines → still single page.
+19. **Preview test layout** with 15 sample lines → two-page preview when Lines per page is 10.
 
 ## Related
 

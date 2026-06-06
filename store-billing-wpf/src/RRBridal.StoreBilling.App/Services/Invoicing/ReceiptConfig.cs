@@ -64,8 +64,14 @@ public sealed class StoreProfile
 
 public sealed class ReceiptPrintSettings
 {
-    /// <summary>Windows print queue full name, e.g. "\\\\server\\POS80" or local queue name.</summary>
+    /// <summary>Legacy single printer; migrated to thermal/office fields when those are empty.</summary>
     public string? BillPrinterFullName { get; set; }
+
+    /// <summary>80mm thermal receipt printer queue.</summary>
+    public string? ThermalPrinterFullName { get; set; }
+
+    /// <summary>A4 / A5 office invoice printer queue.</summary>
+    public string? OfficeInvoicePrinterFullName { get; set; }
 
     public bool AlwaysUsePrintDialog { get; set; }
 

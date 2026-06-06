@@ -16,11 +16,13 @@ public readonly record struct GstTaxBreakdown(
 
 public static class BillingDiscountCalculator
 {
-    public static decimal ComputeOriginalInclusive(decimal amount, decimal taxPercent, bool isIgst) =>
-        ComputeOriginalTax(amount, taxPercent, isIgst).Inclusive;
+    /// <summary>Qty × Rate line total — GST-inclusive selling amount.</summary>
+    public static decimal ComputeOriginalInclusive(decimal inclusiveLineAmount, decimal taxPercent, bool isIgst) =>
+        inclusiveLineAmount <= 0 ? 0 : MoneyMath.RoundAmount(inclusiveLineAmount);
 
-    public static GstTaxBreakdown ComputeOriginalTax(decimal amount, decimal taxPercent, bool isIgst) =>
-        ComputeForwardTax(amount, taxPercent, isIgst);
+    /// <summary>Split GST out of a GST-inclusive line total (Qty × inclusive Rate).</summary>
+    public static GstTaxBreakdown ComputeOriginalTax(decimal inclusiveLineAmount, decimal taxPercent, bool isIgst) =>
+        ReverseSplitFromInclusive(inclusiveLineAmount, taxPercent, isIgst);
 
     public static GstTaxBreakdown ComputeForwardTax(decimal taxable, decimal taxPercent, bool isIgst)
     {

@@ -103,6 +103,8 @@ public static class InvoicePrintFlow
         var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
             ? (148.0, 210.0)
             : (210.0, 297.0);
-        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH);
+        var linesPerPage = a5Layout?.MaxLineRows ?? 10;
+        if (linesPerPage <= 0) linesPerPage = 10;
+        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH, linesPerPage);
     }
 }

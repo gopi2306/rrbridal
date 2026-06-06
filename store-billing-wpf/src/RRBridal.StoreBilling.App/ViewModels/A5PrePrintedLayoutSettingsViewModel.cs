@@ -31,7 +31,7 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _deliveryDateWidthMm = 28;
     [ObservableProperty] private double _tableTopMm = 108;
     [ObservableProperty] private double _lineRowHeightMm = 7.2;
-    [ObservableProperty] private int _maxLineRows = 12;
+    [ObservableProperty] private int _maxLineRows = 10;
     [ObservableProperty] private double _colDescLeftMm = 25;
     [ObservableProperty] private double _colDescWidthMm = 56;
     [ObservableProperty] private double _colQtyLeftMm = 85;
@@ -43,11 +43,21 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _totalAmountLeftMm = 102;
     [ObservableProperty] private double _totalAmountTopMm = 190;
     [ObservableProperty] private double _totalAmountWidthMm = 25;
+    [ObservableProperty] private double _discountPercentLeftMm = 25;
+    [ObservableProperty] private double _discountPercentTopMm = 176;
+    [ObservableProperty] private double _discountPercentWidthMm = 56;
+    [ObservableProperty] private double _discountAmountLeftMm = 102;
+    [ObservableProperty] private double _discountAmountTopMm = 176;
+    [ObservableProperty] private double _discountAmountWidthMm = 25;
+    [ObservableProperty] private double _totalQtyLeftMm = 85;
+    [ObservableProperty] private double _totalQtyTopMm = 176;
+    [ObservableProperty] private double _totalQtyWidthMm = 9;
     [ObservableProperty] private string _printFontFamily = "Arial";
     [ObservableProperty] private int _billToMaxChars = 15;
 
     public void ApplyFrom(A5PrePrintedLayoutSettings s)
     {
+        s.EnsureAlignmentDefaults();
         OffsetXMm = s.OffsetXMm;
         OffsetYMm = s.OffsetYMm;
         TableOffsetYMm = s.TableOffsetYMm;
@@ -86,6 +96,15 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
         TotalAmountLeftMm = s.TotalAmountLeftMm;
         TotalAmountTopMm = s.TotalAmountTopMm;
         TotalAmountWidthMm = s.TotalAmountWidthMm;
+        DiscountPercentLeftMm = s.DiscountPercentLeftMm;
+        DiscountPercentTopMm = s.DiscountPercentTopMm;
+        DiscountPercentWidthMm = s.DiscountPercentWidthMm;
+        DiscountAmountLeftMm = s.DiscountAmountLeftMm;
+        DiscountAmountTopMm = s.DiscountAmountTopMm;
+        DiscountAmountWidthMm = s.DiscountAmountWidthMm;
+        TotalQtyLeftMm = s.TotalQtyLeftMm;
+        TotalQtyTopMm = s.TotalQtyTopMm;
+        TotalQtyWidthMm = s.TotalQtyWidthMm;
         PrintFontFamily = s.PrintFontFamily;
         BillToMaxChars = s.BillToMaxChars;
     }
@@ -139,6 +158,15 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
             TotalAmountLeftMm = TotalAmountLeftMm,
             TotalAmountTopMm = TotalAmountTopMm,
             TotalAmountWidthMm = TotalAmountWidthMm,
+            DiscountPercentLeftMm = DiscountPercentLeftMm,
+            DiscountPercentTopMm = DiscountPercentTopMm,
+            DiscountPercentWidthMm = DiscountPercentWidthMm,
+            DiscountAmountLeftMm = DiscountAmountLeftMm,
+            DiscountAmountTopMm = DiscountAmountTopMm,
+            DiscountAmountWidthMm = DiscountAmountWidthMm,
+            TotalQtyLeftMm = TotalQtyLeftMm,
+            TotalQtyTopMm = TotalQtyTopMm,
+            TotalQtyWidthMm = TotalQtyWidthMm,
             PrintFontFamily = string.IsNullOrWhiteSpace(PrintFontFamily) ? "Arial" : PrintFontFamily.Trim(),
             BillToMaxChars = billToMax,
         };

@@ -55,7 +55,9 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _receiptAlwaysUsePrintDialog;
 
-    [ObservableProperty] private string? _selectedPrinterFullName;
+    [ObservableProperty] private string? _selectedThermalPrinterFullName;
+
+    [ObservableProperty] private string? _selectedOfficePrinterFullName;
 
     [ObservableProperty] private int _receiptCharWidth = 48;
 
@@ -191,7 +193,7 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptPolicyLinesText = string.Join(Environment.NewLine, s.PolicyLines ?? new List<string>());
         ReceiptThankYouLine = s.ThankYouLine;
         ReceiptAlwaysUsePrintDialog = c.Print.AlwaysUsePrintDialog;
-        SelectedPrinterFullName = c.Print.BillPrinterFullName;
+        ApplyPrinterFieldsFromConfig(c.Print);
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
         ReceiptPrintFormat = c.Print.PrintFormat;
         A5PrePrintedEnabled = c.Print.A5PrePrintedEnabled;
@@ -212,6 +214,21 @@ public partial class SettingsViewModel : ObservableObject
         RefreshPrinters();
     }
 
+    private void ApplyPrinterFieldsFromConfig(ReceiptPrintSettings print)
+    {
+        var thermal = print.ThermalPrinterFullName;
+        var office = print.OfficeInvoicePrinterFullName;
+        if (string.IsNullOrWhiteSpace(thermal) && string.IsNullOrWhiteSpace(office)
+            && !string.IsNullOrWhiteSpace(print.BillPrinterFullName))
+        {
+            thermal = print.BillPrinterFullName;
+            office = print.BillPrinterFullName;
+        }
+
+        SelectedThermalPrinterFullName = thermal;
+        SelectedOfficePrinterFullName = office;
+    }
+
     private void UpdatePrinterWarning()
     {
         var print = _services.ReceiptConfig.Current.Print;
@@ -221,14 +238,15 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(SelectedPrinterFullName))
+        if (!string.IsNullOrWhiteSpace(SelectedThermalPrinterFullName)
+            || !string.IsNullOrWhiteSpace(SelectedOfficePrinterFullName))
         {
             ReceiptPrinterWarningText = "";
             return;
         }
 
         ReceiptPrinterWarningText =
-            "Central printer name did not match any queue on this PC — select a printer manually.";
+            "Central printer name did not match any queue on this PC — select thermal and A4/A5 printers manually.";
     }
 
     [RelayCommand]
@@ -283,7 +301,15 @@ public partial class SettingsViewModel : ObservableObject
             .Where(x => x.Length > 0)
             .ToList();
         c.Print.AlwaysUsePrintDialog = ReceiptAlwaysUsePrintDialog;
-        c.Print.BillPrinterFullName = string.IsNullOrWhiteSpace(SelectedPrinterFullName) ? null : SelectedPrinterFullName.Trim();
+        c.Print.ThermalPrinterFullName = string.IsNullOrWhiteSpace(SelectedThermalPrinterFullName)
+            ? null
+            : SelectedThermalPrinterFullName.Trim();
+        c.Print.OfficeInvoicePrinterFullName = string.IsNullOrWhiteSpace(SelectedOfficePrinterFullName)
+            ? null
+            : SelectedOfficePrinterFullName.Trim();
+        c.Print.BillPrinterFullName = ReceiptPrintFormat == InvoicePrintFormat.Thermal
+            ? c.Print.ThermalPrinterFullName
+            : c.Print.OfficeInvoicePrinterFullName;
         var w = ReceiptCharWidth;
         if (w < 32) w = 32;
         if (w > 56) w = 56;
@@ -299,7 +325,9 @@ public partial class SettingsViewModel : ObservableObject
         LastActionText = "Receipt and printer settings saved.";
     }
 
-    partial void OnSelectedPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
+    partial void OnSelectedThermalPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
+
+    partial void OnSelectedOfficePrinterFullNameChanged(string? value) => UpdatePrinterWarning();
 
     [RelayCommand]
     public void ResetA5PrePrintedLayoutToDefaults()
@@ -330,11 +358,28 @@ public partial class SettingsViewModel : ObservableObject
             [
                 new InvoiceLineSnap { LineNo = 1, Description = "Bridal Lehenga", Qty = 1, Rate = 15000, Amount = 15000, TaxableAmount = 15000 },
                 new InvoiceLineSnap { LineNo = 2, Description = "Dupatta", Qty = 2, Rate = 500, Amount = 1000, TaxableAmount = 1000 },
+                new InvoiceLineSnap { LineNo = 3, Description = "Blouse piece", Qty = 1, Rate = 800, Amount = 800, TaxableAmount = 800 },
+                new InvoiceLineSnap { LineNo = 4, Description = "Embroidery work", Qty = 1, Rate = 2500, Amount = 2500, TaxableAmount = 2500 },
+                new InvoiceLineSnap { LineNo = 5, Description = "Border lace", Qty = 3, Rate = 150, Amount = 450, TaxableAmount = 450 },
+                new InvoiceLineSnap { LineNo = 6, Description = "Stone work", Qty = 1, Rate = 1200, Amount = 1200, TaxableAmount = 1200 },
+                new InvoiceLineSnap { LineNo = 7, Description = "Petticoat", Qty = 1, Rate = 600, Amount = 600, TaxableAmount = 600 },
+                new InvoiceLineSnap { LineNo = 8, Description = "Chunni", Qty = 1, Rate = 900, Amount = 900, TaxableAmount = 900 },
+                new InvoiceLineSnap { LineNo = 9, Description = "Alteration", Qty = 1, Rate = 400, Amount = 400, TaxableAmount = 400 },
+                new InvoiceLineSnap { LineNo = 10, Description = "Dry clean", Qty = 1, Rate = 350, Amount = 350, TaxableAmount = 350 },
+                new InvoiceLineSnap { LineNo = 11, Description = "Gift box", Qty = 1, Rate = 200, Amount = 200, TaxableAmount = 200 },
+                new InvoiceLineSnap { LineNo = 12, Description = "Accessories", Qty = 2, Rate = 250, Amount = 500, TaxableAmount = 500 },
+                new InvoiceLineSnap { LineNo = 13, Description = "Matching bangles", Qty = 1, Rate = 750, Amount = 750, TaxableAmount = 750 },
+                new InvoiceLineSnap { LineNo = 14, Description = "Hair accessory", Qty = 1, Rate = 450, Amount = 450, TaxableAmount = 450 },
+                new InvoiceLineSnap { LineNo = 15, Description = "Carry bag", Qty = 1, Rate = 100, Amount = 100, TaxableAmount = 100 },
             ],
-            Payable = 16000,
-            SubTotal = 16000,
-            RevisedSubTotal = 16000,
-            ItemCount = 2,
+            Payable = 24200,
+            SubTotal = 24200,
+            RevisedSubTotal = 24200,
+            ItemDiscountPercent = 10,
+            ItemDiscount = 1500,
+            CashDiscAmount = 500,
+            ItemCount = 15,
+            TotalQty = 18,
         };
 
         var doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, layout);

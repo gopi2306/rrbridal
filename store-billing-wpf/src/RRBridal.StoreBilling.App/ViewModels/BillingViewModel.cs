@@ -254,7 +254,7 @@ public partial class BillingViewModel : ObservableObject
     }
 
     private static decimal LineOriginalInclusive(BillingLineItem line) =>
-        BillingDiscountCalculator.ComputeOriginalInclusive(line.Amount, line.TaxPercent, line.IsIgst);
+        line.OriginalInclusiveAmount > 0 ? line.OriginalInclusiveAmount : line.Amount;
 
     private List<(BillingLineItem Line, decimal OriginalInclusive)> BuildDiscountSnapshots() =>
         Lines
@@ -1860,6 +1860,7 @@ public partial class BillingViewModel : ObservableObject
             CgstTotal = totals.Cgst,
             SgstTotal = totals.Sgst,
             IgstTotal = totals.Igst,
+            ItemDiscountPercent = ItemDiscountPercent,
             ItemDiscount = totals.ItemDiscount,
             CashDiscAmount = totals.CashDiscount,
             RoundOff = totals.RoundOff,

@@ -16,11 +16,15 @@ public static class A4InvoiceDocumentBuilder
 {
     private static readonly CultureInfo In = CultureInfo.GetCultureInfo("en-IN");
 
+    private const double A5PageWidthMm = 148;
+    private const double A5PageHeightMm = 210;
+
     public static FlowDocument Create(
         ThermalInvoiceInput input,
         ThermalReceiptAssets? assets,
         double pageWidthMm = RetailInvoiceLayout.ReferencePageWidthMm,
-        double pageHeightMm = RetailInvoiceLayout.ReferencePageHeightMm)
+        double pageHeightMm = RetailInvoiceLayout.ReferencePageHeightMm,
+        int linesPerPage = 10)
     {
         var scale = RetailInvoiceLayout.Scale(pageWidthMm);
         var pageWidth = InvoiceImageScaling.MmToPx(pageWidthMm);
@@ -38,18 +42,51 @@ public static class A4InvoiceDocumentBuilder
             Background = RetailInvoiceVisuals.PageGreenBrush,
         };
 
-        var pageVisual = BuildPageVisual(input, assets, pageWidth, pageHeight, scale);
-        doc.Blocks.Add(new BlockUIContainer(pageVisual));
+        var isA5 = IsA5Page(pageWidthMm, pageHeightMm);
+        if (isA5)
+        {
+            var activeLines = InvoiceLinePagination.ActiveLines(input);
+            var chunks = InvoiceLinePagination.ChunkLines(activeLines, linesPerPage);
+            for (var pageIndex = 0; pageIndex < chunks.Count; pageIndex++)
+            {
+                var isLastPage = pageIndex == chunks.Count - 1;
+                var hasMorePages = !isLastPage;
+                var pageVisual = BuildPageVisual(
+                    input, assets, pageWidth, pageHeight, scale,
+                    chunks[pageIndex], isLastPage, hasMorePages);
 
+                if (pageIndex == 0)
+                    doc.Blocks.Add(new BlockUIContainer(pageVisual));
+                else
+                {
+                    var section = new Section { BreakPageBefore = true };
+                    section.Blocks.Add(new BlockUIContainer(pageVisual));
+                    doc.Blocks.Add(section);
+                }
+            }
+
+            return doc;
+        }
+
+        var singlePageVisual = BuildPageVisual(
+            input, assets, pageWidth, pageHeight, scale,
+            InvoiceLinePagination.ActiveLines(input), isLastPage: true, hasMorePages: false);
+        doc.Blocks.Add(new BlockUIContainer(singlePageVisual));
         return doc;
     }
+
+    private static bool IsA5Page(double pageWidthMm, double pageHeightMm) =>
+        Math.Abs(pageWidthMm - A5PageWidthMm) < 0.1 && Math.Abs(pageHeightMm - A5PageHeightMm) < 0.1;
 
     private static FrameworkElement BuildPageVisual(
         ThermalInvoiceInput input,
         ThermalReceiptAssets? assets,
         double pageWidth,
         double pageHeight,
-        double scale)
+        double scale,
+        IReadOnlyList<InvoiceLineSnap> pageLines,
+        bool isLastPage,
+        bool hasMorePages)
     {
         var inset = InvoiceImageScaling.MmToPx(RetailInvoiceLayout.PageInsetMm * scale);
         var panelWidth = pageWidth - inset * 2;
@@ -99,14 +136,17 @@ public static class A4InvoiceDocumentBuilder
         Grid.SetRow(headerBlock, 0);
         content.Children.Add(headerBlock);
 
-        var table = BuildLineItemsTable(input, assets, contentWidth, scale);
+        var table = BuildLineItemsTable(input, assets, contentWidth, scale, pageLines, isLastPage, hasMorePages);
         Grid.SetRow(table, 2);
         content.Children.Add(table);
 
-        var colWidths = ComputeColumnWidths(contentWidth);
-        var footer = BuildFooter(input, contentWidth, colWidths, scale);
-        Grid.SetRow(footer, 3);
-        content.Children.Add(footer);
+        if (isLastPage)
+        {
+            var colWidths = ComputeColumnWidths(contentWidth);
+            var footer = BuildFooter(input, contentWidth, colWidths, scale);
+            Grid.SetRow(footer, 3);
+            content.Children.Add(footer);
+        }
 
         return root;
     }
@@ -226,7 +266,10 @@ public static class A4InvoiceDocumentBuilder
         ThermalInvoiceInput input,
         ThermalReceiptAssets? assets,
         double contentWidth,
-        double scale)
+        double scale,
+        IReadOnlyList<InvoiceLineSnap> pageLines,
+        bool isLastPage,
+        bool hasMorePages)
     {
         var colWidths = ComputeColumnWidths(contentWidth);
         var headerH = InvoiceImageScaling.MmToPx(RetailInvoiceLayout.TableRowHeightMm * scale);
@@ -241,9 +284,14 @@ public static class A4InvoiceDocumentBuilder
         };
 
         var tableHost = new Grid { Background = RetailInvoiceVisuals.PanelCreamBrush };
+        var showDiscPct = isLastPage && input.ItemDiscountPercent > 0;
+        var showDiscAmt = isLastPage && input.ManualDiscountAmount > 0;
+        var footerRowCount = isLastPage ? 1 + (showDiscPct ? 1 : 0) + (showDiscAmt ? 1 : 0) : 0;
+
         tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(headerH) });
         tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(totalH) });
+        for (var i = 0; i < footerRowCount; i++)
+            tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(totalH) });
         for (var i = 0; i < 4; i++)
             tableHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(colWidths[i]) });
 
@@ -254,17 +302,58 @@ public static class A4InvoiceDocumentBuilder
                 c == 0 ? TextAlignment.Left : TextAlignment.Center, TableCellBorder.Header);
         }
 
-        var lines = input.Lines.Where(l => l.Amount > 0 || l.TaxableAmount > 0).ToList();
         var lineSpacing = Px(3, scale);
-        AddBodyColumn(tableHost, 1, 0, lines.Select(l => l.Description), font, TextAlignment.Left, lineSpacing);
-        AddBodyColumn(tableHost, 1, 1, lines.Select(l => $"{l.Qty:0.###}"), font, TextAlignment.Center, lineSpacing);
-        AddBodyColumn(tableHost, 1, 2, lines.Select(l => Money(l.Rate)), font, TextAlignment.Center, lineSpacing);
-        AddBodyColumn(tableHost, 1, 3, lines.Select(l => Money(l.TaxableAmount > 0 ? l.TaxableAmount : l.Amount)), font, TextAlignment.Center, lineSpacing);
+        var descriptions = pageLines.Select(l => l.Description).ToList();
+        var qtys = pageLines.Select(l => $"{l.Qty:0.###}").ToList();
+        var rates = pageLines.Select(l => Money(l.Rate)).ToList();
+        var amounts = pageLines.Select(l => Money(l.TaxableAmount > 0 ? l.TaxableAmount : l.Amount)).ToList();
 
-        AddTableCell(tableHost, 2, 0, "", font, FontWeights.Normal, TextAlignment.Left, TableCellBorder.Total);
-        AddTableCell(tableHost, 2, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
-        AddTableCell(tableHost, 2, 2, "TOTAL", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
-        AddTableCell(tableHost, 2, 3, Money(input.Payable), font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+        if (hasMorePages)
+        {
+            descriptions.Add("");
+            qtys.Add(A5PrePrintedText.FormatTotalQty(input.TotalQty));
+            rates.Add("");
+            amounts.Add("");
+
+            descriptions.Add(A5PrePrintedText.ContinuedLabel);
+            qtys.Add("");
+            rates.Add("");
+            amounts.Add("");
+        }
+
+        AddBodyColumn(tableHost, 1, 0, descriptions, font, TextAlignment.Left, lineSpacing);
+        AddBodyColumn(tableHost, 1, 1, qtys, font, TextAlignment.Center, lineSpacing);
+        AddBodyColumn(tableHost, 1, 2, rates, font, TextAlignment.Center, lineSpacing);
+        AddBodyColumn(tableHost, 1, 3, amounts, font, TextAlignment.Center, lineSpacing);
+
+        if (isLastPage)
+        {
+            var footerRow = 2;
+            if (showDiscPct)
+            {
+                AddTableCell(tableHost, footerRow, 0, "", font, FontWeights.Normal, TextAlignment.Left, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 2, "DISC %", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 3, input.ItemDiscountPercent.ToString("0.##", In), font, FontWeights.Bold,
+                    TextAlignment.Center, TableCellBorder.Total);
+                footerRow++;
+            }
+
+            if (showDiscAmt)
+            {
+                AddTableCell(tableHost, footerRow, 0, "", font, FontWeights.Normal, TextAlignment.Left, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 2, "DISCOUNT", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 3, Money(input.ManualDiscountAmount), font, FontWeights.Bold,
+                    TextAlignment.Center, TableCellBorder.Total);
+                footerRow++;
+            }
+
+            AddTableCell(tableHost, footerRow, 0, "", font, FontWeights.Normal, TextAlignment.Left, TableCellBorder.Total);
+            AddTableCell(tableHost, footerRow, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
+            AddTableCell(tableHost, footerRow, 2, "TOTAL", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+            AddTableCell(tableHost, footerRow, 3, Money(input.Payable), font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+        }
 
         var tableBorder = new Border
         {
@@ -285,7 +374,7 @@ public static class A4InvoiceDocumentBuilder
             var overlay = new Grid
             {
                 IsHitTestVisible = false,
-                Margin = new Thickness(line, headerH + line, contentWidth - colWidths[0], totalH + line),
+                Margin = new Thickness(line, headerH + line, contentWidth - colWidths[0], footerRowCount * totalH + line),
             };
             overlay.Children.Add(watermark);
             outer.Children.Add(overlay);
