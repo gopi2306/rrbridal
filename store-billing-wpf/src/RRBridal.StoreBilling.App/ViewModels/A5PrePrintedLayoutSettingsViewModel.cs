@@ -52,6 +52,9 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _totalQtyLeftMm = 85;
     [ObservableProperty] private double _totalQtyTopMm = 176;
     [ObservableProperty] private double _totalQtyWidthMm = 9;
+    [ObservableProperty] private string _continuedLabel = "Continued";
+    [ObservableProperty] private double _continuedLeftMm;
+    [ObservableProperty] private double _continuedWidthMm;
     [ObservableProperty] private string _printFontFamily = "Arial";
     [ObservableProperty] private int _billToMaxChars = 15;
 
@@ -105,6 +108,9 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
         TotalQtyLeftMm = s.TotalQtyLeftMm;
         TotalQtyTopMm = s.TotalQtyTopMm;
         TotalQtyWidthMm = s.TotalQtyWidthMm;
+        ContinuedLabel = s.ContinuedLabel;
+        ContinuedLeftMm = s.ContinuedLeftMm;
+        ContinuedWidthMm = s.ContinuedWidthMm;
         PrintFontFamily = s.PrintFontFamily;
         BillToMaxChars = s.BillToMaxChars;
     }
@@ -167,6 +173,11 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
             TotalQtyLeftMm = TotalQtyLeftMm,
             TotalQtyTopMm = TotalQtyTopMm,
             TotalQtyWidthMm = TotalQtyWidthMm,
+            ContinuedLabel = string.IsNullOrWhiteSpace(ContinuedLabel)
+                ? A5PrePrintedText.DefaultContinuedLabel
+                : ContinuedLabel.Trim(),
+            ContinuedLeftMm = ContinuedLeftMm,
+            ContinuedWidthMm = ContinuedWidthMm,
             PrintFontFamily = string.IsNullOrWhiteSpace(PrintFontFamily) ? "Arial" : PrintFontFamily.Trim(),
             BillToMaxChars = billToMax,
         };

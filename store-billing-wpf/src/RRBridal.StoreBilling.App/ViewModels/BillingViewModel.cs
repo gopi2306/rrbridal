@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -85,6 +86,8 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private bool _hasAppliedSchemes;
     [ObservableProperty] private string _roundOffFormatted = "₹ 0.00";
     [ObservableProperty] private string _payableTotalFormatted = "₹ 0.00";
+
+    [ObservableProperty] private string _totalLineQtyFormatted = "0";
     [ObservableProperty] private string _payableBeforeCreditFormatted = "₹ 0.00";
     [ObservableProperty] private string _creditAppliedFormatted = "₹ 0.00";
     [ObservableProperty] private bool _hasAvailableCredit;
@@ -703,6 +706,9 @@ public partial class BillingViewModel : ObservableObject
         HasAppliedCredit = appliedCredit > 0;
         PayableTotalFormatted = MoneyMath.FormatPayable(payable);
 
+        var totalQty = Lines.Where(l => l.Amount > 0).Sum(l => l.Qty);
+        TotalLineQtyFormatted = totalQty.ToString("0.###", InCulture);
+
         CustomerCreditNoteOption? selectedOption = null;
         foreach (var note in AvailableCreditNotes)
         {
@@ -1210,18 +1216,6 @@ public partial class BillingViewModel : ObservableObject
         var exact = await _services.ProductCatalog.FindBySkuOrBarcodeAsync(q, ct);
         if (exact != null)
         {
-            if (exact.StockQty <= 0)
-            {
-                MessageBox.Show(
-                    $"Product \"{exact.Name}\" (SKU: {exact.Sku}) is out of stock.\nA reference indent request has been created.",
-                    "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                await AddIndentRequestAsync(exact.Sku, exact.Name, exact.CentralId, ct);
-                ClearEntryRowProductCode();
-                SearchText = "";
-                RequestFocusEntryProductCode?.Invoke();
-                return;
-            }
-
             AddLineFromCatalog(exact);
             SearchText = "";
             return;
@@ -1525,20 +1519,30 @@ public partial class BillingViewModel : ObservableObject
             }
         }
 
-        foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.ProductCode)))
+        var stockShortfalls = await BillingStockValidator.FindStockShortfallsAsync(
+            _services.ProductCatalog,
+            Lines,
+            CancellationToken.None);
+        if (stockShortfalls.Count > 0)
         {
-            var available = await _services.ProductCatalog.GetAvailableStockAsync(line.CentralProductId, line.ProductCode);
-            if (available < line.Qty || available < 1)
+            var warnDlg = new BillingPostWarningsDialog(stockShortfalls)
             {
-                await AddIndentRequestAsync(line.ProductCode, line.Description, line.CentralProductId, ct: default);
-                MessageBox.Show(
-                    $"Product \"{line.Description}\" (SKU: {line.ProductCode}) has only {available:N2} available locally.\nA reference indent request has been created.",
-                    "RR Bridal Billing",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                Owner = Application.Current.MainWindow,
+            };
+            if (warnDlg.ShowDialog() != true || !warnDlg.PostAnyway)
                 return;
+
+            foreach (var shortLine in stockShortfalls)
+            {
+                try
+                {
+                    await AddIndentRequestAsync(shortLine.Sku, shortLine.Description, "", CancellationToken.None);
+                }
+                catch { /* best-effort indent at post */ }
             }
         }
+
+        var shortSkus = BillingStockValidator.ShortSkus(stockShortfalls);
 
         RecalculateTotals();
         var totals = _lastBillTotals;
@@ -1706,25 +1710,78 @@ public partial class BillingViewModel : ObservableObject
                 doc.Add("payableBeforeCredit", (double)totals.PayableBeforeCredit);
             }
 
+            if (stockShortfalls.Count > 0)
+                doc.Add("stockExceptions", BillingStockValidator.ToStockExceptionsBson(stockShortfalls));
+
+            var postWarnings = new List<string>();
+            var postedBillNo = BillNo;
             await coll.InsertOneAsync(doc);
 
             if (!string.IsNullOrEmpty(_activeHoldNo))
             {
-                await _services.HeldBills.DeleteAsync(_activeHoldNo);
+                try
+                {
+                    await _services.HeldBills.DeleteAsync(_activeHoldNo);
+                }
+                catch (Exception ex)
+                {
+                    postWarnings.Add($"Could not delete hold {_activeHoldNo}: {ex.Message}");
+                }
+
                 _activeHoldNo = null;
                 HoldNo = "";
             }
 
-            await _services.BillingOutbox.PublishInvoiceCreatedAsync(doc);
+            try
+            {
+                await _services.BillingOutbox.PublishInvoiceCreatedAsync(doc);
+            }
+            catch (Exception ex)
+            {
+                postWarnings.Add($"Outbox enqueue failed: {ex.Message}");
+            }
 
             foreach (var line in Lines.Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.CentralProductId)))
-                await _services.ProductCatalog.DecrementStockAsync(line.CentralProductId!, line.Qty, ct: default);
+            {
+                var sku = (line.ProductCode ?? "").Trim();
+                if (shortSkus.Contains(sku))
+                    continue;
+
+                try
+                {
+                    await _services.ProductCatalog.DecrementStockAsync(line.CentralProductId!, line.Qty, ct: default);
+                }
+                catch (Exception ex)
+                {
+                    postWarnings.Add($"Stock decrement failed for {sku}: {ex.Message}");
+                }
+            }
+
+            if (postWarnings.Count > 0)
+            {
+                var warnArr = new BsonArray(postWarnings);
+                doc["postWarnings"] = warnArr;
+                await coll.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                        Builders<BsonDocument>.Filter.Eq("billNo", BillNo)),
+                    Builders<BsonDocument>.Update.Set("postWarnings", warnArr));
+            }
 
             ThermalInvoiceInput? printInput = null;
             if (PrintInvoice)
                 printInput = BuildThermalInput(paymentOutcome);
 
             ClearForNewBill();
+
+            if (postWarnings.Count > 0)
+            {
+                MessageBox.Show(
+                    $"Bill {postedBillNo} was saved, but some follow-up steps had issues:\n\n{string.Join("\n", postWarnings)}",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
 
             if (printInput != null)
                 await ShowInvoicePrintDialogAsync(paymentOutcome, printInvoiceEnabled: true, prebuiltInput: printInput, clearBillingAfterPrint: false);

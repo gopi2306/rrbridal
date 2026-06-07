@@ -116,8 +116,14 @@
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Margin="0">
-                    <DockPanel LastChildFill="True">
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
                             <TextBlock FontWeight="SemiBold" FontSize="15" Text="Line items" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Import CSV" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding ImportCsvCommand}"/>
@@ -125,6 +131,7 @@
                             </StackPanel>
                         </Grid>
                         <DataGrid x:Name="LinesGrid"
+                                  Grid.Row="1"
                                   ItemsSource="{Binding Lines}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
@@ -196,9 +203,37 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
+                        <Border Grid.Row="2"
+                                BorderBrush="{StaticResource BrushBorder}"
+                                BorderThickness="1,0,1,1"
+                                Background="{StaticResource BrushSurface}"
+                                Padding="0,6">
+                            <Grid MinHeight="28">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="70"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Grid.ColumnSpan="4"
+                                           Text="Total qty"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Margin="0,0,8,0"
+                                           Foreground="{StaticResource BrushText}"/>
+                                <TextBlock Grid.Column="4"
+                                           Text="{Binding TotalLineQtyFormatted}"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{StaticResource BrushAccent}"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Grid.Row="3" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
                                    Text="Last row Product code: SKU/barcode Enter adds line; name opens pick list. F3 focuses entry row. TAB between cells."/>
-                    </DockPanel>
+                    </Grid>
                 </Border>
             </StackPanel>
         </ScrollViewer>

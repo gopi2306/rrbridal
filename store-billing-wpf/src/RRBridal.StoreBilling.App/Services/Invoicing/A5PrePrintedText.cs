@@ -10,7 +10,13 @@ public static class A5PrePrintedText
 
     public const string DefaultFontFamily = "Arial";
 
-    public const string ContinuedLabel = "Continued";
+    public const string DefaultContinuedLabel = "Continued";
+
+    public static string ResolveContinuedLabel(A5PrePrintedLayoutSettings? settings)
+    {
+        var label = settings?.ContinuedLabel?.Trim();
+        return string.IsNullOrEmpty(label) ? DefaultContinuedLabel : label;
+    }
 
     public static string FormatTotalQty(decimal totalQty) =>
         totalQty.ToString("0.###", In);

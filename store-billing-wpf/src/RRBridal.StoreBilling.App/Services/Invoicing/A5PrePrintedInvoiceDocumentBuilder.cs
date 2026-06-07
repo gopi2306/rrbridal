@@ -113,8 +113,10 @@ public static class A5PrePrintedInvoiceDocumentBuilder
                 bodyFont, printFont, TextAlignment.Center, useTableOffset: true, layout: layout);
 
             var continuedTop = totalQtyTop + layout.LineRowHeightMm;
-            PlaceText(canvas, A5PrePrintedText.ContinuedLabel,
-                layout.ColDescLeftMm, continuedTop, layout.ColDescWidthMm,
+            var continuedLeft = settings.ContinuedLeftMm > 0 ? settings.ContinuedLeftMm : layout.ColDescLeftMm;
+            var continuedWidth = settings.ContinuedWidthMm > 0 ? settings.ContinuedWidthMm : layout.ColDescWidthMm;
+            PlaceText(canvas, A5PrePrintedText.ResolveContinuedLabel(settings),
+                continuedLeft, continuedTop, continuedWidth,
                 bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
         }
 

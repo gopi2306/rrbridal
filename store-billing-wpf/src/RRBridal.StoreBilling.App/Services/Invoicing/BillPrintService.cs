@@ -142,17 +142,7 @@ public sealed class BillPrintService
     {
         try
         {
-            using var server = new LocalPrintServer();
-            PrintQueue? queue = null;
-            foreach (PrintQueue pq in server.GetPrintQueues())
-            {
-                if (string.Equals(pq.FullName, printQueueFullName, StringComparison.OrdinalIgnoreCase))
-                {
-                    queue = pq;
-                    break;
-                }
-            }
-
+            var queue = InstalledPrinterDiscovery.TryGetPrintQueue(printQueueFullName);
             if (queue == null)
                 return false;
 

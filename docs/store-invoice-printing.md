@@ -36,7 +36,7 @@ A4 format remains single-page regardless of line count.
    - **Thermal receipt (80mm)** — existing monospace receipt; **Receipt width (characters)** applies (typically 48).
    - **A4 retail invoice** — full branded layout on A4.
    - **A5 retail invoice** — full branded layout on A5, or enable **Use pre-printed A5 paper (values only)** for branded stationery.
-3. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, **Lines per page** (multi-page chunk size), Total Qty alignment (page 1 only), font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
+3. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, **Lines per page** (multi-page chunk size), Total Qty alignment (page 1 only), **Continued** label text and column position, font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
 4. When **A4** or **A5** is selected, optionally enable **Also print thermal receipt first (80mm)** to print the 80mm thermal receipt first, then the A4/A5 invoice (two print jobs to separate printers).
 5. Set **Thermal receipt printer (80mm)** and **A4 / A5 invoice printer** (load matching paper in each tray). Pre-printed A5 uses the office invoice printer.
 6. Click **Save receipt settings**.
@@ -62,7 +62,7 @@ Store name, address, contact, logo, and terms come from receipt settings (synced
 | D/D | Delivery date |
 | Table rows | Description, Qty, Rate, Amount per line (chunked by **Lines per page**) |
 | Total Qty (page 1, multi-page) | Whole-bill quantity sum in Qty column area (e.g. `18.000`) |
-| Continued (page 1, multi-page) | **Continued** in Description column; Qty/Rate/Amount blank |
+| Continued (page 1, multi-page) | Configurable label (default **Continued**) in Description column; Qty/Rate/Amount blank. Set under **Continued** in A5 pre-printed alignment. |
 | Discount name cell | `Discount 10%` — label **Discount** is fixed; **10** is actual item discount % (hidden when no manual discount) |
 | Discount amount cell | Actual manual discount as negative, e.g. `-249.90` (item + cash; scheme excluded) |
 | TOTAL amount cell | Payable total |

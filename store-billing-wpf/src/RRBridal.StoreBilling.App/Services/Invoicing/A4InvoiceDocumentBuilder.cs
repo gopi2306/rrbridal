@@ -24,7 +24,8 @@ public static class A4InvoiceDocumentBuilder
         ThermalReceiptAssets? assets,
         double pageWidthMm = RetailInvoiceLayout.ReferencePageWidthMm,
         double pageHeightMm = RetailInvoiceLayout.ReferencePageHeightMm,
-        int linesPerPage = 10)
+        int linesPerPage = 10,
+        A5PrePrintedLayoutSettings? a5Layout = null)
     {
         var scale = RetailInvoiceLayout.Scale(pageWidthMm);
         var pageWidth = InvoiceImageScaling.MmToPx(pageWidthMm);
@@ -53,7 +54,7 @@ public static class A4InvoiceDocumentBuilder
                 var hasMorePages = !isLastPage;
                 var pageVisual = BuildPageVisual(
                     input, assets, pageWidth, pageHeight, scale,
-                    chunks[pageIndex], isLastPage, hasMorePages);
+                    chunks[pageIndex], isLastPage, hasMorePages, a5Layout);
 
                 if (pageIndex == 0)
                     doc.Blocks.Add(new BlockUIContainer(pageVisual));
@@ -86,7 +87,8 @@ public static class A4InvoiceDocumentBuilder
         double scale,
         IReadOnlyList<InvoiceLineSnap> pageLines,
         bool isLastPage,
-        bool hasMorePages)
+        bool hasMorePages,
+        A5PrePrintedLayoutSettings? a5Layout = null)
     {
         var inset = InvoiceImageScaling.MmToPx(RetailInvoiceLayout.PageInsetMm * scale);
         var panelWidth = pageWidth - inset * 2;
@@ -136,7 +138,7 @@ public static class A4InvoiceDocumentBuilder
         Grid.SetRow(headerBlock, 0);
         content.Children.Add(headerBlock);
 
-        var table = BuildLineItemsTable(input, assets, contentWidth, scale, pageLines, isLastPage, hasMorePages);
+        var table = BuildLineItemsTable(input, assets, contentWidth, scale, pageLines, isLastPage, hasMorePages, a5Layout);
         Grid.SetRow(table, 2);
         content.Children.Add(table);
 
@@ -269,7 +271,8 @@ public static class A4InvoiceDocumentBuilder
         double scale,
         IReadOnlyList<InvoiceLineSnap> pageLines,
         bool isLastPage,
-        bool hasMorePages)
+        bool hasMorePages,
+        A5PrePrintedLayoutSettings? a5Layout = null)
     {
         var colWidths = ComputeColumnWidths(contentWidth);
         var headerH = InvoiceImageScaling.MmToPx(RetailInvoiceLayout.TableRowHeightMm * scale);
@@ -315,7 +318,7 @@ public static class A4InvoiceDocumentBuilder
             rates.Add("");
             amounts.Add("");
 
-            descriptions.Add(A5PrePrintedText.ContinuedLabel);
+            descriptions.Add(A5PrePrintedText.ResolveContinuedLabel(a5Layout));
             qtys.Add("");
             rates.Add("");
             amounts.Add("");

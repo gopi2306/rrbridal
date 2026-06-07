@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Printing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -253,22 +252,8 @@ public partial class SettingsViewModel : ObservableObject
     public void RefreshPrinters()
     {
         PrinterOptions.Clear();
-        try
-        {
-            using var server = new LocalPrintServer();
-            foreach (PrintQueue pq in server.GetPrintQueues())
-            {
-                PrinterOptions.Add(new PrinterOption
-                {
-                    Display = pq.Name,
-                    FullName = pq.FullName,
-                });
-            }
-        }
-        catch
-        {
-            // ignore — no printers
-        }
+        foreach (var option in InstalledPrinterDiscovery.ListAll())
+            PrinterOptions.Add(option);
     }
 
     [RelayCommand]

@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -16,7 +17,9 @@ public partial class DashboardViewModel : ObservableObject
 {
     private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
 
+    private readonly AppServices _services;
     private readonly StoreDashboardService _dashboardService;
+    private readonly DayBillingCloseService _dayCloseService;
     private readonly InventoryGridClient _inventoryClient;
     private readonly StoreContext _storeContext;
     private readonly ShellBrandingService _shellBranding;
@@ -43,6 +46,24 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _productCacheSummary = "—";
 
     [ObservableProperty] private string _statusMessage = "";
+
+    [ObservableProperty] private string _dayCloseStatusMessage = "";
+
+    [ObservableProperty] private DateTime _selectedCloseDate = DateTime.Today;
+
+    [ObservableProperty] private string _dayCloseBillCountSummary = "—";
+
+    [ObservableProperty] private string _dayCloseQtySummary = "—";
+
+    [ObservableProperty] private string _dayCloseAmountSummary = "—";
+
+    [ObservableProperty] private string _dayCloseCashSummary = "—";
+
+    [ObservableProperty] private string _dayCloseCardSummary = "—";
+
+    [ObservableProperty] private string _dayCloseUpiSummary = "—";
+
+    [ObservableProperty] private string _dayCloseCreditNoteSummary = "";
 
     [ObservableProperty] private string _inventorySearchText = "";
 
@@ -75,11 +96,17 @@ public partial class DashboardViewModel : ObservableObject
 
     public ObservableCollection<DashboardRecentBill> RecentBills { get; } = new();
 
+    public ObservableCollection<DayCloseInvoiceRow> DayInvoices { get; } = new();
+
+    public ObservableCollection<DayCloseStockExceptionRow> StockExceptions { get; } = new();
+
     public ObservableCollection<InventoryGridRow> InventoryRows { get; } = new();
 
     public DashboardViewModel(AppServices services)
     {
+        _services = services;
         _dashboardService = new StoreDashboardService(services.LocalDb);
+        _dayCloseService = new DayBillingCloseService(services.LocalDb, services.ProductCatalog);
         _inventoryClient = services.InventoryGrid;
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
@@ -131,11 +158,93 @@ public partial class DashboardViewModel : ObservableObject
 
             var filterLabel = SelectedPosCounterFilter?.Label ?? "All counters";
             StatusMessage = $"Metrics updated {DateTime.Now.ToString("T", InCulture)} · {filterLabel}";
+
+            await LoadDayCloseAsync(storeId, posFilter);
         }
         catch (Exception ex)
         {
             StatusMessage = "Could not load metrics: " + ex.Message;
         }
+    }
+
+    [RelayCommand]
+    private async Task LoadDayClose()
+    {
+        await LoadDayCloseAsync(_storeContext.StoreId, SelectedPosCounterFilter?.PosCounter);
+    }
+
+    [RelayCommand]
+    private async Task ApproveStockException(string? billNo)
+    {
+        if (string.IsNullOrWhiteSpace(billNo))
+            return;
+
+        var confirm = MessageBox.Show(
+            $"Approve stock decrement for all pending exception lines on bill {billNo}?\n\nLocal stock may go negative.",
+            "Approve stock exception",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        var user = _services.UserSession?.LoggedInUser.Name ?? "Unknown";
+        try
+        {
+            var (success, message) = await _dayCloseService.ApproveStockExceptionsAsync(
+                _storeContext.StoreId,
+                billNo,
+                user);
+
+            DayCloseStatusMessage = message;
+            if (success)
+                await LoadDayCloseAsync(_storeContext.StoreId, SelectedPosCounterFilter?.PosCounter);
+        }
+        catch (Exception ex)
+        {
+            DayCloseStatusMessage = "Approve failed: " + ex.Message;
+        }
+    }
+
+    private async Task LoadDayCloseAsync(string storeId, string? posFilter)
+    {
+        DayCloseStatusMessage = "Loading day close…";
+        try
+        {
+            var snap = await _dayCloseService.LoadDayCloseAsync(storeId, SelectedCloseDate, posFilter);
+
+            DayCloseBillCountSummary = snap.BillCount.ToString(InCulture);
+            DayCloseQtySummary = snap.TotalQty.ToString("N2", InCulture);
+            DayCloseAmountSummary = MoneyMath.FormatRupee(snap.TotalAmount);
+            DayCloseCashSummary = MoneyMath.FormatRupee(snap.CashTotal);
+            DayCloseCardSummary = MoneyMath.FormatRupee(snap.CardTotal);
+            DayCloseUpiSummary = MoneyMath.FormatRupee(snap.UpiTotal);
+            DayCloseCreditNoteSummary = snap.CreditNoteTotal > 0
+                ? MoneyMath.FormatRupee(snap.CreditNoteTotal)
+                : "—";
+
+            DayInvoices.Clear();
+            foreach (var row in snap.Invoices)
+                DayInvoices.Add(row);
+
+            StockExceptions.Clear();
+            foreach (var row in snap.StockExceptions)
+                StockExceptions.Add(row);
+
+            var dateLabel = SelectedCloseDate.ToString("dd-MMM-yyyy", InCulture);
+            var filterLabel = SelectedPosCounterFilter?.Label ?? "All counters";
+            DayCloseStatusMessage =
+                $"{snap.BillCount} bill(s) on {dateLabel} · {filterLabel} · updated {DateTime.Now.ToString("T", InCulture)}";
+        }
+        catch (Exception ex)
+        {
+            DayCloseStatusMessage = "Could not load day close: " + ex.Message;
+        }
+    }
+
+    partial void OnSelectedCloseDateChanged(DateTime value)
+    {
+        if (!_suppressFilterRefresh)
+            _ = LoadDayCloseAsync(_storeContext.StoreId, SelectedPosCounterFilter?.PosCounter);
     }
 
     partial void OnSelectedPosCounterFilterChanged(PosCounterFilterOption? value)

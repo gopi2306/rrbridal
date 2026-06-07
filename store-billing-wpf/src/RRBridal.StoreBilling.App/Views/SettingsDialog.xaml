@@ -73,10 +73,12 @@
             <TextBlock FontWeight="SemiBold" Text="Printer" Margin="0,0,0,4"/>
             <TextBlock Text="{Binding ReceiptPrinterHintText}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
             <TextBlock Text="{Binding ReceiptPrinterWarningText}" TextWrapping="Wrap" Foreground="#C45A00" Margin="0,0,0,8"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                 <Button Content="Refresh printer list" Style="{StaticResource OutlineButton}" Command="{Binding RefreshPrintersCommand}" Margin="0,0,8,0"/>
                 <CheckBox Content="Always use Windows print dialog" IsChecked="{Binding ReceiptAlwaysUsePrintDialog}" VerticalAlignment="Center"/>
             </StackPanel>
+            <TextBlock Text="Network printers (e.g. \\pos\Canon…) appear after Refresh. Use the full \\server\name if shown."
+                       FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <TextBlock Text="Print format" FontWeight="SemiBold" Margin="0,0,0,4"/>
             <StackPanel Margin="0,0,0,4">
                 <RadioButton Content="Thermal receipt (80mm)" GroupName="PrintFormat" Margin="0,0,0,4"
@@ -293,6 +295,30 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Total Qty width" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.TotalQtyWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Continued (page 1, multi-page only)" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Label text" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ContinuedLabel, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                            <TextBlock Text="Row position follows last line + Total Qty. Left/width 0 = use Description column."
+                                       FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Left" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ContinuedLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="2" Text="Width" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="3" Style="{StaticResource RoundedTextBox}" Text="{Binding A5Layout.ContinuedWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
 
                             <TextBlock FontWeight="SemiBold" Text="Discount name (Discount 10%)" Margin="0,0,0,4"/>

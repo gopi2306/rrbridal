@@ -1,5 +1,4 @@
 using System;
-using System.Printing;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -9,35 +8,42 @@ public static class PrinterQueueResolver
     {
         try
         {
-            using var server = new LocalPrintServer();
-            PrintQueue? exact = null;
-            PrintQueue? contains = null;
+            var all = InstalledPrinterDiscovery.ListAll();
+            string? partial = null;
 
-            foreach (PrintQueue pq in server.GetPrintQueues())
+            foreach (var option in all)
             {
                 if (!string.IsNullOrWhiteSpace(queueNameHint)
-                    && string.Equals(pq.FullName, queueNameHint, StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(option.FullName, queueNameHint.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return option.FullName;
+            }
+
+            foreach (var option in all)
+            {
+                if (!string.IsNullOrWhiteSpace(queueNameHint)
+                    && MatchesHint(option, queueNameHint))
                 {
-                    exact = pq;
+                    partial ??= option.FullName;
                     break;
                 }
 
-                if (!string.IsNullOrWhiteSpace(queueNameHint)
-                    && pq.Name.Contains(queueNameHint, StringComparison.OrdinalIgnoreCase)
-                    && contains == null)
-                    contains = pq;
-
                 if (!string.IsNullOrWhiteSpace(printerModelHint)
-                    && pq.Name.Contains(printerModelHint, StringComparison.OrdinalIgnoreCase)
-                    && contains == null)
-                    contains = pq;
+                    && MatchesHint(option, printerModelHint))
+                    return option.FullName;
             }
 
-            return (exact ?? contains)?.FullName;
+            return partial;
         }
         catch
         {
             return null;
         }
+    }
+
+    private static bool MatchesHint(PrinterOption option, string hint)
+    {
+        var h = hint.Trim();
+        return option.FullName.Contains(h, StringComparison.OrdinalIgnoreCase)
+            || option.Display.Contains(h, StringComparison.OrdinalIgnoreCase);
     }
 }

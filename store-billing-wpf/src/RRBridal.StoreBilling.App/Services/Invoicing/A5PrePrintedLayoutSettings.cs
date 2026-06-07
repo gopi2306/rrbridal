@@ -64,6 +64,15 @@ public sealed class A5PrePrintedLayoutSettings
     public double TotalQtyTopMm { get; set; } = 176;
     public double TotalQtyWidthMm { get; set; } = 9;
 
+    /// <summary>Label on page 1 when bill continues (e.g. Continued). Empty uses default.</summary>
+    public string ContinuedLabel { get; set; } = "Continued";
+
+    /// <summary>Description-column left for Continued row; 0 = use ColDescLeftMm.</summary>
+    public double ContinuedLeftMm { get; set; }
+
+    /// <summary>Description-column width for Continued row; 0 = use ColDescWidthMm.</summary>
+    public double ContinuedWidthMm { get; set; }
+
     public string PrintFontFamily { get; set; } = "Arial";
     public int BillToMaxChars { get; set; } = 15;
 
@@ -118,6 +127,7 @@ public sealed class A5PrePrintedLayoutSettings
         if (TotalQtyLeftMm == 0) TotalQtyLeftMm = d.TotalQtyLeftMm;
         if (TotalQtyTopMm == 0) TotalQtyTopMm = d.TotalQtyTopMm;
         if (TotalQtyWidthMm == 0) TotalQtyWidthMm = d.TotalQtyWidthMm;
+        if (string.IsNullOrWhiteSpace(ContinuedLabel)) ContinuedLabel = d.ContinuedLabel;
         if (BillToMaxChars == 0) BillToMaxChars = d.BillToMaxChars;
         if (string.IsNullOrWhiteSpace(PrintFontFamily)) PrintFontFamily = d.PrintFontFamily;
     }
@@ -171,6 +181,9 @@ public sealed class A5PrePrintedLayoutSettings
         TotalQtyLeftMm = TotalQtyLeftMm,
         TotalQtyTopMm = TotalQtyTopMm,
         TotalQtyWidthMm = TotalQtyWidthMm,
+        ContinuedLabel = ContinuedLabel,
+        ContinuedLeftMm = ContinuedLeftMm,
+        ContinuedWidthMm = ContinuedWidthMm,
         PrintFontFamily = PrintFontFamily,
         BillToMaxChars = BillToMaxChars,
     };
