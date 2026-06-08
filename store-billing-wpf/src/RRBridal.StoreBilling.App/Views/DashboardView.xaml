@@ -155,32 +155,19 @@
             </TabItem>
 
             <TabItem Header="Day close">
-                <Grid Margin="0,8,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MinHeight="100"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MinHeight="140"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MinHeight="100"/>
-                    </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,8,0,16">
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Business date:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
                         <DatePicker SelectedDate="{Binding SelectedCloseDate}" Width="140" Margin="0,0,16,0"/>
                         <Button Content="Refresh day close" Style="{StaticResource PrimaryButton}" Width="140"
                                 Command="{Binding LoadDayCloseCommand}"/>
                     </StackPanel>
 
-                    <TextBlock Grid.Row="1" Text="{Binding DayCloseStatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding DayCloseStatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                    <UniformGrid Grid.Row="2" Columns="3" Margin="0,0,0,8">
+                    <UniformGrid Columns="3" Margin="0,0,0,8">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
                             <StackPanel>
                                 <TextBlock Text="Total bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -201,7 +188,7 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Grid.Row="3" Columns="4" Margin="0,0,0,12">
+                    <UniformGrid Columns="4" Margin="0,0,0,12">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -228,7 +215,7 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Grid.Row="4" Columns="4" Margin="0,0,0,8">
+                    <UniformGrid Columns="4" Margin="0,0,0,8">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Return count" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -255,7 +242,7 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Grid.Row="5" Columns="4" Margin="0,0,0,12">
+                    <UniformGrid Columns="4" Margin="0,0,0,12">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -282,16 +269,16 @@
                         </Border>
                     </UniformGrid>
 
-                    <TextBlock Grid.Row="6" Text="Returns for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
-                    <Border Grid.Row="7" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <TextBlock Text="Returns for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12">
                         <DataGrid ItemsSource="{Binding DayReturns}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
                                   HeadersVisibility="Column"
-                                  VerticalScrollBarVisibility="Auto"
-                                  VerticalAlignment="Stretch">
+                                  MaxHeight="240"
+                                  VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Return no" Binding="{Binding ReturnNo}" Width="110"/>
                                 <DataGridTextColumn Header="Original bill" Binding="{Binding OriginalBillNo}" Width="110"/>
@@ -306,16 +293,16 @@
                         </DataGrid>
                     </Border>
 
-                    <TextBlock Grid.Row="8" Text="Invoices for selected day" FontWeight="SemiBold" Margin="0,12,0,8" Foreground="{StaticResource BrushText}"/>
-                    <Border Grid.Row="9" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <TextBlock Text="Invoices for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12">
                         <DataGrid ItemsSource="{Binding DayInvoices}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
                                   HeadersVisibility="Column"
-                                  VerticalScrollBarVisibility="Auto"
-                                  VerticalAlignment="Stretch">
+                                  MaxHeight="280"
+                                  VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
                                 <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="100"/>
@@ -328,16 +315,16 @@
                         </DataGrid>
                     </Border>
 
-                    <TextBlock Grid.Row="10" Text="Stock exceptions (selected day)" FontWeight="SemiBold" Margin="0,12,0,8" Foreground="{StaticResource BrushText}"/>
-                    <Border Grid.Row="11" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <TextBlock Text="Stock exceptions (selected day)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Style="{StaticResource CardBorder}" Padding="8">
                         <DataGrid ItemsSource="{Binding StockExceptions}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
                                   HeadersVisibility="Column"
-                                  VerticalScrollBarVisibility="Auto"
-                                  VerticalAlignment="Stretch">
+                                  MaxHeight="240"
+                                  VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="110"/>
                                 <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
@@ -361,7 +348,8 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </Border>
-                </Grid>
+                </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="All bills">
