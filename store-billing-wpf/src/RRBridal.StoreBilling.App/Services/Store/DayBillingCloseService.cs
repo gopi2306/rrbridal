@@ -34,10 +34,12 @@ public sealed class DayBillingCloseService
         CancellationToken ct = default)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
+        var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
 
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
+        var returnDocs = await returnsColl.Find(storeFilter).ToListAsync(ct);
 
         var outboxDocs = await outboxColl
             .Find(Builders<BsonDocument>.Filter.And(
@@ -97,6 +99,49 @@ public sealed class DayBillingCloseService
 
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
 
+        var dayReturns = returnDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedReturn)
+            .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
+            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
+
+        var returnTotals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(dayReturns);
+        var exchangePayments = returnTotals.ExchangePayments;
+
+        var netCash = cash - returnTotals.CashRefundTotal + exchangePayments.Cash;
+        var netCard = card + exchangePayments.Card;
+        var netUpi = upi + exchangePayments.Upi;
+        var actualHandIn = netCash + netCard + netUpi;
+
+        var returnRows = new List<DayCloseReturnRow>();
+        foreach (var doc in dayReturns)
+        {
+            DayBillingCloseDocumentReader.TryGetUtcDate(doc, "createdAtUtc", out var sortUtc);
+            var postedLocal = sortUtc == default
+                ? "—"
+                : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+
+            var pos = DayBillingCloseDocumentReader.ReadString(doc, "posCounter") ?? "";
+            var dev = DayBillingCloseDocumentReader.ReadString(doc, "deviceId") ?? "";
+            var returnMode = DayBillingCloseDocumentReader.ReadString(doc, "returnMode") ?? "";
+
+            returnRows.Add(new DayCloseReturnRow
+            {
+                ReturnNo = DayBillingCloseDocumentReader.ReadString(doc, "returnNo") ?? "",
+                OriginalBillNo = DayBillingCloseDocumentReader.ReadString(doc, "originalBillNo") ?? "",
+                CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
+                PostedAtLocal = postedLocal,
+                ReturnTotal = DayBillingCloseDocumentReader.ReadDecimal(doc, "returnTotal"),
+                ReturnMode = returnMode,
+                CreditBalance = DayBillingCloseDocumentReader.ReadDecimal(doc, "creditBalance"),
+                AmountCollected = DayBillingCloseDocumentReader.ReadDecimal(doc, "amountCollected"),
+                PaymentSummary = DayBillingCloseDocumentReader.FormatReturnPaymentSummary(doc),
+                SortUtc = sortUtc,
+            });
+        }
+
+        returnRows.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
+
         return new DayBillingCloseSnapshot
         {
             LocalDate = localDate.Date,
@@ -107,7 +152,16 @@ public sealed class DayBillingCloseService
             CardTotal = card,
             UpiTotal = upi,
             CreditNoteTotal = creditNote,
+            ReturnCount = returnTotals.ReturnCount,
+            ReturnTotalAmount = returnTotals.ReturnTotalAmount,
+            CashRefundTotal = returnTotals.CashRefundTotal,
+            CreditNoteIssuedTotal = returnTotals.CreditNoteIssuedTotal,
+            NetCashInHand = netCash,
+            NetCardInHand = netCard,
+            NetUpiInHand = netUpi,
+            ActualHandInTotal = actualHandIn,
             Invoices = invoices,
+            Returns = returnRows,
             StockExceptions = stockExceptions,
         };
     }

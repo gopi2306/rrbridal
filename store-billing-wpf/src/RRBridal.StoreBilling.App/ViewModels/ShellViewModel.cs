@@ -83,6 +83,18 @@ public partial class ShellViewModel : ObservableObject
                 GlobalSearchText = Billing.SearchText;
         };
         Dashboard = new DashboardViewModel(services);
+        Dashboard.NavigateToReturnForBill = billNo =>
+        {
+            CurrentPage = ShellPage.SaleReturn;
+            SaleReturn.OriginalBillNo = billNo ?? "";
+            _ = SaleReturn.LoadBillByNoAsync(billNo ?? "", skipDuplicateChecks: true);
+        };
+        Dashboard.NavigateToAdjustmentForBill = billNo =>
+        {
+            CurrentPage = ShellPage.Adjustments;
+            AdjustmentBill.OriginalBillNo = billNo ?? "";
+            _ = AdjustmentBill.LoadBillByNoAsync(billNo ?? "");
+        };
         Analytics = new AnalyticsViewModel(services);
         Ledger = new LedgerViewModel(services);
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);

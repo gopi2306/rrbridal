@@ -16,6 +16,76 @@ public static class DayBillingCloseDocumentReader
         return string.Equals(status, "posted", StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool IsPostedReturn(BsonDocument doc)
+    {
+        var status = ReadString(doc, "status") ?? "posted";
+        return string.Equals(status, "posted", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static ReturnDayTotals AggregateReturnDayTotals(IEnumerable<BsonDocument> returns)
+    {
+        int count = 0;
+        decimal returnTotalAmount = 0m;
+        decimal cashRefundTotal = 0m;
+        decimal creditNoteIssuedTotal = 0m;
+        decimal exchangeCash = 0m, exchangeCard = 0m, exchangeUpi = 0m, exchangeCn = 0m;
+
+        foreach (var doc in returns)
+        {
+            if (!IsPostedReturn(doc))
+                continue;
+
+            count++;
+            returnTotalAmount += ReadDecimal(doc, "returnTotal");
+
+            var creditBalance = ReadDecimal(doc, "creditBalance");
+            var returnMode = ReadString(doc, "returnMode") ?? "";
+            if (creditBalance > 0)
+            {
+                if (string.Equals(returnMode, "cash_refund", StringComparison.OrdinalIgnoreCase))
+                    cashRefundTotal += creditBalance;
+                else if (string.Equals(returnMode, "credit_note", StringComparison.OrdinalIgnoreCase))
+                    creditNoteIssuedTotal += creditBalance;
+            }
+
+            var amountCollected = ReadDecimal(doc, "amountCollected");
+            if (amountCollected > 0)
+            {
+                var payments = SumBillPayments(doc);
+                exchangeCash += payments.Cash;
+                exchangeCard += payments.Card;
+                exchangeUpi += payments.Upi;
+                exchangeCn += payments.CreditNote;
+            }
+        }
+
+        return new ReturnDayTotals(
+            count,
+            returnTotalAmount,
+            cashRefundTotal,
+            creditNoteIssuedTotal,
+            new PaymentDayTotals(exchangeCash, exchangeCard, exchangeUpi, exchangeCn));
+    }
+
+    public static string FormatReturnPaymentSummary(BsonDocument doc)
+    {
+        var amountCollected = ReadDecimal(doc, "amountCollected");
+        if (amountCollected <= 0)
+            return "—";
+
+        var payments = SumBillPayments(doc);
+        var parts = new List<string>();
+        if (payments.Cash > 0)
+            parts.Add($"Cash {payments.Cash:N2}");
+        if (payments.Card > 0)
+            parts.Add($"Card {payments.Card:N2}");
+        if (payments.Upi > 0)
+            parts.Add($"UPI {payments.Upi:N2}");
+        if (payments.CreditNote > 0)
+            parts.Add($"CN {payments.CreditNote:N2}");
+        return parts.Count > 0 ? string.Join(", ", parts) : "—";
+    }
+
     public static bool MatchesLocalDay(BsonDocument doc, DateTime localDate)
     {
         if (!TryGetUtcDate(doc, "createdAtUtc", out var createdUtc))

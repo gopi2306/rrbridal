@@ -13,6 +13,7 @@ using RRBridal.StoreBilling.App.Services.Notifications;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
 using RRBridal.StoreBilling.App.Services.Audit;
+using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.Services;
 
@@ -55,6 +56,7 @@ public sealed class AppServices
     public required PeriodicSyncService PeriodicSync { get; init; }
     public required OutboxNotificationService OutboxNotifications { get; init; }
     public required StoreAuditLogService StoreAuditLog { get; init; }
+    public required StoreBillListService StoreBillList { get; init; }
     public UserSession? UserSession { get; set; }
 
     public static AppServices CreateDefault()
@@ -118,6 +120,7 @@ public sealed class AppServices
         var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
+        var storeBillList = new StoreBillListService(localDb);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var syncSchedule = new SyncScheduleOptions();
@@ -166,6 +169,7 @@ public sealed class AppServices
             PeriodicSync = periodicSync,
             OutboxNotifications = outboxNotifications,
             StoreAuditLog = storeAuditLog,
+            StoreBillList = storeBillList,
         };
         return servicesRef;
     }

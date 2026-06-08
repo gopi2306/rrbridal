@@ -113,4 +113,158 @@ public class DayBillingCloseDocumentReaderTests
         Assert.True(DayBillingCloseDocumentReader.IsPostedBill(new BsonDocument()));
         Assert.False(DayBillingCloseDocumentReader.IsPostedBill(new BsonDocument { { "status", "draft" } }));
     }
+
+    [Fact]
+    public void IsPostedReturn_treats_missing_status_as_posted()
+    {
+        Assert.True(DayBillingCloseDocumentReader.IsPostedReturn(new BsonDocument()));
+        Assert.False(DayBillingCloseDocumentReader.IsPostedReturn(new BsonDocument { { "status", "draft" } }));
+    }
+
+    [Fact]
+    public void AggregateReturnDayTotals_cash_refund_reduces_net_cash_only()
+    {
+        var returns = new[]
+        {
+            BsonDocument.Parse(
+                """
+                {
+                  "status": "posted",
+                  "returnTotal": 3000,
+                  "creditBalance": 3000,
+                  "returnMode": "cash_refund",
+                  "amountCollected": 0
+                }
+                """),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(returns);
+
+        Assert.Equal(1, totals.ReturnCount);
+        Assert.Equal(3000m, totals.ReturnTotalAmount);
+        Assert.Equal(3000m, totals.CashRefundTotal);
+        Assert.Equal(0m, totals.CreditNoteIssuedTotal);
+        Assert.Equal(0m, totals.ExchangePayments.Cash);
+
+        var billCash = 10000m;
+        var netCash = billCash - totals.CashRefundTotal + totals.ExchangePayments.Cash;
+        Assert.Equal(7000m, netCash);
+        Assert.Equal(7000m, netCash + 0m + 0m);
+    }
+
+    [Fact]
+    public void AggregateReturnDayTotals_credit_note_does_not_reduce_tender()
+    {
+        var returns = new[]
+        {
+            BsonDocument.Parse(
+                """
+                {
+                  "status": "posted",
+                  "returnTotal": 2500,
+                  "creditBalance": 2500,
+                  "returnMode": "credit_note",
+                  "amountCollected": 0
+                }
+                """),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(returns);
+
+        Assert.Equal(2500m, totals.ReturnTotalAmount);
+        Assert.Equal(0m, totals.CashRefundTotal);
+        Assert.Equal(2500m, totals.CreditNoteIssuedTotal);
+        Assert.Equal(0m, totals.ExchangePayments.Cash);
+    }
+
+    [Fact]
+    public void AggregateReturnDayTotals_exchange_split_payments_add_to_modes()
+    {
+        var returns = new[]
+        {
+            BsonDocument.Parse(
+                """
+                {
+                  "status": "posted",
+                  "returnTotal": 3000,
+                  "creditBalance": 0,
+                  "returnMode": "credit_note",
+                  "amountCollected": 2000,
+                  "payments": [
+                    { "provider": "Cash", "amount": 1000 },
+                    { "provider": "PineLabs", "amount": 500 },
+                    { "provider": "Razorpay", "amount": 500 }
+                  ]
+                }
+                """),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(returns);
+
+        Assert.Equal(3000m, totals.ReturnTotalAmount);
+        Assert.Equal(0m, totals.CashRefundTotal);
+        Assert.Equal(0m, totals.CreditNoteIssuedTotal);
+        Assert.Equal(1000m, totals.ExchangePayments.Cash);
+        Assert.Equal(500m, totals.ExchangePayments.Card);
+        Assert.Equal(500m, totals.ExchangePayments.Upi);
+
+        var billCash = 5000m;
+        var billCard = 1000m;
+        var billUpi = 500m;
+        var netCash = billCash - totals.CashRefundTotal + totals.ExchangePayments.Cash;
+        var netCard = billCard + totals.ExchangePayments.Card;
+        var netUpi = billUpi + totals.ExchangePayments.Upi;
+        var actualHandIn = netCash + netCard + netUpi;
+
+        Assert.Equal(6000m, netCash);
+        Assert.Equal(1500m, netCard);
+        Assert.Equal(1000m, netUpi);
+        Assert.Equal(8500m, actualHandIn);
+    }
+
+    [Fact]
+    public void MatchesPosCounterFilter_excludes_other_counters_on_returns()
+    {
+        var doc = new BsonDocument { { "posCounter", "counter-01" } };
+
+        Assert.True(DayBillingCloseDocumentReader.MatchesPosCounterFilter(doc, null));
+        Assert.True(DayBillingCloseDocumentReader.MatchesPosCounterFilter(doc, "counter-01"));
+        Assert.False(DayBillingCloseDocumentReader.MatchesPosCounterFilter(doc, "counter-02"));
+    }
+
+    [Fact]
+    public void FormatReturnPaymentSummary_lists_exchange_legs()
+    {
+        var doc = BsonDocument.Parse(
+            """
+            {
+              "amountCollected": 1500,
+              "payments": [
+                { "provider": "Cash", "amount": 1000 },
+                { "provider": "Razorpay", "amount": 500 }
+              ]
+            }
+            """);
+
+        var summary = DayBillingCloseDocumentReader.FormatReturnPaymentSummary(doc);
+
+        Assert.Contains("Cash", summary);
+        Assert.Contains("UPI", summary);
+    }
+
+    [Fact]
+    public void AggregateReturnDayTotals_skips_non_posted_returns()
+    {
+        var returns = new[]
+        {
+            BsonDocument.Parse("""{ "status": "draft", "returnTotal": 999, "creditBalance": 999, "returnMode": "cash_refund" }"""),
+            BsonDocument.Parse("""{ "status": "posted", "returnTotal": 100, "creditBalance": 100, "returnMode": "cash_refund" }"""),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(returns);
+
+        Assert.Equal(1, totals.ReturnCount);
+        Assert.Equal(100m, totals.ReturnTotalAmount);
+        Assert.Equal(100m, totals.CashRefundTotal);
+    }
 }

@@ -98,6 +98,16 @@ public partial class SaleReturnViewModel : ObservableObject
             return;
         }
 
+        await LoadBillByNoAsync(input);
+    }
+
+    /// <param name="skipDuplicateChecks">When true, loads bill for viewing (e.g. dashboard redirect to existing return).</param>
+    public async Task<bool> LoadBillByNoAsync(string billNoInput, bool skipDuplicateChecks = false)
+    {
+        var input = billNoInput.Trim();
+        if (string.IsNullOrEmpty(input))
+            return false;
+
         var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
         var digits = new string(input.Where(char.IsDigit).ToArray());
 
@@ -112,22 +122,29 @@ public partial class SaleReturnViewModel : ObservableObject
 
             if (matches.Count == 0)
             {
-                MessageBox.Show($"No bill found ending with '{digits}'.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                if (!skipDuplicateChecks)
+                    MessageBox.Show($"No bill found ending with '{digits}'.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
             }
 
             if (matches.Count == 1)
             {
                 doc = matches[0];
             }
-            else
+            else if (!skipDuplicateChecks)
             {
                 var dlg = new BillPickDialog(matches) { Owner = Application.Current.MainWindow };
                 if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
-                    return;
+                    return false;
 
                 doc = matches.FirstOrDefault(m => m.GetValue("billNo", "").AsString == dlg.SelectedBillNo)
                     ?? await coll.Find(new BsonDocument("billNo", dlg.SelectedBillNo)).FirstOrDefaultAsync();
+            }
+            else
+            {
+                doc = matches.FirstOrDefault(m =>
+                    string.Equals(m.GetValue("billNo", "").AsString, input, StringComparison.OrdinalIgnoreCase))
+                    ?? matches[0];
             }
         }
         else
@@ -143,11 +160,72 @@ public partial class SaleReturnViewModel : ObservableObject
 
         if (doc == null)
         {
-            MessageBox.Show($"Bill '{input}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            if (!skipDuplicateChecks)
+                MessageBox.Show($"Bill '{input}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
         }
 
+        var billNo = doc.GetValue("billNo", "").AsString;
+        if (!skipDuplicateChecks)
+        {
+            var existingReturn = await FindPostedReturnForBillAsync(billNo);
+            if (existingReturn != null)
+            {
+                MessageBox.Show(
+                    BuildDuplicateReturnMessage(billNo, existingReturn),
+                    "Sale Return",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return false;
+            }
+
+            var existingCreditNote = await FindCreditNoteForBillAsync(billNo);
+            if (existingCreditNote != null)
+            {
+                MessageBox.Show(
+                    BuildDuplicateCreditNoteMessage(billNo, existingCreditNote),
+                    "Sale Return",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return false;
+            }
+        }
+
+        OriginalBillNo = billNo;
         LoadBillFromDocument(doc);
+        return true;
+    }
+
+    private async Task<BsonDocument?> FindPostedReturnForBillAsync(string billNo)
+    {
+        if (string.IsNullOrWhiteSpace(billNo))
+            return null;
+
+        var returnsColl = _services.LocalDb.GetCollection<BsonDocument>("store_sale_returns");
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", _services.StoreContext.StoreId),
+            Builders<BsonDocument>.Filter.Eq("originalBillNo", billNo.Trim()),
+            Builders<BsonDocument>.Filter.Eq("status", "posted"));
+
+        return await returnsColl.Find(filter).FirstOrDefaultAsync();
+    }
+
+    private static string BuildDuplicateReturnMessage(string billNo, BsonDocument existingReturn)
+    {
+        var returnNo = existingReturn.GetValue("returnNo", "").AsString;
+        var returnNoText = string.IsNullOrWhiteSpace(returnNo) ? "" : $" (Return No: {returnNo})";
+        return $"A return has already been posted for bill {billNo}{returnNoText}.\n\nOnly one return is allowed per bill.";
+    }
+
+    private Task<CustomerCreditNoteRecord?> FindCreditNoteForBillAsync(string billNo) =>
+        _services.CustomerCreditNotes.FindByOriginalBillAsync(_services.StoreContext.StoreId, billNo);
+
+    private static string BuildDuplicateCreditNoteMessage(string billNo, CustomerCreditNoteRecord existingCreditNote)
+    {
+        var cnText = string.IsNullOrWhiteSpace(existingCreditNote.CreditNoteNo)
+            ? ""
+            : $" ({existingCreditNote.CreditNoteNo})";
+        return $"A credit note has already been created for bill {billNo}{cnText}.\n\nOnly one credit note is allowed per bill.";
     }
 
     private void LoadBillFromDocument(BsonDocument doc)
@@ -378,6 +456,37 @@ public partial class SaleReturnViewModel : ObservableObject
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(OriginalBillNo))
+        {
+            MessageBox.Show("Load the original bill before posting a return.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var existingReturn = await FindPostedReturnForBillAsync(OriginalBillNo);
+        if (existingReturn != null)
+        {
+            MessageBox.Show(
+                BuildDuplicateReturnMessage(OriginalBillNo.Trim(), existingReturn),
+                "Sale Return",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (ReturnMode == ReturnMode.CreditNote)
+        {
+            var existingCreditNote = await FindCreditNoteForBillAsync(OriginalBillNo.Trim());
+            if (existingCreditNote != null)
+            {
+                MessageBox.Show(
+                    BuildDuplicateCreditNoteMessage(OriginalBillNo.Trim(), existingCreditNote),
+                    "Sale Return",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         try
         {
             var storeId = _services.StoreContext.StoreId;
@@ -595,8 +704,10 @@ public partial class SaleReturnViewModel : ObservableObject
                 }
                 else
                 {
-                    creditNoteWarning =
-                        "\n\nCredit could not be made redeemable on billing: customer needs a valid 10-digit phone on the original bill.";
+                    var duplicateCn = await FindCreditNoteForBillAsync(OriginalBillNo.Trim());
+                    creditNoteWarning = duplicateCn != null
+                        ? $"\n\n{BuildDuplicateCreditNoteMessage(OriginalBillNo.Trim(), duplicateCn)}"
+                        : "\n\nCredit could not be made redeemable on billing: customer needs a valid 10-digit phone on the original bill.";
                 }
             }
 
@@ -615,6 +726,14 @@ public partial class SaleReturnViewModel : ObservableObject
             MessageBox.Show(successBody, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
 
             ClearForm();
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            MessageBox.Show(
+                $"A return has already been posted for bill {OriginalBillNo.Trim()}.\n\nOnly one return is allowed per bill.",
+                "Sale Return",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {

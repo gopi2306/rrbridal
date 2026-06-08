@@ -1,15 +1,18 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Inventory;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -65,6 +68,22 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _dayCloseCreditNoteSummary = "";
 
+    [ObservableProperty] private string _dayCloseReturnCountSummary = "—";
+
+    [ObservableProperty] private string _dayCloseReturnTotalSummary = "—";
+
+    [ObservableProperty] private string _dayCloseCashRefundSummary = "—";
+
+    [ObservableProperty] private string _dayCloseCnIssuedSummary = "—";
+
+    [ObservableProperty] private string _dayCloseNetCashSummary = "—";
+
+    [ObservableProperty] private string _dayCloseNetCardSummary = "—";
+
+    [ObservableProperty] private string _dayCloseNetUpiSummary = "—";
+
+    [ObservableProperty] private string _dayCloseActualHandInSummary = "—";
+
     [ObservableProperty] private string _inventorySearchText = "";
 
     [ObservableProperty] private InventoryStockFilter _inventoryStockFilter = InventoryStockFilter.All;
@@ -98,9 +117,26 @@ public partial class DashboardViewModel : ObservableObject
 
     public ObservableCollection<DayCloseInvoiceRow> DayInvoices { get; } = new();
 
+    public ObservableCollection<DayCloseReturnRow> DayReturns { get; } = new();
+
     public ObservableCollection<DayCloseStockExceptionRow> StockExceptions { get; } = new();
 
     public ObservableCollection<InventoryGridRow> InventoryRows { get; } = new();
+
+    public ObservableCollection<StoreBillListRow> BillListRows { get; } = new();
+
+    [ObservableProperty] private string _filterInvoiceNo = "";
+    [ObservableProperty] private string _filterCustomerName = "";
+    [ObservableProperty] private string _filterCustomerMobile = "";
+    [ObservableProperty] private DateTime _filterBusinessDate = DateTime.Today;
+    [ObservableProperty] private bool _filterUseDateRange;
+    [ObservableProperty] private DateTime? _filterDateFrom = DateTime.Today;
+    [ObservableProperty] private DateTime? _filterDateTo = DateTime.Today;
+    [ObservableProperty] private string _billListStatusMessage = "";
+    [ObservableProperty] private string _billListTotalsSummary = "";
+
+    public Action<string>? NavigateToReturnForBill { get; set; }
+    public Action<string>? NavigateToAdjustmentForBill { get; set; }
 
     public DashboardViewModel(AppServices services)
     {
@@ -222,9 +258,28 @@ public partial class DashboardViewModel : ObservableObject
                 ? MoneyMath.FormatRupee(snap.CreditNoteTotal)
                 : "—";
 
+            DayCloseReturnCountSummary = snap.ReturnCount.ToString(InCulture);
+            DayCloseReturnTotalSummary = snap.ReturnTotalAmount > 0
+                ? MoneyMath.FormatRupee(snap.ReturnTotalAmount)
+                : "—";
+            DayCloseCashRefundSummary = snap.CashRefundTotal > 0
+                ? MoneyMath.FormatRupee(snap.CashRefundTotal)
+                : "—";
+            DayCloseCnIssuedSummary = snap.CreditNoteIssuedTotal > 0
+                ? MoneyMath.FormatRupee(snap.CreditNoteIssuedTotal)
+                : "—";
+            DayCloseNetCashSummary = MoneyMath.FormatRupee(snap.NetCashInHand);
+            DayCloseNetCardSummary = MoneyMath.FormatRupee(snap.NetCardInHand);
+            DayCloseNetUpiSummary = MoneyMath.FormatRupee(snap.NetUpiInHand);
+            DayCloseActualHandInSummary = MoneyMath.FormatRupee(snap.ActualHandInTotal);
+
             DayInvoices.Clear();
             foreach (var row in snap.Invoices)
                 DayInvoices.Add(row);
+
+            DayReturns.Clear();
+            foreach (var row in snap.Returns)
+                DayReturns.Add(row);
 
             StockExceptions.Clear();
             foreach (var row in snap.StockExceptions)
@@ -233,7 +288,7 @@ public partial class DashboardViewModel : ObservableObject
             var dateLabel = SelectedCloseDate.ToString("dd-MMM-yyyy", InCulture);
             var filterLabel = SelectedPosCounterFilter?.Label ?? "All counters";
             DayCloseStatusMessage =
-                $"{snap.BillCount} bill(s) on {dateLabel} · {filterLabel} · updated {DateTime.Now.ToString("T", InCulture)}";
+                $"{snap.BillCount} bill(s), {snap.ReturnCount} return(s) on {dateLabel} · {filterLabel} · updated {DateTime.Now.ToString("T", InCulture)}";
         }
         catch (Exception ex)
         {
@@ -354,4 +409,110 @@ public partial class DashboardViewModel : ObservableObject
             InventoryStockFilter.OutOfStock => "Out of stock only",
             _ => "All products",
         };
+
+    [RelayCommand]
+    private async Task LoadBillList()
+    {
+        BillListStatusMessage = "Loading bills…";
+        try
+        {
+            var query = new StoreBillListQuery
+            {
+                InvoiceNo = string.IsNullOrWhiteSpace(FilterInvoiceNo) ? null : FilterInvoiceNo.Trim(),
+                CustomerName = string.IsNullOrWhiteSpace(FilterCustomerName) ? null : FilterCustomerName.Trim(),
+                CustomerMobile = string.IsNullOrWhiteSpace(FilterCustomerMobile) ? null : FilterCustomerMobile.Trim(),
+                BusinessDate = FilterUseDateRange ? null : FilterBusinessDate,
+                UseDateRange = FilterUseDateRange,
+                DateFrom = FilterUseDateRange ? FilterDateFrom : null,
+                DateTo = FilterUseDateRange ? FilterDateTo : null,
+                PosCounterFilter = SelectedPosCounterFilter?.PosCounter,
+            };
+
+            var snap = await _services.StoreBillList.LoadAsync(_storeContext.StoreId, query);
+
+            BillListRows.Clear();
+            foreach (var row in snap.Rows)
+                BillListRows.Add(row);
+
+            BillListTotalsSummary =
+                $"{snap.Rows.Count} bill(s) · Payable {MoneyMath.FormatRupee(snap.TotalPayable)} · " +
+                $"Cash {MoneyMath.FormatRupee(snap.TotalCash)} · Card {MoneyMath.FormatRupee(snap.TotalCard)} · " +
+                $"UPI {MoneyMath.FormatRupee(snap.TotalUpi)} · CN {MoneyMath.FormatRupee(snap.TotalCreditNote)}";
+
+            var dateLabel = FilterUseDateRange
+                ? $"{FilterDateFrom:dd-MMM-yyyy} – {FilterDateTo:dd-MMM-yyyy}"
+                : FilterBusinessDate.ToString("dd-MMM-yyyy", InCulture);
+            var trunc = snap.WasTruncated ? $" (showing first {snap.Rows.Count} of {snap.TotalMatched})" : "";
+            BillListStatusMessage = $"Updated {DateTime.Now:T} · {dateLabel}{trunc}";
+        }
+        catch (Exception ex)
+        {
+            BillListStatusMessage = "Could not load bills: " + ex.Message;
+            BillListTotalsSummary = "";
+        }
+    }
+
+    [RelayCommand]
+    private void DownloadBillListReport()
+    {
+        if (BillListRows.Count == 0)
+        {
+            MessageBox.Show("No bills to export. Run Search first.", "All bills", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv",
+            FileName = $"store-bills-{DateTime.Now:yyyyMMdd-HHmm}.csv",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            BillListCsvExporter.ExportToFile(dlg.FileName, BillListRows.ToList());
+            BillListStatusMessage = $"Exported {BillListRows.Count} row(s) to {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Export failed: " + ex.Message, "All bills", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ViewBillDetail(StoreBillListRow? row)
+    {
+        if (row == null || string.IsNullOrWhiteSpace(row.BillNo))
+            return;
+
+        var vm = new BillDetailDialogViewModel(_services, _services.StoreBillList);
+        vm.NavigateToReturnForBill = billNo =>
+        {
+            NavigateToReturnForBill?.Invoke(billNo);
+        };
+        vm.NavigateToAdjustmentForBill = billNo =>
+        {
+            NavigateToAdjustmentForBill?.Invoke(billNo);
+        };
+
+        await vm.LoadAsync(row.BillNo);
+        var dialog = new BillDetailDialog(vm)
+        {
+            Owner = Application.Current.MainWindow,
+        };
+        dialog.ShowDialog();
+    }
+
+    [RelayCommand]
+    private void RedirectBillRelated(StoreBillListRow? row)
+    {
+        if (row == null || string.IsNullOrWhiteSpace(row.BillNo))
+            return;
+
+        if (row.HasReturn)
+            NavigateToReturnForBill?.Invoke(row.BillNo);
+        else if (row.HasAdjustment)
+            NavigateToAdjustmentForBill?.Invoke(row.BillNo);
+    }
 }

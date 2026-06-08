@@ -62,14 +62,24 @@ public partial class AdjustmentBillViewModel : ObservableObject
             return;
         }
 
+        await LoadBillByNoAsync(billNo);
+    }
+
+    public async Task<bool> LoadBillByNoAsync(string billNoInput)
+    {
+        var billNo = billNoInput.Trim();
+        if (string.IsNullOrEmpty(billNo))
+            return false;
+
         var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
         var doc = await coll.Find(new BsonDocument("billNo", billNo)).FirstOrDefaultAsync();
         if (doc == null)
         {
             MessageBox.Show($"Bill '{billNo}' not found.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            return false;
         }
 
+        OriginalBillNo = billNo;
         _originalBillDoc = doc;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
 
@@ -106,6 +116,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
 
         BillLoaded = true;
         RecalculateTotals();
+        return true;
     }
 
     private void OnAdjLinePropertyChanged(object? sender, PropertyChangedEventArgs e)

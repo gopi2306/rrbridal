@@ -44,6 +44,18 @@ public static class StoreIndexEnsurer
                 Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("creditNoteNo"),
                 new CreateIndexOptions { Name = "creditNoteNo", Unique = true }),
             cancellationToken: ct);
+        await creditNotes.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("originalBillNo"),
+                new CreateIndexOptions
+                {
+                    Name = "storeId_originalBillNo_unique",
+                    Unique = true,
+                    Sparse = true,
+                }),
+            cancellationToken: ct);
 
         var holds = db.GetCollection<MongoDB.Bson.BsonDocument>("held_bills");
         await holds.Indexes.CreateOneAsync(
@@ -59,6 +71,19 @@ public static class StoreIndexEnsurer
                     .Ascending("storeId")
                     .Descending("updatedAtUtc"),
                 new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
+            cancellationToken: ct);
+
+        var saleReturns = db.GetCollection<MongoDB.Bson.BsonDocument>("store_sale_returns");
+        await saleReturns.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("originalBillNo"),
+                new CreateIndexOptions
+                {
+                    Name = "storeId_originalBillNo_unique",
+                    Unique = true,
+                }),
             cancellationToken: ct);
 
         var auditLogs = db.GetCollection<MongoDB.Bson.BsonDocument>("store_audit_logs");

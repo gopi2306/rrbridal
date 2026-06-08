@@ -1,0 +1,84 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.BillDetailDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Bill details"
+        Width="720"
+        Height="640"
+        MinWidth="600"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BrushBackground}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Bill details" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,12">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding HeaderSummary}" TextWrapping="Wrap" FontSize="13"/>
+                </Border>
+
+                <TextBlock Text="Payment split" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding PaymentSummary}" TextWrapping="Wrap" FontSize="13"/>
+                </Border>
+
+                <TextBlock Text="Line items" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="8">
+                    <DataGrid ItemsSource="{Binding Lines}"
+                              Style="{StaticResource ThemedDataGrid}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              HeadersVisibility="Column"
+                              MaxHeight="220">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding LineNo}" Width="40"/>
+                            <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                            <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat={}{0:N2}}" Width="55"/>
+                            <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat={}{0:N2}}" Width="70"/>
+                            <DataGridTextColumn Header="Total" Binding="{Binding LineTotalFormatted}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+
+                <StackPanel Visibility="{Binding HasReturn, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="Return" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Content="Open in Returns"
+                                Style="{StaticResource OutlineButton}"
+                                HorizontalAlignment="Right"
+                                Padding="10,4"
+                                Command="{Binding OpenReturnCommand}"/>
+                    </Grid>
+                    <Border Style="{StaticResource CardBorder}">
+                        <TextBlock Text="{Binding ReturnSummary}" TextWrapping="Wrap" FontSize="13"/>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding HasAdjustment, Converter={StaticResource BoolToVis}}">
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="Adjustment" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Content="Open in Adjustments"
+                                Style="{StaticResource OutlineButton}"
+                                HorizontalAlignment="Right"
+                                Padding="10,4"
+                                Command="{Binding OpenAdjustmentCommand}"/>
+                    </Grid>
+                    <Border Style="{StaticResource CardBorder}">
+                        <TextBlock Text="{Binding AdjustmentSummary}" TextWrapping="Wrap" FontSize="13"/>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Button Grid.Row="2" Content="Close" Style="{StaticResource PrimaryButton}"
+                HorizontalAlignment="Right" Width="100" IsCancel="True"/>
+    </Grid>
+</Window>

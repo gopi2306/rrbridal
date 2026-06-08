@@ -24,6 +24,22 @@ public sealed class CustomerCreditNoteService
         _outbox = outbox;
     }
 
+    public async Task<CustomerCreditNoteRecord?> FindByOriginalBillAsync(
+        string storeId,
+        string originalBillNo,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(originalBillNo))
+            return null;
+
+        var doc = await _notes.Find(
+            Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+                Builders<BsonDocument>.Filter.Eq("originalBillNo", originalBillNo.Trim())))
+            .FirstOrDefaultAsync(ct);
+        return doc == null ? null : Map(doc);
+    }
+
     public async Task<string?> CreateFromReturnAsync(
         string returnNo,
         string originalBillNo,
@@ -40,6 +56,18 @@ public sealed class CustomerCreditNoteService
         var phoneNorm = PhoneMatchHelper.NormalizePhone(customerPhone);
         if (string.IsNullOrEmpty(phoneNorm) || phoneNorm.Length < 10)
             return null;
+
+        var billNo = originalBillNo?.Trim() ?? "";
+        if (!string.IsNullOrEmpty(billNo))
+        {
+            var existingForBill = await FindByOriginalBillAsync(storeId, billNo, ct);
+            if (existingForBill != null)
+            {
+                if (string.Equals(existingForBill.ReturnNo, returnNo.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return existingForBill.CreditNoteNo;
+                return null;
+            }
+        }
 
         var creditNoteNo = returnNo.StartsWith("CN-", StringComparison.OrdinalIgnoreCase)
             ? returnNo.Trim()

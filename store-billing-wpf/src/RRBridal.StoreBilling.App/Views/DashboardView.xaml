@@ -162,9 +162,13 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MinHeight="160"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MinHeight="120"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="100"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="140"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="100"/>
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
@@ -218,14 +222,92 @@
                         </Border>
                         <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Credit note" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="CN used (billing)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                                 <TextBlock Text="{Binding DayCloseCreditNoteSummary}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
 
-                    <TextBlock Grid.Row="4" Text="Invoices for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
-                    <Border Grid.Row="5" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <UniformGrid Grid.Row="4" Columns="4" Margin="0,0,0,8">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                            <StackPanel>
+                                <TextBlock Text="Return count" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseReturnCountSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Total return amount" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseReturnTotalSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Cash refunded" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseCashRefundSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="CN issued" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseCnIssuedSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <UniformGrid Grid.Row="5" Columns="4" Margin="0,0,0,12">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                            <StackPanel>
+                                <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseNetCashSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Net card" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseNetCardSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Net UPI" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseNetUpiSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Actual hand-in" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseActualHandInSummary}" FontSize="18" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock Grid.Row="6" Text="Returns for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Grid.Row="7" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                        <DataGrid ItemsSource="{Binding DayReturns}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  HeadersVisibility="Column"
+                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalAlignment="Stretch">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Return no" Binding="{Binding ReturnNo}" Width="110"/>
+                                <DataGridTextColumn Header="Original bill" Binding="{Binding OriginalBillNo}" Width="110"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
+                                <DataGridTextColumn Header="Posted (local)" Binding="{Binding PostedAtLocal}" Width="130"/>
+                                <DataGridTextColumn Header="Return total" Binding="{Binding ReturnTotal, StringFormat=₹ {0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="Mode" Binding="{Binding ReturnMode}" Width="80"/>
+                                <DataGridTextColumn Header="Credit/refund" Binding="{Binding CreditBalance, StringFormat=₹ {0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="Collected" Binding="{Binding AmountCollected, StringFormat=₹ {0:N2}}" Width="90"/>
+                                <DataGridTextColumn Header="Payments" Binding="{Binding PaymentSummary}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <TextBlock Grid.Row="8" Text="Invoices for selected day" FontWeight="SemiBold" Margin="0,12,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Grid.Row="9" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
                         <DataGrid ItemsSource="{Binding DayInvoices}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
@@ -246,8 +328,8 @@
                         </DataGrid>
                     </Border>
 
-                    <TextBlock Grid.Row="6" Text="Stock exceptions (selected day)" FontWeight="SemiBold" Margin="0,12,0,8" Foreground="{StaticResource BrushText}"/>
-                    <Border Grid.Row="7" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <TextBlock Grid.Row="10" Text="Stock exceptions (selected day)" FontWeight="SemiBold" Margin="0,12,0,8" Foreground="{StaticResource BrushText}"/>
+                    <Border Grid.Row="11" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
                         <DataGrid ItemsSource="{Binding StockExceptions}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
@@ -273,6 +355,121 @@
                                                     Command="{Binding DataContext.ApproveStockExceptionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding BillNo}"
                                                     IsEnabled="{Binding CanApprove}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="All bills">
+                <Grid Margin="0,8,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Search posted bills" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,8">
+                                    <TextBlock Text="Invoice no" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FilterInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,4,8">
+                                    <TextBlock Text="Customer name" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="8,0,0,8">
+                                    <TextBlock Text="Customer mobile" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FilterCustomerMobile, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                            Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                    <TextBlock Text="Business date" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <DatePicker SelectedDate="{Binding FilterBusinessDate}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,4,0">
+                                    <CheckBox Content="Use date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,18,0,4"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,0"
+                                            Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="From / To" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <DatePicker SelectedDate="{Binding FilterDateFrom}" Width="130" Margin="0,0,8,0"/>
+                                        <DatePicker SelectedDate="{Binding FilterDateTo}" Width="130"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                <Button Content="Download report" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                        Command="{Binding DownloadBillListReportCommand}"/>
+                                <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="100"
+                                        Command="{Binding LoadBillListCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Grid.Row="1" Text="{Binding BillListTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Grid.Row="2" Text="{Binding BillListStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+
+                    <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                        <DataGrid ItemsSource="{Binding BillListRows}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  HeadersVisibility="Column"
+                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalAlignment="Stretch">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                                <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
+                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120"/>
+                                <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="100"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55"/>
+                                <DataGridTextColumn Header="Payable" Binding="{Binding PayableFormatted}" Width="95"/>
+                                <DataGridTextColumn Header="Cash" Binding="{Binding CashFormatted}" Width="85"/>
+                                <DataGridTextColumn Header="Card" Binding="{Binding CardFormatted}" Width="85"/>
+                                <DataGridTextColumn Header="UPI" Binding="{Binding UpiFormatted}" Width="85"/>
+                                <DataGridTextColumn Header="Credit note" Binding="{Binding CreditNoteFormatted}" Width="95"/>
+                                <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedDisplay}" Width="70"/>
+                                <DataGridTextColumn Header="Adjustment" Binding="{Binding AdjustmentDisplay}" Width="80"/>
+                                <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="90"/>
+                                <DataGridTemplateColumn Header="Actions" Width="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="View"
+                                                        ToolTip="View bill details"
+                                                        Style="{StaticResource OutlineButton}"
+                                                        Padding="6,2"
+                                                        Margin="0,0,4,0"
+                                                        Command="{Binding DataContext.ViewBillDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Button Content="Open"
+                                                        ToolTip="Open return or adjustment"
+                                                        Style="{StaticResource OutlineButton}"
+                                                        Padding="6,2"
+                                                        Command="{Binding DataContext.RedirectBillRelatedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding CanRedirect, Converter={StaticResource BoolToVis}}"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
