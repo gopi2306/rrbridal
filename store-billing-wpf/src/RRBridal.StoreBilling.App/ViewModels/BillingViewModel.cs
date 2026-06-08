@@ -14,6 +14,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Customers;
@@ -1717,6 +1718,24 @@ public partial class BillingViewModel : ObservableObject
             var postedBillNo = BillNo;
             await coll.InsertOneAsync(doc);
 
+            var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
+            await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
+            {
+                EntityType = "bill",
+                EntityId = postedBillNo,
+                Action = "posted",
+                ActorName = actorName,
+                ActorEmail = actorEmail,
+                Metadata = new BsonDocument
+                {
+                    { "payable", (double)totals.Payable },
+                    { "lineCount", linesArr.Count },
+                    { "paymentMode", paymentOutcome.Mode.ToString() },
+                    { "customerPhone", CustomerPhone },
+                    { "stockExceptionCount", stockShortfalls.Count },
+                },
+            });
+
             if (!string.IsNullOrEmpty(_activeHoldNo))
             {
                 try
@@ -1749,7 +1768,12 @@ public partial class BillingViewModel : ObservableObject
 
                 try
                 {
-                    await _services.ProductCatalog.DecrementStockAsync(line.CentralProductId!, line.Qty, ct: default);
+                    await _services.ProductCatalog.DecrementStockAsync(
+                        line.CentralProductId!,
+                        line.Qty,
+                        reason: "bill_post",
+                        billNo: postedBillNo,
+                        ct: default);
                 }
                 catch (Exception ex)
                 {

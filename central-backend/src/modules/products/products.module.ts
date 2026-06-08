@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { BatchExpiryDetail, BatchExpiryDetailSchema } from '../batch-expiry-details/schemas/batch-expiry-detail.schema';
 import { BatchSelection, BatchSelectionSchema } from '../batch-selections/schemas/batch-selection.schema';
 import { Brand, BrandSchema } from '../brands/schemas/brand.schema';
@@ -36,6 +37,7 @@ import { ProductsService } from './products.service';
 
 @Module({
   imports: [
+    AuditLogsModule,
     DocumentNumbersModule,
     CategoriesModule,
     SubCategoriesModule,

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Audit;
 
 namespace RRBridal.StoreBilling.App.Services.Products;
 
@@ -14,11 +15,13 @@ public sealed class ProductCatalogService
 {
     private readonly IMongoCollection<BsonDocument> _cache;
     private readonly IMongoDatabase _localDb;
+    private readonly StoreAuditLogService? _auditLog;
 
-    public ProductCatalogService(IMongoDatabase localDb, HttpClient centralApi)
+    public ProductCatalogService(IMongoDatabase localDb, HttpClient centralApi, StoreAuditLogService? auditLog = null)
     {
         _localDb = localDb;
         _cache = localDb.GetCollection<BsonDocument>("local_products_cache");
+        _auditLog = auditLog;
     }
 
     public async Task<IReadOnlyList<CatalogProduct>> SearchAsync(string query, CancellationToken ct = default)
@@ -231,28 +234,83 @@ public sealed class ProductCatalogService
         };
     }
 
-    public async Task DecrementStockAsync(string centralProductId, decimal qty, CancellationToken ct = default)
+    public async Task DecrementStockAsync(
+        string centralProductId,
+        decimal qty,
+        string? reason = null,
+        string? billNo = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(centralProductId) || qty <= 0) return;
         try
         {
             var filter = Builders<BsonDocument>.Filter.Eq("centralProductId", centralProductId);
+            var beforeDoc = await _cache.Find(filter).FirstOrDefaultAsync(ct);
+            var stockBefore = beforeDoc == null ? 0m : ReadDecimalBson(beforeDoc, "stockQty") ?? 0m;
+            var sku = beforeDoc == null ? "" : ReadString(beforeDoc, "sku") ?? "";
+
             var update = Builders<BsonDocument>.Update.Inc("stockQty", -(double)qty);
             await _cache.UpdateOneAsync(filter, update, cancellationToken: ct);
+
+            if (_auditLog != null && !string.IsNullOrWhiteSpace(sku))
+            {
+                await _auditLog.LogProductStockChangeAsync(
+                    sku,
+                    centralProductId,
+                    -qty,
+                    stockBefore,
+                    stockBefore - qty,
+                    reason ?? "bill_post",
+                    billNo,
+                    ct: ct);
+            }
         }
         catch { }
     }
 
-    public async Task DecrementStockBySkuAsync(string sku, decimal qty, CancellationToken ct = default)
+    public async Task DecrementStockBySkuAsync(
+        string sku,
+        decimal qty,
+        string? reason = null,
+        string? billNo = null,
+        string? actorName = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return;
         try
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("sku", sku.Trim());
+            var normalizedSku = sku.Trim();
+            var filter = Builders<BsonDocument>.Filter.Eq("sku", normalizedSku);
+            var beforeDoc = await _cache.Find(filter).FirstOrDefaultAsync(ct);
+            var stockBefore = beforeDoc == null ? 0m : ReadDecimalBson(beforeDoc, "stockQty") ?? 0m;
+            var centralId = beforeDoc == null
+                ? ""
+                : ReadString(beforeDoc, "centralProductId") ?? beforeDoc.GetValue("_id", "").ToString() ?? "";
+
             var update = Builders<BsonDocument>.Update
                 .Inc("stockQty", -(double)qty)
                 .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O"));
             await _cache.UpdateOneAsync(filter, update, cancellationToken: ct);
+
+            if (_auditLog != null)
+            {
+                await _auditLog.LogEventAsync(new StoreAuditEvent
+                {
+                    EntityType = "product",
+                    EntityId = string.IsNullOrWhiteSpace(centralId) ? normalizedSku : centralId,
+                    Action = "stock_decremented",
+                    Sku = normalizedSku,
+                    ActorName = actorName,
+                    Metadata = new BsonDocument
+                    {
+                        { "qtyDelta", -(double)qty },
+                        { "stockBefore", (double)stockBefore },
+                        { "stockAfter", (double)(stockBefore - qty) },
+                        { "reason", reason ?? "stock_exception_approve" },
+                        { "billNo", billNo ?? "" },
+                    },
+                }, ct);
+            }
         }
         catch { }
     }

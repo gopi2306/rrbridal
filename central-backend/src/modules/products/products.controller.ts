@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JwtPayload } from '../../common/jwt-payload';
 
 import { CreateProductDto } from './dto/create-product.dto';
 
@@ -26,10 +27,8 @@ export class ProductsController {
 
   @Post()
 
-  async create(@Body() dto: CreateProductDto) {
-
-    return await this.productsService.create(dto);
-
+  async create(@Body() dto: CreateProductDto, @Req() req: { user?: JwtPayload }) {
+    return await this.productsService.create(dto, req.user);
   }
 
 
@@ -96,10 +95,8 @@ export class ProductsController {
 
   @Patch(':id')
 
-  async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-
-    return await this.productsService.update(id, dto);
-
+  async update(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: { user?: JwtPayload }) {
+    return await this.productsService.update(id, dto, req.user);
   }
 
 

@@ -12,6 +12,8 @@ import { MONEY_DECIMAL_PLACES } from '../../common/money.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { AuditActor, serializeAuditDocument } from '../audit-logs/audit-change.util';
+import { AuditLogsService, LogProductChangeInput } from '../audit-logs/audit-logs.service';
 import { ProductSkuGenerator } from './product-sku.generator';
 import { Product, ProductDocument } from './schemas/product.schema';
 
@@ -35,9 +37,10 @@ export class ProductsService {
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly skuGenerator: ProductSkuGenerator,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
-  async create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto, actor?: AuditActor) {
     const sku = await this.resolveSkuForCreate(dto.sku);
     const payload = this.normalizeProductWritePayload({
       ...dto,
@@ -45,7 +48,17 @@ export class ProductsService {
       isActive: dto.isActive ?? true,
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
-    return await this.productModel.create(payload);
+    const doc = await this.productModel.create(payload);
+    const lean = serializeAuditDocument(doc.toObject()) as Record<string, unknown>;
+    const auditInput: LogProductChangeInput = {
+      productId: String(doc._id),
+      sku: doc.sku,
+      action: 'created',
+      after: lean,
+    };
+    if (actor) auditInput.actor = actor;
+    await this.auditLogs.logProductChange(auditInput);
+    return doc;
   }
 
   private normalizeProductWritePayload(dto: Record<string, unknown>): Record<string, unknown> {
@@ -100,7 +113,10 @@ export class ProductsService {
   }
 
   /** Create or update by SKU, or by itemName when SKU is missing or not found. */
-  async upsertBySku(dto: CreateProductDto): Promise<{ created: boolean; product: unknown }> {
+  async upsertBySku(
+    dto: CreateProductDto,
+    actor?: AuditActor,
+  ): Promise<{ created: boolean; product: unknown }> {
     const existing = await this.findExistingForImport(dto.sku, dto.itemName);
     if (existing) {
       const { sku: skuInput, ...rest } = dto;
@@ -115,21 +131,36 @@ export class ProductsService {
         }
         payload.sku = newSku;
       }
-      const product = await this.update(String(existing._id), payload);
+      const product = await this.update(String(existing._id), payload, actor);
       return { created: false, product };
     }
 
-    const product = await this.create(dto);
+    const product = await this.create(dto, actor);
     return { created: true, product };
   }
 
-  async update(id: string, dto: UpdateProductDto) {
+  async update(id: string, dto: UpdateProductDto, actor?: AuditActor) {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
+    const before = await this.productModel.findById(toObjectId(id)).lean();
+    if (!before) throw new NotFoundException('Product not found');
+
     const payload = this.normalizeProductWritePayload({ ...dto } as Record<string, unknown>);
+    const changedFields = Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined);
     const doc = await this.productModel
       .findByIdAndUpdate(toObjectId(id), { $set: payload }, { new: true })
       .lean();
     if (!doc) throw new NotFoundException('Product not found');
+
+    const auditInput: LogProductChangeInput = {
+      productId: id,
+      action: 'updated',
+      before: serializeAuditDocument(before) as Record<string, unknown>,
+      after: serializeAuditDocument(doc) as Record<string, unknown>,
+      changedFields,
+    };
+    if (typeof doc.sku === 'string') auditInput.sku = doc.sku;
+    if (actor) auditInput.actor = actor;
+    await this.auditLogs.logProductChange(auditInput);
     return doc;
   }
 

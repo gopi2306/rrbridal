@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Products;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
@@ -14,11 +15,16 @@ public sealed class DayBillingCloseService
 {
     private readonly IMongoDatabase _db;
     private readonly ProductCatalogService _productCatalog;
+    private readonly StoreAuditLogService? _auditLog;
 
-    public DayBillingCloseService(IMongoDatabase localDb, ProductCatalogService productCatalog)
+    public DayBillingCloseService(
+        IMongoDatabase localDb,
+        ProductCatalogService productCatalog,
+        StoreAuditLogService? auditLog = null)
     {
         _db = localDb;
         _productCatalog = productCatalog;
+        _auditLog = auditLog;
     }
 
     public async Task<DayBillingCloseSnapshot> LoadDayCloseAsync(
@@ -144,7 +150,13 @@ public sealed class DayBillingCloseService
             if (string.IsNullOrWhiteSpace(sku) || requestedQty <= 0)
                 continue;
 
-            await _productCatalog.DecrementStockBySkuAsync(sku, requestedQty, ct);
+            await _productCatalog.DecrementStockBySkuAsync(
+                sku,
+                requestedQty,
+                reason: "stock_exception_approve",
+                billNo: billNo.Trim(),
+                actorName: approvedByUser.Trim(),
+                ct: ct);
 
             ex["stockDecremented"] = true;
             ex["approvedAtUtc"] = approvedAt;
@@ -153,6 +165,22 @@ public sealed class DayBillingCloseService
 
         var update = Builders<BsonDocument>.Update.Set("stockExceptions", exceptions);
         await billsColl.UpdateOneAsync(filter, update, cancellationToken: ct);
+
+        if (_auditLog != null)
+        {
+            await _auditLog.LogEventAsync(new StoreAuditEvent
+            {
+                EntityType = "bill",
+                EntityId = billNo.Trim(),
+                Action = "stock_exception_approved",
+                ActorName = approvedByUser.Trim(),
+                Metadata = new BsonDocument
+                {
+                    { "approvedLineCount", pending.Count },
+                    { "skus", new BsonArray(pending.Select(e => DayBillingCloseDocumentReader.ReadString(e, "sku") ?? "")) },
+                },
+            }, ct);
+        }
 
         return (true, $"Stock decremented for {pending.Count} exception line(s) on bill {billNo}.");
     }

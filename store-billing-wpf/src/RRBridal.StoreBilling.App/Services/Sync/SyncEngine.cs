@@ -17,6 +17,7 @@ using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
+using RRBridal.StoreBilling.App.Services.Audit;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -32,6 +33,7 @@ public sealed class SyncEngine : ISyncEngine
     private readonly MasterDataService _masterData;
     private readonly ReceiptConfigSyncService? _receiptConfigSync;
     private readonly IMongoDatabase _localDb;
+    private readonly StoreAuditLogService? _auditLog;
     private Dictionary<string, string>? _hsnLookup;
 
     public SyncEngine(
@@ -39,7 +41,8 @@ public sealed class SyncEngine : ISyncEngine
         HttpClient centralApi,
         StoreContext storeContext,
         MasterDataService masterData,
-        ReceiptConfigSyncService? receiptConfigSync = null)
+        ReceiptConfigSyncService? receiptConfigSync = null,
+        StoreAuditLogService? auditLog = null)
     {
         _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
@@ -51,6 +54,7 @@ public sealed class SyncEngine : ISyncEngine
         _masterData = masterData;
         _receiptConfigSync = receiptConfigSync;
         _localDb = localDb;
+        _auditLog = auditLog;
     }
 
     public async Task<SyncStatus> GetStatusAsync(CancellationToken ct)
@@ -350,6 +354,26 @@ public sealed class SyncEngine : ISyncEngine
             doc["hsnSac"] = hsnSac;
 
         await _products.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
+
+        if (_auditLog != null)
+        {
+            var sku = rawSku;
+            await _auditLog.LogEventAsync(new StoreAuditEvent
+            {
+                EntityType = "product",
+                EntityId = id,
+                Action = existing == null ? "synced_created" : "synced_updated",
+                Sku = string.IsNullOrEmpty(sku) ? null : sku,
+                Metadata = new BsonDocument
+                {
+                    { "source", "central_sync" },
+                    { "itemName", doc.TryGetValue("itemName", out var n) && n.IsString ? n.AsString : "" },
+                    { "mrp", doc.TryGetValue("mrp", out var m) ? m.ToDouble() : 0 },
+                    { "sellingPrice", doc.TryGetValue("sellingPrice", out var sp) ? sp.ToDouble() : 0 },
+                    { "stockQty", ReadStockQty(doc) },
+                },
+            }, ct);
+        }
     }
 
     /// <summary>

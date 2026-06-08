@@ -8,7 +8,9 @@ using System.Windows;
 using System.Windows.Documents;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
@@ -306,6 +308,22 @@ public partial class SettingsViewModel : ObservableObject
             && AlsoPrintThermalFirst;
         c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
+        var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
+        await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
+        {
+            EntityType = "settings",
+            EntityId = "receipt_print",
+            Action = "saved",
+            ActorName = actorName,
+            ActorEmail = actorEmail,
+            Metadata = new BsonDocument
+            {
+                { "printFormat", ReceiptPrintFormat.ToString() },
+                { "a5PrePrintedEnabled", A5PrePrintedEnabled },
+                { "thermalPrinter", SelectedThermalPrinterFullName ?? "" },
+                { "officePrinter", SelectedOfficePrinterFullName ?? "" },
+            },
+        });
         UpdatePrinterWarning();
         LastActionText = "Receipt and printer settings saved.";
     }
@@ -487,6 +505,19 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.PosBillingSettings.Update(s => s.AllowDuplicatePrint = BillingAllowDuplicatePrint);
         await _services.PosBillingSettings.SaveAsync();
+        var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
+        await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
+        {
+            EntityType = "settings",
+            EntityId = "billing",
+            Action = "saved",
+            ActorName = actorName,
+            ActorEmail = actorEmail,
+            Metadata = new BsonDocument
+            {
+                { "allowDuplicatePrint", BillingAllowDuplicatePrint },
+            },
+        });
         LastActionText = "Duplicate print setting saved.";
     }
 

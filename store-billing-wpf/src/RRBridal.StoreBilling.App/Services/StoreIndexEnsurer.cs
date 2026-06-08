@@ -60,5 +60,27 @@ public static class StoreIndexEnsurer
                     .Descending("updatedAtUtc"),
                 new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
             cancellationToken: ct);
+
+        var auditLogs = db.GetCollection<MongoDB.Bson.BsonDocument>("store_audit_logs");
+        await auditLogs.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Descending("createdAtUtc"),
+                new CreateIndexOptions { Name = "storeId_createdAtUtc" }),
+            cancellationToken: ct);
+        await auditLogs.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("entityType")
+                    .Ascending("entityId")
+                    .Descending("createdAtUtc"),
+                new CreateIndexOptions { Name = "entityType_entityId_createdAtUtc" }),
+            cancellationToken: ct);
+        await auditLogs.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("sku"),
+                new CreateIndexOptions { Name = "sku" }),
+            cancellationToken: ct);
     }
 }

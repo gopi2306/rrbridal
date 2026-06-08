@@ -53,6 +53,7 @@ import { StoreSalesModule } from '../store-sales/store-sales.module';
 import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
 import { MyStoreModule } from '../my-store/my-store.module';
 import { MyWarehouseModule } from '../my-warehouse/my-warehouse.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { MyWarehouseModule } from '../my-warehouse/my-warehouse.module';
     PromotionSchemesModule,
     MyStoreModule,
     MyWarehouseModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
 })

@@ -12,6 +12,7 @@ using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Notifications;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
+using RRBridal.StoreBilling.App.Services.Audit;
 
 namespace RRBridal.StoreBilling.App.Services;
 
@@ -53,6 +54,7 @@ public sealed class AppServices
     public required StoreSyncRunner StoreSyncRunner { get; init; }
     public required PeriodicSyncService PeriodicSync { get; init; }
     public required OutboxNotificationService OutboxNotifications { get; init; }
+    public required StoreAuditLogService StoreAuditLog { get; init; }
     public UserSession? UserSession { get; set; }
 
     public static AppServices CreateDefault()
@@ -88,7 +90,8 @@ public sealed class AppServices
         var localAuth = new LocalAuthService(localDb, storeContext);
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
-        var productCatalog = new ProductCatalogService(localDb, http);
+        var storeAuditLog = new StoreAuditLogService(localDb, storeContext);
+        var productCatalog = new ProductCatalogService(localDb, http, storeAuditLog);
         var inventoryGrid = new InventoryGridClient(localDb);
         var receiptConfig = new ReceiptConfigStore();
         var receiptLogoCache = new ReceiptLogoCache(http);
@@ -110,7 +113,7 @@ public sealed class AppServices
             authSession,
             http);
 
-        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync);
+        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync, storeAuditLog);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
         var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
@@ -162,6 +165,7 @@ public sealed class AppServices
             StoreSyncRunner = storeSyncRunner,
             PeriodicSync = periodicSync,
             OutboxNotifications = outboxNotifications,
+            StoreAuditLog = storeAuditLog,
         };
         return servicesRef;
     }

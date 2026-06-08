@@ -106,7 +106,7 @@ public partial class DashboardViewModel : ObservableObject
     {
         _services = services;
         _dashboardService = new StoreDashboardService(services.LocalDb);
-        _dayCloseService = new DayBillingCloseService(services.LocalDb, services.ProductCatalog);
+        _dayCloseService = new DayBillingCloseService(services.LocalDb, services.ProductCatalog, services.StoreAuditLog);
         _inventoryClient = services.InventoryGrid;
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;

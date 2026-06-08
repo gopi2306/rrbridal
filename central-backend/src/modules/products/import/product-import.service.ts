@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import { AuditActor } from '../../audit-logs/audit-change.util';
+import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { ProductsService } from '../products.service';
 import { MasterLookupService } from './master-lookup.service';
@@ -16,6 +18,7 @@ export class ProductImportService {
   constructor(
     private readonly productsService: ProductsService,
     private readonly masterLookup: MasterLookupService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   buildExcelTemplate(): Buffer {
@@ -34,6 +37,7 @@ export class ProductImportService {
     buffer: Buffer,
     originalName: string,
     options: ProductImportOptions = {},
+    actor?: AuditActor,
   ): Promise<ProductImportResult> {
     const lower = originalName.toLowerCase();
     const isCsv = lower.endsWith('.csv');
@@ -56,10 +60,14 @@ export class ProductImportService {
     const headers = (rows[0] ?? []).map((c) => String(c ?? ''));
     const dataRows = rows.slice(1);
     const parsed = rowArraysToParsedRows(headers, dataRows, 2);
-    return await this.runParsedRows(parsed, options);
+    return await this.runParsedRows(parsed, options, actor, originalName);
   }
 
-  async runFromExcelBuffer(buffer: Buffer, options: ProductImportOptions = {}): Promise<ProductImportResult> {
+  async runFromExcelBuffer(
+    buffer: Buffer,
+    options: ProductImportOptions = {},
+    actor?: AuditActor,
+  ): Promise<ProductImportResult> {
     const workbook = XLSX.read(buffer, { type: 'buffer', raw: false });
     const sheet =
       workbook.Sheets[PRODUCT_IMPORT_SHEET_NAME] ??
@@ -73,12 +81,14 @@ export class ProductImportService {
 
     const headers = (rows[0] ?? []).map((c) => String(c ?? ''));
     const parsed = rowArraysToParsedRows(headers, rows.slice(1), 2);
-    return await this.runParsedRows(parsed, options);
+    return await this.runParsedRows(parsed, options, actor, 'import.xlsx');
   }
 
   private async runParsedRows(
     rows: ParsedProductImportRow[],
     options: ProductImportOptions,
+    actor?: AuditActor,
+    sourceFile = 'import',
   ): Promise<ProductImportResult> {
     const dryRun = options.dryRun === true;
     const createMissing = options.createMissingMasters !== false;
@@ -105,7 +115,7 @@ export class ProductImportService {
           continue;
         }
 
-        const outcome = await this.productsService.upsertBySku(dto);
+        const outcome = await this.productsService.upsertBySku(dto, actor);
         if (outcome.created) result.created++;
         else result.updated++;
       } catch (err: unknown) {
@@ -120,6 +130,31 @@ export class ProductImportService {
     }
 
     result.mastersCreated = this.masterLookup.getMastersCreated();
+
+    if (!dryRun && (result.created > 0 || result.updated > 0 || result.failed > 0)) {
+      const importAudit: {
+        entityType: string;
+        entityId: string;
+        action: string;
+        metadata: Record<string, unknown>;
+        actor?: AuditActor;
+      } = {
+        entityType: 'product',
+        entityId: 'import-batch',
+        action: 'imported',
+        metadata: {
+          sourceFile,
+          totalRows: result.totalRows,
+          created: result.created,
+          updated: result.updated,
+          failed: result.failed,
+          mastersCreated: result.mastersCreated,
+        },
+      };
+      if (actor) importAudit.actor = actor;
+      await this.auditLogs.logEvent(importAudit);
+    }
+
     return result;
   }
 

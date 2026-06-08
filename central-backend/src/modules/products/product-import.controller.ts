@@ -4,10 +4,12 @@ import {
   Get,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { JwtPayload } from '../../common/jwt-payload';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -79,6 +81,7 @@ export class ProductImportController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @Query('dryRun') dryRun?: string,
     @Query('createMissingMasters') createMissingMasters?: string,
+    @Req() req?: { user?: JwtPayload },
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('file is required');
@@ -91,10 +94,14 @@ export class ProductImportController {
       throw new BadRequestException(`Unsupported MIME type: ${file.mimetype}`);
     }
 
-    return await this.productImportService.runFromExcelBuffer(file.buffer, {
-      dryRun: dryRun === 'true' || dryRun === '1',
-      createMissingMasters: createMissingMasters !== 'false' && createMissingMasters !== '0',
-    });
+    return await this.productImportService.runFromExcelBuffer(
+      file.buffer,
+      {
+        dryRun: dryRun === 'true' || dryRun === '1',
+        createMissingMasters: createMissingMasters !== 'false' && createMissingMasters !== '0',
+      },
+      req?.user,
+    );
   }
 
   @Post()
@@ -118,14 +125,20 @@ export class ProductImportController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @Query('dryRun') dryRun?: string,
     @Query('createMissingMasters') createMissingMasters?: string,
+    @Req() req?: { user?: JwtPayload },
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('file is required');
     }
 
-    return await this.productImportService.runFromBuffer(file.buffer, file.originalname ?? 'upload.xlsx', {
-      dryRun: dryRun === 'true' || dryRun === '1',
-      createMissingMasters: createMissingMasters !== 'false' && createMissingMasters !== '0',
-    });
+    return await this.productImportService.runFromBuffer(
+      file.buffer,
+      file.originalname ?? 'upload.xlsx',
+      {
+        dryRun: dryRun === 'true' || dryRun === '1',
+        createMissingMasters: createMissingMasters !== 'false' && createMissingMasters !== '0',
+      },
+      req?.user,
+    );
   }
 }
