@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -44,7 +45,7 @@ export class CreatePurchaseReturnSupplierDto {
   @ApiProperty({ required: false })
   @IsNumber()
   @IsOptional()
-  cashDiscPercent?: number;
+  cashDiscount?: number;
 }
 
 export class CreatePurchaseReturnLineDto {
@@ -65,12 +66,17 @@ export class CreatePurchaseReturnLineDto {
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
+  barcode?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @ApiProperty({ required: false })
   @IsNumber()
   @IsOptional()
-  qty?: number;
+  recdQty?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()
@@ -81,6 +87,11 @@ export class CreatePurchaseReturnLineDto {
   @IsNumber()
   @IsOptional()
   cost?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  selling?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()
@@ -106,6 +117,71 @@ export class CreatePurchaseReturnLineDto {
   @IsNumber()
   @IsOptional()
   taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  surchargePercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  surchargeAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  amount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  netCost?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  rotPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  grossPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cashDiscPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cashDiscAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  netAmount?: number;
 }
 
 export class CreatePurchaseReturnDto {
@@ -137,10 +213,20 @@ export class CreatePurchaseReturnDto {
   @Type(() => CreatePurchaseReturnSupplierDto)
   supplier!: CreatePurchaseReturnSupplierDto;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Return document date (same role as poDate on purchase orders)' })
   @IsString()
   @IsOptional()
   purchaseReturnDate?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  deliveryDate?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  expiryDate?: string;
 
   @ApiProperty({ required: false })
   @IsString()
@@ -155,12 +241,43 @@ export class CreatePurchaseReturnDto {
   @ApiProperty({ required: false })
   @IsNumber()
   @IsOptional()
-  cashDiscAmount?: number;
+  cashDiscPercent?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cashDiscount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  surchargeAmount?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()
   @IsOptional()
   netAmount?: number;
+
+  @ApiProperty({ required: false, enum: ['open', 'posted', 'closed'] })
+  @IsString()
+  @IsOptional()
+  @IsIn(['open', 'posted', 'closed'])
+  status?: string;
 
   @ApiProperty({ type: [CreatePurchaseReturnLineDto], required: false })
   @IsArray()
@@ -169,4 +286,3 @@ export class CreatePurchaseReturnDto {
   @IsOptional()
   lines?: CreatePurchaseReturnLineDto[];
 }
-

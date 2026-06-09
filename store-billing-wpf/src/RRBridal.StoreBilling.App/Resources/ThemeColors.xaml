@@ -2,6 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <SolidColorBrush x:Key="BrushAccent" Color="#FFFF6600"/>
     <SolidColorBrush x:Key="BrushAccentDark" Color="#FFE65C00"/>
+    <SolidColorBrush x:Key="BrushAccentSoft" Color="#1AFF6600"/>
+    <SolidColorBrush x:Key="BrushAccentHover" Color="#26FF6600"/>
     <SolidColorBrush x:Key="BrushBackground" Color="#FFF7F7F8"/>
     <SolidColorBrush x:Key="BrushSurface" Color="#FFFFFFFF"/>
     <SolidColorBrush x:Key="BrushBorder" Color="#FFE0E0E0"/>
@@ -11,4 +13,22 @@
     <SolidColorBrush x:Key="BrushNegative" Color="#FFC62828"/>
     <SolidColorBrush x:Key="BrushNavInactive" Color="#FF888888"/>
     <SolidColorBrush x:Key="BrushFooterBar" Color="#FFF0F0F2"/>
+    <SolidColorBrush x:Key="BrushHeaderBar" Color="#FFFAFAFB"/>
+    <SolidColorBrush x:Key="BrushInputFocus" Color="#FFFF6600"/>
+    <SolidColorBrush x:Key="BrushShadow" Color="#14000000"/>
+    <SolidColorBrush x:Key="BrushSuccess" Color="#FF2E7D32"/>
+    <SolidColorBrush x:Key="BrushSuccessBg" Color="#FFE8F5E9"/>
+    <SolidColorBrush x:Key="BrushSuccessBorder" Color="#FFA5D6A7"/>
+    <SolidColorBrush x:Key="BrushWarning" Color="#FF664D03"/>
+    <SolidColorBrush x:Key="BrushWarningBg" Color="#FFFFF3CD"/>
+    <SolidColorBrush x:Key="BrushWarningBorder" Color="#FFFFECB5"/>
+    <SolidColorBrush x:Key="BrushInfo" Color="#FF1565C0"/>
+    <SolidColorBrush x:Key="BrushInfoBg" Color="#FFE3F2FD"/>
+    <SolidColorBrush x:Key="BrushInfoBorder" Color="#FF90CAF9"/>
+    <SolidColorBrush x:Key="BrushErrorBg" Color="#FFFFEBEE"/>
+    <SolidColorBrush x:Key="BrushErrorBorder" Color="#FFEF9A9A"/>
+    <SolidColorBrush x:Key="BrushSecondary" Color="#FFF0F0F2"/>
+    <SolidColorBrush x:Key="BrushSecondaryHover" Color="#FFE4E4E8"/>
+    <SolidColorBrush x:Key="BrushRowAlt" Color="#FFF9F9FA"/>
+    <SolidColorBrush x:Key="BrushUserBadge" Color="#FFFFF5F0"/>
 </ResourceDictionary>

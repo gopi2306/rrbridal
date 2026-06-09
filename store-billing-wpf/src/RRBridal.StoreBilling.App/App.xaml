@@ -8,6 +8,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/ThemeColors.xaml"/>
+                <ResourceDictionary Source="Resources/Typography.xaml"/>
                 <ResourceDictionary Source="Resources/ControlStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <BitmapImage x:Key="AppLogoImage"
@@ -16,6 +17,7 @@
             <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
             <conv:InvertBoolConverter x:Key="InvertBool"/>
             <conv:EnumBoolConverter x:Key="EnumBoolConverter"/>
+            <conv:EqualityConverter x:Key="EqualityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

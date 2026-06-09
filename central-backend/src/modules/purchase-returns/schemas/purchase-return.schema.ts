@@ -4,6 +4,8 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type PurchaseReturnDocument = HydratedDocument<PurchaseReturn>;
 
+export type PurchaseReturnStatus = 'open' | 'posted' | 'closed';
+
 @Schema({ _id: false })
 export class PurchaseReturnSupplierSnapshot {
   @ApiProperty()
@@ -32,7 +34,7 @@ export class PurchaseReturnSupplierSnapshot {
 
   @ApiProperty({ required: false })
   @Prop()
-  cashDiscPercent?: number;
+  cashDiscount?: number;
 }
 
 @Schema({ _id: false })
@@ -50,11 +52,15 @@ export class PurchaseReturnLine {
 
   @ApiProperty({ required: false })
   @Prop()
+  barcode?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
   description?: string;
 
   @ApiProperty({ required: false })
   @Prop()
-  qty?: number;
+  recdQty?: number;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -63,6 +69,10 @@ export class PurchaseReturnLine {
   @ApiProperty({ required: false })
   @Prop()
   cost?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  selling?: number;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -83,6 +93,58 @@ export class PurchaseReturnLine {
   @ApiProperty({ required: false })
   @Prop()
   taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  surchargePercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  surchargeAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  amount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  netCost?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  rotPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  grossPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cashDiscPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cashDiscAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  netAmount?: number;
 }
 
 /** API response shape: each line includes populated `product` (not stored on the document). */
@@ -116,9 +178,17 @@ export class PurchaseReturn {
   @Prop({ type: PurchaseReturnSupplierSnapshot, required: true })
   supplier!: PurchaseReturnSupplierSnapshot;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Return document date (same role as poDate on purchase orders)' })
   @Prop()
   purchaseReturnDate?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  deliveryDate?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  expiryDate?: string;
 
   @ApiProperty({ required: false })
   @Prop()
@@ -130,11 +200,35 @@ export class PurchaseReturn {
 
   @ApiProperty({ required: false })
   @Prop()
-  cashDiscAmount?: number;
+  cashDiscPercent?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cashDiscount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  taxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  cgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  sgstAmount?: number;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  surchargeAmount?: number;
 
   @ApiProperty({ required: false })
   @Prop()
   netAmount?: number;
+
+  @ApiProperty()
+  @Prop({ required: true, default: 'open', index: true })
+  status!: PurchaseReturnStatus;
 
   @ApiProperty({ type: [PurchaseReturnLineResponse] })
   @Prop({ type: [PurchaseReturnLine], default: [] })
@@ -167,4 +261,3 @@ export class PurchaseReturnResponse extends OmitType(PurchaseReturn, ['supplier'
 }
 
 export const PurchaseReturnSchema = SchemaFactory.createForClass(PurchaseReturn);
-

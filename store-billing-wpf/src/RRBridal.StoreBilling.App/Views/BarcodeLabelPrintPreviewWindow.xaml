@@ -8,6 +8,7 @@
         MinWidth="520"
         MinHeight="480"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -19,13 +20,12 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Label preview — TVS LP 46 NEO" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+        <TextBlock Text="Label preview — TVS LP 46 NEO" Style="{StaticResource TextSectionTitle}" FontSize="18" Foreground="{StaticResource BrushAccent}"/>
         <TextBlock Grid.Row="1" Margin="0,6,0,8" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}"
                    Text="Each card is one print row on your roll: 2 cups side-by-side with the same label (76 mm row). Qty is total stickers — even qty uses full rows (e.g. 10 → 5 rows × 2). Odd qty prints one extra row with a single left cup only."/>
 
-        <Border x:Name="ResultBanner" Grid.Row="2" Margin="0,0,0,8" Padding="10,8" CornerRadius="6"
-                Background="#E8F4EA" BorderBrush="#81C784" BorderThickness="1" Visibility="Collapsed">
-            <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="#1B5E20"/>
+        <Border x:Name="ResultBanner" Grid.Row="2" Style="{StaticResource AlertBannerSuccess}" Margin="0,0,0,8" Visibility="Collapsed">
+            <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource BrushSuccess}"/>
         </Border>
 
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -37,7 +37,7 @@
             <TextBlock Text="Barcode printer" FontWeight="SemiBold" Margin="0,0,0,4"/>
             <TextBlock Text="TSPL is sent as RAW data to your TVS LP 46 NEO queue. Each qty prints that many separate labels." FontSize="11"
                        Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,6"/>
-            <ComboBox x:Name="PrinterCombo" MinHeight="32" VerticalContentAlignment="Center"
+            <ComboBox x:Name="PrinterCombo" Style="{StaticResource RoundedComboBox}" MinHeight="32"
                       SelectionChanged="PrinterCombo_OnSelectionChanged"/>
             <TextBlock x:Name="PrinterWarningText" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="11"
                        Foreground="#B45309" Visibility="Collapsed"/>

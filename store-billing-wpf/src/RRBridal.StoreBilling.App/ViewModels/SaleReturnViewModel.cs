@@ -680,9 +680,6 @@ public partial class SaleReturnViewModel : ObservableObject
             foreach (var line in exchangeLines.Where(l => !string.IsNullOrWhiteSpace(l.ProductCode)))
                 await _services.ProductCatalog.DecrementStockBySkuAsync(line.ProductCode, line.Qty);
 
-            if (exchangeLines.Count > 0)
-                ShowExchangeReceipt(selected, exchangeLines, total, replacementTotal, amountToCollect, creditBalance);
-
             string? createdCreditNoteNo = null;
             var creditNoteWarning = "";
             if (ReturnMode == ReturnMode.CreditNote && creditBalance > 0)
@@ -709,6 +706,26 @@ public partial class SaleReturnViewModel : ObservableObject
                         ? $"\n\n{BuildDuplicateCreditNoteMessage(OriginalBillNo.Trim(), duplicateCn)}"
                         : "\n\nCredit could not be made redeemable on billing: customer needs a valid 10-digit phone on the original bill.";
                 }
+            }
+
+            var grossAmount = selected.Sum(l => l.GrossReturnAmount);
+            if (exchangeLines.Count > 0)
+                ShowExchangeReceipt(selected, exchangeLines, total, replacementTotal, amountToCollect, creditBalance, createdCreditNoteNo);
+            else
+            {
+                await SaleReturnPrintFlow.ShowAsync(
+                    _services,
+                    selected,
+                    ReturnNo,
+                    OriginalBillNo.Trim(),
+                    ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash",
+                    grossAmount,
+                    total,
+                    cgst,
+                    sgst,
+                    igst,
+                    IsInterState,
+                    createdCreditNoteNo);
             }
 
             var modeText = ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash Refund";
@@ -767,7 +784,8 @@ public partial class SaleReturnViewModel : ObservableObject
         decimal returnTotal,
         decimal replacementTotal,
         decimal amountCollected,
-        decimal creditBalance)
+        decimal creditBalance,
+        string? creditNoteNo = null)
     {
         try
         {
@@ -779,9 +797,9 @@ public partial class SaleReturnViewModel : ObservableObject
                 return;
             }
 
-            var text = BuildExchangeReceiptText(returnLines, exchangeLines, returnTotal, replacementTotal, amountCollected, creditBalance);
+            var text = BuildExchangeReceiptText(returnLines, exchangeLines, returnTotal, replacementTotal, amountCollected, creditBalance, creditNoteNo);
             var doc = BillPrintService.CreateFlowDocument(text);
-            var dlg = new InvoicePrintPreviewWindow(_services, doc, text, printInvoiceEnabled: true)
+            var dlg = new InvoicePrintPreviewWindow(_services, doc, text, printInvoiceEnabled: true, forceThermalPrinter: true)
             {
                 Owner = Application.Current.MainWindow,
             };
@@ -796,7 +814,8 @@ public partial class SaleReturnViewModel : ObservableObject
         decimal returnTotal,
         decimal replacementTotal,
         decimal amountCollected,
-        decimal creditBalance)
+        decimal creditBalance,
+        string? creditNoteNo = null)
     {
         var store = _services.ReceiptConfig.Current.Store;
         var sb = new StringBuilder();
@@ -821,6 +840,8 @@ public partial class SaleReturnViewModel : ObservableObject
         sb.AppendLine($"New product value: {replacementTotal:0.00}");
         sb.AppendLine($"Amount collected : {amountCollected:0.00}");
         sb.AppendLine($"Credit balance   : {creditBalance:0.00}");
+        if (!string.IsNullOrWhiteSpace(creditNoteNo))
+            sb.AppendLine($"Credit note      : {creditNoteNo}");
         sb.AppendLine("------------------------------------------");
         AppendStoreFooter(sb, store);
         return sb.ToString();

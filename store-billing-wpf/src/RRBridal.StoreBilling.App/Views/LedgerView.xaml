@@ -16,14 +16,14 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Ledger" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Ledger" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
                 <StackPanel Margin="0,4,0,0">
                     <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                     <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
-                    <ComboBox ItemsSource="{Binding PosCounterFilterOptions}"
+                    <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
                               SelectedItem="{Binding SelectedPosCounterFilter}"
                               DisplayMemberPath="Label"
                               MinWidth="160"/>
@@ -39,7 +39,7 @@
 
         <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-        <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch">
+        <TabControl Grid.Row="2" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch">
             <TabItem Header="Posted bills">
                 <Border Style="{StaticResource CardBorder}" Margin="0,8,0,0" Padding="8" VerticalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding Bills}"

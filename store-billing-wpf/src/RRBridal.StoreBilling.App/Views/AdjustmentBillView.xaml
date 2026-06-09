@@ -16,7 +16,7 @@
             <StackPanel>
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
-                        <TextBlock FontWeight="SemiBold" FontSize="15" Text="Adjustment Bill" Margin="0,0,0,12"/>
+                        <TextBlock Style="{StaticResource TextSectionTitle}" Text="Adjustment Bill" Margin="0,0,0,12"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
@@ -35,7 +35,7 @@
                 <Border Style="{StaticResource CardBorder}" Margin="0"
                         Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
                     <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="15" Text="Adjustment Lines" Margin="0,0,0,10"/>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextSectionTitle}" Text="Adjustment Lines" Margin="0,0,0,10"/>
                         <DataGrid ItemsSource="{Binding AdjustmentLines}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"

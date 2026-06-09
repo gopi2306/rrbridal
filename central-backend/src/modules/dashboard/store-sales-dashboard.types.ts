@@ -13,8 +13,20 @@ export interface StoreSalesDashboardPeriod {
 }
 
 export interface StoreSalesDashboardSummary {
+  /** totalBillAmount + discountsTotal + creditAppliedOnBills */
   grossSales: number;
+  /** Sum of bill payable amounts in the period */
+  totalBillAmount: number;
+  /** totalBillAmount − creditAppliedOnBills */
   netSales: number;
+  /** Bill cash collected − cash refunds on returns */
+  cashInHand: number;
+  /** Sum of card payments on bills in the period */
+  cardTotalAmount: number;
+  /** Sum of UPI payments on bills in the period */
+  upiTotalAmount: number;
+  /** Cash refunded on returns (returnMode cash_refund) */
+  cashRefundForReturns: number;
   invoices: number;
   avgBasket: number;
   itemsSold: number;
@@ -25,6 +37,43 @@ export interface StoreSalesDashboardSummary {
   creditNotesIssuedAmount: number;
   creditAppliedOnBills: number;
   creditRemainingOutstanding: number;
+  /** Sum of cost price × qty sold (net of returns/exchanges) */
+  totalCostValue: number;
+  /** Sum of final line selling amounts after discounts (net of returns/exchanges) */
+  totalSellingValue: number;
+  /** totalSellingValue − totalCostValue */
+  salesMargin: number;
+  /** (salesMargin / totalCostValue) × 100 when cost > 0 */
+  marginPercentage: number;
+}
+
+export interface StoreSalesBillRow {
+  billNo: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  posCounter: string | null;
+  payable: number;
+  grossAmount: number;
+  itemDiscount: number;
+  cashDiscount: number;
+  creditApplied: number;
+  cashPaid: number;
+  cardPaid: number;
+  upiPaid: number;
+  creditNotePaid: number;
+  totalCostValue: number;
+  totalSellingValue: number;
+  salesMargin: number;
+  marginPercentage: number;
+  occurredAt: string;
+}
+
+export interface StoreSalesBillsPage {
+  data: StoreSalesBillRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface StoreSalesDetailRow {
@@ -107,6 +156,7 @@ export interface StoreSalesDashboardResponse {
   store: StoreSalesDashboardStore;
   period: StoreSalesDashboardPeriod;
   summary: StoreSalesDashboardSummary;
+  bills: StoreSalesBillsPage;
   salesDetails: StoreSalesDetailRow[];
   paymentMix: StoreSalesPaymentMixRow[];
   topProducts: StoreSalesTopProductRow[];
@@ -124,6 +174,8 @@ export interface StoreSalesDashboardOptions {
   topProductLimit: number;
   returnDetailLimit: number;
   creditNoteLimit: number;
+  billPage: number;
+  billLimit: number;
 }
 
 export interface ResolvedDateRange {

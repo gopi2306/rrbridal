@@ -64,4 +64,19 @@ export class StoreSalesDashboardQueryDto {
   @Max(100)
   @IsOptional()
   creditNoteLimit?: number;
+
+  @ApiProperty({ required: false, default: 1, minimum: 1, description: 'Bills list page (period invoices)' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  billPage?: number;
+
+  @ApiProperty({ required: false, default: 20, minimum: 1, maximum: 100, description: 'Bills per page' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  billLimit?: number;
 }

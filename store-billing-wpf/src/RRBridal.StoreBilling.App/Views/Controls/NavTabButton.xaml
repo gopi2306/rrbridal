@@ -1,0 +1,46 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.Controls.NavTabButton"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="40" d:DesignWidth="100">
+    <Button Style="{StaticResource NavLinkButton}"
+            Command="{Binding NavigateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            CommandParameter="{Binding Page, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            ToolTip="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=ToolTip}">
+        <StackPanel>
+            <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       HorizontalAlignment="Center"
+                       FontFamily="{StaticResource FontFamilyPrimary}"
+                       FontSize="13">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
+                        <Setter Property="Opacity" Value="0.55"/>
+                        <Setter Property="FontWeight" Value="Normal"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                <Setter Property="Opacity" Value="1"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+        </StackPanel>
+    </Button>
+</UserControl>

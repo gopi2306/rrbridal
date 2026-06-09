@@ -7,8 +7,10 @@
         MinHeight="380"
         MinWidth="540"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
-    <Grid Margin="16">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -16,7 +18,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Search by name, phone, or email (local + central)" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+        <TextBlock Text="Search by name, phone, or email (local + central)" Style="{StaticResource TextSectionTitle}"/>
 
         <Grid Grid.Row="1" Margin="0,10,0,10">
             <Grid.ColumnDefinitions>
@@ -61,4 +63,5 @@
             </StackPanel>
         </Grid>
     </Grid>
+    </Border>
 </Window>

@@ -16,7 +16,7 @@
             <StackPanel>
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
-                        <TextBlock FontWeight="SemiBold" FontSize="15" Text="Sale Return" Margin="0,0,0,12"/>
+                        <TextBlock Style="{StaticResource TextSectionTitle}" Text="Sale Return" Margin="0,0,0,12"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>

@@ -19,20 +19,33 @@ import { CreatePurchaseReturnLineDto } from './dto/create-purchase-return.dto';
 import { CreatePurchaseReturnDto } from './dto/create-purchase-return.dto';
 import { FilterPurchaseReturnDto } from './dto/filter-purchase-return.dto';
 import { UpdatePurchaseReturnDto } from './dto/update-purchase-return.dto';
-import { PurchaseReturn, PurchaseReturnDocument } from './schemas/purchase-return.schema';
+import {
+  PurchaseReturn,
+  PurchaseReturnDocument,
+  PurchaseReturnLine,
+  PurchaseReturnStatus,
+} from './schemas/purchase-return.schema';
 
 const PR_SORT_FIELDS = new Set([
   'updatedAt',
   'createdAt',
   'purchaseReturnNo',
   'purchaseReturnDate',
+  'deliveryDate',
+  'expiryDate',
   'netAmount',
   'branchId',
   'mainDivisionId',
   'mainLocationId',
   'pucOutSlipNo',
   'itemDiscAmount',
-  'cashDiscAmount',
+  'cashDiscPercent',
+  'cashDiscount',
+  'taxAmount',
+  'cgstAmount',
+  'sgstAmount',
+  'surchargeAmount',
+  'status',
 ]);
 
 @Injectable()
@@ -147,43 +160,61 @@ export class PurchaseReturnsService {
     ];
   }
 
-  private async normalizeLines(lines: CreatePurchaseReturnLineDto[]) {
-    const normalized: Array<Record<string, unknown>> = [];
+  private async normalizeLine(line: CreatePurchaseReturnLineDto): Promise<PurchaseReturnLine> {
+    const sku = line.sku.trim();
+    if (!sku) throw new BadRequestException('Each line requires a non-empty sku');
+
+    let productId = line.productId?.trim();
+    if (productId && !isValidObjectIdString(productId)) {
+      throw new BadRequestException(`Invalid productId '${productId}'`);
+    }
+
+    if (!productId) {
+      const bySku = await this.productModel.findOne({ sku }).select('_id sku').lean();
+      if (bySku?._id) productId = String(bySku._id);
+    } else {
+      const exists = await this.productModel.findById(toObjectId(productId)).select('_id sku').lean();
+      if (!exists) throw new NotFoundException(`Product not found for id '${productId}'`);
+      if (exists.sku !== sku) {
+        throw new BadRequestException(
+          `productId '${productId}' does not match line sku '${sku}' (product sku is '${exists.sku}')`,
+        );
+      }
+    }
+
+    const normalized: PurchaseReturnLine = { sku };
+    if (productId) normalized.productId = toObjectId(productId);
+    if (line.barcode !== undefined) normalized.barcode = line.barcode;
+    if (line.description !== undefined) normalized.description = line.description;
+    if (line.recdQty !== undefined) normalized.recdQty = line.recdQty;
+    if (line.freeQty !== undefined) normalized.freeQty = line.freeQty;
+    if (line.cost !== undefined) normalized.cost = line.cost;
+    if (line.selling !== undefined) normalized.selling = line.selling;
+    if (line.mrp !== undefined) normalized.mrp = line.mrp;
+    if (line.discountPercent !== undefined) normalized.discountPercent = line.discountPercent;
+    if (line.discountAmount !== undefined) normalized.discountAmount = line.discountAmount;
+    if (line.taxPercent !== undefined) normalized.taxPercent = line.taxPercent;
+    if (line.taxAmount !== undefined) normalized.taxAmount = line.taxAmount;
+    if (line.cgstPercent !== undefined) normalized.cgstPercent = line.cgstPercent;
+    if (line.cgstAmount !== undefined) normalized.cgstAmount = line.cgstAmount;
+    if (line.sgstPercent !== undefined) normalized.sgstPercent = line.sgstPercent;
+    if (line.sgstAmount !== undefined) normalized.sgstAmount = line.sgstAmount;
+    if (line.surchargePercent !== undefined) normalized.surchargePercent = line.surchargePercent;
+    if (line.surchargeAmount !== undefined) normalized.surchargeAmount = line.surchargeAmount;
+    if (line.amount !== undefined) normalized.amount = line.amount;
+    if (line.netCost !== undefined) normalized.netCost = line.netCost;
+    if (line.rotPercent !== undefined) normalized.rotPercent = line.rotPercent;
+    if (line.grossPercent !== undefined) normalized.grossPercent = line.grossPercent;
+    if (line.cashDiscPercent !== undefined) normalized.cashDiscPercent = line.cashDiscPercent;
+    if (line.cashDiscAmount !== undefined) normalized.cashDiscAmount = line.cashDiscAmount;
+    if (line.netAmount !== undefined) normalized.netAmount = line.netAmount;
+    return normalized;
+  }
+
+  private async normalizeLines(lines: CreatePurchaseReturnLineDto[]): Promise<PurchaseReturnLine[]> {
+    const normalized: PurchaseReturnLine[] = [];
     for (const line of lines) {
-      const sku = line.sku.trim();
-      if (!sku) throw new BadRequestException('Each line requires a non-empty sku');
-
-      let productId = line.productId?.trim();
-      if (productId && !isValidObjectIdString(productId)) {
-        throw new BadRequestException(`Invalid productId '${productId}'`);
-      }
-
-      if (!productId) {
-        const bySku = await this.productModel.findOne({ sku }).select('_id sku').lean();
-        if (bySku?._id) productId = String(bySku._id);
-      } else {
-        const exists = await this.productModel.findById(toObjectId(productId)).select('_id sku').lean();
-        if (!exists) throw new NotFoundException(`Product not found for id '${productId}'`);
-        if (exists.sku !== sku) {
-          throw new BadRequestException(
-            `productId '${productId}' does not match line sku '${sku}' (product sku is '${exists.sku}')`,
-          );
-        }
-      }
-
-      normalized.push({
-        ...(productId ? { productId: toObjectId(productId) } : {}),
-        sku,
-        description: line.description,
-        qty: line.qty,
-        freeQty: line.freeQty,
-        cost: line.cost,
-        mrp: line.mrp,
-        discountPercent: line.discountPercent,
-        discountAmount: line.discountAmount,
-        taxPercent: line.taxPercent,
-        taxAmount: line.taxAmount,
-      });
+      normalized.push(await this.normalizeLine(line));
     }
     return normalized;
   }
@@ -337,10 +368,18 @@ export class PurchaseReturnsService {
       mainLocationId: dto.mainLocationId,
       supplier: dto.supplier,
       purchaseReturnDate: dto.purchaseReturnDate,
+      deliveryDate: dto.deliveryDate,
+      expiryDate: dto.expiryDate,
       pucOutSlipNo: dto.pucOutSlipNo,
       itemDiscAmount: dto.itemDiscAmount,
-      cashDiscAmount: dto.cashDiscAmount,
+      cashDiscPercent: dto.cashDiscPercent,
+      cashDiscount: dto.cashDiscount,
+      taxAmount: dto.taxAmount,
+      cgstAmount: dto.cgstAmount,
+      sgstAmount: dto.sgstAmount,
+      surchargeAmount: dto.surchargeAmount,
       netAmount: dto.netAmount,
+      status: (dto.status as PurchaseReturnStatus) ?? 'open',
       lines,
     });
     return await this.oneEnrichedById(String(created._id));
@@ -359,7 +398,25 @@ export class PurchaseReturnsService {
       }).lean();
       if (clash) throw new ConflictException(`Purchase return number '${dto.purchaseReturnNo.trim()}' already exists`);
     }
-    const set: Record<string, unknown> = { ...dto };
+    const set: Record<string, unknown> = {};
+    if (dto.purchaseReturnNo !== undefined) set.purchaseReturnNo = dto.purchaseReturnNo;
+    if (dto.branchId !== undefined) set.branchId = dto.branchId;
+    if (dto.mainDivisionId !== undefined) set.mainDivisionId = dto.mainDivisionId;
+    if (dto.mainLocationId !== undefined) set.mainLocationId = dto.mainLocationId;
+    if (dto.supplier !== undefined) set.supplier = dto.supplier;
+    if (dto.purchaseReturnDate !== undefined) set.purchaseReturnDate = dto.purchaseReturnDate;
+    if (dto.deliveryDate !== undefined) set.deliveryDate = dto.deliveryDate;
+    if (dto.expiryDate !== undefined) set.expiryDate = dto.expiryDate;
+    if (dto.pucOutSlipNo !== undefined) set.pucOutSlipNo = dto.pucOutSlipNo;
+    if (dto.itemDiscAmount !== undefined) set.itemDiscAmount = dto.itemDiscAmount;
+    if (dto.cashDiscPercent !== undefined) set.cashDiscPercent = dto.cashDiscPercent;
+    if (dto.cashDiscount !== undefined) set.cashDiscount = dto.cashDiscount;
+    if (dto.taxAmount !== undefined) set.taxAmount = dto.taxAmount;
+    if (dto.cgstAmount !== undefined) set.cgstAmount = dto.cgstAmount;
+    if (dto.sgstAmount !== undefined) set.sgstAmount = dto.sgstAmount;
+    if (dto.surchargeAmount !== undefined) set.surchargeAmount = dto.surchargeAmount;
+    if (dto.netAmount !== undefined) set.netAmount = dto.netAmount;
+    if (dto.status !== undefined) set.status = dto.status;
     if (dto.lines !== undefined) {
       set.lines = dto.lines.length ? await this.normalizeLines(dto.lines) : [];
     }

@@ -5,6 +5,7 @@
         Width="640"
         Height="420"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Grid Margin="16">
         <Grid.RowDefinitions>

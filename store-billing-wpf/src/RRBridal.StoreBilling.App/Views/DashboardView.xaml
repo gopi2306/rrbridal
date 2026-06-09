@@ -16,14 +16,14 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Dashboard" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Dashboard" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
                 <StackPanel Margin="0,4,0,0">
                     <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                     <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
-                    <ComboBox ItemsSource="{Binding PosCounterFilterOptions}"
+                    <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
                               SelectedItem="{Binding SelectedPosCounterFilter}"
                               DisplayMemberPath="Label"
                               MinWidth="160"/>
@@ -35,7 +35,7 @@
 
         <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-        <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch">
+        <TabControl Grid.Row="2" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch">
             <TabItem Header="Overview">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="0,8,0,16">
@@ -43,9 +43,9 @@
 
                         <TextBlock Text="Today &amp; week (local posted bills)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
                         <UniformGrid Columns="2" Margin="0,0,0,8">
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8" BorderBrush="{StaticResource BrushAccent}">
                                 <StackPanel>
-                                    <TextBlock Text="Today" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                    <TextBlock Text="Today" Style="{StaticResource TextCaption}"/>
                                     <TextBlock Text="{Binding BillsTodaySummary}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
@@ -160,7 +160,7 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Business date:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
-                        <DatePicker SelectedDate="{Binding SelectedCloseDate}" Width="140" Margin="0,0,16,0"/>
+                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SelectedCloseDate}" Width="140" Margin="0,0,16,0"/>
                         <Button Content="Refresh day close" Style="{StaticResource PrimaryButton}" Width="140"
                                 Command="{Binding LoadDayCloseCommand}"/>
                     </StackPanel>
@@ -389,7 +389,7 @@
                                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
                                             Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                                     <TextBlock Text="Business date" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
-                                    <DatePicker SelectedDate="{Binding FilterBusinessDate}"/>
+                                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterBusinessDate}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,4,0">
                                     <CheckBox Content="Use date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,18,0,4"/>
@@ -398,8 +398,8 @@
                                             Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="From / To" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
                                     <StackPanel Orientation="Horizontal">
-                                        <DatePicker SelectedDate="{Binding FilterDateFrom}" Width="130" Margin="0,0,8,0"/>
-                                        <DatePicker SelectedDate="{Binding FilterDateTo}" Width="130"/>
+                                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateFrom}" Width="130" Margin="0,0,8,0"/>
+                                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateTo}" Width="130"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>

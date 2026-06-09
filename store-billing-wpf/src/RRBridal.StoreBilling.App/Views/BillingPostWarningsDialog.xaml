@@ -5,8 +5,10 @@
         Width="620"
         Height="400"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
-    <Grid Margin="16">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -29,4 +31,5 @@
             <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="80" IsCancel="True"/>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>

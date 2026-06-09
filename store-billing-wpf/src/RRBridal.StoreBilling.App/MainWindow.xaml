@@ -13,6 +13,7 @@
         MinWidth="1100"
         Height="720"
         Width="1280"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Window.InputBindings>
         <KeyBinding Key="F1" Command="{Binding ShowHelpCommand}"/>
@@ -33,7 +34,12 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="16,10">
+        <Border Grid.Row="0"
+                Background="{StaticResource BrushHeaderBar}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10"
+                Effect="{StaticResource CardShadowEffect}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -48,308 +54,47 @@
                     </Grid.ColumnDefinitions>
                     <controls:AppLogoMark Grid.Column="0" LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding CompanyTitle}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
-                        <TextBlock Text="{Binding StoreDisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,2,0,0"/>
-                        <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Billing}" Margin="0,0,16,0">
-                        <StackPanel>
-                            <TextBlock Text="Billing" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Billing}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Billing}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Barcodes}" Margin="0,0,16,0">
-                        <StackPanel>
-                            <TextBlock Text="Barcodes" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Barcodes}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Barcodes}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}" Margin="0,0,16,0"
-                            Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <TextBlock Text="Dashboard" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Dashboard}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Dashboard}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Analytics}" Margin="0,0,16,0"
-                            Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <TextBlock Text="Analytics" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Analytics}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Analytics}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Customers}" Margin="0,0,16,0">
-                        <StackPanel>
-                            <TextBlock Text="Customers" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Customers}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Customers}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}" Margin="0,0,16,0"
-                            Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <TextBlock Text="Ledger" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Ledger}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Ledger}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.SaleReturn}" Margin="0,0,16,0">
-                        <StackPanel>
-                            <TextBlock Text="Returns" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.SaleReturn}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.SaleReturn}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DuplicateBill}" Margin="0,0,16,0">
-                        <StackPanel>
-                            <TextBlock Text="Duplicate" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.DuplicateBill}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.DuplicateBill}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Adjustments}">
-                        <StackPanel>
-                            <TextBlock Text="Adjustments" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushNavInactive}"/>
-                                        <Setter Property="Opacity" Value="0.55"/>
-                                        <Setter Property="FontWeight" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Adjustments}">
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Opacity" Value="1"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Border Height="3" CornerRadius="1" Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentPage}" Value="{x:Static vm:ShellPage.Adjustments}">
-                                                <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-                    </Button>
+                    <controls:NavTabButton Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
+                    <controls:NavTabButton Label="Barcodes" Page="{x:Static vm:ShellPage.Barcodes}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
+                    <controls:NavTabButton Label="Dashboard" Page="{x:Static vm:ShellPage.Dashboard}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Dashboard}}"/>
+                    <controls:NavTabButton Label="Analytics" Page="{x:Static vm:ShellPage.Analytics}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                    <controls:NavTabButton Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
+                    <controls:NavTabButton Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Ledger}}"/>
+                    <controls:NavTabButton Label="Returns" Page="{x:Static vm:ShellPage.SaleReturn}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                    <controls:NavTabButton Label="Duplicate" Page="{x:Static vm:ShellPage.DuplicateBill}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
+                    <controls:NavTabButton Label="Adjustments" Page="{x:Static vm:ShellPage.Adjustments}"
+                                           NavigateCommand="{Binding NavigateCommand}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
                     <Button Style="{StaticResource NavLinkButton}" Command="{Binding LogoutCommand}" Margin="16,0,0,0"
                             ToolTip="Sign out and return to login">
-                        <TextBlock Text="Logout" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource BrushNavInactive}" Opacity="0.75" FontSize="13"/>
+                        <TextBlock Text="Logout" Style="{StaticResource TextBody}"
+                                   Foreground="{StaticResource BrushNavInactive}" Opacity="0.75"/>
                     </Button>
                 </StackPanel>
 
@@ -359,25 +104,48 @@
                              Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Product code (SKU or barcode) adds directly; name opens pick list — Enter on Billing"/>
 
-                    <Border Background="{StaticResource BrushBackground}" CornerRadius="6" Padding="8,4" Margin="0,0,8,0"
-                            VerticalAlignment="Center" ToolTip="Logged in user">
-                        <TextBlock Text="{Binding LoggedInUserName}" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                    <Border Style="{StaticResource UserBadge}" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Logged in user">
+                        <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
                     </Border>
 
-                    <Button Content="&#x1F514;" FontSize="16" Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
                             Command="{Binding OpenNotificationsCommand}"
                             ToolTip="{Binding NotificationBellToolTip}"
-                            Opacity="{Binding NotificationBellOpacity}"/>
-                    <Button Content="&#x2699;" FontSize="18" Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
-                            Command="{Binding OpenSettingsCommand}"
-                            Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"/>
+                            Opacity="{Binding NotificationBellOpacity}">
+                        <Viewbox Width="18" Height="18" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2z M18,16v-5c0,-3.07 -1.63,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.64,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"
+                                      Fill="{StaticResource BrushNavInactive}"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="{x:Static vm:ShellPage.Settings}"
+                            Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}">
+                        <Viewbox Width="18" Height="18" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M19.14,12.94c0.04,-0.31 0.06,-0.63 0.06,-0.94c0,-0.31 -0.02,-0.63 -0.06,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.37 4.8,11.69 4.8,12s0.02,0.63 0.06,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94z M12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z">
+                                    <Path.Style>
+                                        <Style TargetType="Path">
+                                            <Setter Property="Fill" Value="{StaticResource BrushNavInactive}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSettingsPage}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Path.Style>
+                                </Path>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
         <Grid Grid.Row="1" Margin="16,12,16,8">
-            <!-- Visibility on a wrapper Grid so page DataContext does not break shell bindings. -->
             <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
                 <views:BillingView DataContext="{Binding Billing}"/>
             </Grid>
@@ -405,16 +173,23 @@
             <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
                 <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
             </Grid>
+            <Grid Visibility="{Binding IsSettingsPage, Converter={StaticResource BoolToVis}}">
+                <views:SettingsView DataContext="{Binding Settings}"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="Billing" Style="{StaticResource TextCaption}" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="SemiBold"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F1 Help" Command="{Binding ShowHelpCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F2 New" Command="{Binding ClearForNewBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F3 Search" Command="{Binding FocusGlobalSearchCommand}"/>
-                <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="8,0" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F8 Hold" Command="{Binding HoldBillCommand}"/>
+                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="8,0"/>
+                <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="4,0" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F10 Print" Command="{Binding PrintStubCommand}"/>
+                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="8,0"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}"/>
             </StackPanel>

@@ -6,13 +6,6 @@
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
-    <UserControl.Resources>
-        <Style x:Key="CompactProfileTextBox" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
-            <Setter Property="Padding" Value="8,3"/>
-            <Setter Property="MinHeight" Value="28"/>
-            <Setter Property="FontSize" Value="13"/>
-        </Style>
-    </UserControl.Resources>
     <Grid Background="{StaticResource BrushBackground}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*"/>
@@ -30,7 +23,7 @@
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,8">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock FontWeight="SemiBold" FontSize="15" Text="Customer profiles" VerticalAlignment="Center"/>
+                                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Customer profiles" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
                                         Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
                                 <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
@@ -47,7 +40,7 @@
                                     Margin="0,0,0,6"
                                     Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
-                            <DatePicker SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28" FontSize="13"/>
+                            <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28"/>
                         </StackPanel>
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
@@ -63,10 +56,10 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactProfileTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
-                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource CompactProfileTextBox}" Text="{Binding Salesman}"
+                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding Salesman}"
                                      IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
@@ -99,7 +92,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource CompactProfileTextBox}"
+                                <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                          MaxLength="10"
                                          KeyDown="CustomerPhoneBox_OnKeyDown"
@@ -108,7 +101,7 @@
 
                             <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" VerticalAlignment="Center" FontSize="13"/>
                             <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="4"
-                                     Style="{StaticResource CompactProfileTextBox}"
+                                     Style="{StaticResource RoundedTextBoxCompact}"
                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="CustomerNameBox_OnKeyDown"/>
                         </Grid>
@@ -124,7 +117,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="Line items" VerticalAlignment="Center"/>
+                            <TextBlock Style="{StaticResource TextSectionTitle}" Text="Line items" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Import CSV" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding ImportCsvCommand}"/>
                                 <Button Content="Add manual" Style="{StaticResource PrimaryButton}" Command="{Binding AddManualLineCommand}"/>

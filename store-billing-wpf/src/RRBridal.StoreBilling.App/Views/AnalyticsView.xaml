@@ -16,7 +16,7 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Analytics" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Analytics" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="Store: " Foreground="{StaticResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StoreIdDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>

@@ -62,6 +62,8 @@ export class DashboardController {
       topProductLimit: query.topProductLimit ?? 5,
       returnDetailLimit: query.returnDetailLimit ?? 20,
       creditNoteLimit: query.creditNoteLimit ?? 20,
+      billPage: query.billPage ?? 1,
+      billLimit: query.billLimit ?? 20,
     };
     if (query.storeId !== undefined && query.storeId !== '') {
       options.storeId = query.storeId;

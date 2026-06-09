@@ -153,19 +153,18 @@ export function resolveDateRange(params: {
   };
 }
 
+/** Bill total after discounts + discounts given + credit note applied at checkout. */
+export function parseInvoiceGrossSale(payload: Record<string, unknown>): number {
+  return (
+    parseInvoiceNet(payload) +
+    parseInvoiceDiscounts(payload) +
+    parseInvoiceCreditApplied(payload)
+  );
+}
+
+/** @deprecated Prefer parseInvoiceGrossSale — kept for callers expecting pre-discount reconstruction. */
 export function parseInvoiceGross(payload: Record<string, unknown>): number {
-  const payableBeforeCredit = readNumber(payload.payableBeforeCredit);
-  if (payableBeforeCredit > 0) return payableBeforeCredit;
-
-  const payable = readNumber(payload.payable);
-  const creditApplied = readNumber(payload.creditApplied);
-  if (payable > 0 || creditApplied > 0) return payable + creditApplied;
-
-  const subTotal = readNumber(payload.subTotal);
-  const taxTotal = readNumber(payload.taxTotal);
-  if (subTotal > 0) return subTotal + taxTotal;
-
-  return payable;
+  return parseInvoiceGrossSale(payload);
 }
 
 export function parseInvoiceNet(payload: Record<string, unknown>): number {
@@ -190,13 +189,93 @@ export function sumLineQty(lines: unknown): number {
   return sum;
 }
 
+export type PaymentModeBucket = 'Cash' | 'Card' | 'UPI' | 'Credit' | 'Other';
+
+/** Maps WPF provider names (Cash, PineLabs, Razorpay, CreditNote) and paymentMode labels. */
+export function classifyPaymentProvider(provider: string): PaymentModeBucket {
+  const p = provider.trim().toLowerCase().replace(/\s+/g, '');
+  if (!p) return 'Other';
+  if (p === 'cash') return 'Cash';
+  if (p === 'pinelabs' || p.includes('pine') || p === 'card') return 'Card';
+  if (p === 'razorpay' || p.includes('razor') || p === 'upi') return 'UPI';
+  if (p === 'creditnote' || p.includes('credit')) return 'Credit';
+  return 'Other';
+}
+
 export function normalizePaymentMode(provider: string): string {
-  const p = provider.trim().toLowerCase();
-  if (p.includes('upi')) return 'UPI';
-  if (p.includes('card')) return 'Card';
-  if (p.includes('cash')) return 'Cash';
-  if (p.includes('credit')) return 'Credit';
-  return provider.trim() || 'Other';
+  return classifyPaymentProvider(provider);
+}
+
+export type PaymentTotals = {
+  cash: number;
+  card: number;
+  upi: number;
+  creditNote: number;
+};
+
+function addPaymentToTotals(totals: PaymentTotals, mode: PaymentModeBucket, amount: number) {
+  switch (mode) {
+    case 'Cash':
+      totals.cash += amount;
+      break;
+    case 'Card':
+      totals.card += amount;
+      break;
+    case 'UPI':
+      totals.upi += amount;
+      break;
+    case 'Credit':
+      totals.creditNote += amount;
+      break;
+    default:
+      break;
+  }
+}
+
+export function parsePaymentTotals(payload: Record<string, unknown>): PaymentTotals {
+  const totals: PaymentTotals = { cash: 0, card: 0, upi: 0, creditNote: 0 };
+  const parsed = parseInvoicePayments(payload);
+  for (const pay of parsed) {
+    addPaymentToTotals(totals, pay.mode as PaymentModeBucket, pay.amount);
+  }
+
+  // Legacy / sparse payloads: paymentMode + payable without payments[] legs
+  if (parsed.length === 0) {
+    const payable = readNumber(payload.payable);
+    const mode = classifyPaymentProvider(readString(payload.paymentMode) ?? '');
+    if (payable > 0 && mode !== 'Other') {
+      addPaymentToTotals(totals, mode, payable);
+    }
+  }
+
+  return totals;
+}
+
+function isCashRefundReturnMode(returnMode: string | undefined): boolean {
+  const m = (returnMode ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return m === 'cash_refund' || m === 'cashrefund';
+}
+
+/** Cash refunded to customer when returnMode is cash_refund. */
+export function parseReturnCashRefund(payload: Record<string, unknown>): number {
+  if (!isCashRefundReturnMode(readString(payload.returnMode))) return 0;
+
+  const creditBalance = readNumber(payload.creditBalance);
+  if (creditBalance > 0) return creditBalance;
+
+  const returnTotal = readNumber(payload.returnTotal);
+  if (returnTotal > 0) return returnTotal;
+
+  return 0;
+}
+
+/** Exchange / top-up payments collected on a return document. */
+export function parseReturnExchangePayments(payload: Record<string, unknown>): PaymentTotals {
+  const amountCollected = readNumber(payload.amountCollected);
+  if (amountCollected <= 0) {
+    return { cash: 0, card: 0, upi: 0, creditNote: 0 };
+  }
+  return parsePaymentTotals(payload);
 }
 
 export function parseInvoicePayments(
@@ -210,8 +289,8 @@ export function parseInvoicePayments(
     const row = p as Record<string, unknown>;
     const amount = readNumber(row.amount);
     if (amount <= 0) continue;
-    const provider = readString(row.provider) ?? 'Other';
-    result.push({ mode: normalizePaymentMode(provider), amount });
+    const provider = readString(row.provider) ?? readString(row.Provider) ?? 'Other';
+    result.push({ mode: classifyPaymentProvider(provider), amount });
   }
   return result;
 }
@@ -245,4 +324,102 @@ export function parseReturnLineCount(payload: Record<string, unknown>): number {
   const returnLines = payload.returnLines ?? payload.lines;
   if (!Array.isArray(returnLines)) return 0;
   return returnLines.length;
+}
+
+export type LineMarginRow = {
+  sku: string;
+  qty: number;
+  sellingValue: number;
+  costPerUnit: number;
+};
+
+function readLineSellingValue(row: Record<string, unknown>): number {
+  const revisedInclusive = readNumber(row.revisedInclusiveAmount);
+  if (revisedInclusive > 0) return revisedInclusive;
+
+  const revisedTaxable = readNumber(row.revisedAmount);
+  const revisedTax = readNumber(row.revisedTaxAmount);
+  if (revisedTaxable > 0 || revisedTax > 0) return revisedTaxable + revisedTax;
+
+  const lineTotal = readNumber(row.lineTotal);
+  if (lineTotal > 0) return lineTotal;
+
+  return readNumber(row.amount);
+}
+
+function readLineSku(row: Record<string, unknown>): string {
+  return readString(row.sku) ?? readString(row.productCode) ?? 'UNKNOWN';
+}
+
+function parseMarginRowsFromArray(
+  lines: unknown,
+  options?: { returnLine?: boolean },
+): LineMarginRow[] {
+  if (!Array.isArray(lines)) return [];
+  const result: LineMarginRow[] = [];
+  for (const line of lines) {
+    if (!line || typeof line !== 'object') continue;
+    const row = line as Record<string, unknown>;
+    const qty = options?.returnLine
+      ? readNumber(row.returnQty) || readNumber(row.qty)
+      : readNumber(row.qty);
+    if (qty <= 0) continue;
+    const sellingValue = readLineSellingValue(row);
+    if (sellingValue <= 0) continue;
+    result.push({
+      sku: readLineSku(row),
+      qty,
+      sellingValue,
+      costPerUnit: readNumber(row.costPrice),
+    });
+  }
+  return result;
+}
+
+export function parseInvoiceMarginLines(payload: Record<string, unknown>): LineMarginRow[] {
+  return parseMarginRowsFromArray(payload.lines);
+}
+
+export function parseReturnMarginLines(payload: Record<string, unknown>): LineMarginRow[] {
+  const returnLines = payload.returnLines ?? payload.lines;
+  return parseMarginRowsFromArray(returnLines, { returnLine: true });
+}
+
+export function parseExchangeMarginLines(payload: Record<string, unknown>): LineMarginRow[] {
+  return parseMarginRowsFromArray(payload.exchangeLines);
+}
+
+export function computeMarginPercentage(salesMargin: number, totalCostValue: number): number {
+  if (!Number.isFinite(salesMargin) || !Number.isFinite(totalCostValue) || totalCostValue <= 0) {
+    return 0;
+  }
+  return roundMoney((salesMargin / totalCostValue) * 100);
+}
+
+export type MarginTotals = {
+  totalCostValue: number;
+  totalSellingValue: number;
+  salesMargin: number;
+  marginPercentage: number;
+};
+
+export function aggregateMarginLines(
+  lines: readonly LineMarginRow[],
+  costBySku: ReadonlyMap<string, number>,
+  sign: 1 | -1 = 1,
+): MarginTotals {
+  let totalCostValue = 0;
+  let totalSellingValue = 0;
+  for (const row of lines) {
+    const costUnit = row.costPerUnit > 0 ? row.costPerUnit : (costBySku.get(row.sku) ?? 0);
+    totalCostValue += sign * costUnit * row.qty;
+    totalSellingValue += sign * row.sellingValue;
+  }
+  const salesMargin = totalSellingValue - totalCostValue;
+  return {
+    totalCostValue: roundMoney(totalCostValue),
+    totalSellingValue: roundMoney(totalSellingValue),
+    salesMargin: roundMoney(salesMargin),
+    marginPercentage: computeMarginPercentage(salesMargin, totalCostValue),
+  };
 }

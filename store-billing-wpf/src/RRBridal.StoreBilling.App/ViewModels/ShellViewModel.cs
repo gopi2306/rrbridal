@@ -30,6 +30,10 @@ public partial class ShellViewModel : ObservableObject
 
     public BarcodePrintingViewModel BarcodePrinting { get; }
 
+    public SettingsViewModel Settings { get; }
+
+    private ShellPage _lastPage = ShellPage.Billing;
+
     [ObservableProperty] private ShellPage _currentPage = ShellPage.Billing;
 
     public string LoggedInUserName => _services.UserSession?.LoggedInUser.Name ?? "Unknown";
@@ -102,6 +106,7 @@ public partial class ShellViewModel : ObservableObject
         AdjustmentBill = new AdjustmentBillViewModel(services);
         DuplicateBill = new DuplicateBillViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
+        Settings = new SettingsViewModel(services);
 
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
@@ -113,7 +118,7 @@ public partial class ShellViewModel : ObservableObject
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
-        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger;
+        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger or ShellPage.Settings;
 
     private void OnBrandingChanged()
     {
@@ -148,6 +153,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
+        OnPropertyChanged(nameof(IsSettingsPage));
     }
 
     private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
@@ -182,8 +188,13 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsBarcodesPage => CurrentPage == ShellPage.Barcodes;
 
+    public bool IsSettingsPage => CurrentPage == ShellPage.Settings;
+
     partial void OnCurrentPageChanged(ShellPage value)
     {
+        if (_lastPage == ShellPage.Settings && value != ShellPage.Settings)
+            _ = RefreshBrandingAsync();
+
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
@@ -193,6 +204,10 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
+        OnPropertyChanged(nameof(IsSettingsPage));
+
+        if (value == ShellPage.Settings)
+            _ = Settings.LoadReceiptSettingsAsync(tryPullIfLoggedIn: true);
 
         if (value == ShellPage.Dashboard)
             _ = Dashboard.RefreshCommand.ExecuteAsync(null);
@@ -208,6 +223,7 @@ public partial class ShellViewModel : ObservableObject
             RequestBarcodeSkuFocus();
 
         PostBillCommand.NotifyCanExecuteChanged();
+        _lastPage = value;
     }
 
     public void RequestBillingSearchFocus() =>
@@ -249,9 +265,9 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings()
     {
-        var dlg = new SettingsDialog(_services) { Owner = Application.Current.MainWindow };
-        dlg.ShowDialog();
-        _ = RefreshBrandingAsync();
+        if (!IsPrimaryCounter)
+            return;
+        CurrentPage = ShellPage.Settings;
     }
 
     [RelayCommand]

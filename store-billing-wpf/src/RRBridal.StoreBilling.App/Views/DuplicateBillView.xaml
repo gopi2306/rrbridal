@@ -15,7 +15,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Duplicate bill print" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="Duplicate bill print" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
             <TextBlock Text="Reprint a posted invoice with DUPLICATE watermark. Does not change stock or totals."
                        Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
         </StackPanel>
@@ -41,11 +41,11 @@
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
                     <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
                     <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
                 </StackPanel>
                 <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Search" Style="{StaticResource PrimaryButton}"
                         VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>

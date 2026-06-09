@@ -6,6 +6,7 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Border Padding="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Margin="0" Background="{StaticResource BrushSurface}">
         <Grid MinWidth="480" MaxWidth="520">
@@ -26,7 +27,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20" Background="#FF2E7D32" VerticalAlignment="Top" Margin="0,0,12,0">
+                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20" Background="{StaticResource BrushSuccess}" VerticalAlignment="Top" Margin="0,0,12,0">
                     <TextBlock Text="✓" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <StackPanel Grid.Column="1">

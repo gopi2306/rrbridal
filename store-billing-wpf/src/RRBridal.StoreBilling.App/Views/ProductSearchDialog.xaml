@@ -7,8 +7,10 @@
         MinHeight="360"
         MinWidth="520"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
-    <Grid Margin="16">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -16,7 +18,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding HeaderText}" Style="{StaticResource TextSectionTitle}" TextWrapping="Wrap"/>
 
         <Grid Grid.Row="1" Margin="0,10,0,10">
             <Grid.ColumnDefinitions>
@@ -52,4 +54,5 @@
             </StackPanel>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>

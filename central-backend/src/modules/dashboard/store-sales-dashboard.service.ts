@@ -5,25 +5,35 @@ import { roundMoney } from '../../common/money.util';
 import { StoreCreditNote, StoreCreditNoteDocument } from '../store-sales/schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from '../store-sales/schemas/store-sale-return.schema';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import {
   bucketKeyForDate,
+  aggregateMarginLines,
+  computeMarginPercentage,
   isInRange,
   labelForBucketKey,
+  parseExchangeMarginLines,
   parseInvoiceCreditApplied,
   parseInvoiceDiscounts,
-  parseInvoiceGross,
+  parseInvoiceGrossSale,
   parseInvoiceLines,
+  parseInvoiceMarginLines,
   parseInvoiceNet,
   parseInvoicePayments,
   parseOccurredAt,
+  parsePaymentTotals,
+  parseReturnCashRefund,
   parseReturnLineCount,
   parseReturnLineQty,
+  parseReturnMarginLines,
   readNumber,
   readString,
   resolveDateRange,
+  type LineMarginRow,
 } from './store-sales-payload.util';
 import type {
+  StoreSalesBillRow,
   StoreSalesCreditNoteDetailRow,
   StoreSalesDashboardOptions,
   StoreSalesDashboardResponse,
@@ -42,6 +52,8 @@ type BucketAgg = {
   returnValue: number;
 };
 
+type SignedMarginLine = LineMarginRow & { sign: 1 | -1 };
+
 @Injectable()
 export class StoreSalesDashboardService {
   constructor(
@@ -49,6 +61,7 @@ export class StoreSalesDashboardService {
     @InjectModel(StoreSaleReturn.name) private readonly returnModel: Model<StoreSaleReturnDocument>,
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
   ) {}
 
   async getStoreSalesDashboard(options: StoreSalesDashboardOptions): Promise<StoreSalesDashboardResponse> {
@@ -77,29 +90,63 @@ export class StoreSalesDashboardService {
     const productTotals = new Map<string, { description: string; units: number }>();
 
     let grossSales = 0;
-    let invoiceNetSum = 0;
+    let totalBillAmount = 0;
     let invoiceCount = 0;
     let itemsSold = 0;
     let discountsTotal = 0;
     let creditAppliedOnBills = 0;
+    let billCashTotal = 0;
+    let billCardTotal = 0;
+    let billUpiTotal = 0;
+    const billRows: StoreSalesBillRow[] = [];
+    const billMarginByNo = new Map<string, LineMarginRow[]>();
+    const marginLines: SignedMarginLine[] = [];
 
     for (const inv of invoices) {
       const payload = (inv.payload ?? {}) as Record<string, unknown>;
       const occurred = parseOccurredAt(payload, this.docTimestamp(inv));
       if (!occurred || !isInRange(occurred, range)) continue;
 
-      const gross = parseInvoiceGross(payload);
       const net = parseInvoiceNet(payload);
+      const gross = parseInvoiceGrossSale(payload);
       const items = parseInvoiceLines(payload).reduce((s, l) => s + l.qty, 0);
       const discounts = parseInvoiceDiscounts(payload);
       const creditApplied = parseInvoiceCreditApplied(payload);
+      const payments = parsePaymentTotals(payload);
 
       grossSales += gross;
-      invoiceNetSum += net;
+      totalBillAmount += net;
       invoiceCount += 1;
       itemsSold += items;
       discountsTotal += discounts;
       creditAppliedOnBills += creditApplied;
+      billCashTotal += payments.cash;
+      billCardTotal += payments.card;
+      billUpiTotal += payments.upi;
+
+      const invoiceMarginLines = parseInvoiceMarginLines(payload);
+      billMarginByNo.set(inv.invoiceNo, invoiceMarginLines);
+
+      billRows.push({
+        billNo: inv.invoiceNo,
+        customerName: readString(payload.customerName) ?? null,
+        customerPhone: readString(payload.customerPhone) ?? null,
+        posCounter: readString(payload.posCounter) ?? inv.posCounter ?? null,
+        payable: net,
+        grossAmount: gross,
+        itemDiscount: readNumber(payload.itemDiscount),
+        cashDiscount: readNumber(payload.cashDiscAmount),
+        creditApplied,
+        cashPaid: payments.cash,
+        cardPaid: payments.card,
+        upiPaid: payments.upi,
+        creditNotePaid: payments.creditNote,
+        totalCostValue: 0,
+        totalSellingValue: 0,
+        salesMargin: 0,
+        marginPercentage: 0,
+        occurredAt: occurred.toISOString(),
+      });
 
       const key = bucketKeyForDate(occurred, range.bucketByMonth);
       this.ensureBucket(buckets, key);
@@ -124,10 +171,15 @@ export class StoreSalesDashboardService {
           units: cur.units + line.qty,
         });
       }
+
+      for (const line of invoiceMarginLines) {
+        marginLines.push({ ...line, sign: 1 });
+      }
     }
 
     let returnValue = 0;
     let returnsCount = 0;
+    let cashRefundForReturns = 0;
     const returnDetails: StoreSalesReturnDetailRow[] = [];
 
     for (const ret of returns) {
@@ -140,12 +192,20 @@ export class StoreSalesDashboardService {
       returnValue += total;
       returnsCount += 1;
       itemsSold -= returnQty;
+      cashRefundForReturns += parseReturnCashRefund(payload);
 
       const key = bucketKeyForDate(occurred, range.bucketByMonth);
       this.ensureBucket(buckets, key);
       const b = buckets.get(key)!;
       b.returnsCount += 1;
       b.returnValue += total;
+
+      for (const line of parseReturnMarginLines(payload)) {
+        marginLines.push({ ...line, sign: -1 });
+      }
+      for (const line of parseExchangeMarginLines(payload)) {
+        marginLines.push({ ...line, sign: 1 });
+      }
 
       returnDetails.push({
         returnNo: ret.returnNo,
@@ -168,7 +228,30 @@ export class StoreSalesDashboardService {
       (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
     );
 
-    const netSales = invoiceNetSum - returnValue;
+    const netSales = totalBillAmount - creditAppliedOnBills;
+    const cashInHand = billCashTotal - cashRefundForReturns;
+    const { totalCostValue, totalSellingValue, salesMargin, marginPercentage, costBySku } =
+      await this.computeSalesMarginSummary(marginLines);
+
+    for (const row of billRows) {
+      const margin = aggregateMarginLines(billMarginByNo.get(row.billNo) ?? [], costBySku);
+      row.totalCostValue = margin.totalCostValue;
+      row.totalSellingValue = margin.totalSellingValue;
+      row.salesMargin = margin.salesMargin;
+      row.marginPercentage = margin.marginPercentage;
+    }
+
+    billRows.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+    const billPage = options.billPage;
+    const billLimit = options.billLimit;
+    const billSkip = (billPage - 1) * billLimit;
+    const billsPage = {
+      data: billRows.slice(billSkip, billSkip + billLimit),
+      total: billRows.length,
+      page: billPage,
+      limit: billLimit,
+      totalPages: billRows.length > 0 ? Math.ceil(billRows.length / billLimit) : 0,
+    };
 
     const periodCreditNotes = creditNotes.filter((cn) => {
       const created = this.parseDocDate(this.docTimestamp(cn));
@@ -228,19 +311,29 @@ export class StoreSalesDashboardService {
         label: range.label,
       },
       summary: {
-        grossSales,
-        netSales,
+        grossSales: roundMoney(grossSales),
+        totalBillAmount: roundMoney(totalBillAmount),
+        netSales: roundMoney(netSales),
+        cashInHand: roundMoney(cashInHand),
+        cardTotalAmount: roundMoney(billCardTotal),
+        upiTotalAmount: roundMoney(billUpiTotal),
+        cashRefundForReturns: roundMoney(cashRefundForReturns),
         invoices: invoiceCount,
         avgBasket: invoiceCount > 0 ? roundMoney(netSales / invoiceCount) : 0,
         itemsSold: Math.max(0, itemsSold),
         returnsCount,
-        returnValue,
-        discountsTotal,
+        returnValue: roundMoney(returnValue),
+        discountsTotal: roundMoney(discountsTotal),
         creditNotesIssued: periodCreditNotes.length,
-        creditNotesIssuedAmount,
-        creditAppliedOnBills,
-        creditRemainingOutstanding,
+        creditNotesIssuedAmount: roundMoney(creditNotesIssuedAmount),
+        creditAppliedOnBills: roundMoney(creditAppliedOnBills),
+        creditRemainingOutstanding: roundMoney(creditRemainingOutstanding),
+        totalCostValue: roundMoney(totalCostValue),
+        totalSellingValue: roundMoney(totalSellingValue),
+        salesMargin: roundMoney(salesMargin),
+        marginPercentage,
       },
+      bills: billsPage,
       salesDetails,
       paymentMix,
       topProducts,
@@ -271,6 +364,40 @@ export class StoreSalesDashboardService {
     }
 
     return { code: store.code, name: store.name };
+  }
+
+  private async computeSalesMarginSummary(marginLines: SignedMarginLine[]) {
+    const costBySku = await this.loadProductCostBySku(marginLines);
+    let totalCostValue = 0;
+    let totalSellingValue = 0;
+    for (const row of marginLines) {
+      const totals = aggregateMarginLines([row], costBySku, row.sign);
+      totalCostValue += totals.totalCostValue;
+      totalSellingValue += totals.totalSellingValue;
+    }
+    const salesMargin = totalSellingValue - totalCostValue;
+    return {
+      totalCostValue: roundMoney(totalCostValue),
+      totalSellingValue: roundMoney(totalSellingValue),
+      salesMargin: roundMoney(salesMargin),
+      marginPercentage: computeMarginPercentage(salesMargin, totalCostValue),
+      costBySku,
+    };
+  }
+
+  private async loadProductCostBySku(
+    marginLines: Array<Pick<LineMarginRow, 'sku'>>,
+  ): Promise<Map<string, number>> {
+    const skus = [
+      ...new Set(
+        marginLines.map((l) => l.sku).filter((sku) => sku !== '' && sku !== 'UNKNOWN'),
+      ),
+    ];
+    const products =
+      skus.length > 0
+        ? await this.productModel.find({ sku: { $in: skus } }).select('sku costPrice').lean()
+        : [];
+    return new Map(products.map((p) => [p.sku, p.costPrice ?? 0]));
   }
 
   private ensureBucket(map: Map<string, BucketAgg>, key: string) {

@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
         Title="Payment" SizeToContent="Height" Width="640" MinWidth="560" MaxHeight="900"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
 
     <Window.Resources>

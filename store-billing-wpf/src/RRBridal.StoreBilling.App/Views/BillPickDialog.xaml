@@ -7,6 +7,7 @@
         MinHeight="320"
         MinWidth="480"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -16,7 +17,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Text="Multiple bills match. Select the original bill for this return."
-                   FontWeight="SemiBold" Foreground="{StaticResource BrushText}" TextWrapping="Wrap"/>
+                   Style="{StaticResource TextSectionTitle}" TextWrapping="Wrap"/>
 
         <ListView Grid.Row="1" Margin="0,12,0,12"
                   x:Name="ResultsList"

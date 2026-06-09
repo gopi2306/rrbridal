@@ -5,6 +5,7 @@
         Width="520"
         Height="480"
         WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -15,8 +16,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" FontSize="18" FontWeight="SemiBold" Text="Pending sync to central"
-                   Foreground="{StaticResource BrushText}" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="0" Style="{StaticResource TextSectionTitle}" FontSize="18" Text="Pending sync to central" TextWrapping="Wrap"/>
 
         <StackPanel Grid.Row="1" Margin="0,8,0,12">
             <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
