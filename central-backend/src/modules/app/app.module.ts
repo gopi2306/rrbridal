@@ -54,6 +54,9 @@ import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.m
 import { MyStoreModule } from '../my-store/my-store.module';
 import { MyWarehouseModule } from '../my-warehouse/my-warehouse.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { StockAuditModule } from '../stock-audit/stock-audit.module';
+import { StockTallyModule } from '../stock-tally/stock-tally.module';
+
 
 @Module({
   imports: [
@@ -115,6 +118,9 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     MyStoreModule,
     MyWarehouseModule,
     AuditLogsModule,
+
+    StockAuditModule,
+    StockTallyModule,
   ],
   controllers: [AppController],
 })
