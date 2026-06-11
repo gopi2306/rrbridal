@@ -605,8 +605,11 @@
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
                                 <CheckBox Content="Allow duplicate bill print (F11 / Duplicate / Ledger)"
                                           Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,16"/>
-                                <Button Content="Save setting" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                                          IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,12"/>
+                                <CheckBox Content="Allow cash payout of credit note remaining balance (Payment dialog)"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,16"/>
+                                <Button Content="Save settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
                                         Command="{Binding SaveBillingSettingsCommand}"/>
                             </StackPanel>
                         </Border>

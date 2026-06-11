@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { DocumentNumberService } from '../../common/document-number.service';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { AdminDocumentNumberConfigController } from './admin-document-number-config.controller';
@@ -27,7 +26,6 @@ import { IdSequence, IdSequenceSchema } from './schemas/id-sequence.schema';
     DocumentNumberAllocatorService,
     DocumentNumberService,
     JwtAuthGuard,
-    RolesGuard,
   ],
   exports: [DocumentNumberConfigService, DocumentNumberAllocatorService, DocumentNumberService],
 })

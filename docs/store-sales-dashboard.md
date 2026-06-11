@@ -50,6 +50,10 @@ See [sync-protocol.md](sync-protocol.md) for payload shapes from the store clien
 | `creditNotesIssuedAmount` | Sum CN `amount` |
 | `creditAppliedOnBills` | Sum `creditApplied` on invoices |
 | `creditRemainingOutstanding` | Sum CN `remainingAmount` (issued in period) |
+| `cashInHand` | Bill cash collected − `cashRefundForReturns` + exchange top-up cash on returns |
+| `returnCashRefundTotal` | Cash refunded on sale returns (`returnMode: cash_refund`, uses `cashRefunded` when set) |
+| `creditNoteCashoutTotal` | Cash paid out from credit note remaining balance |
+| `cashRefundForReturns` | `returnCashRefundTotal` + `creditNoteCashoutTotal` |
 
 ### `salesDetails`
 
@@ -65,7 +69,7 @@ Best sellers by units from invoice lines.
 
 ### `returns` (advanced)
 
-Per return: `returnNo`, `kind`, `originalBillNo`, `returnMode`, `reason`, totals, line count, customer, `occurredAt`.
+Per return: `returnNo`, `kind`, `originalBillNo`, `returnMode`, `reason`, totals, `cashRefunded`, `creditBalance`, line count, customer, `occurredAt`.
 
 ### `creditNotes` (extra detail)
 

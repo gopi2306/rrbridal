@@ -84,4 +84,33 @@ public sealed class BillingOutboxPublisher
         });
         return EnqueueAsync("CreditNoteApplied", payload, hash, ct);
     }
+
+    public Task<string> PublishCreditNoteCashedOutAsync(
+        BsonDocument cashoutDoc,
+        string creditNoteNo,
+        string billNo,
+        decimal cashRefunded,
+        decimal remainingAmount,
+        string status,
+        CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)cashoutDoc.DeepClone();
+        payload["creditNoteNo"] = creditNoteNo.Trim();
+        payload["billNo"] = billNo.Trim();
+        payload["cashRefunded"] = (double)cashRefunded;
+        payload["remainingAmount"] = (double)remainingAmount;
+        payload["creditNoteStatus"] = status;
+        payload["status"] = cashoutDoc.GetValue("status", "posted").AsString;
+
+        var hash = JsonSerializer.Serialize(new
+        {
+            creditNoteNo = creditNoteNo.Trim(),
+            billNo = billNo.Trim(),
+            cashRefunded,
+            remainingAmount,
+            status,
+            cashoutNo = cashoutDoc.GetValue("cashoutNo", "").AsString,
+        });
+        return EnqueueAsync("CreditNoteCashedOut", payload, hash, ct);
+    }
 }

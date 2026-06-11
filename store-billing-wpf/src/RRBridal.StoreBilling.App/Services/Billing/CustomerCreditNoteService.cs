@@ -16,11 +16,13 @@ public sealed class CustomerCreditNoteService
     public const string StatusConsumed = "consumed";
 
     private readonly IMongoCollection<BsonDocument> _notes;
+    private readonly IMongoCollection<BsonDocument> _cashouts;
     private readonly BillingOutboxPublisher? _outbox;
 
     public CustomerCreditNoteService(IMongoDatabase localDb, BillingOutboxPublisher? outbox = null)
     {
         _notes = localDb.GetCollection<BsonDocument>("customer_credit_notes");
+        _cashouts = localDb.GetCollection<BsonDocument>("store_credit_note_cashouts");
         _outbox = outbox;
     }
 
@@ -208,6 +210,105 @@ public sealed class CustomerCreditNoteService
                 ct);
         }
         return result.ModifiedCount > 0;
+    }
+
+    public async Task<bool> CashOutAsync(
+        string creditNoteNo,
+        decimal cashOutAmount,
+        string billNo,
+        string storeId,
+        string posCounter,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(creditNoteNo) || cashOutAmount <= 0)
+            return false;
+
+        var doc = await _notes.Find(
+            Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("status", StatusAvailable)))
+            .FirstOrDefaultAsync(ct);
+
+        if (doc == null)
+            return false;
+
+        var remainingBefore = ReadDecimal(doc, "remainingAmount");
+        if (cashOutAmount > remainingBefore)
+            return false;
+
+        var remainingAfter = remainingBefore - cashOutAmount;
+        var totalApplied = ReadDecimal(doc, "totalApplied");
+        var bill = billNo?.Trim() ?? "";
+        var cashoutNo = $"COUT-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6]}";
+
+        var updates = new List<UpdateDefinition<BsonDocument>>
+        {
+            Builders<BsonDocument>.Update.Set("remainingAmount", (double)remainingAfter),
+            Builders<BsonDocument>.Update.Set("totalApplied", (double)(totalApplied + cashOutAmount)),
+            Builders<BsonDocument>.Update.Set("lastAppliedBillNo", bill),
+            Builders<BsonDocument>.Update.Set("lastAmountApplied", (double)cashOutAmount),
+        };
+
+        if (remainingAfter <= 0)
+        {
+            updates.Add(Builders<BsonDocument>.Update.Set("status", StatusConsumed));
+            updates.Add(Builders<BsonDocument>.Update.Set("consumedBillNo", bill));
+            updates.Add(Builders<BsonDocument>.Update.Set("consumedAtUtc", DateTime.UtcNow.ToString("O")));
+        }
+
+        var application = new BsonDocument
+        {
+            { "billNo", bill },
+            { "amountApplied", (double)cashOutAmount },
+            { "appliedAt", DateTime.UtcNow.ToString("O") },
+            { "type", "cash_out" },
+        };
+
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()),
+            Builders<BsonDocument>.Filter.Eq("status", StatusAvailable),
+            Builders<BsonDocument>.Filter.Gte("remainingAmount", (double)cashOutAmount));
+
+        var result = await _notes.UpdateOneAsync(
+            filter,
+            Builders<BsonDocument>.Update.Combine(updates).Push("applications", application),
+            cancellationToken: ct);
+
+        if (result.ModifiedCount == 0)
+            return false;
+
+        var cashoutDoc = new BsonDocument
+        {
+            { "cashoutNo", cashoutNo },
+            { "creditNoteNo", creditNoteNo.Trim() },
+            { "billNo", bill },
+            { "cashRefunded", (double)cashOutAmount },
+            { "remainingBefore", (double)remainingBefore },
+            { "remainingAfter", (double)remainingAfter },
+            { "storeId", storeId?.Trim() ?? "" },
+            { "posCounter", posCounter?.Trim() ?? "" },
+            { "customerCode", ReadString(doc, "customerCode") ?? "" },
+            { "customerName", ReadString(doc, "customerName") ?? "" },
+            { "customerPhone", ReadString(doc, "customerPhone") ?? "" },
+            { "status", "posted" },
+            { "createdAtUtc", DateTime.UtcNow.ToString("O") },
+        };
+
+        await _cashouts.InsertOneAsync(cashoutDoc, cancellationToken: ct);
+
+        if (_outbox != null)
+        {
+            await _outbox.PublishCreditNoteCashedOutAsync(
+                cashoutDoc,
+                creditNoteNo.Trim(),
+                bill,
+                cashOutAmount,
+                remainingAfter,
+                remainingAfter <= 0 ? StatusConsumed : StatusAvailable,
+                ct);
+        }
+
+        return true;
     }
 
     private static CustomerCreditNoteRecord Map(BsonDocument d)

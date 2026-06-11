@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuthSettingsService } from '../users/auth-settings.service';
 import { AuthSettings, AuthSettingsSchema } from '../users/schemas/auth-settings.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -24,7 +23,7 @@ import { ResourceLimitsService } from './resource-limits.service';
     ]),
   ],
   controllers: [ResourceLimitsController],
-  providers: [ResourceLimitsService, AuthSettingsService, JwtAuthGuard, RolesGuard],
+  providers: [ResourceLimitsService, AuthSettingsService, JwtAuthGuard],
   exports: [ResourceLimitsService],
 })
 export class ResourceLimitsModule {}

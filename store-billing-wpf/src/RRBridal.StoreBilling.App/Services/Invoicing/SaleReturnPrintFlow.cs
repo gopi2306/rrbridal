@@ -23,7 +23,8 @@ public static class SaleReturnPrintFlow
         decimal sgstTotal,
         decimal igstTotal,
         bool isInterState,
-        string? creditNoteNo = null)
+        string? creditNoteNo = null,
+        decimal cashRefunded = 0m)
     {
         try
         {
@@ -68,6 +69,7 @@ public static class SaleReturnPrintFlow
                 CgstTotal = cgstTotal,
                 SgstTotal = sgstTotal,
                 IgstTotal = igstTotal,
+                CashRefunded = cashRefunded,
             };
 
             var text = ThermalSaleReturnTextBuilder.Build(input);

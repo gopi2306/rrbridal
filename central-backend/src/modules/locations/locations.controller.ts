@@ -1,8 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { FilterLocationDto } from './dto/filter-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -11,8 +9,7 @@ import { LocationsService } from './locations.service';
 @ApiTags('locations')
 @ApiBearerAuth()
 @Controller('locations')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard)
 export class LocationsController {
   constructor(private readonly service: LocationsService) {}
 

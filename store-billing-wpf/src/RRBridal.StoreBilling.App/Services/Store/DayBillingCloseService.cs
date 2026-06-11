@@ -35,11 +35,13 @@ public sealed class DayBillingCloseService
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
+        var cashoutsColl = _db.GetCollection<BsonDocument>("store_credit_note_cashouts");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
 
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
         var returnDocs = await returnsColl.Find(storeFilter).ToListAsync(ct);
+        var cashoutDocs = await cashoutsColl.Find(storeFilter).ToListAsync(ct);
 
         var outboxDocs = await outboxColl
             .Find(Builders<BsonDocument>.Filter.And(
@@ -108,7 +110,16 @@ public sealed class DayBillingCloseService
         var returnTotals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(dayReturns);
         var exchangePayments = returnTotals.ExchangePayments;
 
-        var netCash = cash - returnTotals.CashRefundTotal + exchangePayments.Cash;
+        var dayCashouts = cashoutDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedCashout)
+            .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
+            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
+        var creditNoteCashoutTotal = DayBillingCloseDocumentReader.AggregateCreditNoteCashoutDayTotals(dayCashouts);
+        var returnCashRefundTotal = returnTotals.CashRefundTotal;
+        var cashRefundTotal = returnCashRefundTotal + creditNoteCashoutTotal;
+
+        var netCash = cash - cashRefundTotal + exchangePayments.Cash;
         var netCard = card + exchangePayments.Card;
         var netUpi = upi + exchangePayments.Upi;
         var actualHandIn = netCash + netCard + netUpi;
@@ -134,6 +145,7 @@ public sealed class DayBillingCloseService
                 ReturnTotal = DayBillingCloseDocumentReader.ReadDecimal(doc, "returnTotal"),
                 ReturnMode = returnMode,
                 CreditBalance = DayBillingCloseDocumentReader.ReadDecimal(doc, "creditBalance"),
+                CashRefunded = DayBillingCloseDocumentReader.ReadDecimal(doc, "cashRefunded"),
                 AmountCollected = DayBillingCloseDocumentReader.ReadDecimal(doc, "amountCollected"),
                 PaymentSummary = DayBillingCloseDocumentReader.FormatReturnPaymentSummary(doc),
                 SortUtc = sortUtc,
@@ -154,7 +166,9 @@ public sealed class DayBillingCloseService
             CreditNoteTotal = creditNote,
             ReturnCount = returnTotals.ReturnCount,
             ReturnTotalAmount = returnTotals.ReturnTotalAmount,
-            CashRefundTotal = returnTotals.CashRefundTotal,
+            ReturnCashRefundTotal = returnCashRefundTotal,
+            CreditNoteCashoutTotal = creditNoteCashoutTotal,
+            CashRefundTotal = cashRefundTotal,
             CreditNoteIssuedTotal = returnTotals.CreditNoteIssuedTotal,
             NetCashInHand = netCash,
             NetCardInHand = netCard,

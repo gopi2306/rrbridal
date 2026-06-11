@@ -18,6 +18,34 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** India Standard Time — aligns central dashboard with WPF local day close. */
+const BUSINESS_TZ_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function businessNow(): Date {
+  return new Date(Date.now() + BUSINESS_TZ_OFFSET_MS);
+}
+
+function businessCalendarParts(d: Date): { y: number; m: number; day: number; dow: number } {
+  return {
+    y: d.getUTCFullYear(),
+    m: d.getUTCMonth(),
+    day: d.getUTCDate(),
+    dow: d.getUTCDay(),
+  };
+}
+
+function businessDayBoundsUtc(y: number, m: number, day: number): { from: Date; to: Date } {
+  const from = new Date(Date.UTC(y, m, day, 0, 0, 0, 0) - BUSINESS_TZ_OFFSET_MS);
+  const to = new Date(Date.UTC(y, m, day, 23, 59, 59, 999) - BUSINESS_TZ_OFFSET_MS);
+  return { from, to };
+}
+
+function parseYmdParts(ymd: string): { y: number; m: number; day: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return null;
+  return { y: Number(m[1]), m: Number(m[2]) - 1, day: Number(m[3]) };
+}
+
 export function readNumber(value: unknown): number {
   if (value === undefined || value === null || value === '') return 0;
   const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
@@ -91,7 +119,7 @@ export function resolveDateRange(params: {
   year: number;
   month: number;
 }): ResolvedDateRange {
-  const now = new Date();
+  const biz = businessCalendarParts(businessNow());
   let from: Date;
   let to: Date;
   let label: string;
@@ -99,28 +127,29 @@ export function resolveDateRange(params: {
 
   switch (params.period) {
     case 'today': {
-      from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-      to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      ({ from, to } = businessDayBoundsUtc(biz.y, biz.m, biz.day));
       label = 'Today';
       break;
     }
     case 'week': {
-      const day = now.getUTCDay();
-      const diffToMonday = day === 0 ? 6 : day - 1;
-      from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday, 0, 0, 0, 0));
-      to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      const diffToMonday = biz.dow === 0 ? 6 : biz.dow - 1;
+      const monday = new Date(Date.UTC(biz.y, biz.m, biz.day - diffToMonday));
+      const mon = businessCalendarParts(monday);
+      ({ from } = businessDayBoundsUtc(mon.y, mon.m, mon.day));
+      ({ to } = businessDayBoundsUtc(biz.y, biz.m, biz.day));
       label = 'This week';
       break;
     }
     case 'month': {
-      from = new Date(Date.UTC(params.year, params.month - 1, 1, 0, 0, 0, 0));
-      to = new Date(Date.UTC(params.year, params.month, 0, 23, 59, 59, 999));
+      const lastDay = new Date(Date.UTC(params.year, params.month, 0)).getUTCDate();
+      ({ from } = businessDayBoundsUtc(params.year, params.month - 1, 1));
+      ({ to } = businessDayBoundsUtc(params.year, params.month - 1, lastDay));
       label = `${MONTH_NAMES[params.month - 1]} ${params.year}`;
       break;
     }
     case 'year': {
-      from = new Date(Date.UTC(params.year, 0, 1, 0, 0, 0, 0));
-      to = new Date(Date.UTC(params.year, 11, 31, 23, 59, 59, 999));
+      ({ from } = businessDayBoundsUtc(params.year, 0, 1));
+      ({ to } = businessDayBoundsUtc(params.year, 11, 31));
       label = String(params.year);
       bucketByMonth = true;
       break;
@@ -130,11 +159,13 @@ export function resolveDateRange(params: {
       if (!params.from || !params.to) {
         throw new Error('from and to are required when period=custom');
       }
-      from = new Date(`${params.from}T00:00:00.000Z`);
-      to = new Date(`${params.to}T23:59:59.999Z`);
-      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      const fromParts = parseYmdParts(params.from);
+      const toParts = parseYmdParts(params.to);
+      if (!fromParts || !toParts) {
         throw new Error('Invalid from or to date');
       }
+      ({ from } = businessDayBoundsUtc(fromParts.y, fromParts.m, fromParts.day));
+      ({ to } = businessDayBoundsUtc(toParts.y, toParts.m, toParts.day));
       const days =
         Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1;
       bucketByMonth = days > 31;
@@ -259,6 +290,9 @@ function isCashRefundReturnMode(returnMode: string | undefined): boolean {
 /** Cash refunded to customer when returnMode is cash_refund. */
 export function parseReturnCashRefund(payload: Record<string, unknown>): number {
   if (!isCashRefundReturnMode(readString(payload.returnMode))) return 0;
+
+  const cashRefunded = readNumber(payload.cashRefunded);
+  if (cashRefunded > 0) return cashRefunded;
 
   const creditBalance = readNumber(payload.creditBalance);
   if (creditBalance > 0) return creditBalance;

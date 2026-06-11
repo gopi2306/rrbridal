@@ -1553,6 +1553,7 @@ public partial class BillingViewModel : ObservableObject
         PaymentOutcome paymentOutcome;
         if (totals.Payable > 0)
         {
+            _services.PosBillingSettings.Load();
             var paymentVm = new PaymentDialogViewModel(
                 _services.PaymentRouter,
                 _services.CustomerCreditNotes,
@@ -1563,7 +1564,9 @@ public partial class BillingViewModel : ObservableObject
                 CustomerPhone,
                 _selectedCreditNoteNo,
                 totals.AppliedCredit,
-                skipPaymentOutbox: true);
+                skipPaymentOutbox: true,
+                allowCreditNoteRemainingCashout: _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout,
+                posCounter: _services.StoreContext.PosCounter);
             await paymentVm.InitializeAsync();
             var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
             var paymentResult = paymentDlg.ShowDialog();

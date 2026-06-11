@@ -13,6 +13,7 @@ import { Store, StoreSchema } from '../stores/schemas/store.schema';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { PurchaseIntent, PurchaseIntentSchema } from '../purchase-intents/schemas/purchase-intent.schema';
+import { StoreCreditNoteCashout, StoreCreditNoteCashoutSchema } from '../store-sales/schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteSchema } from '../store-sales/schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceSchema } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnSchema } from '../store-sales/schemas/store-sale-return.schema';
@@ -37,6 +38,7 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
       { name: StoreInvoice.name, schema: StoreInvoiceSchema },
       { name: StoreSaleReturn.name, schema: StoreSaleReturnSchema },
       { name: StoreCreditNote.name, schema: StoreCreditNoteSchema },
+      { name: StoreCreditNoteCashout.name, schema: StoreCreditNoteCashoutSchema },
     ]),
   ],
   controllers: [DashboardController],

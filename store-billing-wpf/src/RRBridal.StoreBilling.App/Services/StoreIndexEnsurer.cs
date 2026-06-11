@@ -73,6 +73,20 @@ public static class StoreIndexEnsurer
                 new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
             cancellationToken: ct);
 
+        var cnCashouts = db.GetCollection<MongoDB.Bson.BsonDocument>("store_credit_note_cashouts");
+        await cnCashouts.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Descending("createdAtUtc"),
+                new CreateIndexOptions { Name = "storeId_createdAtUtc" }),
+            cancellationToken: ct);
+        await cnCashouts.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("cashoutNo"),
+                new CreateIndexOptions { Name = "cashoutNo", Unique = true }),
+            cancellationToken: ct);
+
         var saleReturns = db.GetCollection<MongoDB.Bson.BsonDocument>("store_sale_returns");
         await saleReturns.Indexes.CreateOneAsync(
             new CreateIndexModel<MongoDB.Bson.BsonDocument>(

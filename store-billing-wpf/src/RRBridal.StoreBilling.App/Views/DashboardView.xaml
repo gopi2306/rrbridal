@@ -232,6 +232,9 @@
                             <StackPanel>
                                 <TextBlock Text="Cash refunded" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                                 <TextBlock Text="{Binding DayCloseCashRefundSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding DayCloseCashRefundDetailSummary}" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" Margin="0,2,0,0"
+                                           Visibility="{Binding DayCloseShowCashRefundDetail, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
@@ -286,7 +289,8 @@
                                 <DataGridTextColumn Header="Posted (local)" Binding="{Binding PostedAtLocal}" Width="130"/>
                                 <DataGridTextColumn Header="Return total" Binding="{Binding ReturnTotal, StringFormat=₹ {0:N2}}" Width="100"/>
                                 <DataGridTextColumn Header="Mode" Binding="{Binding ReturnMode}" Width="80"/>
-                                <DataGridTextColumn Header="Credit/refund" Binding="{Binding CreditBalance, StringFormat=₹ {0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="Cash refunded" Binding="{Binding CashRefunded, StringFormat=₹ {0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="Credit balance" Binding="{Binding CreditBalance, StringFormat=₹ {0:N2}}" Width="100"/>
                                 <DataGridTextColumn Header="Collected" Binding="{Binding AmountCollected, StringFormat=₹ {0:N2}}" Width="90"/>
                                 <DataGridTextColumn Header="Payments" Binding="{Binding PaymentSummary}" Width="*"/>
                             </DataGrid.Columns>

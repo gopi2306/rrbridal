@@ -56,6 +56,8 @@ public sealed class ThermalSaleReturnInput
     public decimal SgstTotal { get; init; }
 
     public decimal IgstTotal { get; init; }
+
+    public decimal CashRefunded { get; init; }
 }
 
 /// <summary>Plain-text thermal sales return / credit note receipt.</summary>
@@ -107,6 +109,8 @@ public static class ThermalSaleReturnTextBuilder
         sb.AppendLine(TwoCols($"Gross Amt: {input.GrossAmount:0.00}", $"{TaxSummaryLabel(input)} {TaxSummaryValue(input)}", w));
         AddRule();
         sb.AppendLine(Center($"Return Amt : {input.ReturnAmount:0.00}", w));
+        if (input.CashRefunded > 0)
+            sb.AppendLine(Center($"Cash refunded : {input.CashRefunded:0.00}", w));
         if (!string.IsNullOrWhiteSpace(input.CreditNoteNo))
             sb.AppendLine(Center($"(Redeemable on billing)", w));
 

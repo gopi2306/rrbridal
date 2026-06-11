@@ -550,6 +550,20 @@ public partial class SaleReturnViewModel : ObservableObject
             var replacementTotal = exchangeLines.Sum(l => l.Total);
             var amountToCollect = Math.Max(0, replacementTotal - total);
             var creditBalance = Math.Max(0, total - replacementTotal);
+
+            decimal cashRefunded = 0m;
+            if (ReturnMode == ReturnMode.CashRefund && creditBalance > 0)
+            {
+                var confirm = MessageBox.Show(
+                    $"Cash refund {MoneyMath.FormatRupee(creditBalance)} to customer?",
+                    "Sale Return — Cash Refund",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes)
+                    return;
+                cashRefunded = creditBalance;
+            }
+
             PaymentOutcome? paymentOutcome = null;
             if (amountToCollect > 0)
             {
@@ -574,6 +588,18 @@ public partial class SaleReturnViewModel : ObservableObject
                         { "status", leg.Status },
                     });
                 }
+            }
+
+            var refundPaymentsArr = new BsonArray();
+            if (cashRefunded > 0)
+            {
+                refundPaymentsArr.Add(new BsonDocument
+                {
+                    { "provider", "Cash" },
+                    { "amount", (double)cashRefunded },
+                    { "reference", ReturnNo },
+                    { "status", "posted" },
+                });
             }
 
             var customerCode = _originalBillDoc?.GetValue("customerCode", "").AsString ?? "";
@@ -606,7 +632,9 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "replacementTotal", (double)replacementTotal },
                 { "amountCollected", (double)amountToCollect },
                 { "creditBalance", (double)creditBalance },
+                { "cashRefunded", (double)cashRefunded },
                 { "payments", paymentsArr },
+                { "refundPayments", refundPaymentsArr },
                 { "status", "posted" },
                 { "createdAtUtc", createdAt },
             };
@@ -618,6 +646,7 @@ public partial class SaleReturnViewModel : ObservableObject
             {
                 { "returnNo", ReturnNo },
                 { "originalBillNo", OriginalBillNo.Trim() },
+                { "createdAtUtc", createdAt },
                 { "transactionType", exchangeLines.Count > 0 ? "exchange" : "return" },
                 { "returnMode", ReturnMode == ReturnMode.CreditNote ? "credit_note" : "cash_refund" },
                 { "reason", Reason },
@@ -634,7 +663,9 @@ public partial class SaleReturnViewModel : ObservableObject
                 { "replacementTotal", (double)replacementTotal },
                 { "amountCollected", (double)amountToCollect },
                 { "creditBalance", (double)creditBalance },
+                { "cashRefunded", (double)cashRefunded },
                 { "payments", paymentsArr },
+                { "refundPayments", refundPaymentsArr },
             };
 
             var hash = JsonSerializer.Serialize(new
@@ -648,6 +679,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 replacementTotal,
                 amountToCollect,
                 creditBalance,
+                cashRefunded,
             });
 
             var outboxEvent = new BsonDocument
@@ -725,7 +757,8 @@ public partial class SaleReturnViewModel : ObservableObject
                     sgst,
                     igst,
                     IsInterState,
-                    createdCreditNoteNo);
+                    createdCreditNoteNo,
+                    cashRefunded);
             }
 
             var modeText = ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash Refund";

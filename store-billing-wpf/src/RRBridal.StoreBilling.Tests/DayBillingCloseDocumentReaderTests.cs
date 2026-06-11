@@ -267,4 +267,41 @@ public class DayBillingCloseDocumentReaderTests
         Assert.Equal(100m, totals.ReturnTotalAmount);
         Assert.Equal(100m, totals.CashRefundTotal);
     }
+
+    [Fact]
+    public void AggregateReturnDayTotals_prefers_explicit_cashRefunded()
+    {
+        var returns = new[]
+        {
+            BsonDocument.Parse(
+                """
+                {
+                  "status": "posted",
+                  "returnTotal": 5000,
+                  "creditBalance": 5000,
+                  "cashRefunded": 4200,
+                  "returnMode": "cash_refund"
+                }
+                """),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateReturnDayTotals(returns);
+
+        Assert.Equal(4200m, totals.CashRefundTotal);
+    }
+
+    [Fact]
+    public void AggregateCreditNoteCashoutDayTotals_sums_posted_cashouts()
+    {
+        var cashouts = new[]
+        {
+            BsonDocument.Parse("""{ "status": "posted", "cashRefunded": 500 }"""),
+            BsonDocument.Parse("""{ "status": "posted", "cashRefunded": 250.50 }"""),
+            BsonDocument.Parse("""{ "status": "draft", "cashRefunded": 999 }"""),
+        };
+
+        var total = DayBillingCloseDocumentReader.AggregateCreditNoteCashoutDayTotals(cashouts);
+
+        Assert.Equal(750.50m, total);
+    }
 }

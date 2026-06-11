@@ -74,6 +74,10 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _dayCloseCashRefundSummary = "—";
 
+    [ObservableProperty] private string _dayCloseCashRefundDetailSummary = "";
+
+    [ObservableProperty] private bool _dayCloseShowCashRefundDetail;
+
     [ObservableProperty] private string _dayCloseCnIssuedSummary = "—";
 
     [ObservableProperty] private string _dayCloseNetCashSummary = "—";
@@ -265,6 +269,10 @@ public partial class DashboardViewModel : ObservableObject
             DayCloseCashRefundSummary = snap.CashRefundTotal > 0
                 ? MoneyMath.FormatRupee(snap.CashRefundTotal)
                 : "—";
+            DayCloseShowCashRefundDetail = snap.CashRefundTotal > 0;
+            DayCloseCashRefundDetailSummary = snap.CashRefundTotal > 0
+                ? $"Returns: {MoneyMath.FormatRupee(snap.ReturnCashRefundTotal)} · CN cashout: {MoneyMath.FormatRupee(snap.CreditNoteCashoutTotal)}"
+                : "";
             DayCloseCnIssuedSummary = snap.CreditNoteIssuedTotal > 0
                 ? MoneyMath.FormatRupee(snap.CreditNoteIssuedTotal)
                 : "—";

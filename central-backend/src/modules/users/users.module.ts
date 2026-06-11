@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { StoresModule } from '../stores/stores.module';
 import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
 import { AdminAuthSettingsController } from './admin-auth-settings.controller';
@@ -38,7 +37,7 @@ import { UsersService } from './users.service';
     RolesController,
     StoreUsersController,
   ],
-  providers: [UsersService, AuthSettingsService, UsersSeedService, RolesService, JwtAuthGuard, RolesGuard],
+  providers: [UsersService, AuthSettingsService, UsersSeedService, RolesService, JwtAuthGuard],
   exports: [UsersService, UsersSeedService, RolesService],
 })
 export class UsersModule {}

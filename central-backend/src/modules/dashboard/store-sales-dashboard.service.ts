@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { roundMoney } from '../../common/money.util';
+import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from '../store-sales/schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from '../store-sales/schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from '../store-sales/schemas/store-sale-return.schema';
@@ -24,6 +25,7 @@ import {
   parseOccurredAt,
   parsePaymentTotals,
   parseReturnCashRefund,
+  parseReturnExchangePayments,
   parseReturnLineCount,
   parseReturnLineQty,
   parseReturnMarginLines,
@@ -60,6 +62,8 @@ export class StoreSalesDashboardService {
     @InjectModel(StoreInvoice.name) private readonly invoiceModel: Model<StoreInvoiceDocument>,
     @InjectModel(StoreSaleReturn.name) private readonly returnModel: Model<StoreSaleReturnDocument>,
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
+    @InjectModel(StoreCreditNoteCashout.name)
+    private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
   ) {}
@@ -79,10 +83,11 @@ export class StoreSalesDashboardService {
       throw new BadRequestException(err instanceof Error ? err.message : String(err));
     }
 
-    const [invoices, returns, creditNotes] = await Promise.all([
+    const [invoices, returns, creditNotes, creditNoteCashouts] = await Promise.all([
       this.invoiceModel.find({ storeId: store.code }).lean(),
       this.returnModel.find({ storeId: store.code }).lean(),
       this.creditNoteModel.find({ storeId: store.code }).lean(),
+      this.creditNoteCashoutModel.find({ storeId: store.code }).lean(),
     ]);
 
     const buckets = new Map<string, BucketAgg>();
@@ -179,7 +184,8 @@ export class StoreSalesDashboardService {
 
     let returnValue = 0;
     let returnsCount = 0;
-    let cashRefundForReturns = 0;
+    let returnCashRefundTotal = 0;
+    let exchangeCashTotal = 0;
     const returnDetails: StoreSalesReturnDetailRow[] = [];
 
     for (const ret of returns) {
@@ -192,7 +198,8 @@ export class StoreSalesDashboardService {
       returnValue += total;
       returnsCount += 1;
       itemsSold -= returnQty;
-      cashRefundForReturns += parseReturnCashRefund(payload);
+      returnCashRefundTotal += parseReturnCashRefund(payload);
+      exchangeCashTotal += parseReturnExchangePayments(payload).cash;
 
       const key = bucketKeyForDate(occurred, range.bucketByMonth);
       this.ensureBucket(buckets, key);
@@ -216,6 +223,7 @@ export class StoreSalesDashboardService {
         returnTotal: total,
         replacementTotal: readNumber(payload.replacementTotal),
         creditBalance: readNumber(payload.creditBalance),
+        cashRefunded: readNumber(payload.cashRefunded),
         lineCount: parseReturnLineCount(payload),
         creditNoteNo: readString(payload.creditNoteNo) ?? null,
         customerName: readString(payload.customerName) ?? null,
@@ -228,8 +236,22 @@ export class StoreSalesDashboardService {
       (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
     );
 
+    let creditNoteCashoutTotal = 0;
+    for (const cashout of creditNoteCashouts) {
+      const occurred = parseOccurredAt(
+        { createdAtUtc: cashout.createdAtUtc } as Record<string, unknown>,
+        this.docTimestamp(cashout),
+      );
+      if (!occurred || !isInRange(occurred, range)) continue;
+      const cashoutStatus = (cashout.status ?? 'posted').trim().toLowerCase();
+      if (cashoutStatus === 'void' || cashoutStatus === 'cancelled') continue;
+      creditNoteCashoutTotal += cashout.cashRefunded ?? 0;
+    }
+
+    const cashRefundForReturns = returnCashRefundTotal + creditNoteCashoutTotal;
+
     const netSales = totalBillAmount - creditAppliedOnBills;
-    const cashInHand = billCashTotal - cashRefundForReturns;
+    const cashInHand = billCashTotal - cashRefundForReturns + exchangeCashTotal;
     const { totalCostValue, totalSellingValue, salesMargin, marginPercentage, costBySku } =
       await this.computeSalesMarginSummary(marginLines);
 
@@ -317,6 +339,8 @@ export class StoreSalesDashboardService {
         cashInHand: roundMoney(cashInHand),
         cardTotalAmount: roundMoney(billCardTotal),
         upiTotalAmount: roundMoney(billUpiTotal),
+        returnCashRefundTotal: roundMoney(returnCashRefundTotal),
+        creditNoteCashoutTotal: roundMoney(creditNoteCashoutTotal),
         cashRefundForReturns: roundMoney(cashRefundForReturns),
         invoices: invoiceCount,
         avgBasket: invoiceCount > 0 ? roundMoney(netSales / invoiceCount) : 0,

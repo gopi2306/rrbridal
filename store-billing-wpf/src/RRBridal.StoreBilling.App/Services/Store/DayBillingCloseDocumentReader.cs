@@ -38,14 +38,18 @@ public static class DayBillingCloseDocumentReader
             count++;
             returnTotalAmount += ReadDecimal(doc, "returnTotal");
 
-            var creditBalance = ReadDecimal(doc, "creditBalance");
             var returnMode = ReadString(doc, "returnMode") ?? "";
-            if (creditBalance > 0)
+            var cashRefunded = ReadDecimal(doc, "cashRefunded");
+            var creditBalance = ReadDecimal(doc, "creditBalance");
+            if (string.Equals(returnMode, "cash_refund", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(returnMode, "cash_refund", StringComparison.OrdinalIgnoreCase))
-                    cashRefundTotal += creditBalance;
-                else if (string.Equals(returnMode, "credit_note", StringComparison.OrdinalIgnoreCase))
-                    creditNoteIssuedTotal += creditBalance;
+                var refundAmt = cashRefunded > 0 ? cashRefunded : creditBalance;
+                if (refundAmt > 0)
+                    cashRefundTotal += refundAmt;
+            }
+            else if (string.Equals(returnMode, "credit_note", StringComparison.OrdinalIgnoreCase) && creditBalance > 0)
+            {
+                creditNoteIssuedTotal += creditBalance;
             }
 
             var amountCollected = ReadDecimal(doc, "amountCollected");
@@ -65,6 +69,25 @@ public static class DayBillingCloseDocumentReader
             cashRefundTotal,
             creditNoteIssuedTotal,
             new PaymentDayTotals(exchangeCash, exchangeCard, exchangeUpi, exchangeCn));
+    }
+
+    public static decimal AggregateCreditNoteCashoutDayTotals(IEnumerable<BsonDocument> cashouts)
+    {
+        decimal total = 0m;
+        foreach (var doc in cashouts)
+        {
+            if (!IsPostedCashout(doc))
+                continue;
+            total += ReadDecimal(doc, "cashRefunded");
+        }
+
+        return total;
+    }
+
+    public static bool IsPostedCashout(BsonDocument doc)
+    {
+        var status = ReadString(doc, "status") ?? "posted";
+        return string.Equals(status, "posted", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string FormatReturnPaymentSummary(BsonDocument doc)

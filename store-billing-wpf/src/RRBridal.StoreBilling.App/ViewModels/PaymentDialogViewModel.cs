@@ -37,6 +37,8 @@ public sealed class PaymentOutcome
     public PaymentMode Mode { get; init; }
     public decimal? CashReceived { get; init; }
     public decimal? ChangeReturned { get; init; }
+    public decimal CreditNoteCashOutAmount { get; init; }
+    public string? CreditNoteCashOutNo { get; init; }
 }
 
 public sealed class PaymentLegResult
@@ -58,6 +60,8 @@ public partial class PaymentDialogViewModel : ObservableObject
     private readonly string? _billingReservedCreditNoteNo;
     private readonly decimal _billingReservedCreditAmount;
     private readonly bool _skipPaymentOutbox;
+    private readonly bool _allowCreditNoteRemainingCashout;
+    private readonly string _posCounter;
 
     public decimal InvoicePayableAmount { get; }
     public string PayableFormatted { get; }
@@ -82,6 +86,9 @@ public partial class PaymentDialogViewModel : ObservableObject
     [ObservableProperty] private string _paymentApplyingCreditFormatted = "";
     [ObservableProperty] private string _paymentRemainingAfterFormatted = "";
     [ObservableProperty] private bool _hasPaymentCreditSelected;
+    [ObservableProperty] private bool _canCashOutCreditNote;
+    [ObservableProperty] private decimal _creditNoteCashOutAmount;
+    [ObservableProperty] private string _creditNoteCashOutMaxFormatted = "";
 
     [ObservableProperty] private decimal _amountReceived;
     [ObservableProperty] private string _changeDueFormatted = "₹ 0.00";
@@ -104,7 +111,7 @@ public partial class PaymentDialogViewModel : ObservableObject
     public PaymentOutcome Outcome { get; private set; } = new() { Confirmed = false };
 
     public PaymentDialogViewModel(IPaymentRouter router, string invoiceNo, decimal payableAmount)
-        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0, false)
+        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0, false, false, "")
     {
     }
 
@@ -118,7 +125,9 @@ public partial class PaymentDialogViewModel : ObservableObject
         string? customerPhone,
         string? billingReservedCreditNoteNo,
         decimal billingReservedCreditAmount,
-        bool skipPaymentOutbox = false)
+        bool skipPaymentOutbox = false,
+        bool allowCreditNoteRemainingCashout = false,
+        string? posCounter = null)
     {
         _router = router;
         _creditNotes = creditNotes;
@@ -127,6 +136,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         _billingReservedCreditNoteNo = billingReservedCreditNoteNo?.Trim();
         _billingReservedCreditAmount = billingReservedCreditAmount;
         _skipPaymentOutbox = skipPaymentOutbox;
+        _allowCreditNoteRemainingCashout = allowCreditNoteRemainingCashout;
+        _posCounter = posCounter?.Trim() ?? "";
         InvoicePayableAmount = payableAmount;
         PayableFormatted = MoneyMath.FormatPayable(payableAmount);
         AmountReceived = payableAmount;
@@ -183,6 +194,7 @@ public partial class PaymentDialogViewModel : ObservableObject
                 note.IsSelected = false;
             CreditNoteReference = "";
             SplitCreditNoteReference = "";
+            CreditNoteCashOutAmount = 0;
         }
         else
         {
@@ -209,6 +221,9 @@ public partial class PaymentDialogViewModel : ObservableObject
             PaymentApplyingCreditFormatted = "";
             PaymentRemainingAfterFormatted = "";
             HasPaymentCreditSelected = false;
+            CanCashOutCreditNote = false;
+            CreditNoteCashOutMaxFormatted = "";
+            CreditNoteCashOutAmount = 0;
             UpdateCollectibleAmounts();
             ApplyPaymentCreditToPaymentInputs();
             return;
@@ -225,7 +240,36 @@ public partial class PaymentDialogViewModel : ObservableObject
         PaymentOriginalCreditFormatted = MoneyMath.FormatRupee(selected.OriginalAmount);
         PaymentApplyingCreditFormatted = MoneyMath.FormatRupee(maxApply);
         PaymentRemainingAfterFormatted = MoneyMath.FormatRupee(selected.RemainingAfterApply);
+        CanCashOutCreditNote = _allowCreditNoteRemainingCashout && selected.RemainingAfterApply > 0;
+        CreditNoteCashOutMaxFormatted = CanCashOutCreditNote
+            ? $"Max cash out: {MoneyMath.FormatRupee(selected.RemainingAfterApply)}"
+            : "";
+        if (!CanCashOutCreditNote)
+            CreditNoteCashOutAmount = 0;
+        else
+            CapCreditNoteCashOutAmount();
         UpdateCollectibleAmounts();
+    }
+
+    partial void OnCreditNoteCashOutAmountChanged(decimal value) => CapCreditNoteCashOutAmount();
+
+    private void CapCreditNoteCashOutAmount()
+    {
+        if (!CanCashOutCreditNote || string.IsNullOrEmpty(_selectedPaymentCreditNoteNo))
+        {
+            if (CreditNoteCashOutAmount != 0)
+                CreditNoteCashOutAmount = 0;
+            return;
+        }
+
+        var selected = AvailableCreditNotes.FirstOrDefault(n => n.CreditNoteNo == _selectedPaymentCreditNoteNo);
+        if (selected == null)
+            return;
+
+        if (CreditNoteCashOutAmount < 0)
+            CreditNoteCashOutAmount = 0;
+        else if (CreditNoteCashOutAmount > selected.RemainingAfterApply)
+            CreditNoteCashOutAmount = selected.RemainingAfterApply;
     }
 
     private void UpdateCollectibleAmounts()
@@ -434,6 +478,46 @@ public partial class PaymentDialogViewModel : ObservableObject
         return true;
     }
 
+    private async Task<bool> ProcessCreditNoteCashOutAsync()
+    {
+        if (CreditNoteCashOutAmount <= 0 || string.IsNullOrEmpty(_selectedPaymentCreditNoteNo))
+            return true;
+
+        if (!_allowCreditNoteRemainingCashout)
+        {
+            ErrorMessage = "Credit note cash payout is disabled in Settings.";
+            return false;
+        }
+
+        if (_creditNotes == null)
+        {
+            ErrorMessage = "Credit note service is not available.";
+            return false;
+        }
+
+        var selected = AvailableCreditNotes.FirstOrDefault(n => n.CreditNoteNo == _selectedPaymentCreditNoteNo);
+        if (selected == null || CreditNoteCashOutAmount > selected.RemainingAfterApply)
+        {
+            ErrorMessage = "Cash out amount exceeds credit note remaining balance.";
+            return false;
+        }
+
+        var ok = await _creditNotes.CashOutAsync(
+            _selectedPaymentCreditNoteNo,
+            CreditNoteCashOutAmount,
+            _invoiceNo,
+            _storeId,
+            _posCounter);
+
+        if (!ok)
+        {
+            ErrorMessage = "Could not cash out credit note (balance may have changed).";
+            return false;
+        }
+
+        return true;
+    }
+
     [RelayCommand]
     private async Task ConfirmPayment()
     {
@@ -629,6 +713,15 @@ public partial class PaymentDialogViewModel : ObservableObject
                     break;
             }
 
+            if (CreditNoteCashOutAmount > 0)
+            {
+                if (!await ProcessCreditNoteCashOutAsync())
+                {
+                    Status = PaymentStatus.Failed;
+                    return;
+                }
+            }
+
             decimal? cashReceived = null;
             decimal? changeReturned = null;
             if (SelectedMode == PaymentMode.Cash)
@@ -644,6 +737,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                 Mode = SelectedMode,
                 CashReceived = cashReceived,
                 ChangeReturned = changeReturned,
+                CreditNoteCashOutAmount = CreditNoteCashOutAmount,
+                CreditNoteCashOutNo = CreditNoteCashOutAmount > 0 ? _selectedPaymentCreditNoteNo : null,
             };
             Status = PaymentStatus.Success;
             CloseDialog?.Invoke(true);

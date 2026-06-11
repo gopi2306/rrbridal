@@ -75,6 +75,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _receiptPrinterWarningText = "";
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
+    [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
@@ -498,12 +499,17 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
+        BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
     }
 
     [RelayCommand]
     public async Task SaveBillingSettingsAsync()
     {
-        _services.PosBillingSettings.Update(s => s.AllowDuplicatePrint = BillingAllowDuplicatePrint);
+        _services.PosBillingSettings.Update(s =>
+        {
+            s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
+            s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
+        });
         await _services.PosBillingSettings.SaveAsync();
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
         await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
@@ -516,9 +522,10 @@ public partial class SettingsViewModel : ObservableObject
             Metadata = new BsonDocument
             {
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
+                { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
             },
         });
-        LastActionText = "Duplicate print setting saved.";
+        LastActionText = "Billing settings saved.";
     }
 
     [RelayCommand]

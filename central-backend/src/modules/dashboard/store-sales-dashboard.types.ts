@@ -25,7 +25,11 @@ export interface StoreSalesDashboardSummary {
   cardTotalAmount: number;
   /** Sum of UPI payments on bills in the period */
   upiTotalAmount: number;
-  /** Cash refunded on returns (returnMode cash_refund) */
+  /** Cash refunded on sale returns (returnMode cash_refund) */
+  returnCashRefundTotal: number;
+  /** Cash paid out from credit note remaining balance */
+  creditNoteCashoutTotal: number;
+  /** returnCashRefundTotal + creditNoteCashoutTotal */
   cashRefundForReturns: number;
   invoices: number;
   avgBasket: number;
@@ -110,6 +114,7 @@ export interface StoreSalesReturnDetailRow {
   returnTotal: number;
   replacementTotal: number;
   creditBalance: number;
+  cashRefunded: number;
   lineCount: number;
   creditNoteNo: string | null;
   customerName: string | null;

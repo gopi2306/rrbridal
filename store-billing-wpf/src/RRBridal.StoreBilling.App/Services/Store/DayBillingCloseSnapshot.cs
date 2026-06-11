@@ -25,6 +25,10 @@ public sealed class DayBillingCloseSnapshot
 
     public decimal ReturnTotalAmount { get; init; }
 
+    public decimal ReturnCashRefundTotal { get; init; }
+
+    public decimal CreditNoteCashoutTotal { get; init; }
+
     public decimal CashRefundTotal { get; init; }
 
     public decimal CreditNoteIssuedTotal { get; init; }
@@ -78,6 +82,8 @@ public sealed class DayCloseReturnRow
     public string ReturnMode { get; init; } = "";
 
     public decimal CreditBalance { get; init; }
+
+    public decimal CashRefunded { get; init; }
 
     public decimal AmountCollected { get; init; }
 

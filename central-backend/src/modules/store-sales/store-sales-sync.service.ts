@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { StoreAdjustment, StoreAdjustmentDocument } from './schemas/store-adjustment.schema';
+import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from './schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
@@ -19,6 +20,8 @@ export class StoreSalesSyncService {
     @InjectModel(StoreSaleReturn.name) private readonly returnModel: Model<StoreSaleReturnDocument>,
     @InjectModel(StoreAdjustment.name) private readonly adjustmentModel: Model<StoreAdjustmentDocument>,
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
+    @InjectModel(StoreCreditNoteCashout.name)
+    private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
   ) {}
 
   private requireString(payload: Record<string, unknown>, key: string): string {
@@ -237,5 +240,75 @@ export class StoreSalesSyncService {
     });
 
     await note.save();
+  }
+
+  async applyCreditNoteCashedOut(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const existingByEvent = await this.creditNoteCashoutModel
+      .findOne({ createSourceEventId: meta.eventId })
+      .lean();
+    if (existingByEvent) return;
+
+    const cashoutNo = this.requireString(payload, 'cashoutNo');
+    const creditNoteNo = this.requireString(payload, 'creditNoteNo');
+    const cashRefunded = this.requireNumber(payload, 'cashRefunded');
+    if (cashRefunded <= 0) throw new BadRequestException('cashRefunded must be positive');
+
+    const duplicate = await this.creditNoteCashoutModel.findOne({ storeId: meta.storeId, cashoutNo }).lean();
+    if (duplicate) return;
+
+    const billNo = this.optionalString(payload, 'billNo') ?? 'CASHOUT';
+    const note = await this.creditNoteModel.findOne({ storeId: meta.storeId, creditNoteNo });
+
+    const remainingBefore =
+      payload.remainingBefore !== undefined
+        ? this.requireNumber(payload, 'remainingBefore')
+        : note?.remainingAmount ?? cashRefunded;
+    const remainingAfter =
+      payload.remainingAfter !== undefined
+        ? this.requireNumber(payload, 'remainingAfter')
+        : payload.remainingAmount !== undefined
+          ? this.requireNumber(payload, 'remainingAmount')
+          : Math.max(0, remainingBefore - cashRefunded);
+
+    if (note) {
+      const creditNoteStatus =
+        this.optionalString(payload, 'creditNoteStatus') ??
+        this.optionalString(payload, 'status') ??
+        (remainingAfter <= 0 ? 'consumed' : 'available');
+
+      note.totalApplied = (note.totalApplied ?? 0) + cashRefunded;
+      note.remainingAmount = remainingAfter;
+      note.status = creditNoteStatus === 'consumed' ? 'consumed' : 'available';
+      note.lastAppliedBillNo = billNo;
+      if (note.status === 'consumed') note.consumedBillNo = billNo;
+
+      note.applications = note.applications ?? [];
+      note.applications.push({
+        billNo,
+        amountApplied: cashRefunded,
+        appliedAt: new Date().toISOString(),
+        sourceEventId: meta.eventId,
+      });
+
+      await note.save();
+    }
+
+    await this.creditNoteCashoutModel.create({
+      storeId: meta.storeId,
+      cashoutNo,
+      createSourceEventId: meta.eventId,
+      creditNoteNo,
+      billNo,
+      cashRefunded,
+      remainingBefore,
+      remainingAfter,
+      posCounter: this.optionalString(payload, 'posCounter'),
+      customerCode: this.optionalString(payload, 'customerCode'),
+      customerPhone: this.optionalString(payload, 'customerPhone'),
+      customerName: this.optionalString(payload, 'customerName'),
+      // Cashout rows are always posted; payload.status may carry credit-note lifecycle (consumed/available).
+      status: 'posted',
+      createdAtUtc: this.optionalString(payload, 'createdAtUtc') ?? new Date().toISOString(),
+    });
   }
 }
