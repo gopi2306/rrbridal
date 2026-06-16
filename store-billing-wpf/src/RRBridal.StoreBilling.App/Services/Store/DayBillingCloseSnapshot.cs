@@ -43,6 +43,20 @@ public sealed class DayBillingCloseSnapshot
 
     public decimal DailyExpensesTotal { get; init; }
 
+    public decimal DepositsTotal { get; init; }
+
+    public decimal WithdrawalsTotal { get; init; }
+
+    public decimal OpeningCash { get; init; }
+
+    public decimal ExpectedCash { get; init; }
+
+    public decimal ActualCashCounted { get; init; }
+
+    public decimal CashDifference { get; init; }
+
+    public string? SessionStatus { get; init; }
+
     public IReadOnlyList<DayCloseInvoiceRow> Invoices { get; init; } = Array.Empty<DayCloseInvoiceRow>();
 
     public IReadOnlyList<DayCloseReturnRow> Returns { get; init; } = Array.Empty<DayCloseReturnRow>();

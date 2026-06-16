@@ -16,6 +16,17 @@ using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
+public sealed class DaySessionRollupRowView
+{
+    public required string PosCounter { get; init; }
+    public required string Status { get; init; }
+    public required string OpeningCashDisplay { get; init; }
+    public required string ExpectedCashDisplay { get; init; }
+    public required string ActualCashDisplay { get; init; }
+    public required string DifferenceDisplay { get; init; }
+    public required string ClosedBy { get; init; }
+}
+
 public partial class DashboardViewModel : ObservableObject
 {
     private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
@@ -89,6 +100,14 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _dayCloseNetUpiSummary = "—";
 
     [ObservableProperty] private string _dayCloseActualHandInSummary = "—";
+
+    [ObservableProperty] private string _dayCloseExpectedCashSummary = "—";
+
+    [ObservableProperty] private string _dayCloseDepositsSummary = "—";
+
+    [ObservableProperty] private string _dayCloseWithdrawalsSummary = "—";
+
+    public ObservableCollection<DaySessionRollupRowView> StoreRollupRows { get; } = new();
 
     [ObservableProperty] private string _inventorySearchText = "";
 
@@ -252,7 +271,7 @@ public partial class DashboardViewModel : ObservableObject
         DayCloseStatusMessage = "Loading day close…";
         try
         {
-            var snap = await _dayCloseService.LoadDayCloseAsync(storeId, SelectedCloseDate, posFilter);
+            var snap = await _services.DaySessions.LoadDayCloseWithSessionAsync(storeId, SelectedCloseDate, posFilter);
 
             DayCloseBillCountSummary = snap.BillCount.ToString(InCulture);
             DayCloseQtySummary = snap.TotalQty.ToString("N2", InCulture);
@@ -285,6 +304,31 @@ public partial class DashboardViewModel : ObservableObject
             DayCloseNetCardSummary = MoneyMath.FormatRupee(snap.NetCardInHand);
             DayCloseNetUpiSummary = MoneyMath.FormatRupee(snap.NetUpiInHand);
             DayCloseActualHandInSummary = MoneyMath.FormatRupee(snap.ActualHandInTotal);
+            DayCloseExpectedCashSummary = MoneyMath.FormatRupee(snap.ExpectedCash);
+            DayCloseDepositsSummary = snap.DepositsTotal > 0 ? MoneyMath.FormatRupee(snap.DepositsTotal) : "—";
+            DayCloseWithdrawalsSummary = snap.WithdrawalsTotal > 0 ? MoneyMath.FormatRupee(snap.WithdrawalsTotal) : "—";
+
+            StoreRollupRows.Clear();
+            if (_storeContext.IsPrimaryCounter)
+            {
+                var businessDate = DaySessionService.FormatBusinessDate(SelectedCloseDate);
+                var rollup = await _services.DaySessions.GetStoreRollupAsync(storeId, businessDate);
+                foreach (var row in rollup.Counters)
+                {
+                    StoreRollupRows.Add(new DaySessionRollupRowView
+                    {
+                        PosCounter = $"POS{row.PosCounter}",
+                        Status = row.Status,
+                        OpeningCashDisplay = MoneyMath.FormatRupee(row.OpeningCash),
+                        ExpectedCashDisplay = row.ExpectedCash > 0 ? MoneyMath.FormatRupee(row.ExpectedCash) : "—",
+                        ActualCashDisplay = row.ActualCashCounted > 0 ? MoneyMath.FormatRupee(row.ActualCashCounted) : "—",
+                        DifferenceDisplay = row.Status == DaySessionStatus.Closed
+                            ? MoneyMath.FormatRupee(row.CashDifference)
+                            : "—",
+                        ClosedBy = row.ClosedBy ?? "—",
+                    });
+                }
+            }
 
             DayInvoices.Clear();
             foreach (var row in snap.Invoices)

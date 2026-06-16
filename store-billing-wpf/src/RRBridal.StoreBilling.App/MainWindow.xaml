@@ -85,6 +85,9 @@
                     <controls:NavTabButton Label="Returns" Page="{x:Static vm:ShellPage.SaleReturn}"
                                            NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                    <controls:NavTabButton Label="Day Close" Page="{x:Static vm:ShellPage.DayClose}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DayClose}}"/>
                     <controls:NavTabButton Label="Duplicate" Page="{x:Static vm:ShellPage.DuplicateBill}"
                                            NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
@@ -107,6 +110,15 @@
                              Margin="0,0,12,0"
                              Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Product code (SKU or barcode) adds directly; name opens pick list — Enter on Billing"/>
+
+                    <Border Style="{StaticResource UserBadge}" Margin="0,0,8,0" VerticalAlignment="Center"
+                            ToolTip="Business day status — click to open Day Close">
+                        <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
+                                Command="{Binding NavigateDayCloseCommand}">
+                            <TextBlock Text="{Binding DaySessionStatusChip}" Style="{StaticResource TextCaption}"
+                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                        </Button>
+                    </Border>
 
                     <Border Style="{StaticResource UserBadge}" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Logged in user">
                         <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
@@ -176,6 +188,9 @@
             </Grid>
             <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
                 <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsDayClosePage, Converter={StaticResource BoolToVis}}">
+                <views:DayCloseView DataContext="{Binding DayClose}"/>
             </Grid>
             <Grid Visibility="{Binding IsDailyExpensesPage, Converter={StaticResource BoolToVis}}">
                 <views:DailyExpenseView DataContext="{Binding DailyExpenses}"/>

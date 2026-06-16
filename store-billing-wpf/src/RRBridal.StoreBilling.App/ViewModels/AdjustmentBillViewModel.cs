@@ -13,6 +13,7 @@ using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -160,6 +161,16 @@ public partial class AdjustmentBillViewModel : ObservableObject
         if (AdjustmentLines.Count == 0)
         {
             MessageBox.Show("Load a bill first.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dayGuard = new DaySessionGuard(_services.DaySessions);
+        var dayBlock = await dayGuard.ValidatePostingTodayAsync(
+            _services.StoreContext.StoreId,
+            _services.StoreContext.PosCounter);
+        if (dayBlock != null)
+        {
+            MessageBox.Show(dayBlock, "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

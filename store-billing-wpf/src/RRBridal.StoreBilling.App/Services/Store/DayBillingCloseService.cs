@@ -31,12 +31,14 @@ public sealed class DayBillingCloseService
         string storeId,
         DateTime localDate,
         string? posCounterFilter = null,
+        DaySessionRecord? session = null,
         CancellationToken ct = default)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
         var cashoutsColl = _db.GetCollection<BsonDocument>("store_credit_note_cashouts");
         var expensesColl = _db.GetCollection<BsonDocument>("store_daily_expenses");
+        var movementsColl = _db.GetCollection<BsonDocument>("store_cash_movements");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
 
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
@@ -127,10 +129,27 @@ public sealed class DayBillingCloseService
             businessDate,
             posCounterFilter);
 
+        var movementDocs = await movementsColl.Find(storeFilter).ToListAsync(ct);
+        var (depositsTotal, withdrawalsTotal) = DayBillingCloseDocumentReader.SumCashMovementsForBusinessDate(
+            movementDocs,
+            businessDate,
+            posCounterFilter);
+
         var netCash = cash - cashRefundTotal + exchangePayments.Cash - dailyExpensesTotal;
         var netCard = card + exchangePayments.Card;
         var netUpi = upi + exchangePayments.Upi;
         var actualHandIn = netCash + netCard + netUpi;
+
+        var openingCash = session?.OpeningCash ?? 0m;
+        var expectedCash = DaySessionCashMath.ComputeExpectedCash(
+            openingCash,
+            netCash,
+            depositsTotal,
+            withdrawalsTotal);
+        var actualCashCounted = session?.ActualCashCounted ?? 0m;
+        var cashDifference = session != null && session.Status == DaySessionStatus.Closed
+            ? session.CashDifference
+            : actualCashCounted - expectedCash;
 
         var returnRows = new List<DayCloseReturnRow>();
         foreach (var doc in dayReturns)
@@ -183,6 +202,13 @@ public sealed class DayBillingCloseService
             NetUpiInHand = netUpi,
             ActualHandInTotal = actualHandIn,
             DailyExpensesTotal = dailyExpensesTotal,
+            DepositsTotal = depositsTotal,
+            WithdrawalsTotal = withdrawalsTotal,
+            OpeningCash = openingCash,
+            ExpectedCash = expectedCash,
+            ActualCashCounted = actualCashCounted,
+            CashDifference = cashDifference,
+            SessionStatus = session?.Status,
             Invoices = invoices,
             Returns = returnRows,
             StockExceptions = stockExceptions,

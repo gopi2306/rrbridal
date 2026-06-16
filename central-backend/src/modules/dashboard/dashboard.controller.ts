@@ -6,8 +6,10 @@ import { StoreSalesDashboardQueryDto } from './dto/store-sales-dashboard-query.d
 import { StoreVendorSalesDashboardQueryDto } from './dto/store-vendor-sales-dashboard-query.dto';
 import { StoreVendorsSalesDashboardQueryDto } from './dto/store-vendors-sales-dashboard-query.dto';
 import { StoreDashboardQueryDto } from './dto/store-dashboard-query.dto';
+import { StoreDayCloseDashboardQueryDto } from './dto/store-day-close-dashboard-query.dto';
 import { WarehouseDashboardQueryDto } from './dto/warehouse-dashboard-query.dto';
 import { StoreDashboardService } from './store-dashboard.service';
+import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
 import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
@@ -16,9 +18,10 @@ import type { StoreSalesDashboardOptions } from './store-sales-dashboard.types';
 import type { StoreVendorSalesDashboardOptions } from './store-vendor-sales-dashboard.types';
 import type { StoreVendorsSalesDashboardOptions } from './store-vendors-sales-dashboard.types';
 import type { StoreVendorsSalesReportOptions } from './store-vendors-sales-report.types';
+import type { StoreDayCloseDashboardOptions } from './store-day-close-dashboard.types';
 import type { StoreDashboardOptions } from './store-dashboard.types';
 import type { WarehouseDashboardOptions } from './warehouse-dashboard.types';
-import { businessTodayParts } from './store-sales-payload.util';
+import { businessTodayParts, formatBusinessYmd } from './store-sales-payload.util';
 
 @ApiTags('dashboard')
 @Controller('dashboard')
@@ -30,6 +33,7 @@ export class DashboardController {
     private readonly storeSalesDashboardService: StoreSalesDashboardService,
     private readonly storeVendorSalesDashboardService: StoreVendorSalesDashboardService,
     private readonly storeVendorsSalesReportService: StoreVendorsSalesReportService,
+    private readonly storeDayCloseDashboardService: StoreDayCloseDashboardService,
   ) {}
 
   @Get()
@@ -61,6 +65,15 @@ export class DashboardController {
       options.storeId = query.storeId;
     }
     return await this.storeDashboardService.getStoreDashboard(options);
+  }
+
+  @Get('store/day-close')
+  async getStoreDayClose(@Query() query: StoreDayCloseDashboardQueryDto) {
+    const businessDate = query.businessDate?.trim() || formatBusinessYmd(new Date());
+    const options: StoreDayCloseDashboardOptions = { businessDate };
+    if (query.storeId?.trim()) options.storeId = query.storeId.trim();
+    if (query.posCounter?.trim()) options.posCounter = query.posCounter.trim();
+    return await this.storeDayCloseDashboardService.getDayCloseDashboard(options);
   }
 
   @Get('store/sales')

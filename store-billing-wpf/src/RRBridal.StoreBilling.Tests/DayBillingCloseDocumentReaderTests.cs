@@ -319,4 +319,48 @@ public class DayBillingCloseDocumentReaderTests
         Assert.Equal(200m, DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(expenses, "2026-06-11", "1"));
         Assert.Equal(250m, DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(expenses, "2026-06-11", null));
     }
+
+    [Fact]
+    public void SumCashMovementsForBusinessDate_splits_deposits_and_withdrawals()
+    {
+        var movements = new[]
+        {
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 1000, "status": "posted", "movementType": "deposit_to_bank", "posCounter": "1" }"""),
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 200, "status": "posted", "movementType": "cash_withdrawal", "posCounter": "1" }"""),
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 50, "status": "posted", "movementType": "deposit_to_bank", "posCounter": "2" }"""),
+        };
+
+        var (deposits, withdrawals) = DayBillingCloseDocumentReader.SumCashMovementsForBusinessDate(
+            movements, "2026-06-11", "1");
+
+        Assert.Equal(1000m, deposits);
+        Assert.Equal(200m, withdrawals);
+    }
+
+    [Fact]
+    public void DaySessionCashMath_computes_expected_cash()
+    {
+        var expected = DaySessionCashMath.ComputeExpectedCash(
+            openingCash: 5000m,
+            netCashInHand: 45100m,
+            depositsTotal: 1000m,
+            withdrawalsTotal: 200m);
+
+        Assert.Equal(48900m, expected);
+    }
+
+    [Fact]
+    public void CashDenominationDefaults_validate_and_sum()
+    {
+        var lines = new[]
+        {
+            new CashDenominationLine { Denomination = 500, UnitCount = 84 },
+            new CashDenominationLine { Denomination = 100, UnitCount = 11 },
+            new CashDenominationLine { Denomination = 1, UnitCount = 1495 },
+        };
+
+        var total = CashDenominationDefaults.SumDenominations(lines);
+        Assert.Equal(44595m, total);
+        Assert.True(CashDenominationDefaults.ValidateDenominations(lines, total, out _));
+    }
 }

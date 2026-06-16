@@ -17,6 +17,7 @@ using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Products;
+using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -470,6 +471,16 @@ public partial class SaleReturnViewModel : ObservableObject
                 "Sale Return",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+            return;
+        }
+
+        var dayGuard = new DaySessionGuard(_services.DaySessions);
+        var dayBlock = await dayGuard.ValidatePostingTodayAsync(
+            _services.StoreContext.StoreId,
+            _services.StoreContext.PosCounter);
+        if (dayBlock != null)
+        {
+            MessageBox.Show(dayBlock, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

@@ -1,9 +1,11 @@
+using System;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
+using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -32,6 +34,8 @@ public partial class ShellViewModel : ObservableObject
 
     public DailyExpenseViewModel DailyExpenses { get; }
 
+    public DayCloseViewModel DayClose { get; }
+
     public SettingsViewModel Settings { get; }
 
     private ShellPage _lastPage = ShellPage.Billing;
@@ -51,6 +55,8 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _globalSearchText = "";
 
     [ObservableProperty] private int _pendingNotificationCount;
+
+    [ObservableProperty] private string _daySessionStatusChip = "Day: …";
 
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
@@ -109,7 +115,10 @@ public partial class ShellViewModel : ObservableObject
         DuplicateBill = new DuplicateBillViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
+        DayClose = new DayCloseViewModel(services);
         Settings = new SettingsViewModel(services);
+
+        services.NotifyDaySessionChanged = () => _ = RefreshDaySessionStatusAsync();
 
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
@@ -118,6 +127,7 @@ public partial class ShellViewModel : ObservableObject
 
         _ = RefreshBrandingAsync();
         _ = RefreshNotificationCountAsync();
+        _ = RefreshDaySessionStatusAsync();
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
@@ -132,6 +142,7 @@ public partial class ShellViewModel : ObservableObject
         WindowTitleText = snap.WindowTitleText;
         Dashboard.ApplyBrandingFromShell();
         DailyExpenses.ApplyBrandingFromShell();
+        DayClose.ApplyBrandingFromShell();
         Ledger.ApplyBrandingFromShell();
         BarcodePrinting.ApplyBrandingFromShell();
     }
@@ -157,6 +168,8 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
+        OnPropertyChanged(nameof(IsDayClosePage));
+        OnPropertyChanged(nameof(IsDailyExpensesPage));
         OnPropertyChanged(nameof(IsSettingsPage));
     }
 
@@ -194,7 +207,30 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsDailyExpensesPage => CurrentPage == ShellPage.DailyExpenses;
 
+    public bool IsDayClosePage => CurrentPage == ShellPage.DayClose;
+
     public bool IsSettingsPage => CurrentPage == ShellPage.Settings;
+
+    public async Task RefreshDaySessionStatusAsync()
+    {
+        try
+        {
+            var storeId = _services.StoreContext.StoreId;
+            var pos = _services.StoreContext.PosCounter;
+            var businessDate = DaySessionService.FormatBusinessDate(DateTime.Today);
+            var session = await _services.DaySessions.GetSessionAsync(storeId, businessDate, pos);
+            if (session == null)
+                DaySessionStatusChip = "Day: Not opened";
+            else if (string.Equals(session.Status, DaySessionStatus.Closed, StringComparison.OrdinalIgnoreCase))
+                DaySessionStatusChip = "Day: Closed";
+            else
+                DaySessionStatusChip = "Day: Open";
+        }
+        catch
+        {
+            DaySessionStatusChip = "Day: …";
+        }
+    }
 
     partial void OnCurrentPageChanged(ShellPage value)
     {
@@ -210,6 +246,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
+        OnPropertyChanged(nameof(IsDayClosePage));
         OnPropertyChanged(nameof(IsDailyExpensesPage));
         OnPropertyChanged(nameof(IsSettingsPage));
 
@@ -230,6 +267,11 @@ public partial class ShellViewModel : ObservableObject
             RequestBarcodeSkuFocus();
         if (value == ShellPage.DailyExpenses)
             _ = DailyExpenses.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.DayClose)
+        {
+            _ = DayClose.RefreshCommand.ExecuteAsync(null);
+            _ = RefreshDaySessionStatusAsync();
+        }
 
         PostBillCommand.NotifyCanExecuteChanged();
         _lastPage = value;
@@ -254,6 +296,9 @@ public partial class ShellViewModel : ObservableObject
             return;
         CurrentPage = page;
     }
+
+    [RelayCommand]
+    private void NavigateDayClose() => CurrentPage = ShellPage.DayClose;
 
     [RelayCommand]
     private async Task SaveCustomerRegistration()

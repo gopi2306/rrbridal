@@ -63,6 +63,12 @@ export class SyncService {
           await this.storeSalesSyncService.applyCreditNoteCashedOut(meta, ev.payload);
         } else if (ev.type === 'DailyExpenseCreated') {
           await this.storeSalesSyncService.applyDailyExpenseCreated(meta, ev.payload);
+        } else if (ev.type === 'DaySessionOpened') {
+          await this.storeSalesSyncService.applyDaySessionOpened(meta, ev.payload);
+        } else if (ev.type === 'DaySessionClosed') {
+          await this.storeSalesSyncService.applyDaySessionClosed(meta, ev.payload);
+        } else if (ev.type === 'CashMovementCreated') {
+          await this.storeSalesSyncService.applyCashMovementCreated(meta, ev.payload);
         }
 
         await this.syncEventModel.create({

@@ -141,5 +141,47 @@ public static class StoreIndexEnsurer
                 Builders<MongoDB.Bson.BsonDocument>.IndexKeys.Ascending("sku"),
                 new CreateIndexOptions { Name = "sku" }),
             cancellationToken: ct);
+
+        var daySessions = db.GetCollection<MongoDB.Bson.BsonDocument>("store_day_sessions");
+        await daySessions.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("businessDate")
+                    .Ascending("posCounter"),
+                new CreateIndexOptions
+                {
+                    Name = "storeId_businessDate_posCounter_unique",
+                    Unique = true,
+                }),
+            cancellationToken: ct);
+        await daySessions.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("businessDate")
+                    .Ascending("status"),
+                new CreateIndexOptions { Name = "storeId_businessDate_status" }),
+            cancellationToken: ct);
+
+        var cashMovements = db.GetCollection<MongoDB.Bson.BsonDocument>("store_cash_movements");
+        await cashMovements.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("movementNo"),
+                new CreateIndexOptions
+                {
+                    Name = "storeId_movementNo_unique",
+                    Unique = true,
+                }),
+            cancellationToken: ct);
+        await cashMovements.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("businessDate"),
+                new CreateIndexOptions { Name = "storeId_businessDate" }),
+            cancellationToken: ct);
     }
 }

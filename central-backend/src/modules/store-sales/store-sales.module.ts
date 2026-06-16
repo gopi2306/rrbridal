@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StoreDailyExpense, StoreDailyExpenseSchema } from './schemas/store-daily-expense.schema';
+import { StoreDayClose, StoreDayCloseSchema } from './schemas/store-day-close.schema';
+import { StoreCashMovement, StoreCashMovementSchema } from './schemas/store-cash-movement.schema';
 import { StoreAdjustment, StoreAdjustmentSchema } from './schemas/store-adjustment.schema';
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutSchema } from './schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteSchema } from './schemas/store-credit-note.schema';
@@ -15,6 +17,8 @@ import { StoreSalesSyncService } from './store-sales-sync.service';
       { name: StoreSaleReturn.name, schema: StoreSaleReturnSchema },
       { name: StoreAdjustment.name, schema: StoreAdjustmentSchema },
       { name: StoreDailyExpense.name, schema: StoreDailyExpenseSchema },
+      { name: StoreDayClose.name, schema: StoreDayCloseSchema },
+      { name: StoreCashMovement.name, schema: StoreCashMovementSchema },
       { name: StoreCreditNote.name, schema: StoreCreditNoteSchema },
       { name: StoreCreditNoteCashout.name, schema: StoreCreditNoteCashoutSchema },
     ]),

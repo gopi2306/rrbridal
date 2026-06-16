@@ -149,6 +149,24 @@ Raised when a **daily cash expense slip** is posted locally (`store_daily_expens
 
 Central: `store_daily_expenses`, idempotent by `sourceEventId` (`eventId`). Duplicate `expenseNo` for the same store → `rejected`.
 
+### Event: `DaySessionOpened`
+
+Raised when a counter **opens** the business day (`store_day_sessions`, `status: open`). Payload includes `sessionId`, `storeId`, `posCounter`, `deviceId`, `businessDate`, `openingCash`, `openedBy`, `openedAtUtc`.
+
+Central: `store_day_closes` (session records), idempotent by `sourceEventId`. Duplicate `(storeId, businessDate, posCounter)` on open is ignored if already present.
+
+### Event: `DaySessionClosed`
+
+Raised when a counter **closes** the day after cash hand-over. Payload includes denomination breakdown (`cashDenominations[]`), `expectedCash`, `actualCashCounted`, `cashDifference`, `closeSnapshot`, `closedBy`, `closedAtUtc`.
+
+Central: `store_day_closes`, idempotent by `sourceEventId`. Duplicate close for same `(storeId, businessDate, posCounter)` → `rejected`.
+
+### Event: `CashMovementCreated`
+
+Raised for **bank deposits** (`deposit_to_bank`) or **cash withdrawals** (`cash_withdrawal`) posted to `store_cash_movements`.
+
+Central: `store_cash_movements`, idempotent by `sourceEventId`. Duplicate `movementNo` per store → `rejected`.
+
 ### Event: `CreditNoteCreated`
 
 Raised when a customer credit note is created from a return (local `customer_credit_notes`). `payload` includes `creditNoteNo`, `returnNo`, `originalBillNo`, `amount`, `remainingAmount`, customer phone/code, `storeId`.

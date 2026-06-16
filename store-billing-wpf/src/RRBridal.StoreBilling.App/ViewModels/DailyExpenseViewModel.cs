@@ -10,6 +10,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -124,6 +125,18 @@ public partial class DailyExpenseViewModel : ObservableObject
             return;
         }
 
+        var businessDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var dayGuard = new DaySessionGuard(_services.DaySessions);
+        var dayBlock = await dayGuard.ValidatePostingAsync(
+            _services.StoreContext.StoreId,
+            businessDate,
+            _services.StoreContext.PosCounter);
+        if (dayBlock != null)
+        {
+            MessageBox.Show(dayBlock, "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             var storeId = _services.StoreContext.StoreId;
@@ -131,7 +144,6 @@ public partial class DailyExpenseViewModel : ObservableObject
             var posCounter = _services.StoreContext.PosCounter;
             var expenseNo = await _services.BillNumberGenerator.NextDailyExpenseAsync();
             var createdAt = DateTime.UtcNow.ToString("O");
-            var businessDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
             var doc = new BsonDocument
             {

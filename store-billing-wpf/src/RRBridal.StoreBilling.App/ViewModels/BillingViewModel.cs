@@ -22,6 +22,7 @@ using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.PurchaseIntents;
+using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -1501,6 +1502,16 @@ public partial class BillingViewModel : ObservableObject
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
+            return;
+        }
+
+        var dayGuard = new DaySessionGuard(_services.DaySessions);
+        var dayBlock = await dayGuard.ValidatePostingTodayAsync(
+            _services.StoreContext.StoreId,
+            _services.StoreContext.PosCounter);
+        if (dayBlock != null)
+        {
+            MessageBox.Show(dayBlock, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

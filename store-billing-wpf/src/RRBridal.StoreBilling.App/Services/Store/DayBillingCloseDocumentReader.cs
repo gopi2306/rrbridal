@@ -285,4 +285,30 @@ public static class DayBillingCloseDocumentReader
             .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
             .Sum(d => ReadDecimal(d, "amount"));
     }
+
+    public static (decimal Deposits, decimal Withdrawals) SumCashMovementsForBusinessDate(
+        IEnumerable<BsonDocument> movements,
+        string businessDate,
+        string? posCounterFilter)
+    {
+        decimal deposits = 0m, withdrawals = 0m;
+        foreach (var doc in movements)
+        {
+            if (!string.Equals(ReadString(doc, "businessDate"), businessDate, StringComparison.Ordinal))
+                continue;
+            if (!MatchesPosCounterFilter(doc, posCounterFilter))
+                continue;
+            if (!string.Equals(ReadString(doc, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var amount = ReadDecimal(doc, "amount");
+            var type = ReadString(doc, "movementType") ?? "";
+            if (string.Equals(type, CashMovementType.DepositToBank, StringComparison.OrdinalIgnoreCase))
+                deposits += amount;
+            else if (string.Equals(type, CashMovementType.CashWithdrawal, StringComparison.OrdinalIgnoreCase))
+                withdrawals += amount;
+        }
+
+        return (deposits, withdrawals);
+    }
 }

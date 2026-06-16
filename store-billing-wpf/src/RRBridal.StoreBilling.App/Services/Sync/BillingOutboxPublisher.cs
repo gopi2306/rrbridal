@@ -120,4 +120,25 @@ public sealed class BillingOutboxPublisher
         var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
         return EnqueueAsync("DailyExpenseCreated", payload, hash, ct);
     }
+
+    public Task<string> PublishCashMovementCreatedAsync(BsonDocument movementDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)movementDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("CashMovementCreated", payload, hash, ct);
+    }
+
+    public Task<string> PublishDaySessionOpenedAsync(BsonDocument sessionDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)sessionDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("DaySessionOpened", payload, hash, ct);
+    }
+
+    public Task<string> PublishDaySessionClosedAsync(BsonDocument sessionDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)sessionDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("DaySessionClosed", payload, hash, ct);
+    }
 }

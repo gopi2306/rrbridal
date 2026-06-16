@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { StoreDailyExpense, StoreDailyExpenseDocument } from './schemas/store-daily-expense.schema';
+import { StoreDayClose, StoreDayCloseDocument } from './schemas/store-day-close.schema';
+import { StoreCashMovement, StoreCashMovementDocument } from './schemas/store-cash-movement.schema';
 import { StoreAdjustment, StoreAdjustmentDocument } from './schemas/store-adjustment.schema';
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
@@ -24,6 +26,8 @@ export class StoreSalesSyncService {
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
     @InjectModel(StoreCreditNoteCashout.name)
     private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
+    @InjectModel(StoreDayClose.name) private readonly dayCloseModel: Model<StoreDayCloseDocument>,
+    @InjectModel(StoreCashMovement.name) private readonly cashMovementModel: Model<StoreCashMovementDocument>,
   ) {}
 
   private requireString(payload: Record<string, unknown>, key: string): string {
@@ -364,5 +368,114 @@ export class StoreSalesSyncService {
       status: 'posted',
       createdAtUtc: this.optionalString(payload, 'createdAtUtc') ?? new Date().toISOString(),
     });
+  }
+
+  async applyDaySessionOpened(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    await this.upsertDaySessionRecord(meta, payload, false);
+  }
+
+  async applyDaySessionClosed(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    await this.upsertDaySessionRecord(meta, payload, true);
+  }
+
+  async applyCashMovementCreated(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const existing = await this.cashMovementModel.findOne({ sourceEventId: meta.eventId }).lean();
+    if (existing) return;
+
+    const movementNo = this.requireString(payload, 'movementNo');
+    const businessDate = this.requireString(payload, 'businessDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+      throw new BadRequestException('businessDate must be YYYY-MM-DD');
+    }
+
+    const amount = this.requireNumber(payload, 'amount');
+    if (amount <= 0) throw new BadRequestException('amount must be positive');
+
+    const duplicate = await this.cashMovementModel
+      .findOne({ storeId: meta.storeId, movementNo })
+      .lean();
+    if (duplicate) {
+      throw new ConflictException(
+        `Cash movement '${movementNo}' already exists for store '${meta.storeId}'`,
+      );
+    }
+
+    try {
+      await this.cashMovementModel.create({
+        storeId: meta.storeId,
+        movementNo,
+        sourceEventId: meta.eventId,
+        deviceId: meta.deviceId,
+        payload: { ...payload, movementNo, businessDate, amount },
+      });
+    } catch (err: unknown) {
+      const dup =
+        err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
+      if (dup) {
+        const again = await this.cashMovementModel.findOne({ sourceEventId: meta.eventId }).lean();
+        if (again) return;
+        throw new ConflictException(
+          `Cash movement '${movementNo}' already exists for store '${meta.storeId}'`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  private async upsertDaySessionRecord(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+    requireClose: boolean,
+  ): Promise<void> {
+    const existingByEvent = await this.dayCloseModel.findOne({ sourceEventId: meta.eventId }).lean();
+    if (existingByEvent) return;
+
+    const businessDate = this.requireString(payload, 'businessDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+      throw new BadRequestException('businessDate must be YYYY-MM-DD');
+    }
+
+    const posCounter = this.requireString(payload, 'posCounter');
+    const status = this.requireString(payload, 'status');
+    if (requireClose && status !== 'closed') {
+      throw new BadRequestException('DaySessionClosed requires status closed');
+    }
+
+    const duplicate = await this.dayCloseModel
+      .findOne({ storeId: meta.storeId, businessDate, posCounter })
+      .lean();
+    if (duplicate) {
+      if (requireClose && (duplicate.payload as Record<string, unknown>).status === 'closed') {
+        throw new ConflictException(
+          `Day close already exists for store '${meta.storeId}' counter '${posCounter}' on ${businessDate}`,
+        );
+      }
+      if (!requireClose) return;
+    }
+
+    try {
+      await this.dayCloseModel.create({
+        storeId: meta.storeId,
+        businessDate,
+        posCounter,
+        sourceEventId: meta.eventId,
+        deviceId: meta.deviceId,
+        payload: { ...payload, businessDate, posCounter, status },
+      });
+    } catch (err: unknown) {
+      const dup =
+        err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
+      if (dup) {
+        const again = await this.dayCloseModel.findOne({ sourceEventId: meta.eventId }).lean();
+        if (again) return;
+        if (requireClose) {
+          throw new ConflictException(
+            `Day close already exists for store '${meta.storeId}' counter '${posCounter}' on ${businessDate}`,
+          );
+        }
+        return;
+      }
+      throw err;
+    }
   }
 }

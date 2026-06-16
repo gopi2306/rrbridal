@@ -273,11 +273,46 @@
                         </Border>
                         <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Actual hand-in" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="Expected tender total" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                                 <TextBlock Text="{Binding DayCloseActualHandInSummary}" FontSize="18" FontWeight="Bold"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
+
+                    <UniformGrid Columns="3" Margin="0,0,0,12">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                            <StackPanel>
+                                <TextBlock Text="Expected cash (drawer)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseExpectedCashSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Deposits to bank" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseDepositsSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Cash withdrawals" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseWithdrawalsSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock Text="Store day-close rollup (all counters)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,8"/>
+                    <DataGrid ItemsSource="{Binding StoreRollupRows}" Style="{StaticResource ThemedDataGrid}"
+                              AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="180" Margin="0,0,0,12">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Counter" Binding="{Binding PosCounter}" Width="80"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="70"/>
+                            <DataGridTextColumn Header="Opening" Binding="{Binding OpeningCashDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Expected" Binding="{Binding ExpectedCashDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Actual" Binding="{Binding ActualCashDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Diff" Binding="{Binding DifferenceDisplay}" Width="90"/>
+                            <DataGridTextColumn Header="Closed by" Binding="{Binding ClosedBy}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
 
                     <TextBlock Text="Returns for selected day" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
                     <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12">

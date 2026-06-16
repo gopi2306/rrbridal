@@ -1,0 +1,129 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.DayCloseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             Background="{StaticResource BrushBackground}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="Day Close" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+            <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,8"/>
+
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="{Binding SessionStatusBanner}" FontWeight="Bold" FontSize="15"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="Business date" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <DatePicker SelectedDate="{Binding SelectedDate}" Width="140"/>
+                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
+                                Command="{Binding RefreshCommand}" Width="90"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12"
+                    Visibility="{Binding CanOpenDay, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Open day" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Opening cash (₹)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Width="120" Style="{StaticResource RoundedTextBox}"
+                                 Text="{Binding OpeningCashText, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="Open day" Style="{StaticResource PrimaryButton}" Margin="12,0,0,0"
+                                Command="{Binding OpenDayCommand}" Width="100"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Day summary" Margin="0,0,0,8"/>
+                    <UniformGrid Columns="4">
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryBillCount}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Sales" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryAmount}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryNetCash}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Expected cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryExpectedCash}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Expenses" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryExpenses}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Deposits" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryDeposits}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Withdrawals" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryWithdrawals}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Expected tender total" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryExpectedTender}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Cash movements" Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
+                                 Text="{Binding MovementDescription, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Description"/>
+                        <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
+                                 Text="{Binding MovementAmountText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Amount"/>
+                        <Button Grid.Column="2" Content="Deposit" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                Command="{Binding PostDepositCommand}" Width="90"
+                                IsEnabled="{Binding CanPostMovements}"/>
+                        <Button Grid.Column="3" Content="Withdraw" Style="{StaticResource OutlineButton}"
+                                Command="{Binding PostWithdrawalCommand}" Width="90"
+                                IsEnabled="{Binding CanPostMovements}"/>
+                    </Grid>
+                    <DataGrid ItemsSource="{Binding CashMovements}" Style="{StaticResource ThemedDataGrid}"
+                              AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="160">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="No" Binding="{Binding MovementNo}" Width="160"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding TypeDisplay}" Width="120"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                            <DataGridTextColumn Header="Amount" Binding="{Binding AmountDisplay}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Padding="12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Cash hand over &amp; close" Margin="0,0,0,8"/>
+                    <TextBlock Text="Count physical cash by denomination, print hand-over slip (F3), then close the day."
+                               Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                    <Button Content="Cash Hand Over…" Style="{StaticResource PrimaryButton}" Width="160" HorizontalAlignment="Left"
+                            Command="{Binding OpenCashHandOverCommand}"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -57,7 +57,11 @@ public sealed class AppServices
     public required OutboxNotificationService OutboxNotifications { get; init; }
     public required StoreAuditLogService StoreAuditLog { get; init; }
     public required StoreBillListService StoreBillList { get; init; }
+    public required DaySessionService DaySessions { get; init; }
+    public required CashMovementService CashMovements { get; init; }
     public UserSession? UserSession { get; set; }
+
+    public Action? NotifyDaySessionChanged { get; set; }
 
     public static AppServices CreateDefault()
     {
@@ -123,6 +127,8 @@ public sealed class AppServices
         var storeBillList = new StoreBillListService(localDb);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
+        var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
+        var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
         var storeSyncRunner = new StoreSyncRunner(
@@ -170,6 +176,8 @@ public sealed class AppServices
             OutboxNotifications = outboxNotifications,
             StoreAuditLog = storeAuditLog,
             StoreBillList = storeBillList,
+            DaySessions = daySessions,
+            CashMovements = cashMovements,
         };
         return servicesRef;
     }
