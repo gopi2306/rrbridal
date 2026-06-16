@@ -11,6 +11,9 @@ import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import {
   bucketKeyForDate,
   aggregateMarginLines,
+  buildDashboardPeriod,
+  buildMongoCreatedAtFilter,
+  buildStoreSalePayloadTimeFilter,
   computeMarginPercentage,
   isInRange,
   labelForBucketKey,
@@ -27,7 +30,6 @@ import {
   parseReturnCashRefund,
   parseReturnExchangePayments,
   parseReturnLineCount,
-  parseReturnLineQty,
   parseReturnMarginLines,
   readNumber,
   readString,
@@ -84,10 +86,12 @@ export class StoreSalesDashboardService {
     }
 
     const [invoices, returns, creditNotes, creditNoteCashouts] = await Promise.all([
-      this.invoiceModel.find({ storeId: store.code }).lean(),
-      this.returnModel.find({ storeId: store.code }).lean(),
-      this.creditNoteModel.find({ storeId: store.code }).lean(),
-      this.creditNoteCashoutModel.find({ storeId: store.code }).lean(),
+      this.invoiceModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
+      this.returnModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
+      this.creditNoteModel.find({ storeId: store.code, ...buildMongoCreatedAtFilter(range) }).lean(),
+      this.creditNoteCashoutModel
+        .find({ storeId: store.code, ...buildMongoCreatedAtFilter(range) })
+        .lean(),
     ]);
 
     const buckets = new Map<string, BucketAgg>();
@@ -194,10 +198,8 @@ export class StoreSalesDashboardService {
       if (!occurred || !isInRange(occurred, range)) continue;
 
       const total = readNumber(payload.returnTotal);
-      const returnQty = parseReturnLineQty(payload);
       returnValue += total;
       returnsCount += 1;
-      itemsSold -= returnQty;
       returnCashRefundTotal += parseReturnCashRefund(payload);
       exchangeCashTotal += parseReturnExchangePayments(payload).cash;
 
@@ -326,12 +328,7 @@ export class StoreSalesDashboardService {
 
     return {
       store,
-      period: {
-        preset: options.period,
-        from: range.fromYmd,
-        to: range.toYmd,
-        label: range.label,
-      },
+      period: buildDashboardPeriod(options.period, range),
       summary: {
         grossSales: roundMoney(grossSales),
         totalBillAmount: roundMoney(totalBillAmount),

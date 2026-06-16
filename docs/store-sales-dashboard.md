@@ -1,6 +1,6 @@
 # Store sales dashboard API
 
-Aggregated **Sale** tab data for the store admin dashboard (`/dashboard/store` → Sale). Inventory KPIs remain on [`GET /api/dashboard/store`](store-dashboard.md).
+Aggregated **Sale** tab data for the store admin dashboard (`/dashboard/store` → Sale). Inventory KPIs remain on [`GET /api/dashboard/store`](store-dashboard.md). Vendor-filtered sales: [`GET /api/dashboard/store/sales/vendor`](store-vendor-sales-dashboard.md).
 
 ## Endpoint
 

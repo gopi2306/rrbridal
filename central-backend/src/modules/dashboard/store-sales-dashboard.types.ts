@@ -7,9 +7,13 @@ export interface StoreSalesDashboardStore {
 
 export interface StoreSalesDashboardPeriod {
   preset: StoreSalesPeriodPreset;
+  /** IST calendar date (YYYY-MM-DD). */
   from: string;
+  /** IST calendar date (YYYY-MM-DD). */
   to: string;
   label: string;
+  /** IANA timezone used to interpret from/to (Mongo compares UTC instants). */
+  timezone: string;
 }
 
 export interface StoreSalesDashboardSummary {
@@ -184,10 +188,15 @@ export interface StoreSalesDashboardOptions {
 }
 
 export interface ResolvedDateRange {
+  /** UTC instant matching IST start of `fromYmd`. */
   from: Date;
+  /** UTC instant matching IST end of `toYmd`. */
   to: Date;
+  /** IST calendar date (YYYY-MM-DD). */
   fromYmd: string;
+  /** IST calendar date (YYYY-MM-DD). */
   toYmd: string;
   label: string;
   bucketByMonth: boolean;
+  timezone: string;
 }

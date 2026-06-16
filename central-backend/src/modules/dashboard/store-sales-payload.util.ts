@@ -1,4 +1,8 @@
-import type { ResolvedDateRange, StoreSalesPeriodPreset } from './store-sales-dashboard.types';
+import type {
+  ResolvedDateRange,
+  StoreSalesDashboardPeriod,
+  StoreSalesPeriodPreset,
+} from './store-sales-dashboard.types';
 import { roundMoney } from '../../common/money.util';
 
 const MONTH_NAMES = [
@@ -19,6 +23,7 @@ const MONTH_NAMES = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** India Standard Time — aligns central dashboard with WPF local day close. */
+export const BUSINESS_TZ_IANA = 'Asia/Kolkata';
 const BUSINESS_TZ_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 function businessNow(): Date {
@@ -34,16 +39,36 @@ function businessCalendarParts(d: Date): { y: number; m: number; day: number; do
   };
 }
 
-function businessDayBoundsUtc(y: number, m: number, day: number): { from: Date; to: Date } {
-  const from = new Date(Date.UTC(y, m, day, 0, 0, 0, 0) - BUSINESS_TZ_OFFSET_MS);
-  const to = new Date(Date.UTC(y, m, day, 23, 59, 59, 999) - BUSINESS_TZ_OFFSET_MS);
-  return { from, to };
+/** Calendar date parts in IST (UTC+5:30) for any instant. */
+export function toBusinessCalendarParts(d: Date): { y: number; m: number; day: number; dow: number } {
+  return businessCalendarParts(new Date(d.getTime() + BUSINESS_TZ_OFFSET_MS));
+}
+
+/** Today in IST for default year/month query params. */
+export function businessTodayParts(): { year: number; month: number } {
+  const { y, m } = businessCalendarParts(businessNow());
+  return { year: y, month: m + 1 };
 }
 
 function parseYmdParts(ymd: string): { y: number; m: number; day: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
   if (!m) return null;
   return { y: Number(m[1]), m: Number(m[2]) - 1, day: Number(m[3]) };
+}
+
+/** IST calendar date as `YYYY-MM-DD` (month is 0-indexed). */
+export function formatYmdFromParts(y: number, m: number, day: number): string {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * IST business-day bounds as UTC instants for MongoDB / ISO timestamp comparison.
+ * `from` = IST 00:00:00, `to` = IST 23:59:59.999 on the given calendar date.
+ */
+export function businessDayBoundsUtc(y: number, m: number, day: number): { from: Date; to: Date } {
+  const from = new Date(Date.UTC(y, m, day, 0, 0, 0, 0) - BUSINESS_TZ_OFFSET_MS);
+  const to = new Date(Date.UTC(y, m, day, 23, 59, 59, 999) - BUSINESS_TZ_OFFSET_MS);
+  return { from, to };
 }
 
 export function readNumber(value: unknown): number {
@@ -79,21 +104,19 @@ export function isInRange(d: Date, range: ResolvedDateRange): boolean {
   return d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
 }
 
-export function formatYmd(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** `YYYY-MM-DD` in IST — use for API period labels and business-day buckets. */
+export function formatBusinessYmd(d: Date): string {
+  const { y, m, day } = toBusinessCalendarParts(d);
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 export function dayBucketKey(d: Date): string {
-  return formatYmd(d);
+  return formatBusinessYmd(d);
 }
 
 export function monthBucketKey(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  const { y, m } = toBusinessCalendarParts(d);
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
 }
 
 export function bucketKeyForDate(d: Date, bucketByMonth: boolean): string {
@@ -106,10 +129,12 @@ export function labelForBucketKey(key: string, bucketByMonth: boolean): string {
     const monthIdx = Number(m) - 1;
     return `${MONTH_NAMES[monthIdx] ?? m} ${y}`;
   }
-  const d = new Date(`${key}T12:00:00.000Z`);
-  const dayName = DAY_NAMES[d.getUTCDay()] ?? '';
-  const monthName = MONTH_NAMES[d.getUTCMonth()] ?? '';
-  return `${dayName}, ${d.getUTCDate()} ${monthName}`;
+  const parts = parseYmdParts(key);
+  if (!parts) return key;
+  const dow = new Date(Date.UTC(parts.y, parts.m, parts.day, 12, 0, 0, 0)).getUTCDay();
+  const dayName = DAY_NAMES[dow] ?? '';
+  const monthName = MONTH_NAMES[parts.m] ?? '';
+  return `${dayName}, ${parts.day} ${monthName}`;
 }
 
 export function resolveDateRange(params: {
@@ -122,12 +147,16 @@ export function resolveDateRange(params: {
   const biz = businessCalendarParts(businessNow());
   let from: Date;
   let to: Date;
+  let fromYmd: string;
+  let toYmd: string;
   let label: string;
   let bucketByMonth = false;
 
   switch (params.period) {
     case 'today': {
       ({ from, to } = businessDayBoundsUtc(biz.y, biz.m, biz.day));
+      fromYmd = formatYmdFromParts(biz.y, biz.m, biz.day);
+      toYmd = fromYmd;
       label = 'Today';
       break;
     }
@@ -137,6 +166,8 @@ export function resolveDateRange(params: {
       const mon = businessCalendarParts(monday);
       ({ from } = businessDayBoundsUtc(mon.y, mon.m, mon.day));
       ({ to } = businessDayBoundsUtc(biz.y, biz.m, biz.day));
+      fromYmd = formatYmdFromParts(mon.y, mon.m, mon.day);
+      toYmd = formatYmdFromParts(biz.y, biz.m, biz.day);
       label = 'This week';
       break;
     }
@@ -144,12 +175,16 @@ export function resolveDateRange(params: {
       const lastDay = new Date(Date.UTC(params.year, params.month, 0)).getUTCDate();
       ({ from } = businessDayBoundsUtc(params.year, params.month - 1, 1));
       ({ to } = businessDayBoundsUtc(params.year, params.month - 1, lastDay));
+      fromYmd = formatYmdFromParts(params.year, params.month - 1, 1);
+      toYmd = formatYmdFromParts(params.year, params.month - 1, lastDay);
       label = `${MONTH_NAMES[params.month - 1]} ${params.year}`;
       break;
     }
     case 'year': {
       ({ from } = businessDayBoundsUtc(params.year, 0, 1));
       ({ to } = businessDayBoundsUtc(params.year, 11, 31));
+      fromYmd = formatYmdFromParts(params.year, 0, 1);
+      toYmd = formatYmdFromParts(params.year, 11, 31);
       label = String(params.year);
       bucketByMonth = true;
       break;
@@ -164,6 +199,8 @@ export function resolveDateRange(params: {
       if (!fromParts || !toParts) {
         throw new Error('Invalid from or to date');
       }
+      fromYmd = params.from.trim();
+      toYmd = params.to.trim();
       ({ from } = businessDayBoundsUtc(fromParts.y, fromParts.m, fromParts.day));
       ({ to } = businessDayBoundsUtc(toParts.y, toParts.m, toParts.day));
       const days =
@@ -177,10 +214,61 @@ export function resolveDateRange(params: {
   return {
     from,
     to,
-    fromYmd: formatYmd(from),
-    toYmd: formatYmd(to),
+    fromYmd,
+    toYmd,
     label,
     bucketByMonth,
+    timezone: BUSINESS_TZ_IANA,
+  };
+}
+
+/** Mongo filter: UTC `createdAt` on synced store-sale documents (IST range → UTC bounds). */
+export function buildMongoCreatedAtFilter(range: ResolvedDateRange): {
+  createdAt: { $gte: Date; $lte: Date };
+} {
+  return { createdAt: { $gte: range.from, $lte: range.to } };
+}
+
+/**
+ * Mongo filter for invoices/returns where business time is `payload.createdAtUtc` (ISO UTC string).
+ * Falls back to document `createdAt` when payload timestamp is missing.
+ */
+export function buildDashboardPeriod(
+  preset: StoreSalesPeriodPreset,
+  range: ResolvedDateRange,
+): StoreSalesDashboardPeriod {
+  return {
+    preset,
+    from: range.fromYmd,
+    to: range.toYmd,
+    label: range.label,
+    timezone: range.timezone,
+  };
+}
+
+export function buildStoreSalePayloadTimeFilter(
+  storeId: string,
+  range: ResolvedDateRange,
+): Record<string, unknown> {
+  const fromIso = range.from.toISOString();
+  const toIso = range.to.toISOString();
+  return {
+    storeId,
+    $or: [
+      { 'payload.createdAtUtc': { $gte: fromIso, $lte: toIso } },
+      {
+        $and: [
+          {
+            $or: [
+              { 'payload.createdAtUtc': { $exists: false } },
+              { 'payload.createdAtUtc': null },
+              { 'payload.createdAtUtc': '' },
+            ],
+          },
+          { createdAt: { $gte: range.from, $lte: range.to } },
+        ],
+      },
+    ],
   };
 }
 
@@ -349,9 +437,26 @@ export function parseInvoiceLines(payload: Record<string, unknown>): LineAgg[] {
   return result;
 }
 
-export function parseReturnLineQty(payload: Record<string, unknown>): number {
+export function parseReturnLines(payload: Record<string, unknown>): LineAgg[] {
   const returnLines = payload.returnLines ?? payload.lines;
-  return sumLineQty(returnLines);
+  if (!Array.isArray(returnLines)) return [];
+  const result: LineAgg[] = [];
+  for (const line of returnLines) {
+    if (!line || typeof line !== 'object') continue;
+    const row = line as Record<string, unknown>;
+    const qty = readNumber(row.returnQty) || readNumber(row.qty);
+    if (qty <= 0) continue;
+    result.push({
+      sku: readString(row.sku) ?? readString(row.productCode) ?? 'UNKNOWN',
+      description: readString(row.description) ?? readString(row.sku) ?? 'Product',
+      qty,
+    });
+  }
+  return result;
+}
+
+export function parseReturnLineQty(payload: Record<string, unknown>): number {
+  return parseReturnLines(payload).reduce((s, l) => s + l.qty, 0);
 }
 
 export function parseReturnLineCount(payload: Record<string, unknown>): number {
@@ -408,6 +513,74 @@ function parseMarginRowsFromArray(
     });
   }
   return result;
+}
+
+/** Pre-discount line value: rate × qty, else amount, else net selling value. */
+export function readLineGrossValue(row: Record<string, unknown>): number {
+  const rate = readNumber(row.rate);
+  const qty = readNumber(row.qty);
+  if (rate > 0 && qty > 0) return rate * qty;
+
+  const returnQty = readNumber(row.returnQty);
+  if (rate > 0 && returnQty > 0) return rate * returnQty;
+
+  const amount = readNumber(row.amount);
+  if (amount > 0) return amount;
+
+  return readLineSellingValue(row);
+}
+
+export function filterMarginLinesBySkuSet(
+  lines: readonly LineMarginRow[],
+  skuSet: ReadonlySet<string>,
+): LineMarginRow[] {
+  return lines.filter((l) => skuSet.has(l.sku));
+}
+
+export function sumVendorGrossFromLines(
+  payload: Record<string, unknown>,
+  skuSet: ReadonlySet<string>,
+  options?: { returnLine?: boolean },
+): number {
+  const lines = options?.returnLine ? payload.returnLines ?? payload.lines : payload.lines;
+  if (!Array.isArray(lines)) return 0;
+
+  let sum = 0;
+  for (const line of lines) {
+    if (!line || typeof line !== 'object') continue;
+    const row = line as Record<string, unknown>;
+    const sku = readLineSku(row);
+    if (!skuSet.has(sku)) continue;
+
+    const qty = options?.returnLine
+      ? readNumber(row.returnQty) || readNumber(row.qty)
+      : readNumber(row.qty);
+    if (qty <= 0) continue;
+
+    sum += readLineGrossValue(row);
+  }
+  return sum;
+}
+
+export function countVendorLinesInPayload(
+  payload: Record<string, unknown>,
+  skuSet: ReadonlySet<string>,
+  options?: { returnLine?: boolean },
+): number {
+  const lines = options?.returnLine ? payload.returnLines ?? payload.lines : payload.lines;
+  if (!Array.isArray(lines)) return 0;
+
+  let count = 0;
+  for (const line of lines) {
+    if (!line || typeof line !== 'object') continue;
+    const row = line as Record<string, unknown>;
+    if (!skuSet.has(readLineSku(row))) continue;
+    const qty = options?.returnLine
+      ? readNumber(row.returnQty) || readNumber(row.qty)
+      : readNumber(row.qty);
+    if (qty > 0) count += 1;
+  }
+  return count;
 }
 
 export function parseInvoiceMarginLines(payload: Record<string, unknown>): LineMarginRow[] {

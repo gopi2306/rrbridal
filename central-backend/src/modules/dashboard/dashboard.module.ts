@@ -19,6 +19,8 @@ import { StoreInvoice, StoreInvoiceSchema } from '../store-sales/schemas/store-i
 import { StoreSaleReturn, StoreSaleReturnSchema } from '../store-sales/schemas/store-sale-return.schema';
 import { StoreDashboardService } from './store-dashboard.service';
 import { StoreSalesDashboardService } from './store-sales-dashboard.service';
+import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
+import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
 
 @Module({
@@ -47,6 +49,8 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
     WarehouseDashboardService,
     StoreDashboardService,
     StoreSalesDashboardService,
+    StoreVendorSalesDashboardService,
+    StoreVendorsSalesReportService,
   ],
 })
 export class DashboardModule {}
