@@ -20,6 +20,7 @@ public enum PaymentMode
     Upi,
     CreditNote,
     Split,
+    OnlineCod,
 }
 
 public enum PaymentStatus

@@ -58,7 +58,15 @@
                         </UniformGrid>
 
                         <UniformGrid Columns="3" Margin="0,0,0,16">
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                            <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0" BorderBrush="{StaticResource BrushAccent}">
+                                <StackPanel>
+                                    <TextBlock Text="COD balance till" Style="{StaticResource TextCaption}"/>
+                                    <TextBlock Text="{Binding CodBalanceTillSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <Button Content="Online sales" Style="{StaticResource OutlineButton}" Margin="0,8,0,0" Padding="8,4"
+                                            Command="{Binding OpenOnlineSalesPageCommand}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}" Margin="4,0">
                                 <StackPanel>
                                     <TextBlock Text="Pending outbox" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                                     <TextBlock Text="{Binding PendingOutboxSummary}" FontSize="18" FontWeight="SemiBold"/>
@@ -247,12 +255,20 @@
                         </Border>
                     </UniformGrid>
 
-                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8" MaxWidth="320" HorizontalAlignment="Left">
-                        <StackPanel>
-                            <TextBlock Text="Daily expenses (deducted from net cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding DayCloseDailyExpensesSummary}" FontSize="16" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Border>
+                    <UniformGrid Columns="4" Margin="0,0,0,8">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                            <StackPanel>
+                                <TextBlock Text="Online COD pending (not in cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseOnlineCodPendingSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <StackPanel>
+                                <TextBlock Text="Daily expenses (deducted from net cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding DayCloseDailyExpensesSummary}" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
 
                     <UniformGrid Columns="4" Margin="0,0,0,12">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">

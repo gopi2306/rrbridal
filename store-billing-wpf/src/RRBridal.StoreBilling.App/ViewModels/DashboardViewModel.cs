@@ -59,6 +59,10 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _productCacheSummary = "—";
 
+    [ObservableProperty] private string _codBalanceTillSummary = "—";
+
+    public Action? NavigateToOnlineSales { get; set; }
+
     [ObservableProperty] private string _statusMessage = "";
 
     [ObservableProperty] private string _dayCloseStatusMessage = "";
@@ -106,6 +110,8 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _dayCloseDepositsSummary = "—";
 
     [ObservableProperty] private string _dayCloseWithdrawalsSummary = "—";
+
+    [ObservableProperty] private string _dayCloseOnlineCodPendingSummary = "—";
 
     public ObservableCollection<DaySessionRollupRowView> StoreRollupRows { get; } = new();
 
@@ -213,6 +219,9 @@ public partial class DashboardViewModel : ObservableObject
                 : $"Cursor {snap.SyncCursor} · last pull {snap.SyncUpdatedAt}";
             ProductCacheSummary = snap.ProductCacheCount.ToString(InCulture);
 
+            var codBal = await _services.OnlineCodBills.GetPendingBalanceAsync(storeId);
+            CodBalanceTillSummary = MoneyMath.FormatRupee(codBal.BalanceTill);
+
             RecentBills.Clear();
             foreach (var r in snap.RecentBills)
                 RecentBills.Add(r);
@@ -233,6 +242,9 @@ public partial class DashboardViewModel : ObservableObject
     {
         await LoadDayCloseAsync(_storeContext.StoreId, SelectedPosCounterFilter?.PosCounter);
     }
+
+    [RelayCommand]
+    private void OpenOnlineSalesPage() => NavigateToOnlineSales?.Invoke();
 
     [RelayCommand]
     private async Task ApproveStockException(string? billNo)
@@ -307,6 +319,12 @@ public partial class DashboardViewModel : ObservableObject
             DayCloseExpectedCashSummary = MoneyMath.FormatRupee(snap.ExpectedCash);
             DayCloseDepositsSummary = snap.DepositsTotal > 0 ? MoneyMath.FormatRupee(snap.DepositsTotal) : "—";
             DayCloseWithdrawalsSummary = snap.WithdrawalsTotal > 0 ? MoneyMath.FormatRupee(snap.WithdrawalsTotal) : "—";
+
+            var onlineCodPending = await _services.OnlineCodBills.GetPendingTotalForBusinessDateAsync(
+                storeId, SelectedCloseDate);
+            DayCloseOnlineCodPendingSummary = onlineCodPending > 0
+                ? MoneyMath.FormatRupee(onlineCodPending)
+                : "—";
 
             StoreRollupRows.Clear();
             if (_storeContext.IsPrimaryCounter)

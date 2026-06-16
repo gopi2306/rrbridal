@@ -69,6 +69,8 @@ export class SyncService {
           await this.storeSalesSyncService.applyDaySessionClosed(meta, ev.payload);
         } else if (ev.type === 'CashMovementCreated') {
           await this.storeSalesSyncService.applyCashMovementCreated(meta, ev.payload);
+        } else if (ev.type === 'InvoiceCodPaymentReceived') {
+          await this.storeSalesSyncService.applyInvoiceCodPaymentReceived(meta, ev.payload);
         }
 
         await this.syncEventModel.create({

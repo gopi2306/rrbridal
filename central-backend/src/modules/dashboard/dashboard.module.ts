@@ -27,6 +27,7 @@ import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
 import { StoreDayCloseReportService } from './store-day-close-report.service';
+import { StoreOnlineSalesDashboardService } from './store-online-sales-dashboard.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
 
 @Module({
@@ -63,6 +64,7 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
     StoreVendorsSalesReportService,
     StoreDayCloseDashboardService,
     StoreDayCloseReportService,
+    StoreOnlineSalesDashboardService,
   ],
 })
 export class DashboardModule {}

@@ -8,6 +8,7 @@ import { StoreVendorsSalesDashboardQueryDto } from './dto/store-vendors-sales-da
 import { StoreDashboardQueryDto } from './dto/store-dashboard-query.dto';
 import { StoreDayCloseDashboardQueryDto } from './dto/store-day-close-dashboard-query.dto';
 import { StoreDayCloseExportQueryDto } from './dto/store-day-close-export-query.dto';
+import { StoreOnlineSalesDashboardQueryDto } from './dto/store-online-sales-dashboard-query.dto';
 import { WarehouseDashboardQueryDto } from './dto/warehouse-dashboard-query.dto';
 import { StoreDashboardService } from './store-dashboard.service';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
@@ -15,6 +16,7 @@ import { StoreDayCloseReportService } from './store-day-close-report.service';
 import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
+import { StoreOnlineSalesDashboardService } from './store-online-sales-dashboard.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
 import type { StoreSalesDashboardOptions } from './store-sales-dashboard.types';
 import type { StoreVendorSalesDashboardOptions } from './store-vendor-sales-dashboard.types';
@@ -22,6 +24,7 @@ import type { StoreVendorsSalesDashboardOptions } from './store-vendors-sales-da
 import type { StoreVendorsSalesReportOptions } from './store-vendors-sales-report.types';
 import type { StoreDayCloseDashboardOptions } from './store-day-close-dashboard.types';
 import type { StoreDashboardOptions } from './store-dashboard.types';
+import type { StoreOnlineSalesDashboardOptions } from './store-online-sales-dashboard.types';
 import type { WarehouseDashboardOptions } from './warehouse-dashboard.types';
 import { businessTodayParts, formatBusinessYmd } from './store-sales-payload.util';
 
@@ -37,6 +40,7 @@ export class DashboardController {
     private readonly storeVendorsSalesReportService: StoreVendorsSalesReportService,
     private readonly storeDayCloseDashboardService: StoreDayCloseDashboardService,
     private readonly storeDayCloseReportService: StoreDayCloseReportService,
+    private readonly storeOnlineSalesDashboardService: StoreOnlineSalesDashboardService,
   ) {}
 
   @Get()
@@ -122,6 +126,27 @@ export class DashboardController {
       options.to = query.to;
     }
     return await this.storeSalesDashboardService.getStoreSalesDashboard(options);
+  }
+
+  @Get('store/online-sales')
+  async getStoreOnlineSalesDashboard(@Query() query: StoreOnlineSalesDashboardQueryDto) {
+    const cal = businessTodayParts();
+    const options: StoreOnlineSalesDashboardOptions = {
+      period: query.period ?? 'today',
+      year: query.year ?? cal.year,
+      month: query.month ?? cal.month,
+      status: query.status ?? 'all',
+    };
+    if (query.storeId !== undefined && query.storeId !== '') {
+      options.storeId = query.storeId;
+    }
+    if (query.from !== undefined && query.from !== '') {
+      options.from = query.from;
+    }
+    if (query.to !== undefined && query.to !== '') {
+      options.to = query.to;
+    }
+    return await this.storeOnlineSalesDashboardService.getOnlineSalesDashboard(options);
   }
 
   @Get('store/sales/vendors')

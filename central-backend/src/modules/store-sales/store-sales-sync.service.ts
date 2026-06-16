@@ -478,4 +478,42 @@ export class StoreSalesSyncService {
       throw err;
     }
   }
+
+  async applyInvoiceCodPaymentReceived(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const billNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!billNo) throw new BadRequestException('billNo is required');
+
+    const invoice = await this.invoiceModel
+      .findOne({ storeId: meta.storeId, invoiceNo: billNo })
+      .lean();
+    if (!invoice) {
+      throw new BadRequestException(
+        `Invoice '${billNo}' not found for store '${meta.storeId}'`,
+      );
+    }
+
+    const currentPayload = (invoice.payload ?? {}) as Record<string, unknown>;
+    const appliedEventIds = Array.isArray(currentPayload.codPaymentEventIds)
+      ? (currentPayload.codPaymentEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedEventIds.includes(meta.eventId)) return;
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      salesChannel: payload.salesChannel ?? currentPayload.salesChannel,
+      onlineCod: payload.onlineCod ?? currentPayload.onlineCod,
+      payments: payload.payments ?? currentPayload.payments,
+      paymentMode: payload.paymentMode ?? currentPayload.paymentMode,
+      codPaymentEventIds: [...appliedEventIds, meta.eventId],
+    };
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: billNo },
+      { $set: { payload: mergedPayload } },
+    );
+  }
 }

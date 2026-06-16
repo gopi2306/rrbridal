@@ -50,6 +50,7 @@ public partial class DayCloseViewModel : ObservableObject
     [ObservableProperty] private string _summaryWithdrawals = "—";
     [ObservableProperty] private string _summaryExpenses = "—";
     [ObservableProperty] private string _summaryExpectedTender = "—";
+    [ObservableProperty] private string _summaryOnlineCodPending = "—";
 
     [ObservableProperty] private string _movementDescription = "";
     [ObservableProperty] private string _movementAmountText = "";
@@ -86,7 +87,7 @@ public partial class DayCloseViewModel : ObservableObject
                 storeId, SelectedDate, posCounter);
 
             UpdateSessionUi();
-            UpdateSummaryUi(_snapshot);
+            await UpdateSummaryUiAsync(_snapshot);
 
             var movements = await _services.CashMovements.ListForBusinessDateAsync(
                 storeId, businessDate, posCounter);
@@ -280,7 +281,7 @@ public partial class DayCloseViewModel : ObservableObject
         OpeningCashText = _session.OpeningCash.ToString("N2", InCulture);
     }
 
-    private void UpdateSummaryUi(DayBillingCloseSnapshot snap)
+    private async Task UpdateSummaryUiAsync(DayBillingCloseSnapshot snap)
     {
         SummaryBillCount = snap.BillCount.ToString(InCulture);
         SummaryAmount = MoneyMath.FormatRupee(snap.TotalAmount);
@@ -290,6 +291,10 @@ public partial class DayCloseViewModel : ObservableObject
         SummaryWithdrawals = snap.WithdrawalsTotal > 0 ? MoneyMath.FormatRupee(snap.WithdrawalsTotal) : "—";
         SummaryExpenses = snap.DailyExpensesTotal > 0 ? MoneyMath.FormatRupee(snap.DailyExpensesTotal) : "—";
         SummaryExpectedTender = MoneyMath.FormatRupee(snap.ActualHandInTotal);
+
+        var pending = await _services.OnlineCodBills.GetPendingTotalForBusinessDateAsync(
+            _storeContext.StoreId, SelectedDate);
+        SummaryOnlineCodPending = pending > 0 ? MoneyMath.FormatRupee(pending) : "—";
     }
 
     private static string FormatUtcLocal(string? utc)

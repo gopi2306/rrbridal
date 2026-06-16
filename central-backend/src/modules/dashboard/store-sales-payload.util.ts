@@ -671,3 +671,38 @@ export function aggregateMarginLines(
     marginPercentage: computeMarginPercentage(salesMargin, totalCostValue),
   };
 }
+
+export function isOnlineCodBill(payload: Record<string, unknown>): boolean {
+  return readString(payload.salesChannel)?.toLowerCase() === 'online';
+}
+
+export function readOnlineCodStatus(payload: Record<string, unknown>): string {
+  const oc = payload.onlineCod;
+  if (!oc || typeof oc !== 'object') return '';
+  return readString((oc as Record<string, unknown>).status) ?? '';
+}
+
+export function isOnlineCodPending(payload: Record<string, unknown>): boolean {
+  return isOnlineCodBill(payload) && readOnlineCodStatus(payload).toLowerCase() === 'pending';
+}
+
+export function parseOnlineCodAmount(payload: Record<string, unknown>): number {
+  const oc = payload.onlineCod;
+  if (oc && typeof oc === 'object') {
+    const amt = readNumber((oc as Record<string, unknown>).amount);
+    if (amt > 0) return amt;
+  }
+  return parseInvoiceNet(payload);
+}
+
+export function parseOnlineCodTransactionNo(payload: Record<string, unknown>): string | undefined {
+  const oc = payload.onlineCod;
+  if (!oc || typeof oc !== 'object') return undefined;
+  return readString((oc as Record<string, unknown>).transactionNo);
+}
+
+export function parseOnlineCodReceivedPaymentMode(payload: Record<string, unknown>): string | undefined {
+  const oc = payload.onlineCod;
+  if (!oc || typeof oc !== 'object') return undefined;
+  return readString((oc as Record<string, unknown>).receivedPaymentMode);
+}

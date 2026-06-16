@@ -76,6 +76,10 @@
                             <TextBlock Text="Expected tender total" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                             <TextBlock Text="{Binding SummaryExpectedTender}" FontWeight="SemiBold"/>
                         </StackPanel>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="Online COD pending" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SummaryOnlineCodPending}" FontWeight="SemiBold"/>
+                        </StackPanel>
                     </UniformGrid>
                 </StackPanel>
             </Border>

@@ -10,6 +10,7 @@ public enum ShellPage
     SaleReturn,
     Adjustments,
     DuplicateBill,
+    OnlineSales,
     Barcodes,
     DayClose,
     DailyExpenses,

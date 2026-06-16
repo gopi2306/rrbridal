@@ -60,6 +60,7 @@ public sealed class AppServices
     public required DaySessionService DaySessions { get; init; }
     public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
+    public required OnlineCodBillService OnlineCodBills { get; init; }
     public UserSession? UserSession { get; set; }
 
     public Action? NotifyDaySessionChanged { get; set; }
@@ -131,6 +132,7 @@ public sealed class AppServices
         var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
+        var onlineCodBills = new OnlineCodBillService(localDb, billingOutbox);
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
         var storeSyncRunner = new StoreSyncRunner(
@@ -181,6 +183,7 @@ public sealed class AppServices
             DaySessions = daySessions,
             DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
+            OnlineCodBills = onlineCodBills,
         };
         return servicesRef;
     }

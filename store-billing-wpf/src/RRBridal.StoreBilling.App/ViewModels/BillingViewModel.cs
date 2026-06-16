@@ -62,6 +62,7 @@ public partial class BillingViewModel : ObservableObject
 
     [ObservableProperty] private bool _holdBills;
     [ObservableProperty] private bool _doorDelivery;
+    [ObservableProperty] private bool _onlineCodOrder;
     [ObservableProperty] private bool _stitching;
     [ObservableProperty] private bool _printInvoice = true;
     [ObservableProperty] private DateTime? _deliveryDate;
@@ -1468,6 +1469,7 @@ public partial class BillingViewModel : ObservableObject
         IsInterState = false;
         HoldBills = false;
         DoorDelivery = false;
+        OnlineCodOrder = false;
         Stitching = false;
         DeliveryDate = null;
         SearchText = "";
@@ -1559,10 +1561,29 @@ public partial class BillingViewModel : ObservableObject
         RecalculateTotals();
         var totals = _lastBillTotals;
 
+        if (OnlineCodOrder && totals.AppliedCredit > 0)
+        {
+            MessageBox.Show(
+                "Online COD orders cannot use credit note payment. Clear the credit note selection first.",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
         await AssignBillNumberAsync();
 
         PaymentOutcome paymentOutcome;
-        if (totals.Payable > 0)
+        if (OnlineCodOrder && totals.Payable > 0)
+        {
+            paymentOutcome = new PaymentOutcome
+            {
+                Confirmed = true,
+                Mode = PaymentMode.OnlineCod,
+                Legs = new List<PaymentLegResult>(),
+            };
+        }
+        else if (totals.Payable > 0)
         {
             _services.PosBillingSettings.Load();
             var paymentVm = new PaymentDialogViewModel(
@@ -1729,6 +1750,22 @@ public partial class BillingViewModel : ObservableObject
 
             if (stockShortfalls.Count > 0)
                 doc.Add("stockExceptions", BillingStockValidator.ToStockExceptionsBson(stockShortfalls));
+
+            if (OnlineCodOrder && totals.Payable > 0)
+            {
+                doc["salesChannel"] = OnlineCodDocumentReader.SalesChannelOnline;
+                doc["paymentMode"] = PaymentMode.OnlineCod.ToString();
+                doc["payments"] = new BsonArray();
+                doc["onlineCod"] = new BsonDocument
+                {
+                    { "status", OnlineCodDocumentReader.StatusPending },
+                    { "amount", (double)totals.Payable },
+                };
+            }
+            else
+            {
+                doc["salesChannel"] = "store";
+            }
 
             var postWarnings = new List<string>();
             var postedBillNo = BillNo;

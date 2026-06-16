@@ -75,6 +75,10 @@
                                            NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                    <controls:NavTabButton Label="Online Sales" Page="{x:Static vm:ShellPage.OnlineSales}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
+                                           Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
                     <controls:NavTabButton Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
                                            NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
@@ -173,6 +177,9 @@
             </Grid>
             <Grid Visibility="{Binding IsAnalyticsPage, Converter={StaticResource BoolToVis}}">
                 <views:AnalyticsView DataContext="{Binding Analytics}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsOnlineSalesPage, Converter={StaticResource BoolToVis}}">
+                <views:OnlineSalesView DataContext="{Binding OnlineSales}"/>
             </Grid>
             <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
                 <views:CustomerRegistrationView DataContext="{Binding CustomersRegistration}"/>

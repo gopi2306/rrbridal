@@ -141,4 +141,20 @@ public sealed class BillingOutboxPublisher
         var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
         return EnqueueAsync("DaySessionClosed", payload, hash, ct);
     }
+
+    public Task<string> PublishInvoiceCodPaymentReceivedAsync(BsonDocument billDoc, CancellationToken ct = default)
+    {
+        var payload = new BsonDocument
+        {
+            { "billNo", billDoc.GetValue("billNo", "").AsString },
+            { "storeId", billDoc.GetValue("storeId", "").AsString },
+            { "salesChannel", billDoc.GetValue("salesChannel", "").AsString },
+            { "onlineCod", billDoc.GetValue("onlineCod", new BsonDocument()).DeepClone() },
+            { "payments", billDoc.GetValue("payments", new BsonArray()).DeepClone() },
+            { "paymentMode", billDoc.GetValue("paymentMode", "").AsString },
+            { "payable", billDoc.GetValue("payable", 0) },
+        };
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("InvoiceCodPaymentReceived", payload, hash, ct);
+    }
 }

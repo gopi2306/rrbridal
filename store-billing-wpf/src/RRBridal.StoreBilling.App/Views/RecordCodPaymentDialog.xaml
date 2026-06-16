@@ -1,0 +1,25 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.RecordCodPaymentDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Record COD payment" SizeToContent="Height" Width="420" MinWidth="380"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        FontFamily="{StaticResource FontFamilyPrimary}"
+        Background="{StaticResource BrushBackground}">
+    <StackPanel Margin="24,20">
+        <TextBlock Text="Record payment received" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+        <TextBlock Text="Amount" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,16,0,4"/>
+        <TextBlock x:Name="AmountText" FontSize="20" FontWeight="SemiBold"/>
+        <TextBlock Text="Payment mode" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,16,0,8"/>
+        <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="CashRadio" Content="Cash" IsChecked="True" Margin="0,0,16,0"/>
+            <RadioButton x:Name="UpiRadio" Content="UPI" Margin="0,0,16,0"/>
+            <RadioButton x:Name="CardRadio" Content="Card"/>
+        </StackPanel>
+        <TextBlock Text="Transaction / reference no" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,16,0,4"/>
+        <TextBox x:Name="TransactionNoBox" Style="{StaticResource RoundedTextBox}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Confirm" Style="{StaticResource PrimaryButton}" Width="100" Click="Confirm_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

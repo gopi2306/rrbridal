@@ -179,6 +179,14 @@ Raised when credit is applied on a bill (`ConsumeAsync`). `payload`: `creditNote
 
 Central: idempotent by `sourceEventId` on each application; updates `remainingAmount` and application history.
 
+### Event: `InvoiceCodPaymentReceived`
+
+Raised when staff records **COD payment received** on the Online Sales screen (local `store_bills` updated with `onlineCod.status: received`, `payments[]`, and transaction reference).
+
+`payload` includes: `billNo`, `storeId`, `salesChannel: online`, `onlineCod` (status, amount, `transactionNo`, `receivedAtUtc`, `receivedBy`, `receivedPaymentMode`), `payments[]`, `paymentMode`.
+
+Central: finds existing `store_invoices` by `(storeId, billNo)` and merges payment fields into `payload`. Idempotent by `sourceEventId` (`eventId`). See [online-cod-orders.md](./online-cod-orders.md).
+
 ## Central → Store (pull)
 Endpoint: `GET /api/sync/pull?storeId=...&sinceCursor=...&sinceTransferCursor=...&limit=...`
 

@@ -20,6 +20,8 @@ public partial class ShellViewModel : ObservableObject
 
     public AnalyticsViewModel Analytics { get; }
 
+    public OnlineSalesViewModel OnlineSales { get; }
+
     public LedgerViewModel Ledger { get; }
 
     public CustomerRegistrationViewModel CustomersRegistration { get; }
@@ -64,6 +66,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool ShowAnalyticsNav => IsPrimaryCounter;
 
+    public bool ShowOnlineSalesNav => IsPrimaryCounter;
+
     public bool ShowLedgerNav => IsPrimaryCounter;
 
     public bool ShowSettingsNav => IsPrimaryCounter;
@@ -107,7 +111,9 @@ public partial class ShellViewModel : ObservableObject
             AdjustmentBill.OriginalBillNo = billNo ?? "";
             _ = AdjustmentBill.LoadBillByNoAsync(billNo ?? "");
         };
+        Dashboard.NavigateToOnlineSales = () => CurrentPage = ShellPage.OnlineSales;
         Analytics = new AnalyticsViewModel(services);
+        OnlineSales = new OnlineSalesViewModel(services);
         Ledger = new LedgerViewModel(services);
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         SaleReturn = new SaleReturnViewModel(services);
@@ -131,7 +137,7 @@ public partial class ShellViewModel : ObservableObject
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
-        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
+        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.OnlineSales or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
 
     private void OnBrandingChanged()
     {
@@ -162,6 +168,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
+        OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
@@ -192,6 +199,8 @@ public partial class ShellViewModel : ObservableObject
     public bool IsDashboardPage => CurrentPage == ShellPage.Dashboard;
 
     public bool IsAnalyticsPage => CurrentPage == ShellPage.Analytics;
+
+    public bool IsOnlineSalesPage => CurrentPage == ShellPage.OnlineSales;
 
     public bool IsCustomersPage => CurrentPage == ShellPage.Customers;
 
@@ -240,6 +249,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
+        OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
@@ -257,6 +267,8 @@ public partial class ShellViewModel : ObservableObject
             _ = Dashboard.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Analytics)
             _ = Analytics.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.OnlineSales)
+            _ = OnlineSales.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
         GlobalSearchText = value == ShellPage.Billing ? Billing.SearchText : "";
@@ -376,6 +388,12 @@ public partial class ShellViewModel : ObservableObject
         if (!EnsureBillingPage())
             return;
         Billing.PrintStubCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private void OpenOnlineSales()
+    {
+        CurrentPage = ShellPage.OnlineSales;
     }
 
     [RelayCommand]
