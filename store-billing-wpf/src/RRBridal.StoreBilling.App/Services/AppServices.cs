@@ -58,6 +58,7 @@ public sealed class AppServices
     public required StoreAuditLogService StoreAuditLog { get; init; }
     public required StoreBillListService StoreBillList { get; init; }
     public required DaySessionService DaySessions { get; init; }
+    public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
     public UserSession? UserSession { get; set; }
 
@@ -128,6 +129,7 @@ public sealed class AppServices
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
+        var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
@@ -177,6 +179,7 @@ public sealed class AppServices
             StoreAuditLog = storeAuditLog,
             StoreBillList = storeBillList,
             DaySessions = daySessions,
+            DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
         };
         return servicesRef;

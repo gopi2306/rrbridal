@@ -510,6 +510,44 @@ public partial class DashboardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task DownloadDayCloseReport()
+    {
+        var counterSuffix = string.IsNullOrWhiteSpace(SelectedPosCounterFilter?.PosCounter)
+            ? ""
+            : $"-pos{SelectedPosCounterFilter.PosCounter}";
+        var dateStr = SelectedCloseDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var baseName = $"day-close-{_storeContext.StoreId}-{dateStr}{counterSuffix}";
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|Excel workbook (*.xlsx)|*.xlsx",
+            FileName = $"{baseName}.csv",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var data = await _services.DayCloseReports.LoadAsync(
+                _storeContext.StoreId,
+                SelectedCloseDate,
+                SelectedPosCounterFilter?.PosCounter,
+                StoreDisplayName);
+
+            if (dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                DayCloseExcelExporter.ExportToFile(dlg.FileName, data);
+            else
+                DayCloseCsvExporter.ExportToFile(dlg.FileName, data);
+
+            DayCloseStatusMessage = $"Exported report to {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Export failed: " + ex.Message, "Day close", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
     private void DownloadBillListReport()
     {
         if (BillListRows.Count == 0)

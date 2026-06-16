@@ -183,6 +183,7 @@ public sealed class StoreBillListService
             CardAmount = payments.Card,
             UpiAmount = payments.Upi,
             CreditNoteAmount = payments.CreditNote,
+            CreditNoteRefs = DayBillingCloseDocumentReader.FormatBillCreditNoteReferences(doc),
             SyncStatus = DayBillingCloseDocumentReader.ResolveSyncStatus(doc, outboxByBillNo),
             HasReturn = ret.Has,
             ReturnNo = ret.No,

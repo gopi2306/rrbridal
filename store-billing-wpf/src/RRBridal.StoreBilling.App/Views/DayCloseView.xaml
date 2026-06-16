@@ -20,6 +20,8 @@
                         <DatePicker SelectedDate="{Binding SelectedDate}" Width="140"/>
                         <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
                                 Command="{Binding RefreshCommand}" Width="90"/>
+                        <Button Content="Download full report" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
+                                Command="{Binding DownloadReportCommand}" Width="160"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

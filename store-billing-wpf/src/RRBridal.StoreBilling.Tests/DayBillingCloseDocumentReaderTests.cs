@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Services.Store;
 using Xunit;
@@ -362,5 +363,49 @@ public class DayBillingCloseDocumentReaderTests
         var total = CashDenominationDefaults.SumDenominations(lines);
         Assert.Equal(44595m, total);
         Assert.True(CashDenominationDefaults.ValidateDenominations(lines, total, out _));
+    }
+
+    [Fact]
+    public void FormatBillCreditNoteReferences_joins_payment_references()
+    {
+        var doc = BsonDocument.Parse(
+            """
+            {
+              "payments": [
+                { "provider": "Cash", "amount": 100 },
+                { "provider": "CreditNote", "amount": 50, "reference": "CN-001" },
+                { "provider": "CreditNote", "amount": 25, "reference": "CN-002" }
+              ]
+            }
+            """);
+
+        Assert.Equal("CN-001; CN-002", DayBillingCloseDocumentReader.FormatBillCreditNoteReferences(doc));
+    }
+
+    [Fact]
+    public void FilterAdjustmentsForLocalDay_filters_by_date_and_counter()
+    {
+        var localDate = new DateTime(2024, 6, 17);
+        var adjustments = new[]
+        {
+            new BsonDocument
+            {
+                { "status", "posted" },
+                { "createdAtUtc", new DateTime(2024, 6, 17, 10, 0, 0, DateTimeKind.Utc).ToString("O") },
+                { "posCounter", "1" },
+                { "adjustmentNo", "ADJ-1" },
+            },
+            new BsonDocument
+            {
+                { "status", "posted" },
+                { "createdAtUtc", new DateTime(2024, 6, 16, 10, 0, 0, DateTimeKind.Utc).ToString("O") },
+                { "posCounter", "1" },
+                { "adjustmentNo", "ADJ-2" },
+            },
+        };
+
+        var filtered = DayBillingCloseDocumentReader.FilterAdjustmentsForLocalDay(adjustments, localDate, "1").ToList();
+        Assert.Single(filtered);
+        Assert.Equal("ADJ-1", DayBillingCloseDocumentReader.ReadString(filtered[0], "adjustmentNo"));
     }
 }

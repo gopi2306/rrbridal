@@ -13,6 +13,8 @@ import { Store, StoreSchema } from '../stores/schemas/store.schema';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { PurchaseIntent, PurchaseIntentSchema } from '../purchase-intents/schemas/purchase-intent.schema';
+import { StoreAdjustment, StoreAdjustmentSchema } from '../store-sales/schemas/store-adjustment.schema';
+import { StoreCashMovement, StoreCashMovementSchema } from '../store-sales/schemas/store-cash-movement.schema';
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutSchema } from '../store-sales/schemas/store-credit-note-cashout.schema';
 import { StoreDailyExpense, StoreDailyExpenseSchema } from '../store-sales/schemas/store-daily-expense.schema';
 import { StoreDayClose, StoreDayCloseSchema } from '../store-sales/schemas/store-day-close.schema';
@@ -24,6 +26,7 @@ import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
+import { StoreDayCloseReportService } from './store-day-close-report.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
 
 @Module({
@@ -46,6 +49,8 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
       { name: StoreCreditNoteCashout.name, schema: StoreCreditNoteCashoutSchema },
       { name: StoreDailyExpense.name, schema: StoreDailyExpenseSchema },
       { name: StoreDayClose.name, schema: StoreDayCloseSchema },
+      { name: StoreAdjustment.name, schema: StoreAdjustmentSchema },
+      { name: StoreCashMovement.name, schema: StoreCashMovementSchema },
     ]),
   ],
   controllers: [DashboardController],
@@ -57,6 +62,7 @@ import { WarehouseDashboardService } from './warehouse-dashboard.service';
     StoreVendorSalesDashboardService,
     StoreVendorsSalesReportService,
     StoreDayCloseDashboardService,
+    StoreDayCloseReportService,
   ],
 })
 export class DashboardModule {}

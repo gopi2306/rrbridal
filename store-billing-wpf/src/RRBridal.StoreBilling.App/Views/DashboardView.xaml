@@ -161,8 +161,10 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Business date:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
                         <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SelectedCloseDate}" Width="140" Margin="0,0,16,0"/>
-                        <Button Content="Refresh day close" Style="{StaticResource PrimaryButton}" Width="140"
+                        <Button Content="Refresh day close" Style="{StaticResource PrimaryButton}" Width="140" Margin="0,0,8,0"
                                 Command="{Binding LoadDayCloseCommand}"/>
+                        <Button Content="Download full report" Style="{StaticResource OutlineButton}" Width="160"
+                                Command="{Binding DownloadDayCloseReportCommand}"/>
                     </StackPanel>
 
                     <TextBlock Text="{Binding DayCloseStatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>

@@ -17,6 +17,7 @@ public sealed class StoreBillListRow
     public decimal CardAmount { get; init; }
     public decimal UpiAmount { get; init; }
     public decimal CreditNoteAmount { get; init; }
+    public string CreditNoteRefs { get; init; } = "";
     public required string SyncStatus { get; init; }
     public bool HasReturn { get; init; }
     public string ReturnNo { get; init; } = "";

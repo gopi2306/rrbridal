@@ -1,9 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -209,6 +211,41 @@ public partial class DayCloseViewModel : ObservableObject
         win.ShowDialog();
         _services.NotifyDaySessionChanged?.Invoke();
         _ = Refresh();
+    }
+
+    [RelayCommand]
+    private async Task DownloadReport()
+    {
+        var dateStr = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var baseName = $"day-close-{_storeContext.StoreId}-{dateStr}-pos{_storeContext.PosCounter}";
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|Excel workbook (*.xlsx)|*.xlsx",
+            FileName = $"{baseName}.csv",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var data = await _services.DayCloseReports.LoadAsync(
+                _storeContext.StoreId,
+                SelectedDate,
+                _storeContext.PosCounter,
+                StoreDisplayName);
+
+            if (dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                DayCloseExcelExporter.ExportToFile(dlg.FileName, data);
+            else
+                DayCloseCsvExporter.ExportToFile(dlg.FileName, data);
+
+            StatusMessage = $"Exported report to {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Export failed: " + ex.Message, "Day close", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void UpdateSessionUi()

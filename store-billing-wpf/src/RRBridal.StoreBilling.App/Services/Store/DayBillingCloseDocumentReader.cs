@@ -311,4 +311,77 @@ public static class DayBillingCloseDocumentReader
 
         return (deposits, withdrawals);
     }
+
+    public static string FormatBillCreditNoteReferences(BsonDocument doc)
+    {
+        if (!doc.TryGetValue("payments", out var payVal) || !payVal.IsBsonArray)
+            return "";
+
+        var refs = new List<string>();
+        foreach (BsonDocument p in payVal.AsBsonArray.OfType<BsonDocument>())
+        {
+            var provider = ReadString(p, "provider") ?? "";
+            if (!string.Equals(provider, "CreditNote", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var reference = ReadString(p, "reference")?.Trim();
+            if (!string.IsNullOrWhiteSpace(reference))
+                refs.Add(reference);
+        }
+
+        return string.Join("; ", refs);
+    }
+
+    public static string FormatUtcLocal(string? utcIso)
+    {
+        if (string.IsNullOrWhiteSpace(utcIso))
+            return "—";
+        if (!DateTime.TryParse(utcIso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            return "—";
+        var utc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+        return utc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    public static IEnumerable<BsonDocument> FilterAdjustmentsForLocalDay(
+        IEnumerable<BsonDocument> adjustments,
+        DateTime localDate,
+        string? posCounterFilter)
+        => adjustments
+            .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
+            .Where(d => MatchesLocalDay(d, localDate))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter));
+
+    public static IEnumerable<BsonDocument> FilterExpensesForBusinessDate(
+        IEnumerable<BsonDocument> expenses,
+        string businessDate,
+        string? posCounterFilter)
+        => expenses
+            .Where(d => string.Equals(ReadString(d, "businessDate"), businessDate, StringComparison.Ordinal))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
+            .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase));
+
+    public static IEnumerable<BsonDocument> FilterCashMovementsForBusinessDate(
+        IEnumerable<BsonDocument> movements,
+        string businessDate,
+        string? posCounterFilter)
+    {
+        foreach (var doc in movements)
+        {
+            if (!string.Equals(ReadString(doc, "businessDate"), businessDate, StringComparison.Ordinal))
+                continue;
+            if (!MatchesPosCounterFilter(doc, posCounterFilter))
+                continue;
+            if (!string.Equals(ReadString(doc, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
+                continue;
+            yield return doc;
+        }
+    }
+
+    public static IEnumerable<BsonDocument> FilterCreditNoteCashoutsForLocalDay(
+        IEnumerable<BsonDocument> cashouts,
+        DateTime localDate,
+        string? posCounterFilter)
+        => cashouts
+            .Where(IsPostedCashout)
+            .Where(d => MatchesLocalDay(d, localDate))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter));
 }

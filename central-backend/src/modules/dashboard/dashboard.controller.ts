@@ -7,9 +7,11 @@ import { StoreVendorSalesDashboardQueryDto } from './dto/store-vendor-sales-dash
 import { StoreVendorsSalesDashboardQueryDto } from './dto/store-vendors-sales-dashboard-query.dto';
 import { StoreDashboardQueryDto } from './dto/store-dashboard-query.dto';
 import { StoreDayCloseDashboardQueryDto } from './dto/store-day-close-dashboard-query.dto';
+import { StoreDayCloseExportQueryDto } from './dto/store-day-close-export-query.dto';
 import { WarehouseDashboardQueryDto } from './dto/warehouse-dashboard-query.dto';
 import { StoreDashboardService } from './store-dashboard.service';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
+import { StoreDayCloseReportService } from './store-day-close-report.service';
 import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
@@ -34,6 +36,7 @@ export class DashboardController {
     private readonly storeVendorSalesDashboardService: StoreVendorSalesDashboardService,
     private readonly storeVendorsSalesReportService: StoreVendorsSalesReportService,
     private readonly storeDayCloseDashboardService: StoreDayCloseDashboardService,
+    private readonly storeDayCloseReportService: StoreDayCloseReportService,
   ) {}
 
   @Get()
@@ -74,6 +77,26 @@ export class DashboardController {
     if (query.storeId?.trim()) options.storeId = query.storeId.trim();
     if (query.posCounter?.trim()) options.posCounter = query.posCounter.trim();
     return await this.storeDayCloseDashboardService.getDayCloseDashboard(options);
+  }
+
+  @Get('store/day-close/export')
+  @ApiProduces('text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportStoreDayCloseReport(
+    @Query() query: StoreDayCloseExportQueryDto,
+    @Res() res: Response,
+  ) {
+    const businessDate = query.businessDate?.trim() || formatBusinessYmd(new Date());
+    const options = {
+      businessDate,
+      format: query.format,
+      ...(query.storeId?.trim() ? { storeId: query.storeId.trim() } : {}),
+      ...(query.posCounter?.trim() ? { posCounter: query.posCounter.trim() } : {}),
+    };
+    const result = await this.storeDayCloseReportService.buildExport(options);
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(result.buffer);
   }
 
   @Get('store/sales')
