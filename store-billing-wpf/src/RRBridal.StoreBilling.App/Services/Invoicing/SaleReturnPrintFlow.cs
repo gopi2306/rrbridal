@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Models;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
@@ -24,7 +25,9 @@ public static class SaleReturnPrintFlow
         decimal igstTotal,
         bool isInterState,
         string? creditNoteNo = null,
-        decimal cashRefunded = 0m)
+        decimal cashRefunded = 0m,
+        bool isDuplicate = false,
+        DateTime? returnPostedUtc = null)
     {
         try
         {
@@ -39,7 +42,7 @@ public static class SaleReturnPrintFlow
             var config = services.ReceiptConfig.Current;
             var printSettings = config.Print;
             var charWidth = printSettings.ReceiptCharWidth is >= 32 and <= 56 ? printSettings.ReceiptCharWidth : 48;
-            var now = DateTime.Now;
+            var localPosted = returnPostedUtc?.ToLocalTime() ?? DateTime.Now;
 
             var input = new ThermalSaleReturnInput
             {
@@ -49,8 +52,8 @@ public static class SaleReturnPrintFlow
                 OriginalBillNo = originalBillNo,
                 UserName = services.UserSession?.LoggedInUser.Name ?? "",
                 Counter = services.StoreContext.PosCounter,
-                ReturnDate = now.ToString("dd/MM/yy", CultureInfo.GetCultureInfo("en-IN")),
-                ReturnTime = now.ToString("h:mmtt", CultureInfo.GetCultureInfo("en-IN")).ToUpperInvariant(),
+                ReturnDate = localPosted.ToString("dd/MM/yy", CultureInfo.GetCultureInfo("en-IN")),
+                ReturnTime = localPosted.ToString("h:mmtt", CultureInfo.GetCultureInfo("en-IN")).ToUpperInvariant(),
                 ReturnModeLabel = returnModeLabel,
                 CreditNoteNo = creditNoteNo,
                 Lines = returnLines.Select(l => new SaleReturnLineSnap
@@ -70,40 +73,106 @@ public static class SaleReturnPrintFlow
                 SgstTotal = sgstTotal,
                 IgstTotal = igstTotal,
                 CashRefunded = cashRefunded,
+                IsDuplicateCopy = isDuplicate,
             };
 
-            var text = ThermalSaleReturnTextBuilder.Build(input);
-            var fullAssets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
-                config,
-                returnNo,
-                services.ReceiptLogoCache);
-            var assets = new ThermalReceiptAssets
-            {
-                BillBarcode = fullAssets.BillBarcode,
-                BillNoLabel = fullAssets.BillNoLabel,
-            };
-            var fontSize = charWidth >= 48 ? 9.0 : 10.0;
-            var doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
-
-            var dlg = new Views.InvoicePrintPreviewWindow(
-                services,
-                doc,
-                text,
-                printInvoiceEnabled: true,
-                forceThermalPrinter: true)
-            {
-                Owner = Application.Current.MainWindow,
-                Title = string.Equals(returnModeLabel, "Credit Note", StringComparison.OrdinalIgnoreCase)
-                    ? "Credit note preview"
-                    : "Sales return preview",
-            };
-            dlg.ShowDialog();
-            return dlg.PrintSucceeded;
+            return await ShowFromThermalInputAsync(services, input, returnNo, returnModeLabel);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
+    }
+
+    public static async Task<bool> ShowFromReturnDocumentAsync(
+        AppServices services,
+        BsonDocument returnDoc,
+        string? creditNoteNo,
+        bool isDuplicate = false)
+    {
+        try
+        {
+            services.CentralAuthSession.ApplyTo(services.CentralApi);
+            var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
+            if (!profileOk)
+            {
+                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            var config = services.ReceiptConfig.Current;
+            var printSettings = config.Print;
+            var charWidth = printSettings.ReceiptCharWidth is >= 32 and <= 56 ? printSettings.ReceiptCharWidth : 48;
+            var returnNo = returnDoc.GetValue("returnNo", "").AsString;
+            var returnMode = returnDoc.GetValue("returnMode", "").AsString;
+            var returnModeLabel = string.Equals(returnMode, "credit_note", StringComparison.OrdinalIgnoreCase)
+                ? "Credit Note"
+                : "Cash";
+
+            DateTime? postedUtc = null;
+            if (returnDoc.TryGetValue("createdAtUtc", out var cu) && cu.IsString
+                && DateTime.TryParse(cu.AsString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                postedUtc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+
+            var input = SaleReturnDocumentMapper.MapFromReturnDocument(
+                returnDoc,
+                config.Store,
+                charWidth,
+                services.UserSession?.LoggedInUser.Name ?? "",
+                services.StoreContext.PosCounter,
+                creditNoteNo,
+                isDuplicate,
+                postedUtc);
+
+            return await ShowFromThermalInputAsync(services, input, returnNo, returnModeLabel);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
+    private static async Task<bool> ShowFromThermalInputAsync(
+        AppServices services,
+        ThermalSaleReturnInput input,
+        string returnNo,
+        string returnModeLabel)
+    {
+        var config = services.ReceiptConfig.Current;
+        var printSettings = config.Print;
+        var charWidth = printSettings.ReceiptCharWidth is >= 32 and <= 56 ? printSettings.ReceiptCharWidth : 48;
+
+        var text = ThermalSaleReturnTextBuilder.Build(input);
+        var barcodeNo = !string.IsNullOrWhiteSpace(input.CreditNoteNo)
+            ? input.CreditNoteNo.Trim()
+            : returnNo;
+        var fullAssets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
+            config,
+            barcodeNo,
+            services.ReceiptLogoCache);
+        var assets = new ThermalReceiptAssets
+        {
+            BillBarcode = fullAssets.BillBarcode,
+            BillNoLabel = fullAssets.BillNoLabel,
+        };
+        var fontSize = charWidth >= 48 ? 9.0 : 10.0;
+        var doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+
+        var dlg = new Views.InvoicePrintPreviewWindow(
+            services,
+            doc,
+            text,
+            printInvoiceEnabled: true,
+            forceThermalPrinter: true)
+        {
+            Owner = Application.Current.MainWindow,
+            Title = string.Equals(returnModeLabel, "Credit Note", StringComparison.OrdinalIgnoreCase)
+                ? input.IsDuplicateCopy ? "Credit note duplicate preview" : "Credit note preview"
+                : input.IsDuplicateCopy ? "Sales return duplicate preview" : "Sales return preview",
+        };
+        dlg.ShowDialog();
+        return dlg.PrintSucceeded;
     }
 }

@@ -28,7 +28,7 @@ public partial class ShellViewModel : ObservableObject
 
     public AdjustmentBillViewModel AdjustmentBill { get; }
 
-    public DuplicateBillViewModel DuplicateBill { get; }
+    public DuplicatePrintViewModel DuplicatePrint { get; }
 
     public BarcodePrintingViewModel BarcodePrinting { get; }
 
@@ -112,7 +112,7 @@ public partial class ShellViewModel : ObservableObject
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
-        DuplicateBill = new DuplicateBillViewModel(services);
+        DuplicatePrint = new DuplicatePrintViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
         DayClose = new DayCloseViewModel(services);
@@ -382,7 +382,7 @@ public partial class ShellViewModel : ObservableObject
     private async Task OpenDuplicateBill()
     {
         CurrentPage = ShellPage.DuplicateBill;
-        await DuplicateBill.SearchCommand.ExecuteAsync(null);
+        await DuplicatePrint.OnPageOpenedAsync();
     }
 
     [RelayCommand]

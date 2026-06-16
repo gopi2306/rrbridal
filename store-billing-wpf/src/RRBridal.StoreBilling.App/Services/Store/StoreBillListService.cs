@@ -86,6 +86,18 @@ public sealed class StoreBillListService
             Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
     }
 
+    public async Task<BsonDocument?> GetReturnByReturnNoAsync(string storeId, string returnNo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(returnNo))
+            return null;
+
+        var coll = _db.GetCollection<BsonDocument>("store_sale_returns");
+        return await coll.Find(Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+            Builders<BsonDocument>.Filter.Eq("returnNo", returnNo.Trim()),
+            Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
+    }
+
     public async Task<BsonDocument?> GetAdjustmentByBillNoAsync(string storeId, string billNo, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(billNo))

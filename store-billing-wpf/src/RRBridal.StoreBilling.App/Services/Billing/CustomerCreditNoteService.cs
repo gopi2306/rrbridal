@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
@@ -9,6 +11,20 @@ using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
+
+public sealed class CreditNoteSearchRow
+{
+    public required string CreditNoteNo { get; init; }
+    public required string ReturnNo { get; init; }
+    public required string OriginalBillNo { get; init; }
+    public string CustomerName { get; init; } = "";
+    public string CustomerPhone { get; init; } = "";
+    public decimal Amount { get; init; }
+    public decimal RemainingAmount { get; init; }
+    public string Status { get; init; } = "";
+    public string CreatedAtDisplay { get; init; } = "";
+    public DateTime SortUtc { get; init; }
+}
 
 public sealed class CustomerCreditNoteService
 {
@@ -142,6 +158,86 @@ public sealed class CustomerCreditNoteService
             Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()))
             .FirstOrDefaultAsync(ct);
         return doc == null ? null : Map(doc);
+    }
+
+    public async Task<IReadOnlyList<CreditNoteSearchRow>> SearchCreditNotesAsync(
+        string storeId,
+        string? originalBillNo,
+        string? returnNo,
+        string? customerName,
+        string? mobile,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        int limit = 100,
+        CancellationToken ct = default)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+        var filters = new List<FilterDefinition<BsonDocument>>
+        {
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+        };
+
+        if (!string.IsNullOrWhiteSpace(originalBillNo))
+        {
+            var safe = Regex.Escape(originalBillNo.Trim());
+            filters.Add(Builders<BsonDocument>.Filter.Regex("originalBillNo", new BsonRegularExpression(safe, "i")));
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnNo))
+        {
+            var safe = Regex.Escape(returnNo.Trim());
+            filters.Add(Builders<BsonDocument>.Filter.Regex("returnNo", new BsonRegularExpression(safe, "i")));
+        }
+
+        if (!string.IsNullOrWhiteSpace(customerName))
+        {
+            var safe = Regex.Escape(customerName.Trim());
+            filters.Add(Builders<BsonDocument>.Filter.Regex("customerName", new BsonRegularExpression(safe, "i")));
+        }
+
+        var phoneNorm = PhoneMatchHelper.NormalizePhone(mobile);
+        if (!string.IsNullOrEmpty(phoneNorm))
+        {
+            filters.Add(Builders<BsonDocument>.Filter.Regex(
+                "customerPhoneNorm",
+                new BsonRegularExpression($"^{Regex.Escape(phoneNorm)}", "i")));
+        }
+
+        var docs = await _notes
+            .Find(Builders<BsonDocument>.Filter.And(filters))
+            .Sort(Builders<BsonDocument>.Sort.Descending("createdAtUtc"))
+            .Limit(limit * 3)
+            .ToListAsync(ct);
+
+        return docs
+            .Select(MapSearchRow)
+            .Where(r => r != null)
+            .Cast<CreditNoteSearchRow>()
+            .Where(r => InCreatedDateRange(r.SortUtc, dateFrom, dateTo))
+            .Take(limit)
+            .ToList();
+    }
+
+    public static bool InCreatedDateRange(DateTime utc, DateTime? from, DateTime? to)
+    {
+        if (utc == DateTime.MinValue)
+            return from == null && to == null;
+        if (from.HasValue && utc.Date < from.Value.Date)
+            return false;
+        if (to.HasValue && utc.Date > to.Value.Date)
+            return false;
+        return true;
+    }
+
+    public static bool MatchesMobileFilter(BsonDocument doc, string? mobile)
+    {
+        var phoneNorm = PhoneMatchHelper.NormalizePhone(mobile);
+        if (string.IsNullOrEmpty(phoneNorm))
+            return true;
+
+        var stored = ReadString(doc, "customerPhoneNorm") ?? PhoneMatchHelper.NormalizePhone(ReadString(doc, "customerPhone"));
+        return !string.IsNullOrEmpty(stored)
+            && stored.StartsWith(phoneNorm, StringComparison.Ordinal);
     }
 
     public async Task<bool> ConsumeAsync(
@@ -309,6 +405,36 @@ public sealed class CustomerCreditNoteService
         }
 
         return true;
+    }
+
+    private static CreditNoteSearchRow? MapSearchRow(BsonDocument doc)
+    {
+        var creditNoteNo = ReadString(doc, "creditNoteNo") ?? "";
+        if (string.IsNullOrEmpty(creditNoteNo))
+            return null;
+
+        var sortUtc = DateTime.MinValue;
+        if (doc.TryGetValue("createdAtUtc", out var cu) && cu.IsString
+            && DateTime.TryParse(cu.AsString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            sortUtc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+
+        var createdDisplay = sortUtc == DateTime.MinValue
+            ? "—"
+            : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy", CultureInfo.GetCultureInfo("en-IN"));
+
+        return new CreditNoteSearchRow
+        {
+            CreditNoteNo = creditNoteNo,
+            ReturnNo = ReadString(doc, "returnNo") ?? "",
+            OriginalBillNo = ReadString(doc, "originalBillNo") ?? "",
+            CustomerName = ReadString(doc, "customerName") ?? "",
+            CustomerPhone = ReadString(doc, "customerPhone") ?? "",
+            Amount = ReadDecimal(doc, "amount"),
+            RemainingAmount = ReadDecimal(doc, "remainingAmount"),
+            Status = ReadString(doc, "status") ?? "",
+            CreatedAtDisplay = createdDisplay,
+            SortUtc = sortUtc,
+        };
     }
 
     private static CustomerCreditNoteRecord Map(BsonDocument d)

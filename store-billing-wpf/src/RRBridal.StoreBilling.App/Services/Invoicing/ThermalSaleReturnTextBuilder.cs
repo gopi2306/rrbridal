@@ -58,6 +58,8 @@ public sealed class ThermalSaleReturnInput
     public decimal IgstTotal { get; init; }
 
     public decimal CashRefunded { get; init; }
+
+    public bool IsDuplicateCopy { get; init; }
 }
 
 /// <summary>Plain-text thermal sales return / credit note receipt.</summary>
@@ -84,6 +86,11 @@ public static class ThermalSaleReturnTextBuilder
             sb.AppendLine(Center(line, w));
         if (!string.IsNullOrWhiteSpace(s.Gstin))
             sb.AppendLine(Center($"GSTIN: {s.Gstin}", w));
+        if (input.IsDuplicateCopy)
+        {
+            sb.AppendLine();
+            AddCenter("*** DUPLICATE ***");
+        }
         sb.AppendLine(Center($"{input.ReturnDate} {input.ReturnTime}", w));
         sb.AppendLine();
         AddCenter("SALES RETURN");

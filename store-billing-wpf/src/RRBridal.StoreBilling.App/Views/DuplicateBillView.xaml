@@ -9,81 +9,178 @@
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="320"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Duplicate bill print" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-            <TextBlock Text="Reprint a posted invoice with DUPLICATE watermark. Does not change stock or totals."
+            <TextBlock Text="Duplicate print" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="Reprint a posted bill or credit note with DUPLICATE watermark. Does not change stock or totals."
                        Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                    <TextBlock Text="Invoice no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
-                    <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                    <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
-                    <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
-                </StackPanel>
-                <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Search" Style="{StaticResource PrimaryButton}"
-                        VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>
-            </Grid>
-        </Border>
+        <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch">
+            <TabItem Header="Bill">
+                <Grid Margin="0,8,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,8,0">
-                <DataGrid ItemsSource="{Binding Results}"
-                          SelectedItem="{Binding SelectedBill}"
-                          Style="{StaticResource ThemedDataGrid}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserAddRows="False">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
-                        <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
-                        <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
-                        <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
-                        <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Border>
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12">
-                <StackPanel>
-                    <TextBlock Text="Bill details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
-                    <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
-                    <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
-                            Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch"/>
-                </StackPanel>
-            </Border>
-        </Grid>
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                        <Grid DataContext="{Binding Bill}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                                <TextBlock Text="Invoice no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Search" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>
+                        </Grid>
+                    </Border>
 
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Margin="0,12,0,0"
-                   Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+                    <Grid Grid.Row="1" DataContext="{Binding Bill}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,8,0">
+                            <DataGrid ItemsSource="{Binding Results}"
+                                      SelectedItem="{Binding SelectedBill}"
+                                      Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                                    <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
+                                    <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                                    <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
+                                    <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Bill details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                                <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
+                                <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="{Binding Bill.StatusMessage}" Margin="0,12,0,0"
+                               Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Credit Note">
+                <Grid Margin="0,8,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                        <Grid DataContext="{Binding CreditNote}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                                <TextBlock Text="Original bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchOriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
+                                <TextBlock Text="Return bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchReturnNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Mobile no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchMobileNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,8,0">
+                                <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1" DataContext="{Binding CreditNote}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,8,0">
+                            <DataGrid ItemsSource="{Binding Results}"
+                                      SelectedItem="{Binding SelectedCreditNote}"
+                                      Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Credit note no" Binding="{Binding CreditNoteNo}" Width="130"/>
+                                    <DataGridTextColumn Header="Return no" Binding="{Binding ReturnNo}" Width="120"/>
+                                    <DataGridTextColumn Header="Original bill" Binding="{Binding OriginalBillNo}" Width="120"/>
+                                    <DataGridTextColumn Header="Date" Binding="{Binding CreatedAtDisplay}" Width="100"/>
+                                    <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                                    <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N2}}" Width="100"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Credit note details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                                <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
+                                <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="{Binding CreditNote.StatusMessage}" Margin="0,12,0,0"
+                               Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

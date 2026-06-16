@@ -184,7 +184,7 @@
                 <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
             </Grid>
             <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
-                <views:DuplicateBillView DataContext="{Binding DuplicateBill}"/>
+                <views:DuplicateBillView DataContext="{Binding DuplicatePrint}"/>
             </Grid>
             <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
                 <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
