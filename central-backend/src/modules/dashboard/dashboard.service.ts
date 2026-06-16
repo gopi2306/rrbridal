@@ -6,12 +6,19 @@ import { GoodsReceipt, GoodsReceiptDocument } from '../goods-receipts/schemas/go
 import { StockTransfer, StockTransferDocument } from '../stock-transfers/schemas/stock-transfer.schema';
 import { Supplier, SupplierDocument } from '../suppliers/schemas/supplier.schema';
 import { InventoryLedgerEntry, InventoryLedgerDocument } from '../inventory/schemas/inventory-ledger.schema';
+import { StoreDailyExpense, StoreDailyExpenseDocument } from '../store-sales/schemas/store-daily-expense.schema';
+import {
+  formatBusinessYmd,
+  sumDailyExpenses,
+} from './store-sales-payload.util';
 
 export interface DashboardSummary {
   openPOs: number;
   pendingReceipts: number;
   transfersToday: number;
   activeSuppliers: number;
+  /** Sum of daily cash expenses across all stores for IST today */
+  dailyExpensesToday: number;
 }
 
 export interface RecentPO {
@@ -43,6 +50,7 @@ export class DashboardService {
     @InjectModel(StockTransfer.name) private readonly stModel: Model<StockTransferDocument>,
     @InjectModel(Supplier.name) private readonly supplierModel: Model<SupplierDocument>,
     @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
+    @InjectModel(StoreDailyExpense.name) private readonly dailyExpenseModel: Model<StoreDailyExpenseDocument>,
   ) {}
 
   async getDashboard(): Promise<DashboardResponse> {
@@ -59,14 +67,24 @@ export class DashboardService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [openPOs, pendingReceipts, transfersToday, activeSuppliers] = await Promise.all([
+    const [openPOs, pendingReceipts, transfersToday, activeSuppliers, dailyExpensesToday] =
+      await Promise.all([
       this.poModel.countDocuments({ status: { $in: ['open', 'awaiting_approval', 'approved'] } }),
       this.grModel.countDocuments({ status: 'draft' }),
       this.stModel.countDocuments({ createdAt: { $gte: todayStart }, status: { $ne: 'cancelled' } }),
       this.supplierModel.countDocuments({ isActive: true, isSupplier: true }),
+      this.sumAllStoresDailyExpensesToday(),
     ]);
 
-    return { openPOs, pendingReceipts, transfersToday, activeSuppliers };
+    return { openPOs, pendingReceipts, transfersToday, activeSuppliers, dailyExpensesToday };
+  }
+
+  private async sumAllStoresDailyExpensesToday(): Promise<number> {
+    const todayYmd = formatBusinessYmd(new Date());
+    const allDocs = await this.dailyExpenseModel
+      .find({ 'payload.businessDate': todayYmd })
+      .lean();
+    return sumDailyExpenses(allDocs).total;
   }
 
   private async getRecentPOs(): Promise<RecentPO[]> {

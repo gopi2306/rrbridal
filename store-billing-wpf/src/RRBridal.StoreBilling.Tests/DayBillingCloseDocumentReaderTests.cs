@@ -304,4 +304,19 @@ public class DayBillingCloseDocumentReaderTests
 
         Assert.Equal(750.50m, total);
     }
+
+    [Fact]
+    public void SumDailyExpensesForBusinessDate_filters_by_date_status_and_counter()
+    {
+        var expenses = new[]
+        {
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 200, "status": "posted", "posCounter": "1" }"""),
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 50, "status": "posted", "posCounter": "2" }"""),
+            BsonDocument.Parse("""{ "businessDate": "2026-06-10", "amount": 999, "status": "posted", "posCounter": "1" }"""),
+            BsonDocument.Parse("""{ "businessDate": "2026-06-11", "amount": 100, "status": "void", "posCounter": "1" }"""),
+        };
+
+        Assert.Equal(200m, DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(expenses, "2026-06-11", "1"));
+        Assert.Equal(250m, DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(expenses, "2026-06-11", null));
+    }
 }

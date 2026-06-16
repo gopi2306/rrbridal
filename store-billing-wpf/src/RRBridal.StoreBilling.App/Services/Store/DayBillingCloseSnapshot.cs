@@ -41,6 +41,8 @@ public sealed class DayBillingCloseSnapshot
 
     public decimal ActualHandInTotal { get; init; }
 
+    public decimal DailyExpensesTotal { get; init; }
+
     public IReadOnlyList<DayCloseInvoiceRow> Invoices { get; init; } = Array.Empty<DayCloseInvoiceRow>();
 
     public IReadOnlyList<DayCloseReturnRow> Returns { get; init; } = Array.Empty<DayCloseReturnRow>();

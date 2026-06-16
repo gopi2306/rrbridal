@@ -10,6 +10,14 @@ import {
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { StockTransfer, StockTransferDocument } from '../stock-transfers/schemas/stock-transfer.schema';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
+import { StoreDailyExpense, StoreDailyExpenseDocument } from '../store-sales/schemas/store-daily-expense.schema';
+import {
+  businessTodayParts,
+  buildStoreExpenseBusinessDateFilterForYmd,
+  formatBusinessYmd,
+  formatYmdFromParts,
+  sumDailyExpenses,
+} from './store-sales-payload.util';
 import type {
   StoreCategoryMixRow,
   StoreDashboardOptions,
@@ -59,17 +67,19 @@ export class StoreDashboardService {
     @InjectModel(StockTransfer.name) private readonly stModel: Model<StockTransferDocument>,
     @InjectModel(PurchaseIntent.name) private readonly intentModel: Model<PurchaseIntentDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
+    @InjectModel(StoreDailyExpense.name) private readonly dailyExpenseModel: Model<StoreDailyExpenseDocument>,
   ) {}
 
   async getStoreDashboard(options: StoreDashboardOptions): Promise<StoreDashboardResponse> {
     const availableStores = await this.listActiveStores();
     const store = await this.resolveStore(options.storeId, availableStores);
 
-    const [allStoreQty, products, inTransitUnits, openRequests] = await Promise.all([
+    const [allStoreQty, products, inTransitUnits, openRequests, expenseTotals] = await Promise.all([
       this.inventoryService.getAllStoreSkuQtyMaps(),
       this.loadProductsForDashboard(),
       this.sumInboundTransferPiecesForStore(store.code),
       this.countOpenIntents(store.code),
+      this.sumDailyExpensesForStore(store.code),
     ]);
 
     const storeQty = allStoreQty.get(store.code) ?? new Map<string, number>();
@@ -99,6 +109,8 @@ export class StoreDashboardService {
         ...metricsSnapshot,
         inTransitUnits,
         openRequests,
+        dailyExpensesToday: expenseTotals.today,
+        dailyExpensesMonth: expenseTotals.month,
       },
       storeNetwork,
       categoryMix,
@@ -434,6 +446,30 @@ export class StoreDashboardService {
   ): string | undefined {
     const desc = lines?.[0]?.description?.trim();
     return desc || undefined;
+  }
+
+  private async sumDailyExpensesForStore(
+    storeCode: string,
+  ): Promise<{ today: number; month: number }> {
+    const cal = businessTodayParts();
+    const todayYmd = formatBusinessYmd(new Date());
+    const lastDay = new Date(Date.UTC(cal.year, cal.month, 0)).getUTCDate();
+    const monthFromYmd = formatYmdFromParts(cal.year, cal.month - 1, 1);
+    const monthToYmd = formatYmdFromParts(cal.year, cal.month - 1, lastDay);
+
+    const [todayDocs, monthDocs] = await Promise.all([
+      this.dailyExpenseModel
+        .find(buildStoreExpenseBusinessDateFilterForYmd(storeCode, todayYmd, todayYmd))
+        .lean(),
+      this.dailyExpenseModel
+        .find(buildStoreExpenseBusinessDateFilterForYmd(storeCode, monthFromYmd, monthToYmd))
+        .lean(),
+    ]);
+
+    return {
+      today: sumDailyExpenses(todayDocs).total,
+      month: sumDailyExpenses(monthDocs).total,
+    };
   }
 
   private docTimestamp(doc: Record<string, unknown>): unknown {

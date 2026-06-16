@@ -1,0 +1,85 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.DailyExpenseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,0,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Daily Expenses" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+            <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="New expense slip" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="140"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Date" VerticalAlignment="Center"/>
+                        <DatePicker Grid.Column="1" SelectedDate="{Binding SelectedDate}" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="2" Text="Amount (₹)" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="3" Style="{StaticResource RoundedTextBox}"
+                                 Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Grid.Row="1" Text="Description" VerticalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource RoundedTextBox}"
+                                 Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+                    </Grid>
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Orientation="Horizontal">
+                    <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                            Command="{Binding RefreshCommand}" Width="90"/>
+                    <Button Content="Post expense" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding PostExpenseCommand}" Width="120"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Expenses for selected date"/>
+                    <TextBlock Text="{Binding DayTotalSummary, StringFormat=  —  Total: {0}}" Margin="12,0,0,0"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}"
+                           Margin="0,8,0,0" TextWrapping="Wrap"/>
+                <DataGrid ItemsSource="{Binding Expenses}"
+                          Style="{StaticResource ThemedDataGrid}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Expense no" Binding="{Binding ExpenseNo}" Width="180"/>
+                        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                        <DataGridTextColumn Header="Amount" Binding="{Binding AmountDisplay}" Width="110"/>
+                        <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="150"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

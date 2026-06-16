@@ -143,6 +143,12 @@ Raised after an adjustment bill is posted. `payload` includes `adjustmentNo`, `o
 
 Central: `store_adjustments` with unique `(storeId, adjustmentNo)`.
 
+### Event: `DailyExpenseCreated`
+
+Raised when a **daily cash expense slip** is posted locally (`store_daily_expenses`). Simple fields: `expenseNo`, `storeId`, `deviceId`, `posCounter`, `businessDate` (`YYYY-MM-DD` IST calendar date), `description`, `amount` (cash, > 0), `status: posted`, `createdAtUtc`.
+
+Central: `store_daily_expenses`, idempotent by `sourceEventId` (`eventId`). Duplicate `expenseNo` for the same store → `rejected`.
+
 ### Event: `CreditNoteCreated`
 
 Raised when a customer credit note is created from a return (local `customer_credit_notes`). `payload` includes `creditNoteNo`, `returnNo`, `originalBillNo`, `amount`, `remainingAmount`, customer phone/code, `storeId`.

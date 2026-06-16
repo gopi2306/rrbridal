@@ -20,6 +20,20 @@ public sealed class InvoiceLineSnap
     public decimal LineDiscount { get; init; }
     public decimal TaxableAmount { get; init; }
     public decimal TaxAmount { get; init; }
+
+    /// <summary>Tax-inclusive line total after discounts (matches payable per line).</summary>
+    public decimal LineInclusiveAmount { get; init; }
+
+    /// <summary>Amount column on pre-printed stationery (inclusive line total, not taxable).</summary>
+    public decimal PrePrintedLineAmount()
+    {
+        if (LineInclusiveAmount > 0)
+            return LineInclusiveAmount;
+        var inclusive = TaxableAmount + TaxAmount;
+        if (inclusive > 0)
+            return inclusive;
+        return Amount;
+    }
 }
 
 public sealed class ThermalInvoiceInput

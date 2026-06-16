@@ -36,6 +36,7 @@ public sealed class DayBillingCloseService
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
         var cashoutsColl = _db.GetCollection<BsonDocument>("store_credit_note_cashouts");
+        var expensesColl = _db.GetCollection<BsonDocument>("store_daily_expenses");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
 
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
@@ -119,7 +120,14 @@ public sealed class DayBillingCloseService
         var returnCashRefundTotal = returnTotals.CashRefundTotal;
         var cashRefundTotal = returnCashRefundTotal + creditNoteCashoutTotal;
 
-        var netCash = cash - cashRefundTotal + exchangePayments.Cash;
+        var businessDate = localDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var expenseDocs = await expensesColl.Find(storeFilter).ToListAsync(ct);
+        var dailyExpensesTotal = DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(
+            expenseDocs,
+            businessDate,
+            posCounterFilter);
+
+        var netCash = cash - cashRefundTotal + exchangePayments.Cash - dailyExpensesTotal;
         var netCard = card + exchangePayments.Card;
         var netUpi = upi + exchangePayments.Upi;
         var actualHandIn = netCash + netCard + netUpi;
@@ -174,6 +182,7 @@ public sealed class DayBillingCloseService
             NetCardInHand = netCard,
             NetUpiInHand = netUpi,
             ActualHandInTotal = actualHandIn,
+            DailyExpensesTotal = dailyExpensesTotal,
             Invoices = invoices,
             Returns = returnRows,
             StockExceptions = stockExceptions,

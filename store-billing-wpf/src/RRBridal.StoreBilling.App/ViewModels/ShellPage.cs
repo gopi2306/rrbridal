@@ -11,5 +11,6 @@ public enum ShellPage
     Adjustments,
     DuplicateBill,
     Barcodes,
+    DailyExpenses,
     Settings,
 }

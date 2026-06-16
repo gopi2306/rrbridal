@@ -113,4 +113,11 @@ public sealed class BillingOutboxPublisher
         });
         return EnqueueAsync("CreditNoteCashedOut", payload, hash, ct);
     }
+
+    public Task<string> PublishDailyExpenseCreatedAsync(BsonDocument expenseDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)expenseDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("DailyExpenseCreated", payload, hash, ct);
+    }
 }

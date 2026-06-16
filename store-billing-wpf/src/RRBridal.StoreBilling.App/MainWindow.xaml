@@ -89,8 +89,12 @@
                                            NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
                     <controls:NavTabButton Label="Adjustments" Page="{x:Static vm:ShellPage.Adjustments}"
-                                           NavigateCommand="{Binding NavigateCommand}"
+                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
                                            IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
+                    <controls:NavTabButton Label="Expenses" Page="{x:Static vm:ShellPage.DailyExpenses}"
+                                           NavigateCommand="{Binding NavigateCommand}"
+                                           Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DailyExpenses}}"/>
                     <Button Style="{StaticResource NavLinkButton}" Command="{Binding LogoutCommand}" Margin="16,0,0,0"
                             ToolTip="Sign out and return to login">
                         <TextBlock Text="Logout" Style="{StaticResource TextBody}"
@@ -172,6 +176,9 @@
             </Grid>
             <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
                 <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsDailyExpensesPage, Converter={StaticResource BoolToVis}}">
+                <views:DailyExpenseView DataContext="{Binding DailyExpenses}"/>
             </Grid>
             <Grid Visibility="{Binding IsSettingsPage, Converter={StaticResource BoolToVis}}">
                 <views:SettingsView DataContext="{Binding Settings}"

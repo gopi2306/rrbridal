@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { StoreDailyExpense, StoreDailyExpenseDocument } from './schemas/store-daily-expense.schema';
 import { StoreAdjustment, StoreAdjustmentDocument } from './schemas/store-adjustment.schema';
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
@@ -19,6 +20,7 @@ export class StoreSalesSyncService {
     @InjectModel(StoreInvoice.name) private readonly invoiceModel: Model<StoreInvoiceDocument>,
     @InjectModel(StoreSaleReturn.name) private readonly returnModel: Model<StoreSaleReturnDocument>,
     @InjectModel(StoreAdjustment.name) private readonly adjustmentModel: Model<StoreAdjustmentDocument>,
+    @InjectModel(StoreDailyExpense.name) private readonly dailyExpenseModel: Model<StoreDailyExpenseDocument>,
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
     @InjectModel(StoreCreditNoteCashout.name)
     private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
@@ -240,6 +242,58 @@ export class StoreSalesSyncService {
     });
 
     await note.save();
+  }
+
+  async applyDailyExpenseCreated(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const existing = await this.dailyExpenseModel.findOne({ sourceEventId: meta.eventId }).lean();
+    if (existing) return;
+
+    const expenseNo = this.requireString(payload, 'expenseNo');
+    const description = this.requireString(payload, 'description');
+    const businessDate = this.requireString(payload, 'businessDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+      throw new BadRequestException('businessDate must be YYYY-MM-DD');
+    }
+
+    const amount = this.requireNumber(payload, 'amount');
+    if (amount <= 0) throw new BadRequestException('amount must be positive');
+
+    const duplicate = await this.dailyExpenseModel
+      .findOne({ storeId: meta.storeId, expenseNo })
+      .lean();
+    if (duplicate) {
+      throw new ConflictException(
+        `Expense '${expenseNo}' already exists for store '${meta.storeId}'`,
+      );
+    }
+
+    try {
+      await this.dailyExpenseModel.create({
+        storeId: meta.storeId,
+        expenseNo,
+        sourceEventId: meta.eventId,
+        deviceId: meta.deviceId,
+        payload: {
+          ...payload,
+          expenseNo,
+          description,
+          businessDate,
+          amount,
+          status: this.optionalString(payload, 'status') ?? 'posted',
+        },
+      });
+    } catch (err: unknown) {
+      const dup =
+        err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
+      if (dup) {
+        const again = await this.dailyExpenseModel.findOne({ sourceEventId: meta.eventId }).lean();
+        if (again) return;
+        throw new ConflictException(
+          `Expense '${expenseNo}' already exists for store '${meta.storeId}'`,
+        );
+      }
+      throw err;
+    }
   }
 
   async applyCreditNoteCashedOut(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {

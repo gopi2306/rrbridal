@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { roundMoney } from '../../common/money.util';
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from '../store-sales/schemas/store-credit-note-cashout.schema';
+import { StoreDailyExpense, StoreDailyExpenseDocument } from '../store-sales/schemas/store-daily-expense.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from '../store-sales/schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from '../store-sales/schemas/store-sale-return.schema';
@@ -13,6 +14,7 @@ import {
   aggregateMarginLines,
   buildDashboardPeriod,
   buildMongoCreatedAtFilter,
+  buildStoreExpenseBusinessDateFilter,
   buildStoreSalePayloadTimeFilter,
   computeMarginPercentage,
   isInRange,
@@ -34,6 +36,7 @@ import {
   readNumber,
   readString,
   resolveDateRange,
+  sumDailyExpenses,
   type LineMarginRow,
 } from './store-sales-payload.util';
 import type {
@@ -66,6 +69,7 @@ export class StoreSalesDashboardService {
     @InjectModel(StoreCreditNote.name) private readonly creditNoteModel: Model<StoreCreditNoteDocument>,
     @InjectModel(StoreCreditNoteCashout.name)
     private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
+    @InjectModel(StoreDailyExpense.name) private readonly dailyExpenseModel: Model<StoreDailyExpenseDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
   ) {}
@@ -85,13 +89,14 @@ export class StoreSalesDashboardService {
       throw new BadRequestException(err instanceof Error ? err.message : String(err));
     }
 
-    const [invoices, returns, creditNotes, creditNoteCashouts] = await Promise.all([
+    const [invoices, returns, creditNotes, creditNoteCashouts, dailyExpenses] = await Promise.all([
       this.invoiceModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
       this.returnModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
       this.creditNoteModel.find({ storeId: store.code, ...buildMongoCreatedAtFilter(range) }).lean(),
       this.creditNoteCashoutModel
         .find({ storeId: store.code, ...buildMongoCreatedAtFilter(range) })
         .lean(),
+      this.dailyExpenseModel.find(buildStoreExpenseBusinessDateFilter(store.code, range)).lean(),
     ]);
 
     const buckets = new Map<string, BucketAgg>();
@@ -252,8 +257,10 @@ export class StoreSalesDashboardService {
 
     const cashRefundForReturns = returnCashRefundTotal + creditNoteCashoutTotal;
 
+    const { total: dailyExpensesTotal, count: dailyExpensesCount } = sumDailyExpenses(dailyExpenses);
+
     const netSales = totalBillAmount - creditAppliedOnBills;
-    const cashInHand = billCashTotal - cashRefundForReturns + exchangeCashTotal;
+    const cashInHand = billCashTotal - cashRefundForReturns + exchangeCashTotal - dailyExpensesTotal;
     const { totalCostValue, totalSellingValue, salesMargin, marginPercentage, costBySku } =
       await this.computeSalesMarginSummary(marginLines);
 
@@ -353,6 +360,8 @@ export class StoreSalesDashboardService {
         totalSellingValue: roundMoney(totalSellingValue),
         salesMargin: roundMoney(salesMargin),
         marginPercentage,
+        dailyExpensesTotal,
+        dailyExpensesCount,
       },
       bills: billsPage,
       salesDetails,

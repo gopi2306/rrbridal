@@ -272,6 +272,47 @@ export function buildStoreSalePayloadTimeFilter(
   };
 }
 
+/** Filter daily expenses by IST business date on payload. */
+export function buildStoreExpenseBusinessDateFilter(
+  storeId: string,
+  range: ResolvedDateRange,
+): Record<string, unknown> {
+  return {
+    storeId,
+    'payload.businessDate': { $gte: range.fromYmd, $lte: range.toYmd },
+  };
+}
+
+export function buildStoreExpenseBusinessDateFilterForYmd(
+  storeId: string,
+  fromYmd: string,
+  toYmd: string,
+): Record<string, unknown> {
+  return {
+    storeId,
+    'payload.businessDate': { $gte: fromYmd, $lte: toYmd },
+  };
+}
+
+export type DailyExpenseTotals = { total: number; count: number };
+
+export function sumDailyExpenses(
+  docs: ReadonlyArray<{ payload?: Record<string, unknown> }>,
+): DailyExpenseTotals {
+  let total = 0;
+  let count = 0;
+  for (const doc of docs) {
+    const payload = (doc.payload ?? {}) as Record<string, unknown>;
+    const status = readString(payload.status) ?? 'posted';
+    if (status === 'void' || status === 'cancelled') continue;
+    const amount = readNumber(payload.amount);
+    if (amount <= 0) continue;
+    total += amount;
+    count += 1;
+  }
+  return { total: roundMoney(total), count };
+}
+
 /** Bill total after discounts + discounts given + credit note applied at checkout. */
 export function parseInvoiceGrossSale(payload: Record<string, unknown>): number {
   return (

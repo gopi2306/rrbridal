@@ -1904,6 +1904,7 @@ public partial class BillingViewModel : ObservableObject
                     LineDiscount = lineDisc,
                     TaxableAmount = l.RevisedAmount,
                     TaxAmount = l.RevisedTaxAmount,
+                    LineInclusiveAmount = l.RevisedInclusiveAmount,
                 };
             })
             .ToList();

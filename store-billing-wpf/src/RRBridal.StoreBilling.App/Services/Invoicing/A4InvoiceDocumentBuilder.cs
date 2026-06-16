@@ -309,7 +309,7 @@ public static class A4InvoiceDocumentBuilder
         var descriptions = pageLines.Select(l => l.Description).ToList();
         var qtys = pageLines.Select(l => $"{l.Qty:0.###}").ToList();
         var rates = pageLines.Select(l => Money(l.Rate)).ToList();
-        var amounts = pageLines.Select(l => Money(l.TaxableAmount > 0 ? l.TaxableAmount : l.Amount)).ToList();
+        var amounts = pageLines.Select(l => Money(l.PrePrintedLineAmount())).ToList();
 
         if (hasMorePages)
         {

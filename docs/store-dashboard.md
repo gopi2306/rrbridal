@@ -35,7 +35,9 @@ Existing `GET /api/dashboard` and `GET /api/dashboard/warehouse` are unchanged.
     "retailValue": 35900000,
     "inTransitUnits": 142,
     "lowStockSkus": 19,
-    "openRequests": 4
+    "openRequests": 4,
+    "dailyExpensesToday": 1200,
+    "dailyExpensesMonth": 18500
   },
   "storeNetwork": [
     {
@@ -88,6 +90,8 @@ Format `metrics.retailValue` as INR on the client (e.g. `₹3.59 Cr`).
 | `inTransitUnits` | Sum of line qty on `warehouse_to_store` transfers to this store in `draft`, `in_transit`, or `awaiting_intake` |
 | `lowStockSkus` | SKUs at or below shelf threshold at the store |
 | `openRequests` | Purchase intents with status `submitted`, `under_review`, or `approved` |
+| `dailyExpensesToday` | Sum of posted daily cash expenses for IST today (`payload.businessDate`) |
+| `dailyExpensesMonth` | Sum of posted daily cash expenses for current IST calendar month |
 
 ### Low stock threshold (min shelf)
 

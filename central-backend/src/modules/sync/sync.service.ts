@@ -61,6 +61,8 @@ export class SyncService {
           await this.storeSalesSyncService.applyCreditNoteApplied(meta, ev.payload);
         } else if (ev.type === 'CreditNoteCashedOut') {
           await this.storeSalesSyncService.applyCreditNoteCashedOut(meta, ev.payload);
+        } else if (ev.type === 'DailyExpenseCreated') {
+          await this.storeSalesSyncService.applyDailyExpenseCreated(meta, ev.payload);
         }
 
         await this.syncEventModel.create({

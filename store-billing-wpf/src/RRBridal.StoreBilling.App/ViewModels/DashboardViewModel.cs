@@ -80,6 +80,8 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _dayCloseCnIssuedSummary = "—";
 
+    [ObservableProperty] private string _dayCloseDailyExpensesSummary = "—";
+
     [ObservableProperty] private string _dayCloseNetCashSummary = "—";
 
     [ObservableProperty] private string _dayCloseNetCardSummary = "—";
@@ -275,6 +277,9 @@ public partial class DashboardViewModel : ObservableObject
                 : "";
             DayCloseCnIssuedSummary = snap.CreditNoteIssuedTotal > 0
                 ? MoneyMath.FormatRupee(snap.CreditNoteIssuedTotal)
+                : "—";
+            DayCloseDailyExpensesSummary = snap.DailyExpensesTotal > 0
+                ? MoneyMath.FormatRupee(snap.DailyExpensesTotal)
                 : "—";
             DayCloseNetCashSummary = MoneyMath.FormatRupee(snap.NetCashInHand);
             DayCloseNetCardSummary = MoneyMath.FormatRupee(snap.NetCardInHand);

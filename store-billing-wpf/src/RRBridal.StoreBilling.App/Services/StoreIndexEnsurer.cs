@@ -100,6 +100,26 @@ public static class StoreIndexEnsurer
                 }),
             cancellationToken: ct);
 
+        var dailyExpenses = db.GetCollection<MongoDB.Bson.BsonDocument>("store_daily_expenses");
+        await dailyExpenses.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("expenseNo"),
+                new CreateIndexOptions
+                {
+                    Name = "storeId_expenseNo_unique",
+                    Unique = true,
+                }),
+            cancellationToken: ct);
+        await dailyExpenses.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("businessDate"),
+                new CreateIndexOptions { Name = "storeId_businessDate" }),
+            cancellationToken: ct);
+
         var auditLogs = db.GetCollection<MongoDB.Bson.BsonDocument>("store_audit_logs");
         await auditLogs.Indexes.CreateOneAsync(
             new CreateIndexModel<MongoDB.Bson.BsonDocument>(

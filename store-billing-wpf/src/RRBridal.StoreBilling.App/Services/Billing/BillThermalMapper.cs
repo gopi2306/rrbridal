@@ -38,6 +38,7 @@ public static class BillThermalMapper
                     LineDiscount = disc,
                     TaxableAmount = ReadDecimal(line, "revisedAmount"),
                     TaxAmount = ReadDecimal(line, "revisedTaxAmount"),
+                    LineInclusiveAmount = ReadDecimal(line, "revisedInclusiveAmount"),
                 });
             }
         }

@@ -32,6 +32,9 @@ public sealed class BillNumberGenerator
     public Task<string> NextAdjustmentAsync(CancellationToken ct = default) =>
         NextAsync("adjustmentNo", "ADJ-", ct);
 
+    public Task<string> NextDailyExpenseAsync(CancellationToken ct = default) =>
+        NextAsync("expenseNo", "EXP-", ct);
+
     public async Task<string> NextAsync(string counterKind, string prefix, CancellationToken ct = default)
     {
         var counterKey = $"{counterKind}:{_store.StoreId}:{_store.DeviceId}";

@@ -30,6 +30,8 @@ public partial class ShellViewModel : ObservableObject
 
     public BarcodePrintingViewModel BarcodePrinting { get; }
 
+    public DailyExpenseViewModel DailyExpenses { get; }
+
     public SettingsViewModel Settings { get; }
 
     private ShellPage _lastPage = ShellPage.Billing;
@@ -106,6 +108,7 @@ public partial class ShellViewModel : ObservableObject
         AdjustmentBill = new AdjustmentBillViewModel(services);
         DuplicateBill = new DuplicateBillViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
+        DailyExpenses = new DailyExpenseViewModel(services);
         Settings = new SettingsViewModel(services);
 
         NotifyPageVisibility();
@@ -118,7 +121,7 @@ public partial class ShellViewModel : ObservableObject
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
-        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger or ShellPage.Settings;
+        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
 
     private void OnBrandingChanged()
     {
@@ -128,6 +131,7 @@ public partial class ShellViewModel : ObservableObject
         TillDisplayLine = snap.TillDisplayLine;
         WindowTitleText = snap.WindowTitleText;
         Dashboard.ApplyBrandingFromShell();
+        DailyExpenses.ApplyBrandingFromShell();
         Ledger.ApplyBrandingFromShell();
         BarcodePrinting.ApplyBrandingFromShell();
     }
@@ -188,6 +192,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsBarcodesPage => CurrentPage == ShellPage.Barcodes;
 
+    public bool IsDailyExpensesPage => CurrentPage == ShellPage.DailyExpenses;
+
     public bool IsSettingsPage => CurrentPage == ShellPage.Settings;
 
     partial void OnCurrentPageChanged(ShellPage value)
@@ -204,6 +210,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
+        OnPropertyChanged(nameof(IsDailyExpensesPage));
         OnPropertyChanged(nameof(IsSettingsPage));
 
         if (value == ShellPage.Settings)
@@ -221,6 +228,8 @@ public partial class ShellViewModel : ObservableObject
             RequestBillingSearchFocus();
         if (value == ShellPage.Barcodes)
             RequestBarcodeSkuFocus();
+        if (value == ShellPage.DailyExpenses)
+            _ = DailyExpenses.RefreshCommand.ExecuteAsync(null);
 
         PostBillCommand.NotifyCanExecuteChanged();
         _lastPage = value;

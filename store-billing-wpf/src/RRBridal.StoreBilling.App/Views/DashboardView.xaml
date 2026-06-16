@@ -245,6 +245,13 @@
                         </Border>
                     </UniformGrid>
 
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8" MaxWidth="320" HorizontalAlignment="Left">
+                        <StackPanel>
+                            <TextBlock Text="Daily expenses (deducted from net cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                            <TextBlock Text="{Binding DayCloseDailyExpensesSummary}" FontSize="16" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+
                     <UniformGrid Columns="4" Margin="0,0,0,12">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>

@@ -273,4 +273,16 @@ public static class DayBillingCloseDocumentReader
             return null;
         return v.IsString ? v.AsString : v.ToString();
     }
+
+    public static decimal SumDailyExpensesForBusinessDate(
+        IEnumerable<BsonDocument> expenses,
+        string businessDate,
+        string? posCounterFilter)
+    {
+        return expenses
+            .Where(d => string.Equals(ReadString(d, "businessDate"), businessDate, StringComparison.Ordinal))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
+            .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
+            .Sum(d => ReadDecimal(d, "amount"));
+    }
 }

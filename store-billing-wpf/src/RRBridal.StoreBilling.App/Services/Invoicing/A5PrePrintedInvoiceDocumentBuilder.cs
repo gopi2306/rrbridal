@@ -93,7 +93,7 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         {
             var line = pageLines[i];
             var top = layout.TableTopMm + i * layout.LineRowHeightMm;
-            var amount = line.TaxableAmount > 0 ? line.TaxableAmount : line.Amount;
+            var amount = line.PrePrintedLineAmount();
 
             PlaceText(canvas, line.Description, layout.ColDescLeftMm, top, layout.ColDescWidthMm,
                 bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
