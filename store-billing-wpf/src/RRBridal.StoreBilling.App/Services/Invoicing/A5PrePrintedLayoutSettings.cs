@@ -76,6 +76,14 @@ public sealed class A5PrePrintedLayoutSettings
     public string PrintFontFamily { get; set; } = "Arial";
     public int BillToMaxChars { get; set; } = 15;
 
+    /// <summary>Printed on duplicate reprints only (upper area, e.g. above DATE).</summary>
+    public string DuplicateCopyLabel { get; set; } = "DUPLICATE COPY";
+
+    public double DuplicateCopyTopMm { get; set; } = 72;
+    public double DuplicateCopyLeftMm { get; set; } = 98;
+    public double DuplicateCopyWidthMm { get; set; } = 43;
+    public double DuplicateCopyFontPt { get; set; } = 9;
+
     public static A5PrePrintedLayoutSettings CreateDefault() => new();
 
     /// <summary>Fills mm positions missing from older saved configs (0 = unset).</summary>
@@ -130,6 +138,11 @@ public sealed class A5PrePrintedLayoutSettings
         if (string.IsNullOrWhiteSpace(ContinuedLabel)) ContinuedLabel = d.ContinuedLabel;
         if (BillToMaxChars == 0) BillToMaxChars = d.BillToMaxChars;
         if (string.IsNullOrWhiteSpace(PrintFontFamily)) PrintFontFamily = d.PrintFontFamily;
+        if (string.IsNullOrWhiteSpace(DuplicateCopyLabel)) DuplicateCopyLabel = d.DuplicateCopyLabel;
+        if (DuplicateCopyTopMm == 0) DuplicateCopyTopMm = d.DuplicateCopyTopMm;
+        if (DuplicateCopyLeftMm == 0) DuplicateCopyLeftMm = d.DuplicateCopyLeftMm;
+        if (DuplicateCopyWidthMm == 0) DuplicateCopyWidthMm = d.DuplicateCopyWidthMm;
+        if (DuplicateCopyFontPt == 0) DuplicateCopyFontPt = d.DuplicateCopyFontPt;
     }
 
     public A5PrePrintedLayoutSettings Clone() => new()
@@ -186,5 +199,10 @@ public sealed class A5PrePrintedLayoutSettings
         ContinuedWidthMm = ContinuedWidthMm,
         PrintFontFamily = PrintFontFamily,
         BillToMaxChars = BillToMaxChars,
+        DuplicateCopyLabel = DuplicateCopyLabel,
+        DuplicateCopyTopMm = DuplicateCopyTopMm,
+        DuplicateCopyLeftMm = DuplicateCopyLeftMm,
+        DuplicateCopyWidthMm = DuplicateCopyWidthMm,
+        DuplicateCopyFontPt = DuplicateCopyFontPt,
     };
 }

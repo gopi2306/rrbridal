@@ -14,6 +14,7 @@ using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Services.WhatsApp;
 
 namespace RRBridal.StoreBilling.App.Services;
 
@@ -61,6 +62,9 @@ public sealed class AppServices
     public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
     public required OnlineCodBillService OnlineCodBills { get; init; }
+    public required WhatsAppBillService WhatsAppBills { get; init; }
+    public required WhatsAppLocalPreferencesStore WhatsAppPreferences { get; init; }
+    public required WhatsAppSettingsClient WhatsAppClient { get; init; }
     public UserSession? UserSession { get; set; }
 
     public Action? NotifyDaySessionChanged { get; set; }
@@ -133,8 +137,11 @@ public sealed class AppServices
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var onlineCodBills = new OnlineCodBillService(localDb, billingOutbox);
+        var whatsappPrefs = new WhatsAppLocalPreferencesStore();
+        var whatsappClient = new WhatsAppSettingsClient(http);
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
+        var whatsappBills = new WhatsAppBillService(localDb, storeContext, whatsappClient, whatsappPrefs, () => servicesRef!);
         var storeSyncRunner = new StoreSyncRunner(
             syncEngine,
             authSession,
@@ -184,6 +191,9 @@ public sealed class AppServices
             DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
             OnlineCodBills = onlineCodBills,
+            WhatsAppBills = whatsappBills,
+            WhatsAppPreferences = whatsappPrefs,
+            WhatsAppClient = whatsappClient,
         };
         return servicesRef;
     }

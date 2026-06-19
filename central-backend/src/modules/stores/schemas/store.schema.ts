@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument } from 'mongoose';
 import { ReceiptPrintSettings, ReceiptPrintSettingsSchema } from './receipt-print-settings.schema';
+import { WhatsAppSettings, WhatsAppSettingsSchema } from './whatsapp-settings.schema';
 
 export type StoreDocument = HydratedDocument<Store>;
 export type StoreStatus = 'active' | 'inactive';
@@ -31,6 +32,10 @@ export class Store {
   @ApiProperty({ required: false, type: ReceiptPrintSettings })
   @Prop({ type: ReceiptPrintSettingsSchema })
   receiptPrintSettings?: ReceiptPrintSettings;
+
+  @ApiProperty({ required: false, type: WhatsAppSettings })
+  @Prop({ type: WhatsAppSettingsSchema })
+  whatsappSettings?: WhatsAppSettings;
 }
 
 export const StoreSchema = SchemaFactory.createForClass(Store);

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { FilterStoreDto } from './dto/filter-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
+import { WhatsAppSettingsDto } from './dto/whatsapp-settings.dto';
 import { StoresService } from './stores.service';
 
 @ApiTags('admin-stores')
@@ -36,6 +37,11 @@ export class AdminStoresController {
   @Patch(':code')
   async update(@Param('code') code: string, @Body() dto: UpdateStoreDto) {
     return await this.storesService.update(code, dto);
+  }
+
+  @Patch(':code/whatsapp-settings')
+  async updateWhatsAppSettings(@Param('code') code: string, @Body() dto: WhatsAppSettingsDto) {
+    return await this.storesService.updateWhatsAppSettings(code, dto);
   }
 
   @Delete(':code')

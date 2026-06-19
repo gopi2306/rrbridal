@@ -50,7 +50,8 @@
                        Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+        <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                    SelectionChanged="SettingsTabs_OnSelectionChanged">
             <TabItem Header="Connection &amp; sync">
                 <Grid Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
@@ -315,6 +316,41 @@
                                 <TextBox Grid.Row="3" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DateWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
 
+                            <TextBlock FontWeight="SemiBold" Text="Duplicate copy (reprint only)" Margin="0,0,0,4"/>
+                            <TextBlock TextWrapping="Wrap" Style="{StaticResource TextCaption}" Margin="0,0,0,8"
+                                       Text="Shown only when printing from Duplicate tab. Align on pre-printed paper above DATE (right-aligned)."/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="84"/>
+                                    <ColumnDefinition Width="68"/>
+                                    <ColumnDefinition Width="68"/>
+                                    <ColumnDefinition Width="68"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Label" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource SettingsFieldInput}"
+                                         Text="{Binding A5Layout.DuplicateCopyLabel, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Top" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="3" Text="Width" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Duplicate" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DuplicateCopyTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DuplicateCopyLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="2" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DuplicateCopyWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="96"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Duplicate font pt" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DuplicateCopyFontPt, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
                             <TextBlock FontWeight="SemiBold" Text="Row 2 — Contact / stitching / D/D" Margin="0,0,0,4"/>
                             <Grid Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
@@ -542,7 +578,9 @@
                         <Button Content="Reset to defaults" Style="{StaticResource OutlineButton}"
                                 Command="{Binding ResetA5PrePrintedLayoutToDefaultsCommand}" Margin="0,0,8,0"/>
                         <Button Content="Preview test layout" Style="{StaticResource OutlineButton}"
-                                Command="{Binding PreviewA5PrePrintedAlignmentCommand}"/>
+                                Command="{Binding PreviewA5PrePrintedAlignmentCommand}" Margin="0,0,8,0"/>
+                        <Button Content="Preview duplicate layout" Style="{StaticResource OutlineButton}"
+                                Command="{Binding PreviewA5PrePrintedDuplicateAlignmentCommand}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -584,6 +622,46 @@
 
                                 <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}"
                                         HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsCommand}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="WhatsApp">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                    <StackPanel MaxWidth="720" HorizontalAlignment="Left">
+                        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="WhatsApp bill delivery" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Sends thermal bill image via WhatsApp Business API after billing (when enabled). API credentials are configured in Central admin."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <TextBlock Text="Connection status" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding WhatsAppConnectionStatus}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <TextBlock Text="Template" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding WhatsAppTemplateSummary}" Margin="0,0,0,12"/>
+                                <CheckBox Content="Auto-send bill on post (when customer phone is present)"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding WhatsAppAutoSendAfterPost}" Margin="0,0,0,12"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Save WhatsApp settings" Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding SaveWhatsAppSettingsAsync}" Margin="0,0,8,0"/>
+                                    <Button Content="Refresh status" Style="{StaticResource OutlineButton}"
+                                            Command="{Binding RefreshWhatsAppStatusAsync}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardBorder}" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Test send" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Send a sample bill image to verify Meta template and credentials."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <TextBlock Text="Test mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Width="220" HorizontalAlignment="Left"
+                                         Text="{Binding WhatsAppTestPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12"/>
+                                <Button Content="Send test WhatsApp bill" Style="{StaticResource OutlineButton}"
+                                        HorizontalAlignment="Left" Command="{Binding TestWhatsAppSendAsync}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

@@ -85,7 +85,9 @@
                                 <TextBlock Text="Bill details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                                 <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
                                 <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
-                                        Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch"/>
+                                        Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+                                <Button Content="Send WhatsApp bill" Style="{StaticResource OutlineButton}"
+                                        Command="{Binding SendWhatsAppCommand}" HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Border>
                     </Grid>

@@ -6,7 +6,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Invoicing;
+using RRBridal.StoreBilling.App.Services.WhatsApp;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
 
@@ -61,6 +63,7 @@ public partial class DuplicateBillViewModel : ObservableObject
     {
         UpdateDetail();
         PrintDuplicateCommand.NotifyCanExecuteChanged();
+        SendWhatsAppCommand.NotifyCanExecuteChanged();
     }
 
     private void UpdateDetail()
@@ -120,4 +123,41 @@ public partial class DuplicateBillViewModel : ObservableObject
     }
 
     private bool CanPrintDuplicate() => SelectedBill != null;
+
+    private bool CanSendWhatsApp() =>
+        SelectedBill != null && PhoneE164Helper.CanSendWhatsApp(SelectedBill.CustomerPhone);
+
+    [RelayCommand(CanExecute = nameof(CanSendWhatsApp))]
+    private async Task SendWhatsApp()
+    {
+        if (SelectedBill == null)
+            return;
+
+        var doc = await _services.BillDocuments.GetByBillNoAsync(SelectedBill.BillNo);
+        if (doc == null)
+        {
+            MessageBox.Show("Bill not found.", "WhatsApp", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var user = _services.UserSession?.LoggedInUser.Name ?? "Unknown";
+        var input = _services.BillDocuments.MapToThermalInput(doc, isDuplicate: false, printedBy: user);
+        var outcome = await _services.WhatsAppBills.TrySendBillAsync(
+            SelectedBill.BillNo,
+            input,
+            SelectedBill.CustomerPhone,
+            force: true);
+
+        if (outcome.Status == WhatsAppDeliveryStatus.Sent)
+        {
+            StatusMessage = $"WhatsApp sent for {SelectedBill.BillNo}.";
+            return;
+        }
+
+        MessageBox.Show(
+            outcome.Error ?? "Could not send WhatsApp bill.",
+            "WhatsApp",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
 }

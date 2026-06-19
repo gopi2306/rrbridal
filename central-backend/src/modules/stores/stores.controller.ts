@@ -15,6 +15,11 @@ export class StoresController {
     return await this.storesService.getReceiptPrintSettings(code);
   }
 
+  @Get(':code/whatsapp-settings')
+  async getWhatsAppSettings(@Param('code') code: string) {
+    return await this.storesService.getWhatsAppSettingsPublic(code);
+  }
+
   @Get(':code')
   async get(@Param('code') code: string) {
     return await this.storesService.findByCode(code);

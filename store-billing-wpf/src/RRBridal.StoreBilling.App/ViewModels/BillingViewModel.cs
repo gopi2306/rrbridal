@@ -18,6 +18,7 @@ using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.WhatsApp;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.Products;
@@ -1831,6 +1832,24 @@ public partial class BillingViewModel : ObservableObject
                 catch (Exception ex)
                 {
                     postWarnings.Add($"Stock decrement failed for {sku}: {ex.Message}");
+                }
+            }
+
+            if (_services.WhatsAppBills.ShouldAutoSendAfterPost && !string.IsNullOrWhiteSpace(CustomerPhone))
+            {
+                try
+                {
+                    var whatsappInput = BuildThermalInput(paymentOutcome);
+                    var wa = await _services.WhatsAppBills.TrySendBillAsync(
+                        postedBillNo,
+                        whatsappInput,
+                        CustomerPhone);
+                    if (wa.Status == WhatsAppDeliveryStatus.Failed)
+                        postWarnings.Add($"WhatsApp: {wa.Error ?? "send failed"}");
+                }
+                catch (Exception ex)
+                {
+                    postWarnings.Add($"WhatsApp: {ex.Message}");
                 }
             }
 

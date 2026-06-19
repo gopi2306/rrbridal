@@ -13,7 +13,9 @@ using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
+using RRBridal.StoreBilling.App.Services.WhatsApp;
 using RRBridal.StoreBilling.App.Services.Payments;
+using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.PurchaseIntents;
 using RRBridal.StoreBilling.App.Views;
 
@@ -76,6 +78,14 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
+
+    [ObservableProperty] private bool _whatsAppAutoSendAfterPost = true;
+
+    [ObservableProperty] private string _whatsAppConnectionStatus = "—";
+
+    [ObservableProperty] private string _whatsAppTemplateSummary = "—";
+
+    [ObservableProperty] private string _whatsAppTestPhone = "";
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
@@ -175,6 +185,8 @@ public partial class SettingsViewModel : ObservableObject
         _services.ReceiptConfig.Reload();
         ApplyReceiptFieldsFromConfig();
         LoadBillingSettingsFromStore();
+        LoadWhatsAppSettingsFromStore();
+        _ = LoadWhatsAppCentralStatusAsync();
         return Task.CompletedTask;
     }
 
@@ -341,7 +353,14 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void PreviewA5PrePrintedAlignment()
+    public void PreviewA5PrePrintedAlignment() =>
+        ShowA5PrePrintedPreview(isDuplicate: false);
+
+    [RelayCommand]
+    public void PreviewA5PrePrintedDuplicateAlignment() =>
+        ShowA5PrePrintedPreview(isDuplicate: true);
+
+    private void ShowA5PrePrintedPreview(bool isDuplicate)
     {
         var layout = A5Layout.ToSettings();
         var store = _services.ReceiptConfig.Current.Store;
@@ -358,6 +377,7 @@ public partial class SettingsViewModel : ObservableObject
             CustomerPhone = "9876543210",
             Stitching = true,
             DeliveryDate = DateTime.Now.AddDays(7).ToString("dd-MMM-yyyy").ToUpperInvariant(),
+            IsDuplicateCopy = isDuplicate,
             Lines =
             [
                 new InvoiceLineSnap { LineNo = 1, Description = "Bridal Lehenga", Qty = 1, Rate = 15000, Amount = 15000, TaxableAmount = 15000 },
@@ -392,7 +412,7 @@ public partial class SettingsViewModel : ObservableObject
             Owner = Application.Current.MainWindow,
             Width = 508,
             Height = 720,
-            Title = "A5 pre-printed test layout",
+            Title = isDuplicate ? "A5 pre-printed duplicate layout" : "A5 pre-printed test layout",
         };
         dlg.ShowDialog();
     }
@@ -416,6 +436,7 @@ public partial class SettingsViewModel : ObservableObject
             LastActionText = "Logged in. Use Run sync once to save company master and printer from central.";
             _services.ReceiptConfig.Reload();
             ApplyReceiptFieldsFromConfig();
+            await LoadWhatsAppCentralStatusAsync();
         }
         catch (Exception ex)
         {
@@ -526,6 +547,157 @@ public partial class SettingsViewModel : ObservableObject
             },
         });
         LastActionText = "Billing settings saved.";
+    }
+
+    [RelayCommand]
+    public async Task SaveWhatsAppSettingsAsync()
+    {
+        _services.WhatsAppPreferences.Update(s => s.AutoSendAfterPost = WhatsAppAutoSendAfterPost);
+        await _services.WhatsAppPreferences.SaveAsync();
+        LastActionText = "WhatsApp settings saved.";
+    }
+
+    [RelayCommand]
+    public async Task RefreshWhatsAppStatusAsync()
+    {
+        await LoadWhatsAppCentralStatusAsync();
+        LastActionText = "WhatsApp status refreshed.";
+    }
+
+    [RelayCommand]
+    public async Task TestWhatsAppSendAsync()
+    {
+        if (!PhoneE164Helper.CanSendWhatsApp(WhatsAppTestPhone))
+        {
+            MessageBox.Show("Enter a valid 10-digit test mobile number.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            LastActionText = "Sending WhatsApp test...";
+            _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+
+            var (settings, settingsErr) = await _services.WhatsAppBills.LoadCentralSettingsAsync();
+            if (settings == null)
+            {
+                var msg = settingsErr ?? "Could not load WhatsApp settings.";
+                LastActionText = msg;
+                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!settings.Configured)
+            {
+                const string msg = "WhatsApp is not configured on central. Set phone number id, access token, and template name via Central admin, then click Refresh status.";
+                LastActionText = msg;
+                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!settings.Enabled)
+            {
+                const string msg = "WhatsApp is disabled for this store on central. Enable it in Central admin, then click Refresh status.";
+                LastActionText = msg;
+                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var input = BuildWhatsAppSampleInput();
+            var (png, _, fileName) = await InvoiceAttachmentExporter.ExportThermalPngAsync(_services, input);
+            var (result, err) = await _services.WhatsAppClient.SendTestAsync(
+                _services.StoreContext.StoreId,
+                WhatsAppTestPhone.Trim(),
+                input.CustomerName,
+                png,
+                fileName);
+
+            if (result == null)
+            {
+                LastActionText = err ?? "WhatsApp test failed.";
+                MessageBox.Show(err ?? "WhatsApp test failed.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            LastActionText = $"WhatsApp test sent (message id: {result.MessageId}).";
+            MessageBox.Show("Test bill sent on WhatsApp.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            LastActionText = ex.Message;
+            MessageBox.Show(ex.Message, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void LoadWhatsAppSettingsFromStore()
+    {
+        _services.WhatsAppPreferences.Load();
+        WhatsAppAutoSendAfterPost = _services.WhatsAppPreferences.Current.AutoSendAfterPost;
+    }
+
+    private async Task LoadWhatsAppCentralStatusAsync()
+    {
+        if (string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+        {
+            WhatsAppConnectionStatus = "Log in to Central on Connection & sync tab first.";
+            WhatsAppTemplateSummary = "—";
+            return;
+        }
+
+        _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+        var (settings, error) = await _services.WhatsAppBills.LoadCentralSettingsAsync();
+        if (settings == null)
+        {
+            var detail = string.IsNullOrWhiteSpace(error) ? "Unknown error." : error.Trim();
+            if (detail.Contains("login required", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("expired", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
+            {
+                WhatsAppConnectionStatus = "Central session expired or invalid — log in again on Connection & sync.";
+            }
+            else
+            {
+                WhatsAppConnectionStatus = $"Could not load WhatsApp settings: {detail}";
+            }
+
+            WhatsAppTemplateSummary = "—";
+            return;
+        }
+
+        WhatsAppConnectionStatus = !settings.Configured
+            ? $"Not configured — set phone number id, access token, and template in Central admin for store {_services.StoreContext.StoreId}."
+            : settings.Enabled
+                ? "Configured and enabled on central."
+                : "Configured on central but disabled — enable in Central admin.";
+
+        WhatsAppTemplateSummary = string.IsNullOrWhiteSpace(settings.TemplateName)
+            ? "—"
+            : $"{settings.TemplateName} ({settings.TemplateLanguage})";
+    }
+
+    private ThermalInvoiceInput BuildWhatsAppSampleInput()
+    {
+        var store = _services.ReceiptConfig.Current.Store;
+        return new ThermalInvoiceInput
+        {
+            Store = store,
+            CharWidth = ReceiptCharWidth,
+            BillNo = "TEST-WA",
+            BillDate = DateTime.Now.ToString("dd-MMM-yyyy").ToUpperInvariant(),
+            UserName = "Test",
+            Time = DateTime.Now.ToString("HH:mm"),
+            Counter = _services.StoreContext.PosCounter,
+            CustomerName = "Sample Customer",
+            CustomerPhone = WhatsAppTestPhone.Trim(),
+            Lines =
+            [
+                new InvoiceLineSnap { LineNo = 1, Description = "Sample item", Qty = 1, Rate = 1000, Amount = 1000, TaxableAmount = 1000 },
+            ],
+            Payable = 1000,
+            TotalQty = 1,
+            ItemCount = 1,
+            Payments = PaymentReceiptSnap.Preview(),
+        };
     }
 
     [RelayCommand]

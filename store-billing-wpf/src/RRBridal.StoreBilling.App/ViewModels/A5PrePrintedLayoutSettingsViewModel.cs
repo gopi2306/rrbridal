@@ -57,6 +57,11 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _continuedWidthMm;
     [ObservableProperty] private string _printFontFamily = "Arial";
     [ObservableProperty] private int _billToMaxChars = 15;
+    [ObservableProperty] private string _duplicateCopyLabel = "DUPLICATE COPY";
+    [ObservableProperty] private double _duplicateCopyTopMm = 72;
+    [ObservableProperty] private double _duplicateCopyLeftMm = 98;
+    [ObservableProperty] private double _duplicateCopyWidthMm = 43;
+    [ObservableProperty] private double _duplicateCopyFontPt = 9;
 
     public void ApplyFrom(A5PrePrintedLayoutSettings s)
     {
@@ -113,6 +118,11 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
         ContinuedWidthMm = s.ContinuedWidthMm;
         PrintFontFamily = s.PrintFontFamily;
         BillToMaxChars = s.BillToMaxChars;
+        DuplicateCopyLabel = s.DuplicateCopyLabel;
+        DuplicateCopyTopMm = s.DuplicateCopyTopMm;
+        DuplicateCopyLeftMm = s.DuplicateCopyLeftMm;
+        DuplicateCopyWidthMm = s.DuplicateCopyWidthMm;
+        DuplicateCopyFontPt = s.DuplicateCopyFontPt;
     }
 
     public A5PrePrintedLayoutSettings ToSettings()
@@ -180,6 +190,13 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
             ContinuedWidthMm = ContinuedWidthMm,
             PrintFontFamily = string.IsNullOrWhiteSpace(PrintFontFamily) ? "Arial" : PrintFontFamily.Trim(),
             BillToMaxChars = billToMax,
+            DuplicateCopyLabel = string.IsNullOrWhiteSpace(DuplicateCopyLabel)
+                ? "DUPLICATE COPY"
+                : DuplicateCopyLabel.Trim(),
+            DuplicateCopyTopMm = DuplicateCopyTopMm,
+            DuplicateCopyLeftMm = DuplicateCopyLeftMm,
+            DuplicateCopyWidthMm = DuplicateCopyWidthMm,
+            DuplicateCopyFontPt = DuplicateCopyFontPt > 0 ? DuplicateCopyFontPt : 9,
         };
     }
 }

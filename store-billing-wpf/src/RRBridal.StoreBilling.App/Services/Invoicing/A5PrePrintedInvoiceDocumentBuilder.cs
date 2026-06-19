@@ -51,7 +51,8 @@ public static class A5PrePrintedInvoiceDocumentBuilder
                 pageWidth,
                 pageHeight,
                 isLastPage,
-                hasMorePages);
+                hasMorePages,
+                isFirstPage: pageIndex == 0);
 
             if (pageIndex == 0)
                 doc.Blocks.Add(new BlockUIContainer(canvas));
@@ -75,7 +76,8 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         double pageWidth,
         double pageHeight,
         bool isLastPage,
-        bool hasMorePages)
+        bool hasMorePages,
+        bool isFirstPage)
     {
         var canvas = new Canvas
         {
@@ -87,7 +89,7 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         var bodyFont = layout.BodyFontPt;
         var totalFont = layout.TotalFontPt;
 
-        PlaceHeader(canvas, input, layout, settings, printFont, bodyFont);
+        PlaceHeader(canvas, input, layout, settings, printFont, bodyFont, isFirstPage);
 
         for (var i = 0; i < pageLines.Count; i++)
         {
@@ -151,8 +153,20 @@ public static class A5PrePrintedInvoiceDocumentBuilder
         A5PrePrintedInvoiceLayout layout,
         A5PrePrintedLayoutSettings settings,
         FontFamily printFont,
-        double bodyFont)
+        double bodyFont,
+        bool isFirstPage)
     {
+        if (isFirstPage && input.IsDuplicateCopy)
+        {
+            var duplicateLabel = string.IsNullOrWhiteSpace(settings.DuplicateCopyLabel)
+                ? "DUPLICATE COPY"
+                : settings.DuplicateCopyLabel.Trim();
+            var duplicateFont = settings.DuplicateCopyFontPt > 0 ? settings.DuplicateCopyFontPt : bodyFont;
+            PlaceText(canvas, duplicateLabel,
+                settings.DuplicateCopyLeftMm, settings.DuplicateCopyTopMm, settings.DuplicateCopyWidthMm,
+                duplicateFont, printFont, TextAlignment.Right, FontWeights.Bold, layout: layout);
+        }
+
         PlaceText(canvas, A5PrePrintedText.FormatBillTo(input.CustomerName, settings.BillToMaxChars),
             layout.BillToLeftMm, layout.BillToTopMm, layout.BillToWidthMm, bodyFont, printFont,
             TextAlignment.Left, singleLine: true, layout: layout);
