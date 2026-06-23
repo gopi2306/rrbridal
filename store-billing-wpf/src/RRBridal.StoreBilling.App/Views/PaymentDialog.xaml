@@ -175,10 +175,10 @@
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Cash"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
-                            <RadioButton Style="{StaticResource ModeRadio}" Content="Card (POS)"
+                            <RadioButton Style="{StaticResource ModeRadio}" Content="Card (Razorpay POS)"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Card}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
-                            <RadioButton Style="{StaticResource ModeRadio}" Content="UPI (Razorpay)"
+                            <RadioButton Style="{StaticResource ModeRadio}" Content="UPI (Razorpay POS)"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Upi}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Credit Note"
@@ -251,8 +251,8 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <TextBlock Text="POS Device (PineLabs)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Payment will be sent to the connected POS terminal." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+                    <TextBlock Text="Card payment (Razorpay POS)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Amount is sent to the wired Razorpay / Ezetap POS device. Complete payment on the terminal." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
                     <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="12,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Status:" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -273,8 +273,8 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <TextBlock Text="UPI Payment (Razorpay)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Payment will be processed via Razorpay UPI integration." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+                    <TextBlock Text="UPI payment (Razorpay POS)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Amount is sent to the wired Razorpay / Ezetap POS device. Customer pays via UPI on the terminal." FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
                     <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="12,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Status:" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -366,12 +366,12 @@
                                  Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Card (POS)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Card (Razorpay POS)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
                                  Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="UPI" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="UPI (Razorpay POS)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
                                  Text="{Binding SplitUpiAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>

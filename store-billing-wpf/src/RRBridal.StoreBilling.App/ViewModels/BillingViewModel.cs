@@ -87,6 +87,7 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _itemDiscountFormatted = "₹ 0.00";
     [ObservableProperty] private string _cashDiscAmountFormatted = "₹ 0.00";
     [ObservableProperty] private string _schemeDiscountFormatted = "₹ 0.00";
+    [ObservableProperty] private string _alterationTotalFormatted = "₹ 0.00";
     [ObservableProperty] private bool _hasAppliedSchemes;
     [ObservableProperty] private string _roundOffFormatted = "₹ 0.00";
     [ObservableProperty] private string _payableTotalFormatted = "₹ 0.00";
@@ -128,6 +129,9 @@ public partial class BillingViewModel : ObservableObject
     /// <summary>Total automatic scheme discount on lines (₹).</summary>
     public decimal SchemeLineDiscount => Lines.Sum(l => l.SchemeDiscountAmount);
 
+    /// <summary>Sum of per-line alteration amounts (₹).</summary>
+    public decimal AlterationTotal => Lines.Sum(l => l.AlterationAmount);
+
     public ObservableCollection<AppliedSchemeDisplayItem> AppliedSchemes { get; } = new();
 
     private readonly HashSet<string> _excludedSchemeCodes = new(StringComparer.OrdinalIgnoreCase);
@@ -152,8 +156,9 @@ public partial class BillingViewModel : ObservableObject
 
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
+    private bool _alterationGstIncluded;
     private string? _activeHoldNo;
-    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     private enum ManualDiscountEditSource { None, ItemPercent, CashAmount }
 
@@ -177,6 +182,7 @@ public partial class BillingViewModel : ObservableObject
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
         _promotionEngine = new PromotionEngine(new PromotionSchemeRepository(services.LocalDb));
+        RefreshAlterationGstIncludedFromSettings();
         AssignNewBillIdentity();
         ApplyLoggedInSalesman();
         Lines.CollectionChanged += OnLinesCollectionChanged;
@@ -247,6 +253,7 @@ public partial class BillingViewModel : ObservableObject
             or nameof(BillingLineItem.DiscountAmount)
             or nameof(BillingLineItem.CashDiscountAmount)
             or nameof(BillingLineItem.SchemeDiscountAmount)
+            or nameof(BillingLineItem.AlterationAmount)
             or nameof(BillingLineItem.OriginalTaxAmount)
             or nameof(BillingLineItem.RevisedAmount)
             or nameof(BillingLineItem.RevisedInclusiveAmount))
@@ -503,10 +510,32 @@ public partial class BillingViewModel : ObservableObject
         decimal Igst,
         decimal TaxTotal,
         decimal GrandBeforeRound,
+        decimal AlterationTotal,
         decimal RoundOff,
         decimal PayableBeforeCredit,
         decimal AppliedCredit,
         decimal Payable);
+
+    private void RefreshAlterationGstIncludedFromSettings()
+    {
+        _services.PosBillingSettings.Load();
+        _alterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
+    }
+
+    private void ApplyAlterationToTotals(
+        bool gstIncluded,
+        ref decimal revisedSub,
+        ref decimal cgst,
+        ref decimal sgst,
+        ref decimal igst,
+        ref decimal grandBeforeRound)
+    {
+        var lines = Lines
+            .Where(l => l.AlterationAmount > 0)
+            .Select(l => new AlterationBillMath.AlterationLine(l.AlterationAmount, l.TaxPercent, l.IsIgst))
+            .ToList();
+        AlterationBillMath.Apply(gstIncluded, lines, ref revisedSub, ref cgst, ref sgst, ref igst, ref grandBeforeRound);
+    }
 
     private void EvaluatePromotions()
     {
@@ -643,8 +672,10 @@ public partial class BillingViewModel : ObservableObject
         var cgst = Lines.Sum(l => l.CgstAmount);
         var sgst = Lines.Sum(l => l.SgstAmount);
         var igst = Lines.Sum(l => l.IgstAmount);
-        var tax = cgst + sgst + igst;
         var grandBeforeRound = Lines.Sum(l => l.RevisedInclusiveAmount);
+        var alterationTotal = AlterationTotal;
+        ApplyAlterationToTotals(_alterationGstIncluded, ref revisedSub, ref cgst, ref sgst, ref igst, ref grandBeforeRound);
+        var tax = cgst + sgst + igst;
 
         decimal roundOff;
         if (!_roundOffUserEdited)
@@ -667,7 +698,7 @@ public partial class BillingViewModel : ObservableObject
         var payableBeforeCredit = grandBeforeRound + roundOff;
         return new BillTotals(
             sub, originalInclusive, schemeLine, schemeBill, itemDisc, cashDisc, originalTax, revisedSub,
-            cgst, sgst, igst, tax, grandBeforeRound, roundOff, payableBeforeCredit, 0, payableBeforeCredit);
+            cgst, sgst, igst, tax, grandBeforeRound, alterationTotal, roundOff, payableBeforeCredit, 0, payableBeforeCredit);
     }
 
     private void RecalculateTotals()
@@ -702,6 +733,7 @@ public partial class BillingViewModel : ObservableObject
         ItemDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.ItemDiscount);
         CashDiscAmountFormatted = MoneyMath.FormatRupee(_lastBillTotals.CashDiscount);
         SchemeDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.SchemeLineDiscount + _lastBillTotals.SchemeBillDiscount);
+        AlterationTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.AlterationTotal);
         HasAppliedSchemes = AppliedSchemes.Count > 0;
         RoundOffFormatted = MoneyMath.FormatRupee(_lastBillTotals.RoundOff);
         PayableBeforeCreditFormatted = MoneyMath.FormatRupee(payableBeforeCredit);
@@ -1479,6 +1511,7 @@ public partial class BillingViewModel : ObservableObject
         HasAvailableCredit = false;
         _excludedSchemeCodes.Clear();
         AppliedSchemes.Clear();
+        RefreshAlterationGstIncludedFromSettings();
         EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
@@ -1649,39 +1682,7 @@ public partial class BillingViewModel : ObservableObject
         try
         {
             var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
-            var linesArr = new BsonArray();
-            foreach (var line in Lines.Where(l => l.Amount > 0))
-            {
-                linesArr.Add(new BsonDocument
-                {
-                    { "lineNo", line.LineNo },
-                    { "centralProductId", line.CentralProductId ?? "" },
-                    { "sku", line.ProductCode },
-                    { "description", line.Description },
-                    { "hsn", line.HsnCode ?? "" },
-                    { "qty", (double)line.Qty },
-                    { "rate", (double)line.Rate },
-                    { "amount", (double)line.Amount },
-                    { "discountAmount", (double)line.DiscountAmount },
-                    { "cashDiscountAmount", (double)line.CashDiscountAmount },
-                    { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
-                    { "originalTaxAmount", (double)line.OriginalTaxAmount },
-                    { "revisedAmount", (double)line.RevisedAmount },
-                    { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
-                    { "revisedTaxAmount", (double)line.RevisedTaxAmount },
-                    { "mrp", (double)line.Mrp },
-                    { "costPrice", (double)line.CostPrice },
-                    { "marginPercent", (double)line.MarginPercent },
-                    { "taxPercent", (double)line.TaxPercent },
-                    { "cgstPercent", (double)line.CgstPercent },
-                    { "sgstPercent", (double)line.SgstPercent },
-                    { "igstPercent", (double)line.IgstPercent },
-                    { "cgstAmount", (double)line.CgstAmount },
-                    { "sgstAmount", (double)line.SgstAmount },
-                    { "igstAmount", (double)line.IgstAmount },
-                    { "taxAmount", (double)line.TaxAmount },
-                });
-            }
+            var linesArr = BuildLinesBsonArray();
 
             var paymentsArr = new BsonArray();
             foreach (var leg in paymentOutcome.Legs)
@@ -1734,6 +1735,8 @@ public partial class BillingViewModel : ObservableObject
                 { "sgstTotal", (double)totals.Sgst },
                 { "igstTotal", (double)totals.Igst },
                 { "taxTotal", (double)totals.TaxTotal },
+                { "alterationTotal", (double)totals.AlterationTotal },
+                { "alterationGstIncluded", _alterationGstIncluded },
                 { "payable", (double)totals.Payable },
                 { "lines", linesArr },
                 { "payments", paymentsArr },
@@ -1968,6 +1971,7 @@ public partial class BillingViewModel : ObservableObject
                     Rate = l.Rate,
                     Mrp = l.Mrp,
                     Amount = l.Amount,
+                    AlterationAmount = l.AlterationAmount,
                     LineDiscount = lineDisc,
                     TaxableAmount = l.RevisedAmount,
                     TaxAmount = l.RevisedTaxAmount,
@@ -2019,6 +2023,8 @@ public partial class BillingViewModel : ObservableObject
             ItemDiscountPercent = ItemDiscountPercent,
             ItemDiscount = totals.ItemDiscount,
             CashDiscAmount = totals.CashDiscount,
+            AlterationTotal = totals.AlterationTotal,
+            AlterationGstIncluded = _alterationGstIncluded,
             RoundOff = totals.RoundOff,
             Payable = totals.Payable,
             TotalQty = totalQty,
@@ -2122,6 +2128,7 @@ public partial class BillingViewModel : ObservableObject
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
         CashDiscAmountText = MoneyMath.FormatEditableAmount((decimal)doc.GetValue("cashDiscAmount", 0).ToDouble());
+        _alterationGstIncluded = doc.GetValue("alterationGstIncluded", false).AsBoolean;
 
         if (doc.TryGetValue("lines", out var linesVal) && linesVal.IsBsonArray)
         {
@@ -2139,6 +2146,7 @@ public partial class BillingViewModel : ObservableObject
                     Mrp = (decimal)lineBson.GetValue("mrp", 0).ToDouble(),
                     TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
                     IsIgst = IsInterState,
+                    AlterationAmount = (decimal)lineBson.GetValue("alterationAmount", 0).ToDouble(),
                 };
                 Lines.Add(line);
             }
@@ -2224,6 +2232,8 @@ public partial class BillingViewModel : ObservableObject
             { "sgstTotal", (double)totals.Sgst },
             { "igstTotal", (double)totals.Igst },
             { "taxTotal", (double)totals.TaxTotal },
+            { "alterationTotal", (double)totals.AlterationTotal },
+            { "alterationGstIncluded", _alterationGstIncluded },
             { "payable", (double)totals.Payable },
             { "lines", linesArr },
         };
@@ -2244,6 +2254,7 @@ public partial class BillingViewModel : ObservableObject
                 { "qty", (double)line.Qty },
                 { "rate", (double)line.Rate },
                 { "amount", (double)line.Amount },
+                { "alterationAmount", (double)line.AlterationAmount },
                 { "discountAmount", (double)line.DiscountAmount },
                 { "cashDiscountAmount", (double)line.CashDiscountAmount },
                 { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
+import { CustomerCodeGenerator } from './customer-code.generator';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -19,10 +20,13 @@ const FILTER_SORT_FIELDS = new Set([
 
 @Injectable()
 export class CustomersService {
-  constructor(@InjectModel(Customer.name) private readonly customerModel: Model<CustomerDocument>) {}
+  constructor(
+    @InjectModel(Customer.name) private readonly customerModel: Model<CustomerDocument>,
+    private readonly customerCodeGenerator: CustomerCodeGenerator,
+  ) {}
 
   async create(dto: CreateCustomerDto) {
-    return await this.customerModel.create({ ...dto, isActive: dto.isActive ?? true });
+    return (await this.createOrUpsert(dto)).customer;
   }
 
   async findByCustomerCode(code: string) {
@@ -161,5 +165,106 @@ export class CustomersService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  private async createOrUpsert(dto: CreateCustomerDto): Promise<{ created: boolean; customer: unknown }> {
+    const normalized = this.normalizeDto(dto);
+    const phone = normalized.phone;
+
+    if (phone) {
+      const existingByPhone = await this.findByPhone(phone);
+      if (existingByPhone) {
+        const customer = await this.update(String(existingByPhone._id), normalized);
+        return { created: false, customer };
+      }
+    }
+
+    let customerCode = normalized.customerCode;
+    if (customerCode) {
+      const existingByCode = await this.findByCustomerCode(customerCode);
+      if (existingByCode) {
+        if (this.phonesMatch(phone, existingByCode.phone)) {
+          const customer = await this.update(String(existingByCode._id), normalized);
+          return { created: false, customer };
+        }
+        customerCode = undefined;
+      }
+    }
+
+    const resolvedCode = customerCode ?? (await this.customerCodeGenerator.allocateNextAsync());
+
+    try {
+      const customer = await this.customerModel.create({
+        ...normalized,
+        customerCode: resolvedCode,
+        isActive: normalized.isActive ?? true,
+      });
+      return { created: true, customer };
+    } catch (err: unknown) {
+      if (!this.isDuplicateKey(err)) throw err;
+      const freshCode = await this.customerCodeGenerator.allocateNextAsync();
+      const customer = await this.customerModel.create({
+        ...normalized,
+        customerCode: freshCode,
+        isActive: normalized.isActive ?? true,
+      });
+      return { created: true, customer };
+    }
+  }
+
+  private normalizeDto(dto: CreateCustomerDto): CreateCustomerDto {
+    const trim = (v?: string) => {
+      const t = v?.trim();
+      return t ? t : undefined;
+    };
+
+    const normalized: CreateCustomerDto = {
+      name: dto.name.trim(),
+    };
+
+    if (dto.isActive !== undefined) normalized.isActive = dto.isActive;
+
+    const customerCode = trim(dto.customerCode);
+    if (customerCode) normalized.customerCode = customerCode;
+
+    const phone = trim(dto.phone);
+    if (phone) normalized.phone = phone;
+
+    const email = trim(dto.email);
+    if (email) normalized.email = email;
+
+    const gstin = trim(dto.gstin);
+    if (gstin) normalized.gstin = gstin;
+
+    const addressLine1 = trim(dto.addressLine1);
+    if (addressLine1) normalized.addressLine1 = addressLine1;
+
+    const addressLine2 = trim(dto.addressLine2);
+    if (addressLine2) normalized.addressLine2 = addressLine2;
+
+    const city = trim(dto.city);
+    if (city) normalized.city = city;
+
+    const state = trim(dto.state);
+    if (state) normalized.state = state;
+
+    const pincode = trim(dto.pincode);
+    if (pincode) normalized.pincode = pincode;
+
+    return normalized;
+  }
+
+  private phonesMatch(left?: string, right?: string): boolean {
+    if (!left || !right) return true;
+    return left.trim() === right.trim();
+  }
+
+  private isDuplicateKey(err: unknown): boolean {
+    return !!(
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code?: number }).code === 11000
+    );
   }
 }

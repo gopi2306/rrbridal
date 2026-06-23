@@ -25,6 +25,9 @@ public partial class BillingLineItem : ObservableObject
 
     [ObservableProperty] private decimal amount;
 
+    /// <summary>Per-line stitching/alteration charge (₹).</summary>
+    [ObservableProperty] private decimal alterationAmount;
+
     /// <summary>Item discount share (₹) taken from tax-inclusive line total.</summary>
     [ObservableProperty] private decimal discountAmount;
 

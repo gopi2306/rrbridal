@@ -47,6 +47,8 @@ public sealed class A5PrePrintedInvoiceLayout
     public double ColQtyWidthMm { get; }
     public double ColRateLeftMm { get; }
     public double ColRateWidthMm { get; }
+    public double ColAlterationLeftMm { get; }
+    public double ColAlterationWidthMm { get; }
     public double ColAmountLeftMm { get; }
     public double ColAmountWidthMm { get; }
 
@@ -61,6 +63,10 @@ public sealed class A5PrePrintedInvoiceLayout
     public double DiscountAmountLeftMm { get; }
     public double DiscountAmountTopMm { get; }
     public double DiscountAmountWidthMm { get; }
+
+    public double AlterationAmountLeftMm { get; }
+    public double AlterationAmountTopMm { get; }
+    public double AlterationAmountWidthMm { get; }
 
     public double TotalQtyLeftMm { get; }
     public double TotalQtyTopMm { get; }
@@ -101,6 +107,8 @@ public sealed class A5PrePrintedInvoiceLayout
         ColQtyWidthMm = s.ColQtyWidthMm;
         ColRateLeftMm = s.ColRateLeftMm;
         ColRateWidthMm = s.ColRateWidthMm;
+        ColAlterationLeftMm = s.ColAlterationLeftMm;
+        ColAlterationWidthMm = s.ColAlterationWidthMm;
         ColAmountLeftMm = s.ColAmountLeftMm;
         ColAmountWidthMm = s.ColAmountWidthMm;
         TotalAmountLeftMm = s.TotalAmountLeftMm;
@@ -112,6 +120,9 @@ public sealed class A5PrePrintedInvoiceLayout
         DiscountAmountLeftMm = s.DiscountAmountLeftMm;
         DiscountAmountTopMm = s.DiscountAmountTopMm;
         DiscountAmountWidthMm = s.DiscountAmountWidthMm;
+        AlterationAmountLeftMm = s.AlterationAmountLeftMm;
+        AlterationAmountTopMm = s.AlterationAmountTopMm;
+        AlterationAmountWidthMm = s.AlterationAmountWidthMm;
         TotalQtyLeftMm = s.TotalQtyLeftMm;
         TotalQtyTopMm = s.TotalQtyTopMm;
         TotalQtyWidthMm = s.TotalQtyWidthMm;

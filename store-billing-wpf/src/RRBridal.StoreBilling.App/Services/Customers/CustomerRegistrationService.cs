@@ -68,6 +68,7 @@ public sealed class CustomerRegistrationService
         string? centralId = null;
         var syncStatus = "pending";
         string? syncWarning = null;
+        var billingCustomerCode = p.CustomerCode;
 
         var body = new CentralCreateCustomerBody
         {
@@ -92,11 +93,17 @@ public sealed class CustomerRegistrationService
             if (response.IsSuccessStatusCode)
             {
                 centralId = TryReadCentralId(raw);
+                var centralCode = TryReadCustomerCode(raw);
                 syncStatus = "synced";
                 var update = Builders<BsonDocument>.Update
                     .Set("centralCustomerId", centralId ?? "")
                     .Set("centralSyncStatus", "synced")
                     .Unset("lastCentralError");
+                if (!string.IsNullOrWhiteSpace(centralCode))
+                {
+                    update = update.Set("customerCode", centralCode);
+                    billingCustomerCode = centralCode;
+                }
                 await coll.UpdateOneAsync(Builders<BsonDocument>.Filter.Eq("_id", localDoc["_id"]), update, cancellationToken: ct);
             }
             else
@@ -135,7 +142,7 @@ public sealed class CustomerRegistrationService
             DoorNo = p.DoorNo.Trim(),
             Street = p.Street.Trim(),
             FullAddress = p.FullAddress.Trim(),
-            BillingCustomerCode = p.CustomerCode,
+            BillingCustomerCode = billingCustomerCode,
         };
     }
 
@@ -177,6 +184,23 @@ public sealed class CustomerRegistrationService
         var line2 = string.Join(" · ", line2Parts);
 
         return (line1, line2);
+    }
+
+    private static string? TryReadCustomerCode(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("customerCode", out var codeEl) && codeEl.ValueKind == JsonValueKind.String)
+                return codeEl.GetString();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return null;
     }
 
     private static string? TryReadCentralId(string json)

@@ -62,6 +62,8 @@ public partial class SaleReturnViewModel : ObservableObject
 
     private BsonDocument? _originalBillDoc;
 
+    public Func<string, Task>? OnPostedSuccessfully { get; set; }
+
     public SaleReturnViewModel(AppServices services)
     {
         _services = services;
@@ -786,7 +788,11 @@ public partial class SaleReturnViewModel : ObservableObject
 
             MessageBox.Show(successBody, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            ClearForm();
+            var postedBillNo = OriginalBillNo.Trim();
+            if (OnPostedSuccessfully != null)
+                await OnPostedSuccessfully(postedBillNo);
+            else
+                await ClearForm();
         }
         catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {

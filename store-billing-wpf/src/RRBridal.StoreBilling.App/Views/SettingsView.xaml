@@ -417,6 +417,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Column" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
@@ -431,8 +432,11 @@
                                 <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColRateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
                                 <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColRateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Amount" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
-                                <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAmountWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Alteration" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAlterationLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                <TextBox Grid.Row="5" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.ColAlterationWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
 
                             <TextBlock FontWeight="SemiBold" Text="Total" Margin="0,0,0,4"/>
@@ -545,6 +549,28 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Discount amount width" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.DiscountAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+
+                            <TextBlock FontWeight="SemiBold" Text="Alteration amount (below discount)" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="96"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="96"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Left" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.AlterationAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="2" Text="Top" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.AlterationAmountTopMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="96"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Alteration amount width" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A5Layout.AlterationAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
 
                             <TextBlock FontWeight="SemiBold" Text="Font" Margin="0,0,0,4"/>
@@ -669,7 +695,9 @@
             </TabItem>
 
             <TabItem Header="Other">
-                <Grid Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280"/>
                         <ColumnDefinition Width="16"/>
@@ -686,7 +714,42 @@
                                           IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,12"/>
                                 <CheckBox Content="Allow cash payout of credit note remaining balance (Payment dialog)"
                                           Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,16"/>
+                                          IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,12"/>
+                                <TextBlock Text="Alteration amount" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <CheckBox Content="Alteration amount is GST inclusive"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingAlterationGstIncluded}" Margin="0,0,0,4"/>
+                                <TextBlock Text="When off, alteration is added as a flat charge after merchandise tax. When on, each line's alteration is split using that line's tax %."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                                <TextBlock Text="Razorpay POS (wired device)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Card and UPI payments are sent to the Ezetap / Razorpay POS Bridge. Use credentials and device ID from Razorpay."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <CheckBox Content="Enable Razorpay POS payments"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding RazorpayPosEnabled}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Username" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock Text="App key" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosAppKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock Text="API base URL" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosApiBaseUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Device ID (pushTo)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosDeviceId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                <TextBlock Text="From your Razorpay device screen: use serial number + |ezetap_android. Example for A99 device 3170046844 → 3170046844|ezetap_android. Device must show Paired."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+                                <Button Content="Save Razorpay POS settings" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left" Margin="0,0,0,16"
+                                        Command="{Binding SaveRazorpayPosSettingsCommand}"/>
+                                <TextBlock Text="Line item columns" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="How many fields to show on Billing line items and product pick lists."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <ComboBox MinWidth="280" HorizontalAlignment="Left" Margin="0,0,0,4"
+                                          ItemsSource="{Binding BillingLineItemDetailOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Level"
+                                          SelectedValue="{Binding BillingLineItemDetailLevel}"/>
+                                <TextBlock Text="{Binding BillingLineItemDetailDescription}"
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"
+                                           Foreground="{StaticResource BrushTextMuted}"/>
                                 <Button Content="Save settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
                                         Command="{Binding SaveBillingSettingsCommand}"/>
                             </StackPanel>
@@ -713,6 +776,7 @@
                             </DockPanel>
                         </Border>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

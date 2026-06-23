@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>RR Bridal Store Billing WPF Feature Guide</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.4; margin: 2cm; }
+h1 { color: #c45c26; font-size: 20pt; border-bottom: 2px solid #c45c26; padding-bottom: 6px; }
+h2 { color: #333; font-size: 14pt; margin-top: 18px; }
+h3 { color: #555; font-size: 12pt; margin-top: 12px; }
+p { margin: 6px 0; }
+ul { margin: 6px 0 12px 20px; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0 16px; font-size: 10pt; }
+th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #fff5f0; font-weight: bold; }
+.meta { color: #666; font-size: 10pt; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<h1>RR Bridal Store Billing (WPF) - End-to-End Feature Guide</h1>
+<p class="meta"><strong>Document version:</strong> 1.0 &nbsp;|&nbsp; <strong>Generated:</strong> 19 June 2026<br/>
+<strong>Application:</strong> RRBridal.StoreBilling.App (TruBill POS)<br/>
+<strong>Purpose:</strong> Offline-first retail POS for RR Bridal stores with central sync</p>
+
+<h1>1. Application Overview</h1>
+<p>The WPF Store Billing application is the point-of-sale client for RR Bridal retail counters. Bills, returns, and day-close data are saved to local MongoDB and pushed to the central NestJS API when connectivity is available.</p>
+<ul>
+<li>Each till uses unique <code>DEVICE_ID</code> and <code>POS_COUNTER</code> in the <code>.env</code> file beside the executable.</li>
+<li><strong>POS Counter 1</strong> is the primary (manager) till with full navigation and auto-sync.</li>
+<li>Secondary counters can bill, return, close day, and print barcodes but cannot open Settings, Dashboard, Ledger, Analytics, Online Sales, or Expenses.</li>
+<li>Product master, stock, promotion schemes, and users are pulled from central; sales events are pushed via an outbox queue.</li>
+</ul>
+
+<h2>1.1 Configuration (.env)</h2>
+<table>
+<tr><th>Variable</th><th>Purpose</th></tr>
+<tr><td>STORE_ID</td><td>Store code (e.g. store-001)</td></tr>
+<tr><td>DEVICE_ID</td><td>Unique machine identifier per till</td></tr>
+<tr><td>POS_COUNTER</td><td>Till number (1 = primary/manager till)</td></tr>
+<tr><td>STORE_MONGO_URI</td><td>Local MongoDB connection string</td></tr>
+<tr><td>CENTRAL_API_BASE</td><td>Central NestJS API base URL</td></tr>
+<tr><td>SYNC_INTERVAL_MINUTES</td><td>Auto-sync interval on primary till (0 = off)</td></tr>
+</table>
+
+<h2>1.2 Local file storage</h2>
+<p>Path: <code>%LocalAppData%\RRBridal\StoreBilling\</code></p>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td>receipt_config.json</td><td>Store header, printers, print format, A5 layout</td></tr>
+<tr><td>billing_settings.json</td><td>Duplicate print, CN cashout, line-item column level</td></tr>
+<tr><td>central_auth.json</td><td>Central API bearer token</td></tr>
+<tr><td>whatsapp_settings.json</td><td>Auto-send bill on post preference</td></tr>
+<tr><td>receipt_logo.png</td><td>Cached company logo for thermal receipts</td></tr>
+</table>
+
+<h1>2. Login, Session and Security</h1>
+<h2>2.1 Cashier login (local)</h2>
+<ul>
+<li>Email + password against <code>store_users</code> in local MongoDB (synced from central at startup).</li>
+<li>BCrypt verification; one active session per user per DEVICE_ID (machine lock).</li>
+<li>Logout via header icon or Navigation menu; returns to login screen.</li>
+</ul>
+<h2>2.2 Central API login (Settings)</h2>
+<ul>
+<li>Used for sync, receipt profile, WhatsApp API, and company profile.</li>
+<li>Settings &gt; Connection &amp; sync: email/password login; token in central_auth.json.</li>
+</ul>
+<h2>2.3 Per-user limits</h2>
+<ul>
+<li><code>maxDiscountPercent</code> caps combined item % and cash discount at bill post.</li>
+<li>Till number (POS_COUNTER) controls navigation access, not user role field.</li>
+</ul>
+
+<h1>3. Main Shell and Navigation</h1>
+<p>Header: logo, store name, page title, global search, day status, user badge, notifications, settings, logout. Left hamburger menu opens full navigation. Footer shows keyboard shortcuts.</p>
+<h2>3.1 Navigation pages</h2>
+<table>
+<tr><th>Menu</th><th>Primary till</th><th>All tills</th><th>Description</th></tr>
+<tr><td>Billing</td><td>Yes</td><td>Yes</td><td>Main POS - create and post bills</td></tr>
+<tr><td>Barcodes</td><td>Yes</td><td>Yes</td><td>Batch barcode label printing</td></tr>
+<tr><td>Dashboard</td><td>Yes</td><td>No</td><td>Metrics, inventory, day-close rollup, bill search</td></tr>
+<tr><td>Analytics</td><td>Yes</td><td>No</td><td>14-day sales trend</td></tr>
+<tr><td>Online Sales</td><td>Yes</td><td>No</td><td>Online COD order tracking and payment receipt</td></tr>
+<tr><td>Customers</td><td>Yes</td><td>Yes</td><td>Register new customers</td></tr>
+<tr><td>Ledger</td><td>Yes</td><td>No</td><td>Recent bills and payments; duplicate reprint</td></tr>
+<tr><td>Returns</td><td>Yes</td><td>Yes</td><td>Sale return, exchange, credit note, cash refund</td></tr>
+<tr><td>Day Close</td><td>Yes</td><td>Yes</td><td>Open/close business day, cash movements, hand-over</td></tr>
+<tr><td>Duplicate</td><td>Yes</td><td>Yes</td><td>Reprint posted bills or credit notes</td></tr>
+<tr><td>Adjustments</td><td>Yes</td><td>Yes</td><td>Post-sale quantity/rate corrections</td></tr>
+<tr><td>Expenses</td><td>Yes</td><td>No</td><td>Record daily store expenses</td></tr>
+<tr><td>Settings</td><td>Yes</td><td>No</td><td>Central login, sync, receipt, WhatsApp, billing options</td></tr>
+</table>
+
+<h1>4. Billing (POS)</h1>
+<h2>4.1 Customer section</h2>
+<ul>
+<li>Fields: customer code, phone (10-digit required), name, salesman (read-only).</li>
+<li>Find Customer dialog; phone auto-search; quick capture for walk-ins.</li>
+<li>Navigate to Customers to register full profile and apply to bill.</li>
+</ul>
+<h2>4.2 Bill flags</h2>
+<ul>
+<li>Hold bills, Door delivery, Online COD, Stitching (+ delivery date), Print invoice.</li>
+</ul>
+<h2>4.3 Line items</h2>
+<ul>
+<li>Entry row: SKU/barcode + Enter adds line; name opens product pick list.</li>
+<li>Lookup from local product cache; Add manual line; Import CSV (stub).</li>
+<li>Configurable columns: Minimal / Standard / Full (Settings &gt; Other).</li>
+<li>Stock validation at post; stock decremented on successful post.</li>
+</ul>
+<h2>4.4 Discounts and totals</h2>
+<ul>
+<li>Item discount %, cash discount, promotion schemes, round off, inter-state IGST toggle.</li>
+<li>Apply customer credit notes; Online COD cannot combine with credit note.</li>
+</ul>
+<h2>4.5 Hold, post, and payment</h2>
+<ul>
+<li><strong>F8 Hold</strong> - save draft with hold number.</li>
+<li><strong>F9 Post</strong> - requires name, phone, lines, open business day; assigns bill number.</li>
+<li>Payment dialog: Cash, Card (Pine Labs), UPI (Razorpay), Credit note, Split, Online COD (no payment at post).</li>
+<li>Optional WhatsApp auto-send and print after post.</li>
+</ul>
+
+<h1>5. Customer Registration</h1>
+<ul>
+<li>Auto-generated customer code; saves locally and syncs to central API.</li>
+<li>Required: name, mobile. Optional: address, GSTIN, email, credit customer flag.</li>
+<li>F4 Save, Escape Cancel on Customers page.</li>
+</ul>
+
+<h1>6. Sale Returns</h1>
+<ul>
+<li>Lookup bill by invoice number or last 3-4 digits.</li>
+<li>Return mode: credit note or cash refund.</li>
+<li>Exchange lines with payment for difference; stock updated; thermal receipt for exchange.</li>
+</ul>
+
+<h1>7. Adjustments</h1>
+<ul>
+<li>Load posted bill; edit adjusted qty/rate; reason required; day must be open.</li>
+</ul>
+
+<h1>8. Duplicate Print</h1>
+<ul>
+<li><strong>Bill tab:</strong> search and reprint with DUPLICATE watermark; Send WhatsApp.</li>
+<li><strong>Credit Note tab:</strong> search and reprint linked sale-return receipt.</li>
+<li>F11 shortcut; can be disabled in Settings.</li>
+</ul>
+
+<h1>9. Day Close and Cash Management</h1>
+<ul>
+<li>Open day with opening cash; live summary of bills, tender, expenses, movements.</li>
+<li>Cash deposit and withdrawal entries.</li>
+<li>Cash hand-over with denomination counting; close day.</li>
+<li>Download full report (CSV or Excel).</li>
+<li>Daily expenses (primary till only).</li>
+</ul>
+
+<h1>10. Dashboard and Analytics</h1>
+<ul>
+<li><strong>Dashboard:</strong> metrics, POS filter, day-close panel, stock exceptions, inventory grid, bill list with export.</li>
+<li><strong>Analytics:</strong> 14-day daily sales trend.</li>
+</ul>
+
+<h1>11. Online Sales (primary till)</h1>
+<ul>
+<li>Track Online COD orders; record payment with mode and transaction number.</li>
+<li>Balance till summary for pending COD receivables.</li>
+</ul>
+
+<h1>12. Ledger (primary till)</h1>
+<ul>
+<li>Recent bills and payments; duplicate reprint for selected bill.</li>
+</ul>
+
+<h1>13. Barcode Label Printing</h1>
+<ul>
+<li>Add products by SKU/barcode; F6 pick list; set print qty per line.</li>
+<li>F5 print labels (TSPL/ZPL); F7 clear screen.</li>
+</ul>
+
+<h1>14. Settings (4 tabs)</h1>
+<h2>Connection and sync</h2>
+<ul>
+<li>Central login/logout; Run sync; view outbox count, cursor, diagnostics, auto-sync status.</li>
+</ul>
+<h2>Receipt and printing</h2>
+<ul>
+<li>Store header fields; thermal and office printers; Thermal / A4 / A5 format.</li>
+<li>A5 pre-printed alignment editor; also print thermal first option.</li>
+</ul>
+<h2>WhatsApp</h2>
+<ul>
+<li>Auto-send bill on post; connection status; test send.</li>
+</ul>
+<h2>Other</h2>
+<ul>
+<li>Allow duplicate print; CN remaining cash payout; line item column detail level.</li>
+<li>Developer test buttons: Pine Labs, Razorpay, Purchase intent.</li>
+</ul>
+
+<h1>15. Sync with Central Backend</h1>
+<ul>
+<li>Push outbox events (bills, returns, expenses, day sessions, COD payments, etc.).</li>
+<li>Pull products, stock transfers, promotion schemes, masters, store users.</li>
+<li>Periodic auto-sync on primary till when SYNC_INTERVAL_MINUTES &gt; 0.</li>
+</ul>
+
+<h1>16. Printing and WhatsApp</h1>
+<table>
+<tr><th>Type</th><th>When</th><th>Notes</th></tr>
+<tr><td>Thermal 80mm</td><td>Bill post, stub, duplicate, returns</td><td>Configurable char width</td></tr>
+<tr><td>A4 / A5 invoice</td><td>Office format setting</td><td>Print dialog; A5 supports pre-printed stationery</td></tr>
+<tr><td>Cash hand-over slip</td><td>Day close</td><td>Thermal</td></tr>
+<tr><td>Barcode labels</td><td>Barcodes page</td><td>TSPL/ZPL to label printer</td></tr>
+<tr><td>WhatsApp bill</td><td>Auto on post or manual</td><td>Thermal image via Meta Business API</td></tr>
+</table>
+
+<h1>17. Keyboard Shortcuts</h1>
+<table>
+<tr><th>Key</th><th>Action</th><th>Scope</th></tr>
+<tr><td>F1</td><td>Help</td><td>Billing shortcuts reference</td></tr>
+<tr><td>F2</td><td>New bill</td><td>Billing</td></tr>
+<tr><td>F3</td><td>Focus search</td><td>Billing product / Barcode SKU / global search</td></tr>
+<tr><td>F4</td><td>Save customer</td><td>Customers page</td></tr>
+<tr><td>F8</td><td>Hold bill</td><td>Billing</td></tr>
+<tr><td>F9</td><td>Post bill</td><td>Billing</td></tr>
+<tr><td>F10</td><td>Print stub</td><td>Billing (no post)</td></tr>
+<tr><td>F11</td><td>Duplicate page</td><td>Any page</td></tr>
+<tr><td>F12</td><td>Close app</td><td>Global</td></tr>
+<tr><td>F5 / F6 / F7</td><td>Print / Pick / Clear</td><td>Barcodes page</td></tr>
+<tr><td>Escape</td><td>Cancel / close drawer</td><td>Context-dependent</td></tr>
+</table>
+
+<h1>18. Typical Daily Workflow</h1>
+<ol>
+<li>Login with cashier credentials.</li>
+<li>Primary till: Settings - Login to central - Run sync.</li>
+<li>Day Close - Open day with opening cash.</li>
+<li>Billing - customer phone - add items - discounts - F9 Post - Payment.</li>
+<li>Print / WhatsApp as configured.</li>
+<li>Process returns or adjustments as needed.</li>
+<li>Record expenses and cash movements (primary till).</li>
+<li>Day Close - Cash hand-over - Close day.</li>
+<li>Download day-close report.</li>
+<li>Logout; auto-sync pushes events to central.</li>
+</ol>
+
+<h1>19. Local MongoDB Collections</h1>
+<p>store_bills, held_bills, store_sale_returns, customer_credit_notes, store_credit_note_cashouts, store_adjustments, store_daily_expenses, store_cash_movements, store_day_sessions, store_customers, store_users, local_products_cache, local_stock_transfers, local_promotion_schemes, outbox_events, sync_state, local_payments, store_audit_logs, master collections.</p>
+
+<h1>20. Known Limitations</h1>
+<ul>
+<li>Import CSV on Billing is not yet implemented.</li>
+<li>Exchange credit-note duplicate reprint has limited support.</li>
+<li>User role field is synced but not enforced in UI.</li>
+</ul>
+
+<p><em>End of document</em></p>
+</body>
+</html>

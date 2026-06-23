@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { InitialAdminDto } from './dto/initial-admin.dto';
@@ -24,6 +24,18 @@ export class AdminOnboardingController {
 
   @Patch('initial-admin')
   async updateInitialAdmin(@Body() dto: UpdateInitialAdminDto) {
+    const { exists } = await this.usersService.getInitialAdmin();
+    if (!exists) {
+      const name = dto.name?.trim();
+      const email = dto.email?.trim();
+      const password = dto.password;
+      if (!name || !email || !password) {
+        throw new BadRequestException(
+          'Operational admin not found. Provide name, email, and password to create the initial admin.',
+        );
+      }
+      return await this.usersService.createInitialAdmin({ name, email, password });
+    }
     return await this.usersService.updateInitialAdmin(dto);
   }
 }

@@ -519,6 +519,43 @@ public partial class PaymentDialogViewModel : ObservableObject
         return true;
     }
 
+    private async Task<bool> ExecuteRazorpayPosPaymentAsync(
+        RazorpayPosPayMode posMode,
+        PaymentProviderKind reportProvider,
+        decimal amount,
+        List<PaymentLegResult> legs)
+    {
+        DeviceStatusText = posMode switch
+        {
+            RazorpayPosPayMode.Upi => "Waiting for UPI on Razorpay device...",
+            RazorpayPosPayMode.Card => "Waiting for card on Razorpay device...",
+            _ => "Waiting for Razorpay POS device...",
+        };
+
+        var result = await _router.PayAndRecordAsync(
+            PaymentProviderKind.Razorpay,
+            new PaymentRequest(_invoiceNo, amount, "INR", PosMode: posMode),
+            CancellationToken.None,
+            enqueueOutbox: !_skipPaymentOutbox);
+
+        if (result.Status != "Success")
+        {
+            ErrorMessage = $"POS payment failed: {result.Status}";
+            DeviceStatusText = "Failed";
+            return false;
+        }
+
+        DeviceStatusText = "Approved";
+        legs.Add(new PaymentLegResult
+        {
+            Provider = reportProvider,
+            Amount = amount,
+            Reference = result.ProviderReference,
+            Status = result.Status,
+        });
+        return true;
+    }
+
     [RelayCommand]
     private async Task ConfirmPayment()
     {
@@ -569,27 +606,15 @@ public partial class PaymentDialogViewModel : ObservableObject
                     }
                     if (CollectibleAmount <= 0)
                         break;
-                    DeviceStatusText = "Waiting for POS device...";
-                    var cardResult = await _router.PayAndRecordAsync(
-                        PaymentProviderKind.PineLabs,
-                        new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
-                        CancellationToken.None,
-                        enqueueOutbox: !_skipPaymentOutbox);
-                    if (cardResult.Status != "Success")
+                    if (!await ExecuteRazorpayPosPaymentAsync(
+                            RazorpayPosPayMode.Card,
+                            PaymentProviderKind.PineLabs,
+                            CollectibleAmount,
+                            legs))
                     {
-                        ErrorMessage = $"POS transaction failed: {cardResult.Status}";
-                        DeviceStatusText = "Failed";
                         Status = PaymentStatus.Failed;
                         return;
                     }
-                    DeviceStatusText = "Approved";
-                    legs.Add(new PaymentLegResult
-                    {
-                        Provider = PaymentProviderKind.PineLabs,
-                        Amount = CollectibleAmount,
-                        Reference = cardResult.ProviderReference,
-                        Status = cardResult.Status,
-                    });
                     break;
 
                 case PaymentMode.Upi:
@@ -600,27 +625,15 @@ public partial class PaymentDialogViewModel : ObservableObject
                     }
                     if (CollectibleAmount <= 0)
                         break;
-                    DeviceStatusText = "Processing UPI payment...";
-                    var upiResult = await _router.PayAndRecordAsync(
-                        PaymentProviderKind.Razorpay,
-                        new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
-                        CancellationToken.None,
-                        enqueueOutbox: !_skipPaymentOutbox);
-                    if (upiResult.Status != "Success" && upiResult.Status != "Pending")
+                    if (!await ExecuteRazorpayPosPaymentAsync(
+                            RazorpayPosPayMode.Upi,
+                            PaymentProviderKind.Razorpay,
+                            CollectibleAmount,
+                            legs))
                     {
-                        ErrorMessage = $"UPI payment failed: {upiResult.Status}";
-                        DeviceStatusText = "Failed";
                         Status = PaymentStatus.Failed;
                         return;
                     }
-                    DeviceStatusText = upiResult.Status == "Success" ? "Approved" : "Pending Confirmation";
-                    legs.Add(new PaymentLegResult
-                    {
-                        Provider = PaymentProviderKind.Razorpay,
-                        Amount = CollectibleAmount,
-                        Reference = upiResult.ProviderReference,
-                        Status = upiResult.Status,
-                    });
                     break;
 
                 case PaymentMode.CreditNote:
@@ -678,23 +691,38 @@ public partial class PaymentDialogViewModel : ObservableObject
                         }
                     }
 
-                    var splitEntries = new List<(PaymentProviderKind Provider, decimal Amount, string? Reference)>();
+                    var splitEntries = new List<(PaymentProviderKind Provider, decimal Amount, string? Reference, RazorpayPosPayMode? PosMode)>();
                     if (SplitCashAmount > 0)
-                        splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null));
+                        splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null, null));
                     if (SplitCardAmount > 0)
-                        splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null));
+                        splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null, RazorpayPosPayMode.Card));
                     if (SplitUpiAmount > 0)
-                        splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null));
+                        splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null, RazorpayPosPayMode.Upi));
                     if (SplitCreditNoteAmount > 0)
-                        splitEntries.Add((PaymentProviderKind.CreditNote, SplitCreditNoteAmount, SplitCreditNoteReference.Trim()));
+                        splitEntries.Add((PaymentProviderKind.CreditNote, SplitCreditNoteAmount, SplitCreditNoteReference.Trim(), null));
 
-                    foreach (var (provider, amount, reference) in splitEntries)
+                    foreach (var (provider, amount, reference, posMode) in splitEntries)
                     {
-                        var splitResult = await _router.PayAndRecordAsync(
-                            provider,
-                            new PaymentRequest(_invoiceNo, amount, "INR", reference),
-                            CancellationToken.None,
-                            enqueueOutbox: !_skipPaymentOutbox);
+                        PaymentResult splitResult;
+                        if (posMode.HasValue)
+                        {
+                            DeviceStatusText = posMode == RazorpayPosPayMode.Upi
+                                ? "Waiting for UPI on Razorpay device..."
+                                : "Waiting for card on Razorpay device...";
+                            splitResult = await _router.PayAndRecordAsync(
+                                PaymentProviderKind.Razorpay,
+                                new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value),
+                                CancellationToken.None,
+                                enqueueOutbox: !_skipPaymentOutbox);
+                        }
+                        else
+                        {
+                            splitResult = await _router.PayAndRecordAsync(
+                                provider,
+                                new PaymentRequest(_invoiceNo, amount, "INR", reference),
+                                CancellationToken.None,
+                                enqueueOutbox: !_skipPaymentOutbox);
+                        }
 
                         if (splitResult.Status != "Success" && splitResult.Status != "Pending")
                         {

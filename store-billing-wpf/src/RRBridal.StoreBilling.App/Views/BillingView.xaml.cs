@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -17,10 +18,43 @@ public partial class BillingView
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         DataContextChanged += OnDataContextChanged;
+        IsVisibleChanged += OnIsVisibleChanged;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) =>
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
         WireViewModel(DataContext as BillingViewModel);
+        ApplyLineItemColumnVisibility();
+    }
+
+    private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+            ApplyLineItemColumnVisibility();
+    }
+
+    private void ApplyLineItemColumnVisibility()
+    {
+        App.Services.PosBillingSettings.Load();
+        var level = App.Services.PosBillingSettings.Current.LineItemDetailLevel;
+        var showStandard = level >= BillingLineItemDetailLevel.Standard;
+        var showFull = level >= BillingLineItemDetailLevel.Full;
+
+        ColHsn.Visibility = showStandard ? Visibility.Visible : Visibility.Collapsed;
+        ColDisc.Visibility = showStandard ? Visibility.Visible : Visibility.Collapsed;
+        ColMrp.Visibility = showStandard ? Visibility.Visible : Visibility.Collapsed;
+        ColTaxPct.Visibility = showStandard ? Visibility.Visible : Visibility.Collapsed;
+        ColTaxAmt.Visibility = showStandard ? Visibility.Visible : Visibility.Collapsed;
+
+        ColCashDisc.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColScheme.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColOrigTax.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColRevisedAmt.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColRevisedGst.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColCgst.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColSgst.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+        ColIgst.Visibility = showFull ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {

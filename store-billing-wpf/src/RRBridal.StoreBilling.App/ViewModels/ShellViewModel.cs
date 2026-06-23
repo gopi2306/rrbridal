@@ -28,6 +28,8 @@ public partial class ShellViewModel : ObservableObject
 
     public SaleReturnViewModel SaleReturn { get; }
 
+    public BillLookupViewModel BillLookup { get; }
+
     public AdjustmentBillViewModel AdjustmentBill { get; }
 
     public DuplicatePrintViewModel DuplicatePrint { get; }
@@ -59,6 +61,10 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private int _pendingNotificationCount;
 
     [ObservableProperty] private string _daySessionStatusChip = "Day: …";
+
+    [ObservableProperty] private bool _isNavDrawerOpen;
+
+    [ObservableProperty] private string _currentPageLabel = "Billing";
 
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
@@ -118,6 +124,7 @@ public partial class ShellViewModel : ObservableObject
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
+        BillLookup = new BillLookupViewModel(services);
         DuplicatePrint = new DuplicatePrintViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
@@ -172,6 +179,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
+        OnPropertyChanged(nameof(IsBillLookupPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -207,6 +215,8 @@ public partial class ShellViewModel : ObservableObject
     public bool IsLedgerPage => CurrentPage == ShellPage.Ledger;
 
     public bool IsSaleReturnPage => CurrentPage == ShellPage.SaleReturn;
+
+    public bool IsBillLookupPage => CurrentPage == ShellPage.BillLookup;
 
     public bool IsAdjustmentsPage => CurrentPage == ShellPage.Adjustments;
 
@@ -246,6 +256,9 @@ public partial class ShellViewModel : ObservableObject
         if (_lastPage == ShellPage.Settings && value != ShellPage.Settings)
             _ = RefreshBrandingAsync();
 
+        CurrentPageLabel = GetPageLabel(value);
+        IsNavDrawerOpen = false;
+
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
@@ -253,6 +266,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
+        OnPropertyChanged(nameof(IsBillLookupPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -310,7 +324,32 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ToggleNavDrawer() => IsNavDrawerOpen = !IsNavDrawerOpen;
+
+    [RelayCommand]
+    private void CloseNavDrawer() => IsNavDrawerOpen = false;
+
+    [RelayCommand]
     private void NavigateDayClose() => CurrentPage = ShellPage.DayClose;
+
+    private static string GetPageLabel(ShellPage page) => page switch
+    {
+        ShellPage.Billing => "Billing",
+        ShellPage.Dashboard => "Dashboard",
+        ShellPage.Analytics => "Analytics",
+        ShellPage.OnlineSales => "Online Sales",
+        ShellPage.Customers => "Customers",
+        ShellPage.Ledger => "Ledger",
+        ShellPage.SaleReturn => "Returns",
+        ShellPage.BillLookup => "Bill Lookup",
+        ShellPage.DayClose => "Day Close",
+        ShellPage.DuplicateBill => "Duplicate",
+        ShellPage.Adjustments => "Adjustments",
+        ShellPage.Barcodes => "Barcodes",
+        ShellPage.DailyExpenses => "Expenses",
+        ShellPage.Settings => "Settings",
+        _ => "Billing",
+    };
 
     [RelayCommand]
     private async Task SaveCustomerRegistration()

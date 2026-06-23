@@ -1,5 +1,6 @@
 export const DOCUMENT_NUMBER_CONFIG_KEYS = [
   'product_sku',
+  'customer_code',
   'purchase_order',
   'purchase_intent',
   'purchase_return',
@@ -30,6 +31,14 @@ export const DOCUMENT_NUMBER_CONFIG_DEFAULTS: DocumentNumberConfigDefault[] = [
     startFrom: 1,
     label: 'Product SKU',
     description: 'Auto-generated product SKU',
+  },
+  {
+    configKey: 'customer_code',
+    prefix: 'CUST-',
+    padLength: 4,
+    startFrom: 1,
+    label: 'Customer code',
+    description: 'Auto-generated customer code for POS and central',
   },
   {
     configKey: 'purchase_order',

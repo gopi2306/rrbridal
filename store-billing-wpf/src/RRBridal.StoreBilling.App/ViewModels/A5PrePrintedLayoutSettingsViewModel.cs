@@ -38,6 +38,8 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _colQtyWidthMm = 9;
     [ObservableProperty] private double _colRateLeftMm = 90;
     [ObservableProperty] private double _colRateWidthMm = 15;
+    [ObservableProperty] private double _colAlterationLeftMm = 78;
+    [ObservableProperty] private double _colAlterationWidthMm = 12;
     [ObservableProperty] private double _colAmountLeftMm = 102;
     [ObservableProperty] private double _colAmountWidthMm = 18;
     [ObservableProperty] private double _totalAmountLeftMm = 102;
@@ -49,6 +51,9 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
     [ObservableProperty] private double _discountAmountLeftMm = 102;
     [ObservableProperty] private double _discountAmountTopMm = 176;
     [ObservableProperty] private double _discountAmountWidthMm = 25;
+    [ObservableProperty] private double _alterationAmountLeftMm = 25;
+    [ObservableProperty] private double _alterationAmountTopMm = 183;
+    [ObservableProperty] private double _alterationAmountWidthMm = 102;
     [ObservableProperty] private double _totalQtyLeftMm = 85;
     [ObservableProperty] private double _totalQtyTopMm = 176;
     [ObservableProperty] private double _totalQtyWidthMm = 9;
@@ -99,6 +104,8 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
         ColQtyWidthMm = s.ColQtyWidthMm;
         ColRateLeftMm = s.ColRateLeftMm;
         ColRateWidthMm = s.ColRateWidthMm;
+        ColAlterationLeftMm = s.ColAlterationLeftMm;
+        ColAlterationWidthMm = s.ColAlterationWidthMm;
         ColAmountLeftMm = s.ColAmountLeftMm;
         ColAmountWidthMm = s.ColAmountWidthMm;
         TotalAmountLeftMm = s.TotalAmountLeftMm;
@@ -110,6 +117,9 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
         DiscountAmountLeftMm = s.DiscountAmountLeftMm;
         DiscountAmountTopMm = s.DiscountAmountTopMm;
         DiscountAmountWidthMm = s.DiscountAmountWidthMm;
+        AlterationAmountLeftMm = s.AlterationAmountLeftMm;
+        AlterationAmountTopMm = s.AlterationAmountTopMm;
+        AlterationAmountWidthMm = s.AlterationAmountWidthMm;
         TotalQtyLeftMm = s.TotalQtyLeftMm;
         TotalQtyTopMm = s.TotalQtyTopMm;
         TotalQtyWidthMm = s.TotalQtyWidthMm;
@@ -169,6 +179,8 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
             ColQtyWidthMm = ColQtyWidthMm,
             ColRateLeftMm = ColRateLeftMm,
             ColRateWidthMm = ColRateWidthMm,
+            ColAlterationLeftMm = ColAlterationLeftMm,
+            ColAlterationWidthMm = ColAlterationWidthMm,
             ColAmountLeftMm = ColAmountLeftMm,
             ColAmountWidthMm = ColAmountWidthMm,
             TotalAmountLeftMm = TotalAmountLeftMm,
@@ -180,6 +192,9 @@ public partial class A5PrePrintedLayoutSettingsViewModel : ObservableObject
             DiscountAmountLeftMm = DiscountAmountLeftMm,
             DiscountAmountTopMm = DiscountAmountTopMm,
             DiscountAmountWidthMm = DiscountAmountWidthMm,
+            AlterationAmountLeftMm = AlterationAmountLeftMm,
+            AlterationAmountTopMm = AlterationAmountTopMm,
+            AlterationAmountWidthMm = AlterationAmountWidthMm,
             TotalQtyLeftMm = TotalQtyLeftMm,
             TotalQtyTopMm = TotalQtyTopMm,
             TotalQtyWidthMm = TotalQtyWidthMm,

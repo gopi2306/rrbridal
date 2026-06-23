@@ -78,6 +78,29 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
+    [ObservableProperty] private bool _billingAlterationGstIncluded;
+    [ObservableProperty] private BillingLineItemDetailLevel _billingLineItemDetailLevel = BillingLineItemDetailLevel.Full;
+
+    [ObservableProperty] private bool _razorpayPosEnabled = true;
+    [ObservableProperty] private string _razorpayPosUsername = "";
+    [ObservableProperty] private string _razorpayPosAppKey = "";
+    [ObservableProperty] private string _razorpayPosApiBaseUrl = "https://www.ezetap.com/api/3.0/p2padapter/";
+    [ObservableProperty] private string _razorpayPosDeviceId = "";
+    [ObservableProperty] private int _razorpayPosStatusPollIntervalMs = 2000;
+    [ObservableProperty] private int _razorpayPosStatusTimeoutSeconds = 120;
+
+    public IReadOnlyList<BillingLineItemDetailOption> BillingLineItemDetailOptions { get; } =
+    [
+        new(BillingLineItemDetailLevel.Minimal, "Minimal", "Code, description, qty, rate, amount"),
+        new(BillingLineItemDetailLevel.Standard, "Standard", "Minimal + HSN, discount, MRP, tax %, tax amount"),
+        new(BillingLineItemDetailLevel.Full, "Full", "All columns including scheme, revised tax, CGST/SGST/IGST"),
+    ];
+
+    public string BillingLineItemDetailDescription =>
+        BillingLineItemDetailOptions.First(o => o.Level == BillingLineItemDetailLevel).Description;
+
+    partial void OnBillingLineItemDetailLevelChanged(BillingLineItemDetailLevel value) =>
+        OnPropertyChanged(nameof(BillingLineItemDetailDescription));
 
     [ObservableProperty] private bool _whatsAppAutoSendAfterPost = true;
 
@@ -185,6 +208,7 @@ public partial class SettingsViewModel : ObservableObject
         _services.ReceiptConfig.Reload();
         ApplyReceiptFieldsFromConfig();
         LoadBillingSettingsFromStore();
+        LoadRazorpayPosSettingsFromStore();
         LoadWhatsAppSettingsFromStore();
         _ = LoadWhatsAppCentralStatusAsync();
         return Task.CompletedTask;
@@ -388,7 +412,7 @@ public partial class SettingsViewModel : ObservableObject
                 new InvoiceLineSnap { LineNo = 6, Description = "Stone work", Qty = 1, Rate = 1200, Amount = 1200, TaxableAmount = 1200 },
                 new InvoiceLineSnap { LineNo = 7, Description = "Petticoat", Qty = 1, Rate = 600, Amount = 600, TaxableAmount = 600 },
                 new InvoiceLineSnap { LineNo = 8, Description = "Chunni", Qty = 1, Rate = 900, Amount = 900, TaxableAmount = 900 },
-                new InvoiceLineSnap { LineNo = 9, Description = "Alteration", Qty = 1, Rate = 400, Amount = 400, TaxableAmount = 400 },
+                new InvoiceLineSnap { LineNo = 9, Description = "Alteration", Qty = 1, Rate = 400, Amount = 400, AlterationAmount = 400, TaxableAmount = 400 },
                 new InvoiceLineSnap { LineNo = 10, Description = "Dry clean", Qty = 1, Rate = 350, Amount = 350, TaxableAmount = 350 },
                 new InvoiceLineSnap { LineNo = 11, Description = "Gift box", Qty = 1, Rate = 200, Amount = 200, TaxableAmount = 200 },
                 new InvoiceLineSnap { LineNo = 12, Description = "Accessories", Qty = 2, Rate = 250, Amount = 500, TaxableAmount = 500 },
@@ -402,6 +426,7 @@ public partial class SettingsViewModel : ObservableObject
             ItemDiscountPercent = 10,
             ItemDiscount = 1500,
             CashDiscAmount = 500,
+            AlterationTotal = 400,
             ItemCount = 15,
             TotalQty = 18,
         };
@@ -507,13 +532,54 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task TestRazorpayPaymentAsync()
     {
-        var inv = $"INV-{DateTime.Now:yyyyMMddHHmmss}";
-        var result = await _services.PaymentRouter.PayAndRecordAsync(
-            PaymentProviderKind.Razorpay,
-            new PaymentRequest(inv, 1.00m, "INR"),
-            CancellationToken.None);
-        LastActionText = $"Razorpay: {result.Status}";
+        try
+        {
+            var inv = $"INV-{DateTime.Now:yyyyMMddHHmmss}";
+            var result = await _services.PaymentRouter.PayAndRecordAsync(
+                PaymentProviderKind.Razorpay,
+                new PaymentRequest(inv, 1.00m, "INR", PosMode: RazorpayPosPayMode.All),
+                CancellationToken.None);
+            LastActionText = $"Razorpay POS: {result.Status} ({result.ProviderReference})";
+        }
+        catch (Exception ex)
+        {
+            LastActionText = $"Razorpay POS test failed: {ex.Message}";
+        }
+
         await RefreshStatusAsync();
+    }
+
+    private void LoadRazorpayPosSettingsFromStore()
+    {
+        _services.RazorpayPosSettings.Load();
+        var s = _services.RazorpayPosSettings.Current;
+        RazorpayPosEnabled = s.Enabled;
+        RazorpayPosUsername = s.Username;
+        RazorpayPosAppKey = s.AppKey;
+        RazorpayPosApiBaseUrl = s.ApiBaseUrl;
+        RazorpayPosDeviceId = s.DeviceId;
+        RazorpayPosStatusPollIntervalMs = s.StatusPollIntervalMs;
+        RazorpayPosStatusTimeoutSeconds = s.StatusTimeoutSeconds;
+    }
+
+    [RelayCommand]
+    public async Task SaveRazorpayPosSettingsAsync()
+    {
+        _services.RazorpayPosSettings.Update(s =>
+        {
+            s.Enabled = RazorpayPosEnabled;
+            s.Username = RazorpayPosUsername?.Trim() ?? "";
+            s.AppKey = RazorpayPosAppKey?.Trim() ?? "";
+            s.ApiBaseUrl = string.IsNullOrWhiteSpace(RazorpayPosApiBaseUrl)
+                ? "https://www.ezetap.com/api/3.0/p2padapter/"
+                : RazorpayPosApiBaseUrl.Trim();
+            s.DeviceId = RazorpayPosSettingsDocument.NormalizeDeviceId(RazorpayPosDeviceId);
+            s.StatusPollIntervalMs = Math.Clamp(RazorpayPosStatusPollIntervalMs, 500, 10000);
+            s.StatusTimeoutSeconds = Math.Clamp(RazorpayPosStatusTimeoutSeconds, 30, 600);
+        });
+        await _services.RazorpayPosSettings.SaveAsync();
+        RazorpayPosDeviceId = _services.RazorpayPosSettings.Current.DeviceId;
+        LastActionText = "Razorpay POS settings saved.";
     }
 
     private void LoadBillingSettingsFromStore()
@@ -521,6 +587,8 @@ public partial class SettingsViewModel : ObservableObject
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
+        BillingAlterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
+        BillingLineItemDetailLevel = _services.PosBillingSettings.Current.LineItemDetailLevel;
     }
 
     [RelayCommand]
@@ -530,6 +598,8 @@ public partial class SettingsViewModel : ObservableObject
         {
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
+            s.AlterationGstIncluded = BillingAlterationGstIncluded;
+            s.LineItemDetailLevel = BillingLineItemDetailLevel;
         });
         await _services.PosBillingSettings.SaveAsync();
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
@@ -544,6 +614,8 @@ public partial class SettingsViewModel : ObservableObject
             {
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
+                { "alterationGstIncluded", BillingAlterationGstIncluded },
+                { "lineItemDetailLevel", BillingLineItemDetailLevel.ToString() },
             },
         });
         LastActionText = "Billing settings saved.";
@@ -720,3 +792,5 @@ public partial class SettingsViewModel : ObservableObject
         await RefreshStatusAsync();
     }
 }
+
+public sealed record BillingLineItemDetailOption(BillingLineItemDetailLevel Level, string Label, string Description);

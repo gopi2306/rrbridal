@@ -139,6 +139,17 @@ public static class A5PrePrintedInvoiceDocumentBuilder
                 }
             }
 
+            if (input.AlterationTotal > 0)
+            {
+                PlaceText(canvas, "Alteration",
+                    layout.AlterationAmountLeftMm, layout.AlterationAmountTopMm, layout.AlterationAmountWidthMm / 2,
+                    bodyFont, printFont, TextAlignment.Left, useTableOffset: true, layout: layout);
+                PlaceText(canvas, Money(input.AlterationTotal),
+                    layout.AlterationAmountLeftMm + layout.AlterationAmountWidthMm / 2,
+                    layout.AlterationAmountTopMm, layout.AlterationAmountWidthMm / 2,
+                    bodyFont, printFont, TextAlignment.Right, useTableOffset: true, layout: layout);
+            }
+
             PlaceText(canvas, Money(input.Payable), layout.TotalAmountLeftMm, layout.TotalAmountTopMm,
                 layout.TotalAmountWidthMm, totalFont, printFont, TextAlignment.Right, FontWeights.Bold,
                 useTableOffset: true, layout: layout);

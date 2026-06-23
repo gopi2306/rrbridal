@@ -45,6 +45,8 @@ public sealed class A5PrePrintedLayoutSettings
     public double ColQtyWidthMm { get; set; } = 9;
     public double ColRateLeftMm { get; set; } = 90;
     public double ColRateWidthMm { get; set; } = 15;
+    public double ColAlterationLeftMm { get; set; } = 78;
+    public double ColAlterationWidthMm { get; set; } = 12;
     public double ColAmountLeftMm { get; set; } = 102;
     public double ColAmountWidthMm { get; set; } = 18;
 
@@ -59,6 +61,10 @@ public sealed class A5PrePrintedLayoutSettings
     public double DiscountAmountLeftMm { get; set; } = 102;
     public double DiscountAmountTopMm { get; set; } = 176;
     public double DiscountAmountWidthMm { get; set; } = 25;
+
+    public double AlterationAmountLeftMm { get; set; } = 25;
+    public double AlterationAmountTopMm { get; set; } = 183;
+    public double AlterationAmountWidthMm { get; set; } = 102;
 
     public double TotalQtyLeftMm { get; set; } = 85;
     public double TotalQtyTopMm { get; set; } = 176;
@@ -121,6 +127,8 @@ public sealed class A5PrePrintedLayoutSettings
         if (ColQtyWidthMm == 0) ColQtyWidthMm = d.ColQtyWidthMm;
         if (ColRateLeftMm == 0) ColRateLeftMm = d.ColRateLeftMm;
         if (ColRateWidthMm == 0) ColRateWidthMm = d.ColRateWidthMm;
+        if (ColAlterationLeftMm == 0) ColAlterationLeftMm = d.ColAlterationLeftMm;
+        if (ColAlterationWidthMm == 0) ColAlterationWidthMm = d.ColAlterationWidthMm;
         if (ColAmountLeftMm == 0) ColAmountLeftMm = d.ColAmountLeftMm;
         if (ColAmountWidthMm == 0) ColAmountWidthMm = d.ColAmountWidthMm;
         if (TotalAmountLeftMm == 0) TotalAmountLeftMm = d.TotalAmountLeftMm;
@@ -132,6 +140,9 @@ public sealed class A5PrePrintedLayoutSettings
         if (DiscountAmountLeftMm == 0) DiscountAmountLeftMm = d.DiscountAmountLeftMm;
         if (DiscountAmountTopMm == 0) DiscountAmountTopMm = d.DiscountAmountTopMm;
         if (DiscountAmountWidthMm == 0) DiscountAmountWidthMm = d.DiscountAmountWidthMm;
+        if (AlterationAmountLeftMm == 0) AlterationAmountLeftMm = d.AlterationAmountLeftMm;
+        if (AlterationAmountTopMm == 0) AlterationAmountTopMm = d.AlterationAmountTopMm;
+        if (AlterationAmountWidthMm == 0) AlterationAmountWidthMm = d.AlterationAmountWidthMm;
         if (TotalQtyLeftMm == 0) TotalQtyLeftMm = d.TotalQtyLeftMm;
         if (TotalQtyTopMm == 0) TotalQtyTopMm = d.TotalQtyTopMm;
         if (TotalQtyWidthMm == 0) TotalQtyWidthMm = d.TotalQtyWidthMm;
@@ -180,6 +191,8 @@ public sealed class A5PrePrintedLayoutSettings
         ColQtyWidthMm = ColQtyWidthMm,
         ColRateLeftMm = ColRateLeftMm,
         ColRateWidthMm = ColRateWidthMm,
+        ColAlterationLeftMm = ColAlterationLeftMm,
+        ColAlterationWidthMm = ColAlterationWidthMm,
         ColAmountLeftMm = ColAmountLeftMm,
         ColAmountWidthMm = ColAmountWidthMm,
         TotalAmountLeftMm = TotalAmountLeftMm,
@@ -191,6 +204,9 @@ public sealed class A5PrePrintedLayoutSettings
         DiscountAmountLeftMm = DiscountAmountLeftMm,
         DiscountAmountTopMm = DiscountAmountTopMm,
         DiscountAmountWidthMm = DiscountAmountWidthMm,
+        AlterationAmountLeftMm = AlterationAmountLeftMm,
+        AlterationAmountTopMm = AlterationAmountTopMm,
+        AlterationAmountWidthMm = AlterationAmountWidthMm,
         TotalQtyLeftMm = TotalQtyLeftMm,
         TotalQtyTopMm = TotalQtyTopMm,
         TotalQtyWidthMm = TotalQtyWidthMm,

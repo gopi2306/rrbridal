@@ -289,7 +289,8 @@ public static class A4InvoiceDocumentBuilder
         var tableHost = new Grid { Background = RetailInvoiceVisuals.PanelCreamBrush };
         var showDiscPct = isLastPage && input.ItemDiscountPercent > 0;
         var showDiscAmt = isLastPage && input.ManualDiscountAmount > 0;
-        var footerRowCount = isLastPage ? 1 + (showDiscPct ? 1 : 0) + (showDiscAmt ? 1 : 0) : 0;
+        var showAlteration = isLastPage && input.AlterationTotal > 0;
+        var footerRowCount = isLastPage ? 1 + (showDiscPct ? 1 : 0) + (showDiscAmt ? 1 : 0) + (showAlteration ? 1 : 0) : 0;
 
         tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(headerH) });
         tableHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -348,6 +349,16 @@ public static class A4InvoiceDocumentBuilder
                 AddTableCell(tableHost, footerRow, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
                 AddTableCell(tableHost, footerRow, 2, "DISCOUNT", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
                 AddTableCell(tableHost, footerRow, 3, Money(input.ManualDiscountAmount), font, FontWeights.Bold,
+                    TextAlignment.Center, TableCellBorder.Total);
+                footerRow++;
+            }
+
+            if (showAlteration)
+            {
+                AddTableCell(tableHost, footerRow, 0, "", font, FontWeights.Normal, TextAlignment.Left, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 1, "", font, FontWeights.Normal, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 2, "ALTERATION", font, FontWeights.Bold, TextAlignment.Center, TableCellBorder.Total);
+                AddTableCell(tableHost, footerRow, 3, Money(input.AlterationTotal), font, FontWeights.Bold,
                     TextAlignment.Center, TableCellBorder.Total);
                 footerRow++;
             }

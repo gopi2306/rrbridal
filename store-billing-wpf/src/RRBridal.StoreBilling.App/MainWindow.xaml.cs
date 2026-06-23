@@ -27,6 +27,12 @@ public partial class MainWindow : Window, IFocusSearchService
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Escape && DataContext is ShellViewModel shellEscape && shellEscape.IsNavDrawerOpen)
+        {
+            shellEscape.CloseNavDrawerCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
         if (key != Key.F3)
             return;
         if (DataContext is not ShellViewModel vm)
@@ -72,6 +78,11 @@ public partial class MainWindow : Window, IFocusSearchService
             await shell.SaleReturn.AddExchangeProductFromSearchAsync(shell.GlobalSearchText);
             shell.GlobalSearchText = "";
         }
+        else if (shell.CurrentPage == ShellPage.BillLookup && shell.BillLookup.IsReturnMode)
+        {
+            await shell.BillLookup.Return.AddExchangeProductFromSearchAsync(shell.GlobalSearchText);
+            shell.GlobalSearchText = "";
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -107,5 +118,11 @@ public partial class MainWindow : Window, IFocusSearchService
             App.Services.FocusBarcodeSkuEntry.Invoke();
         else
             FocusGlobalSearch();
+    }
+
+    private void NavDrawerOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell)
+            shell.CloseNavDrawerCommand.Execute(null);
     }
 }

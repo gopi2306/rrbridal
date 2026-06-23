@@ -42,6 +42,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
 
     private BsonDocument? _originalBillDoc;
 
+    public Func<string, Task>? OnPostedSuccessfully { get; set; }
+
     public AdjustmentBillViewModel(AppServices services)
     {
         _services = services;
@@ -276,7 +278,11 @@ public partial class AdjustmentBillViewModel : ObservableObject
                 $"Adjustment {AdjustmentNo} posted.",
                 "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            ClearForm();
+            var postedBillNo = OriginalBillNo.Trim();
+            if (OnPostedSuccessfully != null)
+                await OnPostedSuccessfully(postedBillNo);
+            else
+                await ClearForm();
         }
         catch (Exception ex)
         {

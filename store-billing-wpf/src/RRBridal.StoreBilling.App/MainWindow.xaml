@@ -47,67 +47,42 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid VerticalAlignment="Center">
+                <Grid Grid.Column="0" VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <controls:AppLogoMark Grid.Column="0" LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+
+                    <Button Grid.Column="0"
+                            Width="40" Height="40"
+                            Style="{StaticResource GhostNavButton}"
+                            Margin="0,0,8,0"
+                            Command="{Binding ToggleNavDrawerCommand}"
+                            ToolTip="Open navigation menu">
+                        <Viewbox Width="20" Height="20" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M3,6h18v2H3V6z M3,11h18v2H3v-2z M3,16h18v2H3v-2z"
+                                      Fill="{StaticResource BrushNavInactive}"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+
+                    <controls:AppLogoMark Grid.Column="1" LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
                         <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
                         <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"/>
                         <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <controls:NavTabButton Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
-                    <controls:NavTabButton Label="Barcodes" Page="{x:Static vm:ShellPage.Barcodes}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
-                    <controls:NavTabButton Label="Dashboard" Page="{x:Static vm:ShellPage.Dashboard}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Dashboard}}"/>
-                    <controls:NavTabButton Label="Analytics" Page="{x:Static vm:ShellPage.Analytics}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
-                    <controls:NavTabButton Label="Online Sales" Page="{x:Static vm:ShellPage.OnlineSales}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
-                    <controls:NavTabButton Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
-                    <controls:NavTabButton Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Ledger}}"/>
-                    <controls:NavTabButton Label="Returns" Page="{x:Static vm:ShellPage.SaleReturn}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
-                    <controls:NavTabButton Label="Day Close" Page="{x:Static vm:ShellPage.DayClose}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DayClose}}"/>
-                    <controls:NavTabButton Label="Duplicate" Page="{x:Static vm:ShellPage.DuplicateBill}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
-                    <controls:NavTabButton Label="Adjustments" Page="{x:Static vm:ShellPage.Adjustments}"
-                                           NavigateCommand="{Binding NavigateCommand}" Margin="0,0,12,0"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
-                    <controls:NavTabButton Label="Expenses" Page="{x:Static vm:ShellPage.DailyExpenses}"
-                                           NavigateCommand="{Binding NavigateCommand}"
-                                           Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
-                                           IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DailyExpenses}}"/>
-                    <Button Style="{StaticResource NavLinkButton}" Command="{Binding LogoutCommand}" Margin="16,0,0,0"
-                            ToolTip="Sign out and return to login">
-                        <TextBlock Text="Logout" Style="{StaticResource TextBody}"
-                                   Foreground="{StaticResource BrushNavInactive}" Opacity="0.75"/>
-                    </Button>
-                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CurrentPageLabel}"
+                           Style="{StaticResource TextBody}"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource BrushTextMuted}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBox x:Name="GlobalSearchBox" Width="220" Style="{StaticResource RoundedTextBox}" VerticalAlignment="Center"
@@ -124,10 +99,30 @@
                         </Button>
                     </Border>
 
-                    <Border Style="{StaticResource UserBadge}" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Logged in user">
-                        <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
-                                   FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                    <Border Style="{StaticResource UserBadge}" Margin="0,0,4,0" VerticalAlignment="Center" ToolTip="Logged in user">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4z M12,14c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z"
+                                          Fill="{StaticResource BrushAccent}"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
+                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Border>
+
+                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                            Command="{Binding LogoutCommand}"
+                            ToolTip="Sign out and return to login"
+                            Margin="0,0,8,0">
+                        <Viewbox Width="18" Height="18" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M17,7l-1.41,1.41L18.17,11H8v2h10.17l-2.58,2.58L17,17l5,-5z M4,5h8V3H4c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h8v-2H4V5z"
+                                      Fill="{StaticResource BrushNavInactive}"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
 
                     <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
                             Command="{Binding OpenNotificationsCommand}"
@@ -190,6 +185,9 @@
             <Grid Visibility="{Binding IsSaleReturnPage, Converter={StaticResource BoolToVis}}">
                 <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
             </Grid>
+            <Grid Visibility="{Binding IsBillLookupPage, Converter={StaticResource BoolToVis}}">
+                <views:BillLookupView DataContext="{Binding BillLookup}"/>
+            </Grid>
             <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
                 <views:DuplicateBillView DataContext="{Binding DuplicatePrint}"/>
             </Grid>
@@ -222,6 +220,132 @@
                 <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}"/>
             </StackPanel>
+        </Border>
+
+        <Border Grid.RowSpan="3"
+                Panel.ZIndex="100"
+                Background="#66000000"
+                Visibility="{Binding IsNavDrawerOpen, Converter={StaticResource BoolToVis}}"
+                MouseLeftButtonDown="NavDrawerOverlay_MouseLeftButtonDown"/>
+
+        <Border Grid.RowSpan="3"
+                Panel.ZIndex="101"
+                HorizontalAlignment="Left"
+                Width="280"
+                Background="{StaticResource BrushSurface}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,0,1,0"
+                Effect="{StaticResource CardShadowEffect}"
+                Visibility="{Binding IsNavDrawerOpen, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top"
+                        Background="{StaticResource BrushSidebarTint}"
+                        BorderBrush="{StaticResource BrushBorder}"
+                        BorderThickness="0,0,0,1"
+                        Padding="16,14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Navigation"
+                                   Style="{StaticResource TextBody}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Width="32" Height="32"
+                                Style="{StaticResource GhostNavButton}"
+                                Command="{Binding CloseNavDrawerCommand}"
+                                ToolTip="Close menu">
+                            <TextBlock Text="✕" FontSize="14" Foreground="{StaticResource BrushNavInactive}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,8,0,8">
+                        <controls:NavDrawerItem Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
+                        <controls:NavDrawerItem Label="Barcodes" Page="{x:Static vm:ShellPage.Barcodes}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
+                        <controls:NavDrawerItem Label="Dashboard" Page="{x:Static vm:ShellPage.Dashboard}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Dashboard}}"/>
+                        <controls:NavDrawerItem Label="Analytics" Page="{x:Static vm:ShellPage.Analytics}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                        <controls:NavDrawerItem Label="Online Sales" Page="{x:Static vm:ShellPage.OnlineSales}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
+                        <controls:NavDrawerItem Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
+                        <controls:NavDrawerItem Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Ledger}}"/>
+                        <controls:NavDrawerItem Label="Returns" Page="{x:Static vm:ShellPage.SaleReturn}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                        <controls:NavDrawerItem Label="Bill Lookup" Page="{x:Static vm:ShellPage.BillLookup}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.BillLookup}}"/>
+                        <controls:NavDrawerItem Label="Day Close" Page="{x:Static vm:ShellPage.DayClose}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DayClose}}"/>
+                        <controls:NavDrawerItem Label="Duplicate" Page="{x:Static vm:ShellPage.DuplicateBill}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
+                        <controls:NavDrawerItem Label="Adjustments" Page="{x:Static vm:ShellPage.Adjustments}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
+                        <controls:NavDrawerItem Label="Expenses" Page="{x:Static vm:ShellPage.DailyExpenses}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DailyExpenses}}"/>
+                        <controls:NavDrawerItem Label="Settings" Page="{x:Static vm:ShellPage.Settings}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Settings}}"/>
+                        <Button HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Command="{Binding LogoutCommand}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="0"
+                                Cursor="Hand"
+                                FocusVisualStyle="{x:Null}"
+                                ToolTip="Sign out and return to login">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Root"
+                                            Background="Transparent"
+                                            Padding="16,12"
+                                            BorderThickness="3,0,0,0"
+                                            BorderBrush="Transparent">
+                                        <TextBlock Text="Logout"
+                                                   FontFamily="{StaticResource FontFamilyPrimary}"
+                                                   FontSize="14"
+                                                   Foreground="{StaticResource BrushNavInactive}"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Root" Property="Background" Value="{StaticResource BrushAccentSoft}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>

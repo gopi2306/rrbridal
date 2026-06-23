@@ -1,0 +1,613 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.BillLookupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900"
+             Background="{StaticResource BrushBackground}">
+    <Grid Background="{StaticResource BrushBackground}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Bill Lookup" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Bill No" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                    <TextBox x:Name="BillNoBox"
+                             Style="{StaticResource RoundedTextBoxCompact}"
+                             MinWidth="220"
+                             Text="{Binding BillNoInput, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Enter full bill no or last 3–4 digits"
+                             KeyDown="BillNoBox_KeyDown"/>
+                    <Button Content="Look up" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+                            Padding="14,6" Command="{Binding LookupBillCommand}"/>
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Foreground="{StaticResource BrushTextMuted}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Visibility="{Binding Detail.IsLoaded, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="10,8">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="View Bill" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
+                            Command="{Binding ShowViewModeCommand}"/>
+                    <Button Content="Add Return" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
+                            Command="{Binding StartReturnCommand}"/>
+                    <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
+                            Command="{Binding StartAdjustmentCommand}"/>
+                    <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
+                            Command="{Binding PrintDuplicateCommand}"/>
+                    <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
+                            Command="{Binding PrintCreditNoteDuplicateCommand}"
+                            Visibility="{Binding Detail.HasCreditNoteReturn, Converter={StaticResource BoolToVis}}"/>
+                    <Button Content="← Back to view" Style="{StaticResource GhostNavButton}" Padding="12,6"
+                            Command="{Binding BackToViewCommand}"
+                            Visibility="{Binding IsViewMode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="1*" MinWidth="300" MaxWidth="440"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- VIEW MODE - LEFT -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Margin="0,0,12,0" DataContext="{Binding Detail}"
+                          Visibility="{Binding DataContext.IsViewMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <Border Style="{StaticResource CardBorder}" Padding="12,10" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}"
+                                          IsHitTestVisible="False" Focusable="False" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}"
+                                          IsHitTestVisible="False" Focusable="False" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}"
+                                          IsHitTestVisible="False" Focusable="False" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}"
+                                          IsHitTestVisible="False" Focusable="False" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}"
+                                          IsHitTestVisible="False" Focusable="False" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                                        Margin="0,0,0,6"
+                                        Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                                <TextBlock Text="{Binding DeliveryDateDisplay}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding CustomerCode}" IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                                <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding Salesman}" IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding CustomerPhone}" IsReadOnly="True" IsTabStop="False"/>
+                                <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBox Grid.Row="1" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding CustomerName}" IsReadOnly="True" IsTabStop="False"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Style="{StaticResource TextSectionTitle}" Text="Line items" Margin="0,0,0,10"/>
+                            <DataGrid x:Name="LinesGrid"
+                                      Grid.Row="1"
+                                      ItemsSource="{Binding Lines}"
+                                      Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      RowHeight="36"
+                                      BorderThickness="1"
+                                      BorderBrush="{StaticResource BrushBorder}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" Width="50"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Product code" Binding="{Binding Sku}" Width="110"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColHsn" Header="HSN" Binding="{Binding Hsn}" Width="90"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat=N2}" Width="70"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" Width="90"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Alteration amt" Binding="{Binding AlterationAmount, StringFormat=N2}" IsReadOnly="True" Width="100"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" Width="100"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColDisc" Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" Width="80"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColCashDisc" Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" Width="90"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColScheme" Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N2}" Width="90"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColOrigTax" Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" Width="85"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColRevisedAmt" Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" Width="95"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColRevisedGst" Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" Width="95"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColMrp" Header="MRP" Binding="{Binding Mrp, StringFormat=N2}" Width="80"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColTaxPct" Header="Tax %" Binding="{Binding TaxPercent}" Width="60"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColCgst" Header="CGST%" Binding="{Binding CgstPercent}" Width="60"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColSgst" Header="SGST%" Binding="{Binding SgstPercent}" Width="60"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColIgst" Header="IGST%" Binding="{Binding IgstPercent}" Width="60"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                    <DataGridTextColumn x:Name="ColTaxAmt" Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" Width="80"
+                                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border Grid.Row="2"
+                                    BorderBrush="{StaticResource BrushBorder}"
+                                    BorderThickness="1,0,1,1"
+                                    Background="{StaticResource BrushSurface}"
+                                    Padding="0,6">
+                                <Grid MinHeight="28">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="70"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Grid.ColumnSpan="4"
+                                               Text="Total qty"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"
+                                               Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding TotalLineQtyFormatted}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{StaticResource BrushAccent}"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- RETURN MODE - LEFT -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0"
+                          Visibility="{Binding IsReturnMode, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10"
+                            DataContext="{Binding OriginalDetail}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource TextSectionTitle}" Text="Original bill (1st invoice)" Margin="0,0,0,8"/>
+                            <TextBlock Margin="0,0,0,8" TextWrapping="Wrap" FontSize="12">
+                                <Run Text="Bill: " FontWeight="SemiBold"/><Run Text="{Binding LoadedBillNo, Mode=OneWay}"/>
+                                <Run Text="  |  Date: "/><Run Text="{Binding BillDateDisplay, Mode=OneWay}"/>
+                                <Run Text="  |  Payable: " FontWeight="SemiBold"/><Run Text="{Binding PayableTotalFormatted, Mode=OneWay}"/>
+                            </TextBlock>
+                            <DataGrid ItemsSource="{Binding Lines}" Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                                      RowHeight="32" MaxHeight="160" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding LineNo}" Width="40"/>
+                                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat=N2}" Width="55"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" Width="70"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotalFormatted}" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" DataContext="{Binding Return}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="15" Text="Return items" Margin="0,0,0,10"/>
+                            <DataGrid ItemsSource="{Binding ReturnLines}" Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
+                                      BorderThickness="1" BorderBrush="{StaticResource BrushBorder}">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="55"/>
+                                    <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"/>
+                                    <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                    <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="70"/>
+                                    <DataGridTextColumn Header="Return Qty" Binding="{Binding ReturnQty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" IsReadOnly="True" Width="75"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="85"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" DataContext="{Binding Return}">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <TextBlock FontWeight="SemiBold" FontSize="15" Text="Exchange items (optional)"/>
+                                <TextBlock Text="Use the top search box (F3) to add replacement products."
+                                           Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding ExchangeLines}" Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
+                                      BorderThickness="1" BorderBrush="{StaticResource BrushBorder}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" IsReadOnly="True" Width="75"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2}" IsReadOnly="True" Width="85"/>
+                                    <DataGridTemplateColumn Header="" Width="48">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource IconDeleteButton}" HorizontalAlignment="Center"
+                                                        Command="{Binding DataContext.Return.RemoveExchangeLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ADJUSTMENT MODE - LEFT -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0"
+                          Visibility="{Binding IsAdjustmentMode, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10"
+                            DataContext="{Binding OriginalDetail}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource TextSectionTitle}" Text="Original bill (1st invoice)" Margin="0,0,0,8"/>
+                            <TextBlock Margin="0,0,0,8" TextWrapping="Wrap" FontSize="12">
+                                <Run Text="Bill: " FontWeight="SemiBold"/><Run Text="{Binding LoadedBillNo, Mode=OneWay}"/>
+                                <Run Text="  |  Payable: " FontWeight="SemiBold"/><Run Text="{Binding PayableTotalFormatted, Mode=OneWay}"/>
+                            </TextBlock>
+                            <DataGrid ItemsSource="{Binding Lines}" Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                                      RowHeight="32" MaxHeight="160" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding LineNo}" Width="40"/>
+                                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat=N2}" Width="55"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" Width="70"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotalFormatted}" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" DataContext="{Binding Adjustment}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextSectionTitle}" Text="Adjustment lines" Margin="0,0,0,10"/>
+                            <DataGrid ItemsSource="{Binding AdjustmentLines}" Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
+                                      BorderThickness="1" BorderBrush="{StaticResource BrushBorder}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="45"/>
+                                    <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="95"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                    <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="65"/>
+                                    <DataGridTextColumn Header="Orig Rate" Binding="{Binding OriginalRate, StringFormat=N2}" IsReadOnly="True" Width="70"/>
+                                    <DataGridTextColumn Header="Adj Qty" Binding="{Binding AdjustedQty, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
+                                    <DataGridTextColumn Header="Adj Rate" Binding="{Binding AdjustedRate, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                                    <DataGridTextColumn Header="Diff" Binding="{Binding DiffAmount, StringFormat=N2}" IsReadOnly="True" Width="65"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- VIEW MODE - RIGHT -->
+            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Detail}"
+                    Visibility="{Binding DataContext.IsViewMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="BILL DETAILS" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
+                            <TextBlock Text="{Binding LoadedBillNo, StringFormat=BILL NO: {0}}" Foreground="White" Margin="0,6,0,0"
+                                       FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding BillDateDisplay}" Foreground="White" Opacity="0.9" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding CounterDisplay, StringFormat=Counter: {0}}" Foreground="White" Opacity="0.85" Margin="0,2,0,0" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding SubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="GST before discount" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding OriginalTaxTotalFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Item discount" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding ItemDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Cash discount" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding CashDiscAmountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Scheme / offer discount" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding SchemeDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Revised sub total" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding RevisedSubTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="CGST" Foreground="{StaticResource BrushTextMuted}"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                <TextBlock Text="{Binding CgstTotalFormatted}" HorizontalAlignment="Right"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="SGST" Foreground="{StaticResource BrushTextMuted}"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                <TextBlock Text="{Binding SgstTotalFormatted}" HorizontalAlignment="Right"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="IGST" Foreground="{StaticResource BrushTextMuted}"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding IgstTotalFormatted}" HorizontalAlignment="Right"
+                                           Visibility="{Binding IsInterState, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Tax total" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding TaxTotalFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Total (incl. tax)" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding GrossTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Round off" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding RoundOffFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6" Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Credit note" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding SelectedCreditNoteLabel}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding HasAppliedCredit, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Applied on this bill" Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding CreditAppliedFormatted}" HorizontalAlignment="Right"
+                                           Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold"/>
+                            </Grid>
+
+                            <Separator Margin="0,8,0,12"/>
+
+                            <TextBlock Text="Payment method" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Mode" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding PaymentMode}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Cash" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding CashPaymentFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Card" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding CardPaymentFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="UPI" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding UpiPaymentFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Credit note" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding CreditNotePaymentFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+
+                            <StackPanel Visibility="{Binding HasReturn, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Return" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Content="View Return" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" Padding="10,4"
+                                            Command="{Binding OpenReturnCommand}"/>
+                                </Grid>
+                                <Border Style="{StaticResource CardBorder}" Background="{StaticResource BrushSurface}">
+                                    <TextBlock Text="{Binding ReturnSummary}" TextWrapping="Wrap" FontSize="12" Margin="4"/>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding HasAdjustment, Converter={StaticResource BoolToVis}}">
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Adjustment" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Content="View Adjustment" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" Padding="10,4"
+                                            Command="{Binding OpenAdjustmentCommand}"/>
+                                </Grid>
+                                <Border Style="{StaticResource CardBorder}" Background="{StaticResource BrushSurface}">
+                                    <TextBlock Text="{Binding AdjustmentSummary}" TextWrapping="Wrap" FontSize="12" Margin="4"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" Padding="14,14">
+                        <Grid>
+                            <TextBlock Text="Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22"
+                                       FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- RETURN MODE - RIGHT -->
+            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Return}"
+                    Visibility="{Binding DataContext.IsReturnMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="RETURN SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                            <TextBlock Text="{Binding ReturnNo, StringFormat=RETURN NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Return total" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding ReturnTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Replacement total" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding ReplacementTotalFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Credit balance" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding CreditBalanceFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Separator Margin="0,8,0,12"/>
+                            <TextBlock Text="Return mode" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <RadioButton Content="Credit Note" GroupName="BillLookupReturnMode"
+                                         IsChecked="{Binding ReturnMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CreditNote}" Margin="0,0,0,4"/>
+                            <RadioButton Content="Cash Refund" GroupName="BillLookupReturnMode"
+                                         IsChecked="{Binding ReturnMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CashRefund}" Margin="0,0,0,8"/>
+                            <TextBlock Text="Reason" Margin="0,0,0,4"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0"
+                                        Visibility="{Binding DataContext.CanPostReturn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                <Button Content="Post Return" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding PostReturnCommand}"/>
+                            </StackPanel>
+                            <TextBlock Margin="0,12,0,0" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                                       Visibility="{Binding DataContext.Detail.HasReturn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                A return is already posted for this bill. View the return summary in View Bill mode.
+                            </TextBlock>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                        <Grid>
+                            <TextBlock Text="{Binding FooterLabel}" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding FooterAmountFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ADJUSTMENT MODE - RIGHT -->
+            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Adjustment}"
+                    Visibility="{Binding DataContext.IsAdjustmentMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="ADJUSTMENT SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                            <TextBlock Text="{Binding AdjustmentNo, StringFormat=ADJ NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" Padding="14,12" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Original payable" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding OriginalPayableFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Adjusted payable" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding AdjustedPayableFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Sub total diff" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBlock Text="{Binding DiffSubTotalFormatted}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Separator Margin="0,8,0,12"/>
+                            <TextBlock Text="Reason" Margin="0,0,0,4"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0"
+                                        Visibility="{Binding DataContext.CanPostAdjustment, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                <Button Content="Post Adjustment" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding PostAdjustmentCommand}"/>
+                            </StackPanel>
+                            <TextBlock Margin="0,12,0,0" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                                       Visibility="{Binding DataContext.Detail.HasAdjustment, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                An adjustment is already posted for this bill. View the adjustment summary in View Bill mode.
+                            </TextBlock>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                        <Grid>
+                            <TextBlock Text="Diff Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DiffPayableFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

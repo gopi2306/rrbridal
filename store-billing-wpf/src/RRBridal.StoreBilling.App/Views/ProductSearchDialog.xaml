@@ -30,19 +30,15 @@
             <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" Width="100"/>
         </Grid>
 
-        <ListView Grid.Row="2"
+            <ListView x:Name="ResultsListView"
+                  Grid.Row="2"
                   ItemsSource="{Binding Results}"
                   SelectedItem="{Binding SelectedProduct}"
                   MouseDoubleClick="Results_OnMouseDoubleClick"
                   BorderBrush="{StaticResource BrushBorder}"
                   Background="{StaticResource BrushSurface}">
             <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="SKU" DisplayMemberBinding="{Binding Sku}" Width="120"/>
-                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="280"/>
-                    <GridViewColumn Header="Rate" Width="80" DisplayMemberBinding="{Binding SuggestedRate, StringFormat=₹ {0:N2}}"/>
-                    <GridViewColumn Header="GST %" Width="60" DisplayMemberBinding="{Binding SuggestedTaxPercent, StringFormat={}{0:N0}}"/>
-                </GridView>
+                <GridView x:Name="ResultsGridView"/>
             </ListView.View>
         </ListView>
 

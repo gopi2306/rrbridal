@@ -35,6 +35,7 @@ public static class BillThermalMapper
                     Rate = ReadDecimal(line, "rate"),
                     Mrp = ReadDecimal(line, "mrp"),
                     Amount = amount,
+                    AlterationAmount = ReadDecimal(line, "alterationAmount"),
                     LineDiscount = disc,
                     TaxableAmount = ReadDecimal(line, "revisedAmount"),
                     TaxAmount = ReadDecimal(line, "revisedTaxAmount"),
@@ -78,6 +79,10 @@ public static class BillThermalMapper
                 itemDiscountPercent = Math.Round(itemDiscount / discountBase * 100m, 2, MidpointRounding.AwayFromZero);
         }
 
+        var alterationTotal = ReadDecimal(doc, "alterationTotal");
+        if (alterationTotal <= 0)
+            alterationTotal = active.Sum(l => l.AlterationAmount);
+
         return new ThermalInvoiceInput
         {
             Store = store,
@@ -101,6 +106,8 @@ public static class BillThermalMapper
             ItemDiscountPercent = itemDiscountPercent,
             ItemDiscount = itemDiscount,
             CashDiscAmount = cashDiscAmount,
+            AlterationTotal = alterationTotal,
+            AlterationGstIncluded = doc.GetValue("alterationGstIncluded", false).AsBoolean,
             RoundOff = ReadDecimal(doc, "roundOff"),
             Payable = ReadDecimal(doc, "payable"),
             TotalQty = active.Sum(l => l.Qty),

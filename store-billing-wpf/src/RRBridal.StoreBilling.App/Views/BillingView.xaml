@@ -148,7 +148,7 @@
                                 <DataGridTextColumn Header="Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="*"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"
+                                <DataGridTextColumn x:Name="ColHsn" Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
                                 <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"
@@ -157,33 +157,36 @@
                                 <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
+                                <DataGridTextColumn Header="Alteration amt" Binding="{Binding AlterationAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="100"
+                                                    ElementStyle="{StaticResource ThemedDataGridCellText}"
+                                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
                                 <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N2}" IsReadOnly="True" Width="100"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn x:Name="ColDisc" Header="Disc (₹)" Binding="{Binding DiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
+                                <DataGridTextColumn x:Name="ColCashDisc" Header="Cash disc (₹)" Binding="{Binding CashDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
+                                <DataGridTextColumn x:Name="ColScheme" Header="Scheme (₹)" Binding="{Binding SchemeDiscountAmount, StringFormat=N2}" IsReadOnly="True" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="85"
+                                <DataGridTextColumn x:Name="ColOrigTax" Header="Orig tax (₹)" Binding="{Binding OriginalTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="85"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn x:Name="ColRevisedAmt" Header="Revised amt (₹)" Binding="{Binding RevisedAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                <DataGridTextColumn x:Name="ColRevisedGst" Header="Revised GST (₹)" Binding="{Binding RevisedTaxAmount, StringFormat=N2}" IsReadOnly="True" Width="95"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="80"
+                                <DataGridTextColumn x:Name="ColMrp" Header="MRP" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"
+                                <DataGridTextColumn x:Name="ColTaxPct" Header="Tax %" Binding="{Binding TaxPercent, UpdateSourceTrigger=PropertyChanged}" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="CGST%" Binding="{Binding CgstPercent}" IsReadOnly="True" Width="60"
+                                <DataGridTextColumn x:Name="ColCgst" Header="CGST%" Binding="{Binding CgstPercent}" IsReadOnly="True" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="SGST%" Binding="{Binding SgstPercent}" IsReadOnly="True" Width="60"
+                                <DataGridTextColumn x:Name="ColSgst" Header="SGST%" Binding="{Binding SgstPercent}" IsReadOnly="True" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"
+                                <DataGridTextColumn x:Name="ColIgst" Header="IGST%" Binding="{Binding IgstPercent}" IsReadOnly="True" Width="60"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
+                                <DataGridTextColumn x:Name="ColTaxAmt" Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
                                 <DataGridTemplateColumn Header="" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -289,6 +292,10 @@
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="Scheme / offer discount" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding SchemeDiscountFormatted}" HorizontalAlignment="Right" Foreground="{StaticResource BrushNegative}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Alteration amount" Foreground="{StaticResource BrushTextMuted}"/>
+                            <TextBlock Text="{Binding AlterationTotalFormatted}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
                         </Grid>
                         <StackPanel Margin="0,0,0,8"
                                     Visibility="{Binding HasAppliedSchemes, Converter={StaticResource BoolToVis}}">

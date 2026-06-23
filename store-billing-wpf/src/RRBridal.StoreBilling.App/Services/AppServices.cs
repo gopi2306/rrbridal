@@ -48,6 +48,7 @@ public sealed class AppServices
     public required BillNumberGenerator BillNumberGenerator { get; init; }
     public required BillingOutboxPublisher BillingOutbox { get; init; }
     public required PosBillingSettingsStore PosBillingSettings { get; init; }
+    public required RazorpayPosSettingsStore RazorpayPosSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
     public required HeldBillService HeldBills { get; init; }
     public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
@@ -92,9 +93,10 @@ public sealed class AppServices
 
         var centralAuthClient = new CentralAuthClient(http, authSession);
 
+        var razorpayPosSettings = new RazorpayPosSettingsStore();
         var paymentRouter = new PaymentRouter(
             new PineLabsPaymentProvider(),
-            new RazorpayPaymentProvider(),
+            new RazorpayPaymentProvider(razorpayPosSettings),
             localDb,
             storeContext);
 
@@ -177,6 +179,7 @@ public sealed class AppServices
             BillNumberGenerator = billNumberGenerator,
             BillingOutbox = billingOutbox,
             PosBillingSettings = posBillingSettings,
+            RazorpayPosSettings = razorpayPosSettings,
             BillDocuments = billDocuments,
             HeldBills = heldBills,
             CustomerCreditNotes = customerCreditNotes,

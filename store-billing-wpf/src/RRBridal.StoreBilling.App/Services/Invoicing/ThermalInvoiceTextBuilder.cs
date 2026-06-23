@@ -17,6 +17,7 @@ public sealed class InvoiceLineSnap
     public decimal Rate { get; init; }
     public decimal Mrp { get; init; }
     public decimal Amount { get; init; }
+    public decimal AlterationAmount { get; init; }
     public decimal LineDiscount { get; init; }
     public decimal TaxableAmount { get; init; }
     public decimal TaxAmount { get; init; }
@@ -71,6 +72,10 @@ public sealed class ThermalInvoiceInput
     public decimal ItemDiscount { get; init; }
 
     public decimal CashDiscAmount { get; init; }
+
+    public decimal AlterationTotal { get; init; }
+
+    public bool AlterationGstIncluded { get; init; }
 
     /// <summary>Manual bill discount (item + cash); excludes scheme/offer discounts.</summary>
     public decimal ManualDiscountAmount => ItemDiscount + CashDiscAmount;
@@ -201,8 +206,11 @@ public static class ThermalInvoiceTextBuilder
         }
 
         if (input.ItemDiscount > 0)
+            sb.AppendLine(TwoCols($"Item discount: {input.ItemDiscount:0.00}", "", w));
         if (input.CashDiscAmount > 0)
             sb.AppendLine(TwoCols($"Cash discount: {input.CashDiscAmount:0.00}", "", w));
+        if (input.AlterationTotal > 0)
+            sb.AppendLine(TwoCols($"Alteration: {input.AlterationTotal:0.00}", "", w));
         if (input.RoundOff != 0)
             sb.AppendLine(TwoCols($"Round off: {input.RoundOff:0.00}", "", w));
 

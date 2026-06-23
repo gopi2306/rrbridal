@@ -8,6 +8,7 @@ public enum ShellPage
     Customers,
     Ledger,
     SaleReturn,
+    BillLookup,
     Adjustments,
     DuplicateBill,
     OnlineSales,

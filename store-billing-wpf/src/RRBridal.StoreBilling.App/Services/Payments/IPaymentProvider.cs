@@ -15,7 +15,8 @@ public sealed record PaymentRequest(
     string InvoiceNo,
     decimal Amount,
     string Currency,
-    string? Reference = null);
+    string? Reference = null,
+    RazorpayPosPayMode PosMode = RazorpayPosPayMode.All);
 
 public sealed record PaymentResult(
     PaymentProviderKind Provider,
