@@ -52,6 +52,7 @@ public sealed class AppServices
     public required BillDocumentService BillDocuments { get; init; }
     public required HeldBillService HeldBills { get; init; }
     public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
+    public required SaleReturnHistoryService SaleReturnHistory { get; init; }
     public required ShellBrandingService ShellBranding { get; init; }
     public required StoreInfoClient StoreInfo { get; init; }
     public required StoreSyncRunner StoreSyncRunner { get; init; }
@@ -135,6 +136,7 @@ public sealed class AppServices
         var storeBillList = new StoreBillListService(localDb);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
+        var saleReturnHistory = new SaleReturnHistoryService(localDb);
         var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
@@ -183,6 +185,7 @@ public sealed class AppServices
             BillDocuments = billDocuments,
             HeldBills = heldBills,
             CustomerCreditNotes = customerCreditNotes,
+            SaleReturnHistory = saleReturnHistory,
             ShellBranding = shellBranding,
             StoreInfo = storeInfoClient,
             StoreSyncRunner = storeSyncRunner,

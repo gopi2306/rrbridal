@@ -4,7 +4,10 @@ export interface StockAuditLineRow {
   sku: string;
   productName: string;
   productSubtitle: string;
+  /** Store on-hand from inventory ledger for this store. */
   orderedQty: number;
+  /** Alias for orderedQty — store inventory quantity. */
+  storeQty: number;
   scannedQty: number;
   varianceQty: number;
   gstPercent: number | null;

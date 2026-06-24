@@ -56,6 +56,7 @@ import { MyWarehouseModule } from '../my-warehouse/my-warehouse.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { StockAuditModule } from '../stock-audit/stock-audit.module';
 import { StockTallyModule } from '../stock-tally/stock-tally.module';
+import { BillsModule } from '../bills/bills.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
 
@@ -122,6 +123,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
     StockAuditModule,
     StockTallyModule,
+    BillsModule,
     WhatsAppModule,
   ],
   controllers: [AppController],

@@ -44,7 +44,11 @@ public partial class SaleReturnLineItem : ObservableObject
 
     public decimal OriginalPaidInclusive { get; init; }
 
+    [ObservableProperty] private decimal _previouslyReturnedQty;
 
+    public decimal MaxReturnableQty => Math.Max(0, OriginalQty - PreviouslyReturnedQty);
+
+    public bool CanSelect => MaxReturnableQty > 0;
 
     private decimal ReturnRatio => OriginalQty > 0 ? ReturnQty / OriginalQty : 0m;
 
@@ -112,51 +116,50 @@ public partial class SaleReturnLineItem : ObservableObject
 
 
     partial void OnIsSelectedChanged(bool value)
-
     {
+        if (!CanSelect)
+        {
+            if (value)
+                IsSelected = false;
+            ReturnQty = 0;
+            return;
+        }
 
         ReturnQty = value
-
-            ? ReturnQty <= 0 ? OriginalQty : Math.Min(ReturnQty, OriginalQty)
-
+            ? ReturnQty <= 0 ? MaxReturnableQty : Math.Min(ReturnQty, MaxReturnableQty)
             : 0;
 
         NotifyReturnCalculatedProperties();
-
     }
 
-
-
     partial void OnReturnQtyChanged(decimal value)
-
     {
-
         if (value < 0)
-
         {
-
             ReturnQty = 0;
-
             return;
-
         }
 
-
-
-        if (value > OriginalQty)
-
+        if (value > MaxReturnableQty)
         {
-
-            ReturnQty = OriginalQty;
-
+            ReturnQty = MaxReturnableQty;
             return;
-
         }
-
-
 
         NotifyReturnCalculatedProperties();
+    }
 
+    partial void OnPreviouslyReturnedQtyChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(MaxReturnableQty));
+        OnPropertyChanged(nameof(CanSelect));
+        if (!CanSelect)
+        {
+            IsSelected = false;
+            ReturnQty = 0;
+        }
+        else if (ReturnQty > MaxReturnableQty)
+            ReturnQty = MaxReturnableQty;
     }
 
 

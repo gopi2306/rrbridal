@@ -16,7 +16,8 @@ public sealed record PaymentRequest(
     decimal Amount,
     string Currency,
     string? Reference = null,
-    RazorpayPosPayMode PosMode = RazorpayPosPayMode.All);
+    RazorpayPosPayMode PosMode = RazorpayPosPayMode.All,
+    bool ManualRecord = false);
 
 public sealed record PaymentResult(
     PaymentProviderKind Provider,

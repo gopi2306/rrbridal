@@ -267,9 +267,15 @@ Customer codes are generated automatically. Data syncs to the central system.
 7. Enter a **reason**.
 8. Click **Post Return / Exchange**.
 
+**Settings (Settings → Other):**
+
+- **Allow multiple returns per bill (partial returns)** — when **off** (default), only one return transaction is allowed per posted bill.
+- When **on**, you may return remaining quantity in separate transactions. Lines already fully returned in a prior transaction show a disabled **Select** checkbox and a **Prev Ret** column with the quantity already returned.
+
 **Rules:**
 
-- Only one return is allowed per posted bill.
+- With multiple returns **disabled**, only one return is allowed per posted bill.
+- With multiple returns **enabled**, each line tracks cumulative returned quantity; you cannot return more than the original bill quantity.
 - Business day must be open.
 - If exchange items cost more than the return, a payment dialog collects the difference.
 - If exchange items cost less, credit balance is issued per the return mode.

@@ -56,6 +56,7 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     private readonly IPaymentRouter _router;
     private readonly CustomerCreditNoteService? _creditNotes;
+    private readonly RazorpayPosSettingsStore? _razorpayPosSettings;
     private readonly string _storeId;
     private readonly string _invoiceNo;
     private readonly string? _billingReservedCreditNoteNo;
@@ -108,11 +109,19 @@ public partial class PaymentDialogViewModel : ObservableObject
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private bool _isProcessing;
 
+    public bool IsRazorpayPosConfigured { get; private set; }
+    public string CardModeLabel { get; private set; } = "Card";
+    public string UpiModeLabel { get; private set; } = "UPI";
+    public string CardPaymentTitle { get; private set; } = "Card payment";
+    public string CardPaymentHelpText { get; private set; } = "";
+    public string UpiPaymentTitle { get; private set; } = "UPI payment";
+    public string UpiPaymentHelpText { get; private set; } = "";
+
     public Action<bool>? CloseDialog { get; set; }
     public PaymentOutcome Outcome { get; private set; } = new() { Confirmed = false };
 
-    public PaymentDialogViewModel(IPaymentRouter router, string invoiceNo, decimal payableAmount)
-        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0, false, false, "")
+    public PaymentDialogViewModel(IPaymentRouter router, string invoiceNo, decimal payableAmount, RazorpayPosSettingsStore? razorpayPosSettings = null)
+        : this(router, null, "", invoiceNo, payableAmount, null, null, null, 0, false, false, "", razorpayPosSettings)
     {
     }
 
@@ -128,10 +137,12 @@ public partial class PaymentDialogViewModel : ObservableObject
         decimal billingReservedCreditAmount,
         bool skipPaymentOutbox = false,
         bool allowCreditNoteRemainingCashout = false,
-        string? posCounter = null)
+        string? posCounter = null,
+        RazorpayPosSettingsStore? razorpayPosSettings = null)
     {
         _router = router;
         _creditNotes = creditNotes;
+        _razorpayPosSettings = razorpayPosSettings;
         _storeId = storeId ?? "";
         _invoiceNo = invoiceNo;
         _billingReservedCreditNoteNo = billingReservedCreditNoteNo?.Trim();
@@ -154,6 +165,7 @@ public partial class PaymentDialogViewModel : ObservableObject
 
         _customerCode = customerCode?.Trim() ?? "";
         _customerPhone = customerPhone?.Trim() ?? "";
+        ReloadPosConfiguration();
         UpdateCollectibleAmounts();
         ApplyPaymentCreditToPaymentInputs();
     }
@@ -163,6 +175,8 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
+        ReloadPosConfiguration();
+
         if (_creditNotes == null)
             return;
 
@@ -519,6 +533,76 @@ public partial class PaymentDialogViewModel : ObservableObject
         return true;
     }
 
+    private void ReloadPosConfiguration()
+    {
+        _razorpayPosSettings?.Load();
+        var configured = _razorpayPosSettings?.Current.IsConfigured ?? false;
+        IsRazorpayPosConfigured = configured;
+
+        CardModeLabel = configured ? "Card (Razorpay POS)" : "Card";
+        UpiModeLabel = configured ? "UPI (Razorpay POS)" : "UPI";
+        CardPaymentTitle = configured ? "Card payment (Razorpay POS)" : "Card payment";
+        UpiPaymentTitle = configured ? "UPI payment (Razorpay POS)" : "UPI payment";
+        CardPaymentHelpText = configured
+            ? "Amount is sent to the wired Razorpay / Ezetap POS device. Complete payment on the terminal."
+            : "POS integration is not configured. Payment will be recorded and the bill posted when you confirm.";
+        UpiPaymentHelpText = configured
+            ? "Amount is sent to the wired Razorpay / Ezetap POS device. Customer pays via UPI on the terminal."
+            : "POS integration is not configured. Payment will be recorded and the bill posted when you confirm.";
+
+        if (!configured && string.IsNullOrWhiteSpace(DeviceStatusText))
+            DeviceStatusText = "Ready";
+
+        OnPropertyChanged(nameof(IsRazorpayPosConfigured));
+        OnPropertyChanged(nameof(CardModeLabel));
+        OnPropertyChanged(nameof(UpiModeLabel));
+        OnPropertyChanged(nameof(CardPaymentTitle));
+        OnPropertyChanged(nameof(CardPaymentHelpText));
+        OnPropertyChanged(nameof(UpiPaymentTitle));
+        OnPropertyChanged(nameof(UpiPaymentHelpText));
+    }
+
+    private static string FormatPosErrorMessage(string message)
+    {
+        if (message.Contains("deviceid", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("device id", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Razorpay device ID not recognized. Check Settings → Other → Razorpay POS → Device ID (serial|ezetap_android) and ensure the terminal is paired.";
+        }
+
+        return message;
+    }
+
+    private async Task<bool> ExecuteManualCardOrUpiPaymentAsync(
+        PaymentProviderKind reportProvider,
+        decimal amount,
+        List<PaymentLegResult> legs)
+    {
+        DeviceStatusText = "Recorded manually (POS not configured)";
+
+        var result = await _router.PayAndRecordAsync(
+            reportProvider,
+            new PaymentRequest(_invoiceNo, amount, "INR", ManualRecord: true),
+            CancellationToken.None,
+            enqueueOutbox: !_skipPaymentOutbox);
+
+        if (result.Status != "Success")
+        {
+            ErrorMessage = $"{reportProvider} payment failed: {result.Status}";
+            DeviceStatusText = "Failed";
+            return false;
+        }
+
+        legs.Add(new PaymentLegResult
+        {
+            Provider = reportProvider,
+            Amount = amount,
+            Reference = result.ProviderReference,
+            Status = result.Status,
+        });
+        return true;
+    }
+
     private async Task<bool> ExecuteRazorpayPosPaymentAsync(
         RazorpayPosPayMode posMode,
         PaymentProviderKind reportProvider,
@@ -540,7 +624,7 @@ public partial class PaymentDialogViewModel : ObservableObject
 
         if (result.Status != "Success")
         {
-            ErrorMessage = $"POS payment failed: {result.Status}";
+            ErrorMessage = FormatPosErrorMessage($"POS payment failed: {result.Status}");
             DeviceStatusText = "Failed";
             return false;
         }
@@ -606,11 +690,22 @@ public partial class PaymentDialogViewModel : ObservableObject
                     }
                     if (CollectibleAmount <= 0)
                         break;
-                    if (!await ExecuteRazorpayPosPaymentAsync(
-                            RazorpayPosPayMode.Card,
-                            PaymentProviderKind.PineLabs,
-                            CollectibleAmount,
-                            legs))
+                    if (IsRazorpayPosConfigured)
+                    {
+                        if (!await ExecuteRazorpayPosPaymentAsync(
+                                RazorpayPosPayMode.Card,
+                                PaymentProviderKind.PineLabs,
+                                CollectibleAmount,
+                                legs))
+                        {
+                            Status = PaymentStatus.Failed;
+                            return;
+                        }
+                    }
+                    else if (!await ExecuteManualCardOrUpiPaymentAsync(
+                                 PaymentProviderKind.PineLabs,
+                                 CollectibleAmount,
+                                 legs))
                     {
                         Status = PaymentStatus.Failed;
                         return;
@@ -625,11 +720,22 @@ public partial class PaymentDialogViewModel : ObservableObject
                     }
                     if (CollectibleAmount <= 0)
                         break;
-                    if (!await ExecuteRazorpayPosPaymentAsync(
-                            RazorpayPosPayMode.Upi,
-                            PaymentProviderKind.Razorpay,
-                            CollectibleAmount,
-                            legs))
+                    if (IsRazorpayPosConfigured)
+                    {
+                        if (!await ExecuteRazorpayPosPaymentAsync(
+                                RazorpayPosPayMode.Upi,
+                                PaymentProviderKind.Razorpay,
+                                CollectibleAmount,
+                                legs))
+                        {
+                            Status = PaymentStatus.Failed;
+                            return;
+                        }
+                    }
+                    else if (!await ExecuteManualCardOrUpiPaymentAsync(
+                                 PaymentProviderKind.Razorpay,
+                                 CollectibleAmount,
+                                 legs))
                     {
                         Status = PaymentStatus.Failed;
                         return;
@@ -706,14 +812,26 @@ public partial class PaymentDialogViewModel : ObservableObject
                         PaymentResult splitResult;
                         if (posMode.HasValue)
                         {
-                            DeviceStatusText = posMode == RazorpayPosPayMode.Upi
-                                ? "Waiting for UPI on Razorpay device..."
-                                : "Waiting for card on Razorpay device...";
-                            splitResult = await _router.PayAndRecordAsync(
-                                PaymentProviderKind.Razorpay,
-                                new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value),
-                                CancellationToken.None,
-                                enqueueOutbox: !_skipPaymentOutbox);
+                            if (IsRazorpayPosConfigured)
+                            {
+                                DeviceStatusText = posMode == RazorpayPosPayMode.Upi
+                                    ? "Waiting for UPI on Razorpay device..."
+                                    : "Waiting for card on Razorpay device...";
+                                splitResult = await _router.PayAndRecordAsync(
+                                    PaymentProviderKind.Razorpay,
+                                    new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value),
+                                    CancellationToken.None,
+                                    enqueueOutbox: !_skipPaymentOutbox);
+                            }
+                            else
+                            {
+                                DeviceStatusText = "Recorded manually (POS not configured)";
+                                splitResult = await _router.PayAndRecordAsync(
+                                    provider,
+                                    new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value, ManualRecord: true),
+                                    CancellationToken.None,
+                                    enqueueOutbox: !_skipPaymentOutbox);
+                            }
                         }
                         else
                         {
@@ -726,7 +844,9 @@ public partial class PaymentDialogViewModel : ObservableObject
 
                         if (splitResult.Status != "Success" && splitResult.Status != "Pending")
                         {
-                            ErrorMessage = $"{provider} leg failed: {splitResult.Status}";
+                            ErrorMessage = posMode.HasValue && IsRazorpayPosConfigured
+                                ? FormatPosErrorMessage($"{provider} leg failed: {splitResult.Status}")
+                                : $"{provider} leg failed: {splitResult.Status}";
                             Status = PaymentStatus.Failed;
                             return;
                         }
@@ -774,7 +894,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = FormatPosErrorMessage(ex.Message);
             Status = PaymentStatus.Failed;
         }
         finally

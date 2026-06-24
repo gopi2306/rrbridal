@@ -5,7 +5,12 @@ export interface StockTallyLineRow {
   productName: string;
   productSubtitle: string;
   barcode: string | null;
+  /** Store on-hand from inventory ledger (same as stock audit orderedQty). */
+  orderedQty: number;
+  /** Alias for orderedQty — store inventory quantity. */
+  storeQty: number;
   scannedQty: number;
+  qty: number;
   gstPercent: number | null;
   costPrice: number | null;
   mrp: number | null;
@@ -20,6 +25,7 @@ export interface StockTallySessionResponse {
   status: StockTallyStatus;
   skuCount: number;
   totalScannedQty: number;
+  totalQty: number;
   data: StockTallyLineRow[];
   total: number;
   page: number;
@@ -41,4 +47,5 @@ export interface StockTallySaveResponse {
   auditNo: string;
   linesSaved: number;
   savedAt: string;
+  lines: Array<{ sku: string; scannedQty: number; qty: number }>;
 }

@@ -37,7 +37,8 @@ export class StockAuditService {
     const page = Math.max(1, params.page);
     const limit = Math.min(100, Math.max(1, params.limit));
     const audit = await this.getOrCreateOpenAudit(storeCode);
-    const ranked = await this.resolveRankedLines(audit.lines, params.search);
+    const storeQtyMap = await this.inventoryService.getStoreSkuQtyMap(audit.storeId);
+    const ranked = await this.resolveRankedLines(audit.lines, params.search, storeQtyMap);
 
     const total = ranked.length;
     const pageSlice = ranked.slice((page - 1) * limit, page * limit);
@@ -69,11 +70,13 @@ export class StockAuditService {
       const sku = scan.sku.trim();
       if (!sku) continue;
       const scannedQty = Math.max(0, scan.scannedQty);
+      const orderedQty = storeQtyMap.get(sku) ?? 0;
       const existing = lineBySku.get(sku);
       if (existing) {
         existing.scannedQty = scannedQty;
+        existing.orderedQty = orderedQty;
       } else {
-        const line: StockAuditLine = { sku, orderedQty: storeQtyMap.get(sku) ?? 0, scannedQty };
+        const line: StockAuditLine = { sku, orderedQty, scannedQty };
         audit.lines.push(line);
         lineBySku.set(sku, line);
       }
@@ -89,7 +92,8 @@ export class StockAuditService {
     maxRows = TABULAR_EXPORT_MAX_ROWS,
   ): Promise<{ audit: StockAuditDocument; rows: StockAuditLineRow[] }> {
     const audit = await this.getOrCreateOpenAudit(storeCode);
-    const ranked = await this.resolveRankedLines(audit.lines, search);
+    const storeQtyMap = await this.inventoryService.getStoreSkuQtyMap(audit.storeId);
+    const ranked = await this.resolveRankedLines(audit.lines, search, storeQtyMap);
     if (ranked.length > maxRows) {
       throw new PayloadTooLargeException(
         `Export exceeds maximum of ${maxRows} rows (${ranked.length} match). Narrow search and try again.`,
@@ -145,14 +149,18 @@ export class StockAuditService {
   private async resolveRankedLines(
     lines: StockAuditLine[],
     search?: string,
+    storeQtyMap?: Map<string, number>,
   ): Promise<RankedAuditLine[]> {
     let ranked = lines
+      .map((line) => {
+        const orderedQty = storeQtyMap?.get(line.sku) ?? line.orderedQty;
+        return {
+          sku: line.sku,
+          orderedQty,
+          scannedQty: line.scannedQty,
+        };
+      })
       .filter((line) => line.orderedQty > 0 || line.scannedQty > 0)
-      .map((line) => ({
-        sku: line.sku,
-        orderedQty: line.orderedQty,
-        scannedQty: line.scannedQty,
-      }))
       .sort((a, b) => b.orderedQty - a.orderedQty);
 
     const trimmedSearch = search?.trim();
@@ -200,6 +208,7 @@ export class StockAuditService {
       productName: typeof product.itemName === 'string' ? product.itemName : line.sku,
       productSubtitle: this.productSubtitle(product),
       orderedQty: line.orderedQty,
+      storeQty: line.orderedQty,
       scannedQty: line.scannedQty,
       varianceQty: line.scannedQty - line.orderedQty,
       gstPercent: typeof product.gstPercent === 'number' ? product.gstPercent : null,

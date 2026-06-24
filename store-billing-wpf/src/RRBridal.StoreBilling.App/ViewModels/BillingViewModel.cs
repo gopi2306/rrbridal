@@ -1632,7 +1632,8 @@ public partial class BillingViewModel : ObservableObject
                 totals.AppliedCredit,
                 skipPaymentOutbox: true,
                 allowCreditNoteRemainingCashout: _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout,
-                posCounter: _services.StoreContext.PosCounter);
+                posCounter: _services.StoreContext.PosCounter,
+                razorpayPosSettings: _services.RazorpayPosSettings);
             await paymentVm.InitializeAsync();
             var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
             var paymentResult = paymentDlg.ShowDialog();

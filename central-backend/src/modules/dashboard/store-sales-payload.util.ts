@@ -706,3 +706,105 @@ export function parseOnlineCodReceivedPaymentMode(payload: Record<string, unknow
   if (!oc || typeof oc !== 'object') return undefined;
   return readString((oc as Record<string, unknown>).receivedPaymentMode);
 }
+
+export type BillListStatusKey = 'completed' | 'partially_returned' | 'returned' | 'cancelled';
+export type BillListPaymentModeKey = 'cash' | 'card' | 'upi' | 'credit' | 'mixed';
+
+/** Default bills list window: last 30 IST calendar days through today. */
+export function resolveBillsListDateRange(from?: string, to?: string): ResolvedDateRange {
+  const biz = businessCalendarParts(businessNow());
+  const toYmd = to?.trim() || formatYmdFromParts(biz.y, biz.m, biz.day);
+  let fromYmd = from?.trim();
+  if (!fromYmd) {
+    const anchor = new Date(Date.UTC(biz.y, biz.m, biz.day - 30));
+    const parts = businessCalendarParts(anchor);
+    fromYmd = formatYmdFromParts(parts.y, parts.m, parts.day);
+  }
+  const fromParts = parseYmdParts(fromYmd);
+  const toParts = parseYmdParts(toYmd);
+  if (!fromParts || !toParts) {
+    throw new Error('Invalid from or to date');
+  }
+  const { from: fromUtc } = businessDayBoundsUtc(fromParts.y, fromParts.m, fromParts.day);
+  const { to: toUtc } = businessDayBoundsUtc(toParts.y, toParts.m, toParts.day);
+  const days = Math.floor((toUtc.getTime() - fromUtc.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  return {
+    from: fromUtc,
+    to: toUtc,
+    fromYmd,
+    toYmd,
+    label: 'Selected range',
+    bucketByMonth: days > 31,
+    timezone: BUSINESS_TZ_IANA,
+  };
+}
+
+export function sumInvoiceLineQty(payload: Record<string, unknown>): number {
+  return sumLineQty(payload.lines);
+}
+
+export function resolveBillPaymentLabel(totals: PaymentTotals): {
+  label: string;
+  key: BillListPaymentModeKey;
+} {
+  const buckets: BillListPaymentModeKey[] = [];
+  if (totals.cash > 0) buckets.push('cash');
+  if (totals.card > 0) buckets.push('card');
+  if (totals.upi > 0) buckets.push('upi');
+  if (totals.creditNote > 0) buckets.push('credit');
+  if (buckets.length === 0) return { label: 'Cash', key: 'cash' };
+  if (buckets.length > 1) return { label: 'Mixed', key: 'mixed' };
+  const key = buckets[0]!;
+  const label =
+    key === 'cash' ? 'Cash' : key === 'card' ? 'Card' : key === 'upi' ? 'UPI' : 'Credit';
+  return { label, key };
+}
+
+export function resolveBillStatusKey(
+  invoicePayload: Record<string, unknown>,
+  returnPayloads: ReadonlyArray<Record<string, unknown>>,
+): BillListStatusKey {
+  const status = (readString(invoicePayload.status) ?? 'posted').toLowerCase();
+  if (status === 'void' || status === 'cancelled') return 'cancelled';
+  if (returnPayloads.length === 0) return 'completed';
+
+  const invoiceQtyBySku = new Map<string, number>();
+  for (const line of parseInvoiceLines(invoicePayload)) {
+    invoiceQtyBySku.set(line.sku, (invoiceQtyBySku.get(line.sku) ?? 0) + line.qty);
+  }
+
+  const returnedQtyBySku = new Map<string, number>();
+  for (const rp of returnPayloads) {
+    for (const line of parseReturnLines(rp)) {
+      returnedQtyBySku.set(line.sku, (returnedQtyBySku.get(line.sku) ?? 0) + line.qty);
+    }
+  }
+
+  if (invoiceQtyBySku.size === 0) {
+    return returnPayloads.length > 0 ? 'returned' : 'completed';
+  }
+
+  let allFullyReturned = true;
+  let anyReturned = false;
+  for (const [sku, invQty] of invoiceQtyBySku) {
+    const retQty = returnedQtyBySku.get(sku) ?? 0;
+    if (retQty > 0) anyReturned = true;
+    if (retQty < invQty) allFullyReturned = false;
+  }
+
+  if (!anyReturned) return 'completed';
+  return allFullyReturned ? 'returned' : 'partially_returned';
+}
+
+export function formatBillStatusLabel(key: BillListStatusKey): string {
+  switch (key) {
+    case 'completed':
+      return 'Completed';
+    case 'partially_returned':
+      return 'Partially Returned';
+    case 'returned':
+      return 'Returned';
+    case 'cancelled':
+      return 'Cancelled';
+  }
+}

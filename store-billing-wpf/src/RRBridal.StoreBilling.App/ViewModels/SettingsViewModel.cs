@@ -78,16 +78,18 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
+    [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
     [ObservableProperty] private bool _billingAlterationGstIncluded;
     [ObservableProperty] private BillingLineItemDetailLevel _billingLineItemDetailLevel = BillingLineItemDetailLevel.Full;
 
-    [ObservableProperty] private bool _razorpayPosEnabled = true;
+    [ObservableProperty] private bool _razorpayPosEnabled;
     [ObservableProperty] private string _razorpayPosUsername = "";
     [ObservableProperty] private string _razorpayPosAppKey = "";
     [ObservableProperty] private string _razorpayPosApiBaseUrl = "https://www.ezetap.com/api/3.0/p2padapter/";
     [ObservableProperty] private string _razorpayPosDeviceId = "";
     [ObservableProperty] private int _razorpayPosStatusPollIntervalMs = 2000;
     [ObservableProperty] private int _razorpayPosStatusTimeoutSeconds = 120;
+    [ObservableProperty] private string _razorpayPosStatusText = "";
 
     public IReadOnlyList<BillingLineItemDetailOption> BillingLineItemDetailOptions { get; } =
     [
@@ -560,7 +562,29 @@ public partial class SettingsViewModel : ObservableObject
         RazorpayPosDeviceId = s.DeviceId;
         RazorpayPosStatusPollIntervalMs = s.StatusPollIntervalMs;
         RazorpayPosStatusTimeoutSeconds = s.StatusTimeoutSeconds;
+        RefreshRazorpayPosStatusText();
     }
+
+    private void RefreshRazorpayPosStatusText()
+    {
+        var draft = new RazorpayPosSettingsDocument
+        {
+            Enabled = RazorpayPosEnabled,
+            Username = RazorpayPosUsername?.Trim() ?? "",
+            AppKey = RazorpayPosAppKey?.Trim() ?? "",
+            ApiBaseUrl = string.IsNullOrWhiteSpace(RazorpayPosApiBaseUrl)
+                ? "https://www.ezetap.com/api/3.0/p2padapter/"
+                : RazorpayPosApiBaseUrl.Trim(),
+            DeviceId = RazorpayPosSettingsDocument.NormalizeDeviceId(RazorpayPosDeviceId),
+        };
+        RazorpayPosStatusText = RazorpayPosSettingsDocument.GetConfigurationStatusMessage(draft);
+    }
+
+    partial void OnRazorpayPosEnabledChanged(bool value) => RefreshRazorpayPosStatusText();
+    partial void OnRazorpayPosUsernameChanged(string value) => RefreshRazorpayPosStatusText();
+    partial void OnRazorpayPosAppKeyChanged(string value) => RefreshRazorpayPosStatusText();
+    partial void OnRazorpayPosApiBaseUrlChanged(string value) => RefreshRazorpayPosStatusText();
+    partial void OnRazorpayPosDeviceIdChanged(string value) => RefreshRazorpayPosStatusText();
 
     [RelayCommand]
     public async Task SaveRazorpayPosSettingsAsync()
@@ -579,6 +603,7 @@ public partial class SettingsViewModel : ObservableObject
         });
         await _services.RazorpayPosSettings.SaveAsync();
         RazorpayPosDeviceId = _services.RazorpayPosSettings.Current.DeviceId;
+        RefreshRazorpayPosStatusText();
         LastActionText = "Razorpay POS settings saved.";
     }
 
@@ -587,6 +612,7 @@ public partial class SettingsViewModel : ObservableObject
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
+        BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
         BillingAlterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
         BillingLineItemDetailLevel = _services.PosBillingSettings.Current.LineItemDetailLevel;
     }
@@ -598,6 +624,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
+            s.AllowMultipleReturnsPerBill = BillingAllowMultipleReturnsPerBill;
             s.AlterationGstIncluded = BillingAlterationGstIncluded;
             s.LineItemDetailLevel = BillingLineItemDetailLevel;
         });
@@ -614,6 +641,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
+                { "allowMultipleReturnsPerBill", BillingAllowMultipleReturnsPerBill },
                 { "alterationGstIncluded", BillingAlterationGstIncluded },
                 { "lineItemDetailLevel", BillingLineItemDetailLevel.ToString() },
             },

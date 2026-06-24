@@ -88,6 +88,15 @@ public static class StoreIndexEnsurer
             cancellationToken: ct);
 
         var saleReturns = db.GetCollection<MongoDB.Bson.BsonDocument>("store_sale_returns");
+        try
+        {
+            await saleReturns.Indexes.DropOneAsync("storeId_originalBillNo_unique", cancellationToken: ct);
+        }
+        catch (MongoCommandException)
+        {
+            // Index may not exist on older installs.
+        }
+
         await saleReturns.Indexes.CreateOneAsync(
             new CreateIndexModel<MongoDB.Bson.BsonDocument>(
                 Builders<MongoDB.Bson.BsonDocument>.IndexKeys
@@ -95,8 +104,7 @@ public static class StoreIndexEnsurer
                     .Ascending("originalBillNo"),
                 new CreateIndexOptions
                 {
-                    Name = "storeId_originalBillNo_unique",
-                    Unique = true,
+                    Name = "storeId_originalBillNo",
                 }),
             cancellationToken: ct);
 

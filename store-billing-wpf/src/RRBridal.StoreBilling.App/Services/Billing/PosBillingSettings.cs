@@ -12,4 +12,7 @@ public sealed class PosBillingSettingsDocument
 
     /// <summary>When true, alteration amounts are GST-inclusive and split using each line's tax %.</summary>
     public bool AlterationGstIncluded { get; set; }
+
+    /// <summary>When true, a bill may have multiple partial return transactions; fully returned lines are disabled.</summary>
+    public bool AllowMultipleReturnsPerBill { get; set; }
 }

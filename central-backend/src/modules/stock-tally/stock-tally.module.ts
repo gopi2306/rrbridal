@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { InventoryModule } from '../inventory/inventory.module';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { ProductsModule } from '../products/products.module';
 import { StockAuditModule } from '../stock-audit/stock-audit.module';
@@ -10,6 +11,7 @@ import { StockTallyService } from './stock-tally.service';
 
 @Module({
   imports: [
+    InventoryModule,
     ProductsModule,
     StockAuditModule,
     MongooseModule.forFeature([

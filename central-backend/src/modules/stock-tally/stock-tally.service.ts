@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
+import { InventoryService } from '../inventory/inventory.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ProductsService } from '../products/products.service';
 import { StockAuditService } from '../stock-audit/stock-audit.service';
@@ -26,9 +27,16 @@ type RankedTallyLine = {
   scannedQty: number;
 };
 
+type TallyLineInput = {
+  sku: string;
+  scannedQty?: number;
+  qty?: number;
+};
+
 @Injectable()
 export class StockTallyService {
   constructor(
+    private readonly inventoryService: InventoryService,
     private readonly productsService: ProductsService,
     private readonly stockAuditService: StockAuditService,
     @InjectModel(StockTally.name) private readonly tallyModel: Model<StockTallyDocument>,
@@ -44,7 +52,7 @@ export class StockTallyService {
 
     const total = ranked.length;
     const pageSlice = ranked.slice((page - 1) * limit, page * limit);
-    const data = await this.mapRankedToRows(pageSlice);
+    const data = await this.mapRankedToRows(tally.storeId, pageSlice);
 
     const skuCount = ranked.length;
     const totalScannedQty = ranked.reduce((sum, line) => sum + line.scannedQty, 0);
@@ -56,6 +64,7 @@ export class StockTallyService {
       status: tally.status,
       skuCount,
       totalScannedQty,
+      totalQty: totalScannedQty,
       data,
       total,
       page,
@@ -108,16 +117,48 @@ export class StockTallyService {
     return this.getSession(storeCode, { page: 1, limit: 200 });
   }
 
-  async save(storeCode: string): Promise<StockTallySaveResponse> {
+  async replaceLines(
+    storeCode: string,
+    lines: TallyLineInput[],
+  ): Promise<StockTallySessionResponse> {
     const tally = await this.getOrCreateOpenTally(storeCode);
+    tally.lines = this.normalizeLineInputs(lines);
+    if (tally.lines.length === 0) {
+      throw new BadRequestException('At least one line with quantity greater than zero is required');
+    }
+
+    tally.markModified('lines');
+    await tally.save();
+
+    return this.getSession(storeCode, { page: 1, limit: 200 });
+  }
+
+  async save(
+    storeCode: string,
+    lineInputs?: TallyLineInput[],
+  ): Promise<StockTallySaveResponse> {
+    const tally = await this.getOrCreateOpenTally(storeCode);
+
+    if (lineInputs !== undefined) {
+      tally.lines = this.normalizeLineInputs(lineInputs);
+      tally.markModified('lines');
+      await tally.save();
+    }
+
     if (tally.lines.length === 0) {
       throw new BadRequestException('Cannot save an empty tally session');
     }
 
-    const scans = tally.lines.map((line) => ({
-      sku: line.sku,
-      scannedQty: line.scannedQty,
-    }));
+    const scans = tally.lines
+      .filter((line) => line.scannedQty > 0)
+      .map((line) => ({
+        sku: line.sku,
+        scannedQty: line.scannedQty,
+      }));
+
+    if (scans.length === 0) {
+      throw new BadRequestException('Cannot save an empty tally session');
+    }
 
     const audit = await this.stockAuditService.applyScannedCounts(storeCode, scans);
 
@@ -139,18 +180,63 @@ export class StockTallyService {
       auditNo: audit.auditNo,
       linesSaved: scans.length,
       savedAt: new Date().toISOString(),
+      lines: scans.map((line) => ({
+        sku: line.sku,
+        scannedQty: line.scannedQty,
+        qty: line.scannedQty,
+      })),
     };
+  }
+
+  private normalizeLineInputs(lines: TallyLineInput[]): StockTallyLine[] {
+    const bySku = new Map<string, number>();
+    for (const line of lines) {
+      const sku = line.sku?.trim() ?? '';
+      if (!sku) continue;
+      const qty = Math.max(0, line.scannedQty ?? line.qty ?? 0);
+      if (qty <= 0) continue;
+      bySku.set(sku, qty);
+    }
+
+    return [...bySku.entries()].map(([sku, scannedQty]) => ({ sku, scannedQty }));
+  }
+
+  private async consolidateOpenTallies(storeId: string): Promise<StockTallyDocument | null> {
+    const drafts = await this.tallyModel
+      .find({ storeId, status: OPEN_TALLY_STATUS })
+      .sort({ updatedAt: -1 })
+      .exec();
+
+    if (drafts.length === 0) return null;
+
+    const primary = drafts[0];
+    if (!primary) return null;
+
+    if (drafts.length === 1) return primary;
+
+    const merged = new Map<string, number>();
+    for (const draft of drafts) {
+      for (const line of draft.lines) {
+        if (line.scannedQty <= 0) continue;
+        merged.set(line.sku, (merged.get(line.sku) ?? 0) + line.scannedQty);
+      }
+    }
+
+    primary.lines = [...merged.entries()].map(([sku, scannedQty]) => ({ sku, scannedQty }));
+    primary.markModified('lines');
+    await primary.save();
+
+    const extraIds = drafts.slice(1).map((draft) => draft._id);
+    await this.tallyModel.deleteMany({ _id: { $in: extraIds } });
+
+    return primary;
   }
 
   private async getOrCreateOpenTally(storeCode: string): Promise<StockTallyDocument> {
     const sid = await this.resolveStoreCode(storeCode);
 
-    const existing = await this.tallyModel
-      .findOne({ storeId: sid, status: OPEN_TALLY_STATUS })
-      .sort({ updatedAt: -1 })
-      .exec();
-
-    if (existing) return existing;
+    const consolidated = await this.consolidateOpenTallies(sid);
+    if (consolidated) return consolidated;
 
     return await this.tallyModel.create({
       tallyNo: await this.allocateTallyNo(),
@@ -216,21 +302,33 @@ export class StockTallyService {
     return ranked;
   }
 
-  private async mapRankedToRows(ranked: RankedTallyLine[]): Promise<StockTallyLineRow[]> {
+  private async mapRankedToRows(
+    storeId: string,
+    ranked: RankedTallyLine[],
+  ): Promise<StockTallyLineRow[]> {
     if (ranked.length === 0) return [];
 
     const skus = ranked.map((line) => line.sku);
-    const products = await this.productModel.find({ sku: { $in: skus } }).lean();
+    const [products, inventoryQtyMap] = await Promise.all([
+      this.productModel.find({ sku: { $in: skus } }).lean(),
+      this.inventoryService.getStoreQtyBySkus(storeId, skus),
+    ]);
     const enriched = await enrichProductDocuments(
       this.productModel,
       products as Array<Record<string, unknown>>,
     );
     const bySku = new Map(enriched.map((p) => [typeof p.sku === 'string' ? p.sku : '', p]));
 
-    return ranked.map((line) => this.mapLineRow(bySku.get(line.sku) ?? {}, line));
+    return ranked.map((line) =>
+      this.mapLineRow(bySku.get(line.sku) ?? {}, line, inventoryQtyMap.get(line.sku) ?? 0),
+    );
   }
 
-  private mapLineRow(product: Record<string, unknown>, line: RankedTallyLine): StockTallyLineRow {
+  private mapLineRow(
+    product: Record<string, unknown>,
+    line: RankedTallyLine,
+    orderedQty: number,
+  ): StockTallyLineRow {
     const storePrice =
       (typeof product.storePrice === 'number' ? product.storePrice : undefined) ??
       (typeof product.sellingPrice === 'number' ? product.sellingPrice : undefined) ??
@@ -240,13 +338,23 @@ export class StockTallyService {
       productName: typeof product.itemName === 'string' ? product.itemName : line.sku,
       productSubtitle: this.productSubtitle(product),
       barcode: typeof product.upcEanCode === 'string' ? product.upcEanCode : null,
+      orderedQty,
+      storeQty: orderedQty,
       scannedQty: line.scannedQty,
-      gstPercent: typeof product.gstPercent === 'number' ? product.gstPercent : null,
+      qty: line.scannedQty,
+      gstPercent: this.resolveGstPercent(product),
       costPrice: typeof product.costPrice === 'number' ? product.costPrice : null,
       mrp: typeof product.mrp === 'number' ? product.mrp : null,
       sellingPrice: typeof product.sellingPrice === 'number' ? product.sellingPrice : null,
       storePrice,
     };
+  }
+
+  private resolveGstPercent(product: Record<string, unknown>): number | null {
+    if (typeof product.gstPercent === 'number') return product.gstPercent;
+    const hsn = product.hsnCodeId as { gstPercent?: number } | undefined;
+    if (hsn && typeof hsn.gstPercent === 'number') return hsn.gstPercent;
+    return null;
   }
 
   private productSubtitle(product: Record<string, unknown>): string {

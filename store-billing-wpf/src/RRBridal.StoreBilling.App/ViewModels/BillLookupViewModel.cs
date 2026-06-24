@@ -21,6 +21,7 @@ public partial class BillLookupViewModel : ObservableObject
     [ObservableProperty] private string _billNoInput = "";
     [ObservableProperty] private string _statusMessage = "Enter a bill number and press Look up.";
     [ObservableProperty] private BillLookupMode _activeMode = BillLookupMode.View;
+    [ObservableProperty] private bool _hasRemainingReturnableQty;
 
     public BillDetailDialogViewModel Detail { get; }
     public BillDetailDialogViewModel OriginalDetail { get; }
@@ -31,7 +32,12 @@ public partial class BillLookupViewModel : ObservableObject
     public bool IsReturnMode => ActiveMode == BillLookupMode.Return;
     public bool IsAdjustmentMode => ActiveMode == BillLookupMode.Adjustment;
     public bool ShowOriginalBillPanel => IsReturnMode || IsAdjustmentMode;
-    public bool CanPostReturn => IsReturnMode && Return.BillLoaded && !Detail.HasReturn;
+    public bool CanPostReturn =>
+        IsReturnMode && Return.BillLoaded && (
+            _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill
+                ? Return.HasReturnableLines
+                : !Detail.HasReturn);
+    public bool ShowReturnAlreadyPostedMessage => IsReturnMode && Detail.HasReturn && !CanPostReturn;
     public bool CanPostAdjustment => IsAdjustmentMode && Adjustment.BillLoaded && !Detail.HasAdjustment;
 
     public BillLookupViewModel(AppServices services)
@@ -50,8 +56,8 @@ public partial class BillLookupViewModel : ObservableObject
 
         Return.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(SaleReturnViewModel.BillLoaded))
-                OnPropertyChanged(nameof(CanPostReturn));
+            if (e.PropertyName is nameof(SaleReturnViewModel.BillLoaded) or nameof(SaleReturnViewModel.ShowPriorReturnQty))
+                NotifyReturnPostState();
         };
         Adjustment.PropertyChanged += (_, e) =>
         {
@@ -66,9 +72,12 @@ public partial class BillLookupViewModel : ObservableObject
         OnPropertyChanged(nameof(IsReturnMode));
         OnPropertyChanged(nameof(IsAdjustmentMode));
         OnPropertyChanged(nameof(ShowOriginalBillPanel));
-        OnPropertyChanged(nameof(CanPostReturn));
+        NotifyReturnPostState();
         OnPropertyChanged(nameof(CanPostAdjustment));
     }
+
+    partial void OnHasRemainingReturnableQtyChanged(bool value) =>
+        StartReturnCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private void ShowViewMode() => ActiveMode = BillLookupMode.View;
@@ -111,6 +120,32 @@ public partial class BillLookupViewModel : ObservableObject
     {
         await Detail.LoadAsync(billNo);
         await OriginalDetail.LoadAsync(billNo);
+        await RefreshReturnEligibilityAsync(billNo);
+    }
+
+    private async Task RefreshReturnEligibilityAsync(string billNo)
+    {
+        if (!Detail.IsLoaded)
+        {
+            HasRemainingReturnableQty = false;
+            return;
+        }
+
+        if (!_services.PosBillingSettings.Current.AllowMultipleReturnsPerBill)
+        {
+            HasRemainingReturnableQty = !Detail.HasReturn;
+            return;
+        }
+
+        var billDoc = await _services.BillDocuments.GetByBillNoAsync(billNo);
+        if (billDoc == null)
+        {
+            HasRemainingReturnableQty = false;
+            return;
+        }
+
+        HasRemainingReturnableQty = await _services.SaleReturnHistory.HasRemainingReturnableQtyAsync(
+            _services.StoreContext.StoreId, billDoc);
     }
 
     private async Task OnReturnOrAdjustmentPostedAsync(string billNo)
@@ -127,8 +162,9 @@ public partial class BillLookupViewModel : ObservableObject
     private async Task EnterReturnViewAsync(string billNo, bool viewOnly = false)
     {
         ActiveMode = BillLookupMode.Return;
-        OnPropertyChanged(nameof(CanPostReturn));
+        NotifyReturnPostState();
         await Return.LoadBillByNoAsync(billNo, skipDuplicateChecks: viewOnly);
+        NotifyReturnPostState();
     }
 
     private async Task EnterAdjustmentViewAsync(string billNo, bool viewOnly = false)
@@ -189,7 +225,7 @@ public partial class BillLookupViewModel : ObservableObject
         return doc?.GetValue("billNo", "").AsString;
     }
 
-    private bool CanStartReturn() => Detail.IsLoaded && !Detail.HasReturn;
+    private bool CanStartReturn() => Detail.IsLoaded && HasRemainingReturnableQty;
 
     [RelayCommand(CanExecute = nameof(CanStartReturn))]
     private async Task StartReturn()
@@ -306,7 +342,13 @@ public partial class BillLookupViewModel : ObservableObject
         StartAdjustmentCommand.NotifyCanExecuteChanged();
         PrintDuplicateCommand.NotifyCanExecuteChanged();
         PrintCreditNoteDuplicateCommand.NotifyCanExecuteChanged();
-        OnPropertyChanged(nameof(CanPostReturn));
+        NotifyReturnPostState();
         OnPropertyChanged(nameof(CanPostAdjustment));
+    }
+
+    private void NotifyReturnPostState()
+    {
+        OnPropertyChanged(nameof(CanPostReturn));
+        OnPropertyChanged(nameof(ShowReturnAlreadyPostedMessage));
     }
 }

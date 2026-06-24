@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -56,6 +57,17 @@ public partial class SaleReturnViewModel : ObservableObject
     [ObservableProperty] private bool _hasExchangeLines;
     [ObservableProperty] private string _footerLabel = "Return Total";
     [ObservableProperty] private string _footerAmountFormatted = "₹ 0.00";
+    [ObservableProperty] private bool _showPriorReturnQty;
+
+    public bool HasReturnableLines => ReturnLines.Any(l => l.CanSelect);
+
+    public string ReturnAlreadyPostedMessage =>
+        AllowMultipleReturnsPerBill()
+            ? "Some items on this bill were already returned. Only remaining quantity can be returned."
+            : "A return is already posted for this bill. View the return summary in View Bill mode.";
+
+    private bool AllowMultipleReturnsPerBill() =>
+        _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
 
     public ObservableCollection<SaleReturnLineItem> ReturnLines { get; } = new();
     public ObservableCollection<SaleExchangeLineItem> ExchangeLines { get; } = new();
@@ -171,46 +183,64 @@ public partial class SaleReturnViewModel : ObservableObject
         var billNo = doc.GetValue("billNo", "").AsString;
         if (!skipDuplicateChecks)
         {
-            var existingReturn = await FindPostedReturnForBillAsync(billNo);
-            if (existingReturn != null)
+            var allowMultiple = AllowMultipleReturnsPerBill();
+            if (!allowMultiple)
             {
-                MessageBox.Show(
-                    BuildDuplicateReturnMessage(billNo, existingReturn),
-                    "Sale Return",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return false;
-            }
+                var existingReturn = await _services.SaleReturnHistory.FindFirstPostedReturnForBillAsync(
+                    _services.StoreContext.StoreId, billNo);
+                if (existingReturn != null)
+                {
+                    MessageBox.Show(
+                        BuildDuplicateReturnMessage(billNo, existingReturn),
+                        "Sale Return",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return false;
+                }
 
-            var existingCreditNote = await FindCreditNoteForBillAsync(billNo);
-            if (existingCreditNote != null)
+                var existingCreditNote = await FindCreditNoteForBillAsync(billNo);
+                if (existingCreditNote != null)
+                {
+                    MessageBox.Show(
+                        BuildDuplicateCreditNoteMessage(billNo, existingCreditNote),
+                        "Sale Return",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return false;
+                }
+            }
+            else
             {
-                MessageBox.Show(
-                    BuildDuplicateCreditNoteMessage(billNo, existingCreditNote),
-                    "Sale Return",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return false;
+                var priorByLine = await _services.SaleReturnHistory.GetPreviouslyReturnedQtyByLineAsync(
+                    _services.StoreContext.StoreId, billNo);
+                if (!SaleReturnHistoryService.HasRemainingReturnableQty(doc, priorByLine))
+                {
+                    MessageBox.Show(
+                        "All items on this bill have already been returned.",
+                        "Sale Return",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return false;
+                }
             }
         }
 
         OriginalBillNo = billNo;
-        LoadBillFromDocument(doc);
+        await LoadBillFromDocumentAsync(doc, skipDuplicateChecks);
         return true;
     }
 
-    private async Task<BsonDocument?> FindPostedReturnForBillAsync(string billNo)
+    private async Task LoadBillFromDocumentAsync(BsonDocument doc, bool skipDuplicateChecks)
     {
-        if (string.IsNullOrWhiteSpace(billNo))
-            return null;
+        IReadOnlyDictionary<int, decimal> priorByLine = new Dictionary<int, decimal>();
+        if (!skipDuplicateChecks && AllowMultipleReturnsPerBill())
+        {
+            var billNo = doc.GetValue("billNo", "").AsString;
+            priorByLine = await _services.SaleReturnHistory.GetPreviouslyReturnedQtyByLineAsync(
+                _services.StoreContext.StoreId, billNo);
+        }
 
-        var returnsColl = _services.LocalDb.GetCollection<BsonDocument>("store_sale_returns");
-        var filter = Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", _services.StoreContext.StoreId),
-            Builders<BsonDocument>.Filter.Eq("originalBillNo", billNo.Trim()),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"));
-
-        return await returnsColl.Find(filter).FirstOrDefaultAsync();
+        LoadBillFromDocument(doc, priorByLine);
     }
 
     private static string BuildDuplicateReturnMessage(string billNo, BsonDocument existingReturn)
@@ -231,7 +261,7 @@ public partial class SaleReturnViewModel : ObservableObject
         return $"A credit note has already been created for bill {billNo}{cnText}.\n\nOnly one credit note is allowed per bill.";
     }
 
-    private void LoadBillFromDocument(BsonDocument doc)
+    private void LoadBillFromDocument(BsonDocument doc, IReadOnlyDictionary<int, decimal>? priorByLine = null)
     {
         foreach (var line in ReturnLines)
             line.PropertyChanged -= OnReturnLinePropertyChanged;
@@ -240,15 +270,18 @@ public partial class SaleReturnViewModel : ObservableObject
         OriginalBillNo = doc.GetValue("billNo", "").AsString;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
         ReturnLines.Clear();
+        priorByLine ??= new Dictionary<int, decimal>();
 
         if (doc.Contains("lines") && doc["lines"].IsBsonArray)
         {
             foreach (BsonDocument lineBson in doc["lines"].AsBsonArray.OfType<BsonDocument>())
             {
+                var lineNo = lineBson.GetValue("lineNo", 0).ToInt32();
                 var taxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble();
+                priorByLine.TryGetValue(lineNo, out var priorReturned);
                 var item = new SaleReturnLineItem
                 {
-                    LineNo = lineBson.GetValue("lineNo", 0).ToInt32(),
+                    LineNo = lineNo,
                     ProductCode = lineBson.GetValue("sku", "").AsString,
                     Description = lineBson.GetValue("description", "").AsString,
                     OriginalQty = (decimal)lineBson.GetValue("qty", 0).ToDouble(),
@@ -258,13 +291,16 @@ public partial class SaleReturnViewModel : ObservableObject
                     OriginalItemDiscount = (decimal)lineBson.GetValue("discountAmount", 0).ToDouble(),
                     OriginalCashDiscount = (decimal)lineBson.GetValue("cashDiscountAmount", 0).ToDouble(),
                     OriginalPaidInclusive = ResolveOriginalPaidInclusive(lineBson, taxPercent, IsInterState),
+                    PreviouslyReturnedQty = priorReturned,
                 };
                 item.PropertyChanged += OnReturnLinePropertyChanged;
                 ReturnLines.Add(item);
             }
         }
 
+        ShowPriorReturnQty = AllowMultipleReturnsPerBill() && ReturnLines.Any(l => l.PreviouslyReturnedQty > 0);
         BillLoaded = true;
+        OnPropertyChanged(nameof(HasReturnableLines));
         RecalculateTotals();
     }
 
@@ -465,15 +501,39 @@ public partial class SaleReturnViewModel : ObservableObject
             return;
         }
 
-        var existingReturn = await FindPostedReturnForBillAsync(OriginalBillNo);
-        if (existingReturn != null)
+        var allowMultiple = AllowMultipleReturnsPerBill();
+        if (!allowMultiple)
         {
-            MessageBox.Show(
-                BuildDuplicateReturnMessage(OriginalBillNo.Trim(), existingReturn),
-                "Sale Return",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
+            var existingReturn = await _services.SaleReturnHistory.FindFirstPostedReturnForBillAsync(
+                _services.StoreContext.StoreId, OriginalBillNo.Trim());
+            if (existingReturn != null)
+            {
+                MessageBox.Show(
+                    BuildDuplicateReturnMessage(OriginalBillNo.Trim(), existingReturn),
+                    "Sale Return",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
+        else
+        {
+            var priorByLine = await _services.SaleReturnHistory.GetPreviouslyReturnedQtyByLineAsync(
+                _services.StoreContext.StoreId, OriginalBillNo.Trim());
+            foreach (var line in selected)
+            {
+                priorByLine.TryGetValue(line.LineNo, out var prior);
+                var maxQty = Math.Max(0, line.OriginalQty - prior);
+                if (line.ReturnQty > maxQty)
+                {
+                    MessageBox.Show(
+                        $"Return quantity for line {line.LineNo} ({line.ProductCode}) exceeds remaining quantity ({maxQty:N2}).",
+                        "Sale Return",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+            }
         }
 
         var dayGuard = new DaySessionGuard(_services.DaySessions);
@@ -486,7 +546,7 @@ public partial class SaleReturnViewModel : ObservableObject
             return;
         }
 
-        if (ReturnMode == ReturnMode.CreditNote)
+        if (ReturnMode == ReturnMode.CreditNote && !allowMultiple)
         {
             var existingCreditNote = await FindCreditNoteForBillAsync(OriginalBillNo.Trim());
             if (existingCreditNote != null)
@@ -580,7 +640,7 @@ public partial class SaleReturnViewModel : ObservableObject
             PaymentOutcome? paymentOutcome = null;
             if (amountToCollect > 0)
             {
-                var paymentVm = new PaymentDialogViewModel(_services.PaymentRouter, ReturnNo, amountToCollect);
+                var paymentVm = new PaymentDialogViewModel(_services.PaymentRouter, ReturnNo, amountToCollect, _services.RazorpayPosSettings);
                 var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
                 var paymentResult = paymentDlg.ShowDialog();
                 if (paymentResult != true || !paymentVm.Outcome.Confirmed)
@@ -729,14 +789,26 @@ public partial class SaleReturnViewModel : ObservableObject
             var creditNoteWarning = "";
             if (ReturnMode == ReturnMode.CreditNote && creditBalance > 0)
             {
-                createdCreditNoteNo = await _services.CustomerCreditNotes.CreateFromReturnAsync(
-                    ReturnNo,
-                    OriginalBillNo.Trim(),
-                    customerCode,
-                    customerName,
-                    customerPhone,
-                    creditBalance,
-                    storeId);
+                var existingCn = await FindCreditNoteForBillAsync(OriginalBillNo.Trim());
+                if (existingCn != null && allowMultiple)
+                {
+                    createdCreditNoteNo = await _services.CustomerCreditNotes.AddCreditFromReturnAsync(
+                        existingCn.CreditNoteNo,
+                        ReturnNo,
+                        creditBalance,
+                        storeId);
+                }
+                else
+                {
+                    createdCreditNoteNo = await _services.CustomerCreditNotes.CreateFromReturnAsync(
+                        ReturnNo,
+                        OriginalBillNo.Trim(),
+                        customerCode,
+                        customerName,
+                        customerPhone,
+                        creditBalance,
+                        storeId);
+                }
 
                 if (!string.IsNullOrEmpty(createdCreditNoteNo))
                 {
@@ -823,6 +895,7 @@ public partial class SaleReturnViewModel : ObservableObject
         ReturnLines.Clear();
         ExchangeLines.Clear();
         BillLoaded = false;
+        ShowPriorReturnQty = false;
         _originalBillDoc = null;
         await AssignReturnNoAsync();
         RecalculateTotals();

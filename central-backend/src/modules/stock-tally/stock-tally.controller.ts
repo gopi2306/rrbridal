@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { StockTallyQueryDto } from './dto/stock-tally-query.dto';
 import { StockTallySaveDto } from './dto/stock-tally-save.dto';
 import { StockTallyScanDto } from './dto/stock-tally-scan.dto';
+import { StockTallyReplaceLinesDto } from './dto/stock-tally-replace-lines.dto';
 import { StockTallyUpdateLineDto } from './dto/stock-tally-update-line.dto';
 import { StockTallyService } from './stock-tally.service';
 
@@ -28,11 +29,20 @@ export class StockTallyController {
 
   @Patch('lines')
   async updateLine(@Body() dto: StockTallyUpdateLineDto) {
-    return await this.stockTallyService.updateLine(dto.storeCode, dto.sku, dto.scannedQty);
+    const scannedQty = dto.scannedQty ?? dto.qty;
+    if (scannedQty === undefined) {
+      throw new BadRequestException('scannedQty or qty is required');
+    }
+    return await this.stockTallyService.updateLine(dto.storeCode, dto.sku, scannedQty);
+  }
+
+  @Put('lines')
+  async replaceLines(@Body() dto: StockTallyReplaceLinesDto) {
+    return await this.stockTallyService.replaceLines(dto.storeCode, dto.lines);
   }
 
   @Post('save')
   async save(@Body() dto: StockTallySaveDto) {
-    return await this.stockTallyService.save(dto.storeCode);
+    return await this.stockTallyService.save(dto.storeCode, dto.lines);
   }
 }

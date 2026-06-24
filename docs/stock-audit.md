@@ -1,6 +1,8 @@
 # Stock Audit API
 
-Store stock audit lines comparing **ordered** (book on-hand at audit start) vs **scanned** (physical count) quantities.
+Store-wise stock audit comparing **ordered** (store on-hand from inventory ledger) vs **scanned** (physical count from stock tally) quantities.
+
+Each store has its own open audit (`draft` / `in_progress`). Pass `storeCode` on every request (e.g. from the logged-in user's assigned store).
 
 ## List audit lines
 
@@ -15,7 +17,7 @@ GET /api/stock-audit?storeCode=store-001&page=1&limit=20
 | `page` | no | `1` | Page number |
 | `limit` | no | `20` | Page size (max `100`) |
 
-When no open audit exists for the store (`draft` or `in_progress`), the API creates one by snapshotting current store on-hand quantities (`orderedQty` from ledger, `scannedQty` = `0`).
+When no open audit exists for the store (`draft` or `in_progress`), the API creates one by snapshotting current store on-hand quantities from the inventory ledger (`orderedQty` / `storeQty`, `scannedQty` = `0`).
 
 ### Response
 
@@ -31,6 +33,7 @@ When no open audit exists for the store (`draft` or `in_progress`), the API crea
       "productName": "PP-11248 SEMI BRIDAL XL",
       "productSubtitle": "SEMI BRIDAL - XL",
       "orderedQty": 12,
+      "storeQty": 12,
       "scannedQty": 10,
       "varianceQty": -2,
       "gstPercent": 18,

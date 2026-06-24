@@ -119,6 +119,38 @@ public sealed class CustomerCreditNoteService
         return creditNoteNo;
     }
 
+    public async Task<string?> AddCreditFromReturnAsync(
+        string creditNoteNo,
+        string returnNo,
+        decimal additionalCredit,
+        string storeId,
+        CancellationToken ct = default)
+    {
+        if (additionalCredit <= 0 || string.IsNullOrWhiteSpace(creditNoteNo))
+            return null;
+
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+            Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()));
+
+        var doc = await _notes.Find(filter).FirstOrDefaultAsync(ct);
+        if (doc == null)
+            return null;
+
+        var newAmount = ReadDecimal(doc, "amount") + additionalCredit;
+        var newRemaining = ReadDecimal(doc, "remainingAmount") + additionalCredit;
+
+        await _notes.UpdateOneAsync(
+            filter,
+            Builders<BsonDocument>.Update
+                .Set("amount", (double)newAmount)
+                .Set("remainingAmount", (double)newRemaining)
+                .Set("status", StatusAvailable),
+            cancellationToken: ct);
+
+        return creditNoteNo;
+    }
+
     public async Task<IReadOnlyList<CustomerCreditNoteRecord>> ListAvailableForCustomerAsync(
         string storeId,
         string? customerCode,

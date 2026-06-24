@@ -253,11 +253,22 @@
                                       AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
                                       BorderThickness="1" BorderBrush="{StaticResource BrushBorder}">
                                 <DataGrid.Columns>
-                                    <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="55"/>
+                                    <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="55">
+                                        <DataGridCheckBoxColumn.ElementStyle>
+                                            <Style TargetType="CheckBox">
+                                                <Setter Property="IsEnabled" Value="{Binding CanSelect}"/>
+                                            </Style>
+                                        </DataGridCheckBoxColumn.ElementStyle>
+                                    </DataGridCheckBoxColumn>
                                     <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"/>
                                     <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="100"/>
                                     <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
                                     <DataGridTextColumn Header="Orig Qty" Binding="{Binding OriginalQty}" IsReadOnly="True" Width="70"/>
+                                    <DataGridTextColumn Header="Prev Ret" Binding="{Binding PreviouslyReturnedQty}" IsReadOnly="True" Width="70">
+                                        <DataGridTextColumn.Visibility>
+                                            <Binding Path="ShowPriorReturnQty"/>
+                                        </DataGridTextColumn.Visibility>
+                                    </DataGridTextColumn>
                                     <DataGridTextColumn Header="Return Qty" Binding="{Binding ReturnQty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
                                     <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" IsReadOnly="True" Width="75"/>
                                     <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="85"/>
@@ -540,8 +551,8 @@
                                         Command="{Binding PostReturnCommand}"/>
                             </StackPanel>
                             <TextBlock Margin="0,12,0,0" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
-                                       Visibility="{Binding DataContext.Detail.HasReturn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
-                                A return is already posted for this bill. View the return summary in View Bill mode.
+                                       Text="{Binding DataContext.Return.ReturnAlreadyPostedMessage, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                       Visibility="{Binding DataContext.ShowReturnAlreadyPostedMessage, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                             </TextBlock>
                         </StackPanel>
                     </ScrollViewer>

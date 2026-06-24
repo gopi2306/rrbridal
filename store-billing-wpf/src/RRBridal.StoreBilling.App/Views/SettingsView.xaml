@@ -715,6 +715,11 @@
                                 <CheckBox Content="Allow cash payout of credit note remaining balance (Payment dialog)"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,12"/>
+                                <CheckBox Content="Allow multiple returns per bill (partial returns)"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingAllowMultipleReturnsPerBill}" Margin="0,0,0,4"/>
+                                <TextBlock Text="When on, items fully returned in a prior transaction cannot be selected again; remaining quantity can be returned in a new transaction."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <TextBlock Text="Alteration amount" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                 <CheckBox Content="Alteration amount is GST inclusive"
                                           Style="{StaticResource ThemedCheckBox}"
@@ -727,6 +732,9 @@
                                 <CheckBox Content="Enable Razorpay POS payments"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding RazorpayPosEnabled}" Margin="0,0,0,8"/>
+                                <TextBlock Text="{Binding RazorpayPosStatusText}"
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushAccent}" Margin="0,0,0,12"/>
                                 <TextBlock Text="Username" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
                                 <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
                                 <TextBlock Text="App key" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>

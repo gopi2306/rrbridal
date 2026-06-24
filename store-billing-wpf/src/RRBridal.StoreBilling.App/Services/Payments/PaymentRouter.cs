@@ -58,14 +58,27 @@ public sealed class PaymentRouter : IPaymentRouter
         bool enqueueOutbox = true)
     {
         PaymentResult result;
-        if (provider is PaymentProviderKind.Cash or PaymentProviderKind.CreditNote)
+        if (provider is PaymentProviderKind.Cash or PaymentProviderKind.CreditNote
+            || (request.ManualRecord && provider is PaymentProviderKind.PineLabs or PaymentProviderKind.Razorpay))
         {
-            var providerName = provider == PaymentProviderKind.Cash ? "Cash" : "CreditNote";
+            var providerName = provider switch
+            {
+                PaymentProviderKind.Cash => "Cash",
+                PaymentProviderKind.CreditNote => "CreditNote",
+                PaymentProviderKind.PineLabs => "PineLabs",
+                PaymentProviderKind.Razorpay => "Razorpay",
+                _ => provider.ToString(),
+            };
             var reference = !string.IsNullOrWhiteSpace(request.Reference)
                 ? request.Reference.Trim()
-                : provider == PaymentProviderKind.Cash
-                    ? $"CASH-{request.InvoiceNo}"
-                    : $"CN-{request.InvoiceNo}";
+                : provider switch
+                {
+                    PaymentProviderKind.Cash => $"CASH-{request.InvoiceNo}",
+                    PaymentProviderKind.CreditNote => $"CN-{request.InvoiceNo}",
+                    PaymentProviderKind.PineLabs => $"MANUAL-CARD-{request.InvoiceNo}",
+                    PaymentProviderKind.Razorpay => $"MANUAL-UPI-{request.InvoiceNo}",
+                    _ => $"MANUAL-{request.InvoiceNo}",
+                };
             var raw = JsonSerializer.Serialize(new
             {
                 provider = providerName,
@@ -73,6 +86,7 @@ public sealed class PaymentRouter : IPaymentRouter
                 amount = request.Amount,
                 currency = request.Currency,
                 reference,
+                manualRecord = request.ManualRecord,
             });
             result = new PaymentResult(
                 Provider: provider,
