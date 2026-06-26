@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.Ui;
 
 namespace RRBridal.StoreBilling.App.Views;
 
@@ -70,6 +71,7 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
 
         Loaded += (_, _) =>
         {
+            DialogLayoutHelper.CenterAndClamp(this, Owner);
             if (string.IsNullOrWhiteSpace(CustomerName))
                 NameBox.Focus();
             else

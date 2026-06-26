@@ -36,6 +36,10 @@ public partial class SaleReturnViewModel : ObservableObject
     private readonly AppServices _services;
 
     [ObservableProperty] private string _originalBillNo = "";
+    [ObservableProperty] private string _searchCustomerName = "";
+    [ObservableProperty] private string _searchCustomerPhone = "";
+    [ObservableProperty] private string _statusMessage = "Search by bill no, customer name, or mobile.";
+    [ObservableProperty] private BillSearchRow? _selectedSearchBill;
     [ObservableProperty] private bool _billLoaded;
     [ObservableProperty] private string _reason = "";
     [ObservableProperty] private ReturnMode _returnMode = ReturnMode.CreditNote;
@@ -71,6 +75,9 @@ public partial class SaleReturnViewModel : ObservableObject
 
     public ObservableCollection<SaleReturnLineItem> ReturnLines { get; } = new();
     public ObservableCollection<SaleExchangeLineItem> ExchangeLines { get; } = new();
+    public ObservableCollection<BillSearchRow> SearchResults { get; } = new();
+
+    public bool ShowSearchResults => SearchResults.Count > 0 && !BillLoaded;
 
     private BsonDocument? _originalBillDoc;
 
@@ -104,17 +111,88 @@ public partial class SaleReturnViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task LookupBill()
+    private async Task SearchBills()
     {
-        var input = (OriginalBillNo ?? "").Trim();
-        if (string.IsNullOrEmpty(input))
+        if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter a bill number to look up.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Sale Return",
+                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        await LoadBillByNoAsync(input);
+        StatusMessage = "Searching…";
+        BillLoaded = false;
+        SearchResults.Clear();
+        foreach (var line in ReturnLines)
+            line.PropertyChanged -= OnReturnLinePropertyChanged;
+        foreach (var line in ExchangeLines)
+            line.PropertyChanged -= OnExchangeLinePropertyChanged;
+        ReturnLines.Clear();
+        ExchangeLines.Clear();
+        _originalBillDoc = null;
+
+        try
+        {
+            var rows = await _services.BillDocuments.SearchBillsAsync(
+                string.IsNullOrWhiteSpace(OriginalBillNo) ? null : OriginalBillNo.Trim(),
+                dateFrom: null,
+                dateTo: null,
+                customerName: string.IsNullOrWhiteSpace(SearchCustomerName) ? null : SearchCustomerName.Trim(),
+                customerPhone: string.IsNullOrWhiteSpace(SearchCustomerPhone) ? null : SearchCustomerPhone.Trim(),
+                status: "posted",
+                limit: 100);
+
+            foreach (var row in rows)
+                SearchResults.Add(row);
+
+            SelectedSearchBill = SearchResults.Count > 0 ? SearchResults[0] : null;
+            StatusMessage = rows.Count == 0
+                ? "No posted bills found."
+                : $"{rows.Count} bill(s) found — select one and press Load bill.";
+            NotifySearchResultsChanged();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Search failed: " + ex.Message;
+            NotifySearchResultsChanged();
+        }
     }
+
+    private bool HasSearchCriteria() =>
+        !string.IsNullOrWhiteSpace(OriginalBillNo)
+        || !string.IsNullOrWhiteSpace(SearchCustomerName)
+        || !string.IsNullOrWhiteSpace(SearchCustomerPhone);
+
+    partial void OnSelectedSearchBillChanged(BillSearchRow? value) =>
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+
+    private bool CanOpenSelectedBill() => SelectedSearchBill != null && !BillLoaded;
+
+    [RelayCommand(CanExecute = nameof(CanOpenSelectedBill))]
+    private async Task OpenSelectedBill()
+    {
+        if (SelectedSearchBill == null)
+            return;
+
+        var billNo = SelectedSearchBill.BillNo;
+        OriginalBillNo = billNo;
+        SearchResults.Clear();
+        SelectedSearchBill = null;
+        NotifySearchResultsChanged();
+        var loaded = await LoadBillByNoAsync(billNo);
+        StatusMessage = loaded
+            ? $"Loaded bill {billNo}."
+            : $"Could not load bill {billNo}.";
+    }
+
+    private void NotifySearchResultsChanged()
+    {
+        OnPropertyChanged(nameof(ShowSearchResults));
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private async Task LookupBill() => await SearchBills();
 
     /// <param name="skipDuplicateChecks">When true, loads bill for viewing (e.g. dashboard redirect to existing return).</param>
     public async Task<bool> LoadBillByNoAsync(string billNoInput, bool skipDuplicateChecks = false)
@@ -300,6 +378,7 @@ public partial class SaleReturnViewModel : ObservableObject
 
         ShowPriorReturnQty = AllowMultipleReturnsPerBill() && ReturnLines.Any(l => l.PreviouslyReturnedQty > 0);
         BillLoaded = true;
+        NotifySearchResultsChanged();
         OnPropertyChanged(nameof(HasReturnableLines));
         RecalculateTotals();
     }
@@ -897,6 +976,8 @@ public partial class SaleReturnViewModel : ObservableObject
         BillLoaded = false;
         ShowPriorReturnQty = false;
         _originalBillDoc = null;
+        SearchResults.Clear();
+        NotifySearchResultsChanged();
         await AssignReturnNoAsync();
         RecalculateTotals();
     }

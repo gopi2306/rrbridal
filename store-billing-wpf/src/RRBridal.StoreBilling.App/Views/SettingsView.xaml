@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="800" d:DesignWidth="720"
              Loaded="SettingsView_OnLoaded"
@@ -53,7 +54,8 @@
         <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                     SelectionChanged="SettingsTabs_OnSelectionChanged">
             <TabItem Header="Connection &amp; sync">
-                <Grid Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <Grid Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                      ui:SettingsColumnsLayoutBehavior.IsEnabled="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280"/>
                         <ColumnDefinition Width="16"/>
@@ -697,7 +699,8 @@
             <TabItem Header="Other">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch">
+                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch"
+                      ui:SettingsColumnsLayoutBehavior.IsEnabled="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280"/>
                         <ColumnDefinition Width="16"/>

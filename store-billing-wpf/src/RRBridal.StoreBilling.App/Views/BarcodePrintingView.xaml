@@ -21,14 +21,14 @@
                 <TextBlock Text="BarCode Printing" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
                 <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,4,0,0"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Button Content="Print (F5)" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Padding="16,8"
+            <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Print (F5)" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4" Padding="16,8"
                         Command="{Binding PrintLabelsCommand}"/>
-                <Button Content="Add item (F6)" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Padding="16,8"
+                <Button Content="Add item (F6)" Style="{StaticResource OutlineButton}" Margin="0,0,8,4" Padding="16,8"
                         Command="{Binding OpenItemListCommand}"/>
-                <Button Content="Clear (F7)" Style="{StaticResource OutlineButton}" Padding="16,8"
+                <Button Content="Clear (F7)" Style="{StaticResource OutlineButton}" Margin="0,0,0,4" Padding="16,8"
                         Command="{Binding ClearScreenCommand}"/>
-            </StackPanel>
+            </WrapPanel>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,0,0,8">
@@ -47,6 +47,7 @@
                   GridLinesVisibility="Horizontal"
                   Background="White"
                   BorderBrush="{StaticResource BrushBorder}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                   PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="SNo" Binding="{Binding LineNo}" IsReadOnly="True" Width="45"

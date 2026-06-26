@@ -1,4 +1,5 @@
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -10,5 +11,6 @@ public partial class BillDetailDialog : Window
         InitializeComponent();
         DataContext = vm;
         vm.RequestClose = Close;
+        Loaded += (_, _) => DialogLayoutHelper.CenterAndClamp(this, Owner);
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using RRBridal.StoreBilling.App.Services.Ui;
 
 namespace RRBridal.StoreBilling.App.Views;
 
@@ -12,6 +13,7 @@ public partial class AddProductCodeDialog : Window
         InitializeComponent();
         Loaded += (_, _) =>
         {
+            DialogLayoutHelper.CenterAndClamp(this, Owner);
             ProductCodeBox.Focus();
         };
     }

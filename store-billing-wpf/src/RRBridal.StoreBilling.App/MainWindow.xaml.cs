@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window, IFocusSearchService
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         Loaded += OnLoaded;
         Closed += OnClosed;
+        SizeChanged += MainWindow_SizeChanged;
         if (DataContext is ShellViewModel shell)
         {
             shell.NavigateCommand.Execute(ShellPage.Billing);
@@ -48,6 +50,10 @@ public partial class MainWindow : Window, IFocusSearchService
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        WindowLayoutHelper.ApplyStartupBounds(this);
+        if (DataContext is ShellViewModel shellLayout)
+            shellLayout.UpdateShellLayout(ActualWidth);
+
         App.Services.FocusSearch = this;
         GlobalSearchBox.KeyDown += GlobalSearchBox_OnKeyDown;
         if (DataContext is ShellViewModel shell)
@@ -118,6 +124,12 @@ public partial class MainWindow : Window, IFocusSearchService
             App.Services.FocusBarcodeSkuEntry.Invoke();
         else
             FocusGlobalSearch();
+    }
+
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell)
+            shell.UpdateShellLayout(e.NewSize.Width);
     }
 
     private void NavDrawerOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

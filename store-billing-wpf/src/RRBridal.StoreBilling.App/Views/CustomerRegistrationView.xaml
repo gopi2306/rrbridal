@@ -18,16 +18,16 @@
                 <TextBlock Text="Enter customer name and mobile number to register." Style="{StaticResource TextCaption}"
                            TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Button Content="Cancel (Esc)" Style="{StaticResource OutlineButton}" MinWidth="120" Margin="0,0,10,0"
+            <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Cancel (Esc)" Style="{StaticResource OutlineButton}" MinWidth="120" Margin="0,0,10,4"
                         Command="{Binding CancelCommand}"/>
-                <Button Content="Save customer (F4)" Style="{StaticResource PrimaryButton}" MinWidth="150"
+                <Button Content="Save customer (F4)" Style="{StaticResource PrimaryButton}" MinWidth="150" Margin="0,0,0,4"
                         Command="{Binding SaveCommand}"/>
-            </StackPanel>
+            </WrapPanel>
         </Grid>
 
-        <StackPanel Grid.Row="1" VerticalAlignment="Top">
-            <Border Style="{StaticResource CardBorder}" Padding="16" MaxWidth="520" HorizontalAlignment="Left">
+        <StackPanel Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="12,0">
+            <Border Style="{StaticResource CardBorder}" Padding="16" MaxWidth="520" MinWidth="280" HorizontalAlignment="Stretch">
                 <StackPanel>
                     <TextBlock Text="CUSTOMER NAME *" Style="{StaticResource TextLabel}" Margin="0,0,0,4"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"

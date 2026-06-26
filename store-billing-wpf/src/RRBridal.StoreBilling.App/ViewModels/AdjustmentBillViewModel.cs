@@ -24,6 +24,10 @@ public partial class AdjustmentBillViewModel : ObservableObject
     private readonly AppServices _services;
 
     [ObservableProperty] private string _originalBillNo = "";
+    [ObservableProperty] private string _searchCustomerName = "";
+    [ObservableProperty] private string _searchCustomerPhone = "";
+    [ObservableProperty] private string _statusMessage = "Search by bill no, customer name, or mobile.";
+    [ObservableProperty] private BillSearchRow? _selectedSearchBill;
     [ObservableProperty] private bool _billLoaded;
     [ObservableProperty] private string _reason = "";
     [ObservableProperty] private string _adjustmentNo = "";
@@ -39,6 +43,9 @@ public partial class AdjustmentBillViewModel : ObservableObject
     [ObservableProperty] private string _adjustedPayableFormatted = "₹ 0.00";
 
     public ObservableCollection<AdjustmentLineItem> AdjustmentLines { get; } = new();
+    public ObservableCollection<BillSearchRow> SearchResults { get; } = new();
+
+    public bool ShowSearchResults => SearchResults.Count > 0 && !BillLoaded;
 
     private BsonDocument? _originalBillDoc;
 
@@ -56,17 +63,85 @@ public partial class AdjustmentBillViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task LookupBill()
+    private async Task SearchBills()
     {
-        var billNo = (OriginalBillNo ?? "").Trim();
-        if (string.IsNullOrEmpty(billNo))
+        if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter a bill number to look up.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Adjustment Bill",
+                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        await LoadBillByNoAsync(billNo);
+        StatusMessage = "Searching…";
+        BillLoaded = false;
+        SearchResults.Clear();
+        foreach (var line in AdjustmentLines)
+            line.PropertyChanged -= OnAdjLinePropertyChanged;
+        AdjustmentLines.Clear();
+        _originalBillDoc = null;
+
+        try
+        {
+            var rows = await _services.BillDocuments.SearchBillsAsync(
+                string.IsNullOrWhiteSpace(OriginalBillNo) ? null : OriginalBillNo.Trim(),
+                dateFrom: null,
+                dateTo: null,
+                customerName: string.IsNullOrWhiteSpace(SearchCustomerName) ? null : SearchCustomerName.Trim(),
+                customerPhone: string.IsNullOrWhiteSpace(SearchCustomerPhone) ? null : SearchCustomerPhone.Trim(),
+                status: "posted",
+                limit: 100);
+
+            foreach (var row in rows)
+                SearchResults.Add(row);
+
+            SelectedSearchBill = SearchResults.Count > 0 ? SearchResults[0] : null;
+            StatusMessage = rows.Count == 0
+                ? "No posted bills found."
+                : $"{rows.Count} bill(s) found — select one and press Load bill.";
+            NotifySearchResultsChanged();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Search failed: " + ex.Message;
+            NotifySearchResultsChanged();
+        }
     }
+
+    private bool HasSearchCriteria() =>
+        !string.IsNullOrWhiteSpace(OriginalBillNo)
+        || !string.IsNullOrWhiteSpace(SearchCustomerName)
+        || !string.IsNullOrWhiteSpace(SearchCustomerPhone);
+
+    partial void OnSelectedSearchBillChanged(BillSearchRow? value) =>
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+
+    private bool CanOpenSelectedBill() => SelectedSearchBill != null && !BillLoaded;
+
+    [RelayCommand(CanExecute = nameof(CanOpenSelectedBill))]
+    private async Task OpenSelectedBill()
+    {
+        if (SelectedSearchBill == null)
+            return;
+
+        var billNo = SelectedSearchBill.BillNo;
+        OriginalBillNo = billNo;
+        SearchResults.Clear();
+        SelectedSearchBill = null;
+        NotifySearchResultsChanged();
+        var loaded = await LoadBillByNoAsync(billNo);
+        StatusMessage = loaded
+            ? $"Loaded bill {billNo}."
+            : $"Could not load bill {billNo}.";
+    }
+
+    private void NotifySearchResultsChanged()
+    {
+        OnPropertyChanged(nameof(ShowSearchResults));
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private async Task LookupBill() => await SearchBills();
 
     public async Task<bool> LoadBillByNoAsync(string billNoInput)
     {
@@ -118,6 +193,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         OriginalPayableFormatted = MoneyMath.FormatPayable(origPayable);
 
         BillLoaded = true;
+        NotifySearchResultsChanged();
         RecalculateTotals();
         return true;
     }
@@ -302,6 +378,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
         AdjustmentLines.Clear();
         BillLoaded = false;
         _originalBillDoc = null;
+        SearchResults.Clear();
+        NotifySearchResultsChanged();
         OriginalPayableFormatted = MoneyMath.FormatPayable(0);
         await AssignAdjustmentNoAsync();
         RecalculateTotals();

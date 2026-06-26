@@ -3,16 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
-    <Grid Background="{StaticResource BrushBackground}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*"/>
-            <ColumnDefinition Width="1*" MinWidth="300" MaxWidth="440"/>
-        </Grid.ColumnDefinitions>
-
-        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
+    <Grid x:Name="MasterDetailGrid" Background="{StaticResource BrushBackground}"
+          ui:MasterDetailLayoutBehavior.IsEnabled="True">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
                 <Border Style="{StaticResource CardBorder}" Padding="12,10">
                     <Grid>
@@ -22,20 +19,24 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,8">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
                                 <TextBlock Style="{StaticResource TextSectionTitle}" Text="Customer profiles" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
                                         Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
                                 <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
                                         Padding="10,4" FontSize="12" Command="{Binding ResumeHeldBillsCommand}"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <WrapPanel Grid.Row="1">
+                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,4" VerticalAlignment="Center"/>
+                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,4" VerticalAlignment="Center"/>
+                                <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}" Margin="0,0,12,4" VerticalAlignment="Center"/>
+                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}" Margin="0,0,12,4" VerticalAlignment="Center"/>
+                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" Margin="0,0,0,4" VerticalAlignment="Center"/>
+                            </WrapPanel>
                         </Grid>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
                                     Margin="0,0,0,6"
@@ -133,6 +134,7 @@
                                   RowHeight="36"
                                   BorderThickness="1"
                                   BorderBrush="{StaticResource BrushBorder}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"
@@ -235,7 +237,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0">
+        <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
              Background="{StaticResource BrushBackground}">
@@ -42,7 +43,11 @@
                         <TextBlock Text="{Binding StoreWideTodaySummary}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                         <TextBlock Text="Today &amp; week (local posted bills)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
-                        <UniformGrid Columns="2" Margin="0,0,0,8">
+                        <UniformGrid Margin="0,0,0,8"
+                                     ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                     ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                     ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                     ui:UniformGridColumnsBehavior.WideColumns="2">
                             <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8" BorderBrush="{StaticResource BrushAccent}">
                                 <StackPanel>
                                     <TextBlock Text="Today" Style="{StaticResource TextCaption}"/>
@@ -57,7 +62,11 @@
                             </Border>
                         </UniformGrid>
 
-                        <UniformGrid Columns="3" Margin="0,0,0,16">
+                        <UniformGrid Margin="0,0,0,16"
+                                     ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                     ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                     ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                     ui:UniformGridColumnsBehavior.WideColumns="3">
                             <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0" BorderBrush="{StaticResource BrushAccent}">
                                 <StackPanel>
                                     <TextBlock Text="COD balance till" Style="{StaticResource TextCaption}"/>
@@ -177,7 +186,11 @@
 
                     <TextBlock Text="{Binding DayCloseStatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                    <UniformGrid Columns="3" Margin="0,0,0,8">
+                    <UniformGrid Margin="0,0,0,8"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="3">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
                             <StackPanel>
                                 <TextBlock Text="Total bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -198,7 +211,11 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Columns="4" Margin="0,0,0,12">
+                    <UniformGrid Margin="0,0,0,12"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="4">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -225,7 +242,11 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Columns="4" Margin="0,0,0,8">
+                    <UniformGrid Margin="0,0,0,8"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="4">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Return count" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -255,7 +276,11 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Columns="4" Margin="0,0,0,8">
+                    <UniformGrid Margin="0,0,0,8"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="4">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Online COD pending (not in cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -270,7 +295,11 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Columns="4" Margin="0,0,0,12">
+                    <UniformGrid Margin="0,0,0,12"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="4">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -297,7 +326,11 @@
                         </Border>
                     </UniformGrid>
 
-                    <UniformGrid Columns="3" Margin="0,0,0,12">
+                    <UniformGrid Margin="0,0,0,12"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="3">
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
                             <StackPanel>
                                 <TextBlock Text="Expected cash (drawer)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>

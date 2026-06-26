@@ -5,7 +5,8 @@
         Width="440"
         SizeToContent="Height"
         MinWidth="400"
-        ResizeMode="NoResize"
+        MaxWidth="520"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">

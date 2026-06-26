@@ -3,38 +3,81 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
-    <Grid Background="{StaticResource BrushBackground}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="320"/>
-        </Grid.ColumnDefinitions>
-
-        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
+    <Grid x:Name="MasterDetailGrid" Background="{StaticResource BrushBackground}"
+          ui:MasterDetailLayoutBehavior.IsEnabled="True">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TextSectionTitle}" Text="Sale Return" Margin="0,0,0,12"/>
-                        <Grid>
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Original Bill No" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Original bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Margin="0,4,0,0"
                                          Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="Enter full bill no or last 3–4 digits"/>
-                                <TextBlock Text="Full bill no or last 3–4 digits" FontSize="11"
-                                           Foreground="{StaticResource BrushTextMuted}" Margin="0,4,0,0"/>
+                                         ToolTip="Full bill no or partial match"/>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Load Bill" Style="{StaticResource PrimaryButton}"
-                                    Command="{Binding LookupBillCommand}"/>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Margin="0,4,0,0"
+                                         Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Margin="0,4,0,0"
+                                         Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <Button Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom" Width="100" Padding="14,8"
+                                    Command="{Binding SearchBillsCommand}"/>
                         </Grid>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="12"
+                                   Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
                     </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="8"
+                        Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" MinHeight="200"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <DataGrid Grid.Row="0"
+                                  ItemsSource="{Binding SearchResults}"
+                                  SelectedItem="{Binding SelectedSearchBill}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  MaxHeight="320"
+                                  MouseDoubleClick="SearchResults_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                                <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
+                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                                <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="110"/>
+                                <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Button Grid.Row="1" Content="Load bill" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Right" Margin="0,12,0,0" Width="120"
+                                Command="{Binding OpenSelectedBillCommand}"/>
+                    </Grid>
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Margin="0"
@@ -118,7 +161,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0"
+        <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0"
                 Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>

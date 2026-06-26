@@ -5,6 +5,7 @@ using System.Windows.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Products;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -20,6 +21,7 @@ public partial class ProductSearchDialog
         DataContext = new ProductSearchViewModel(services.ProductCatalog, initialQuery, codeOnly);
         Loaded += async (_, _) =>
         {
+            DialogLayoutHelper.CenterAndClamp(this, Owner);
             if (DataContext is ProductSearchViewModel vm)
                 await vm.SearchCommand.ExecuteAsync(null);
         };

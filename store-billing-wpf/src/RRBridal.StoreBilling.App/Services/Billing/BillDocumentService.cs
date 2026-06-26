@@ -53,6 +53,7 @@ public sealed class BillDocumentService
         DateTime? dateFrom,
         DateTime? dateTo,
         string? customerName,
+        string? customerPhone = null,
         string? status = "posted",
         int limit = 100,
         CancellationToken ct = default)
@@ -76,6 +77,16 @@ public sealed class BillDocumentService
         {
             var safe = Regex.Escape(customerName.Trim());
             filters.Add(Builders<BsonDocument>.Filter.Regex("customerName", new BsonRegularExpression(safe, "i")));
+        }
+
+        if (!string.IsNullOrWhiteSpace(customerPhone))
+        {
+            var digits = new string(customerPhone.Trim().Where(char.IsDigit).ToArray());
+            if (digits.Length > 0)
+            {
+                var safe = Regex.Escape(digits);
+                filters.Add(Builders<BsonDocument>.Filter.Regex("customerPhone", new BsonRegularExpression(safe)));
+            }
         }
 
         var docs = await _bills

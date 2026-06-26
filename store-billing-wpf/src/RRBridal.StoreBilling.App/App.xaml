@@ -18,6 +18,7 @@
             <conv:InvertBoolConverter x:Key="InvertBool"/>
             <conv:EnumBoolConverter x:Key="EnumBoolConverter"/>
             <conv:EqualityConverter x:Key="EqualityConverter"/>
+            <conv:LayoutBreakpointConverter x:Key="LayoutBreakpointConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -110,9 +110,29 @@ public partial class BillDetailDialogViewModel : ObservableObject
         _billListService = billListService;
     }
 
+    public void Clear()
+    {
+        _billNo = "";
+        OnPropertyChanged(nameof(LoadedBillNo));
+        Lines.Clear();
+        HasReturn = false;
+        HasAdjustment = false;
+        HasCreditNoteReturn = false;
+        ReturnCreditNoteNo = "";
+        IsLoaded = false;
+        IsNotFound = false;
+        HasAppliedCredit = false;
+        HeaderSummary = "";
+        PaymentSummary = "";
+        ReturnSummary = "";
+        AdjustmentSummary = "";
+        ResetDisplayFields();
+    }
+
     public async Task LoadAsync(string billNo)
     {
         _billNo = billNo.Trim();
+        OnPropertyChanged(nameof(LoadedBillNo));
         Lines.Clear();
         HasReturn = false;
         HasAdjustment = false;

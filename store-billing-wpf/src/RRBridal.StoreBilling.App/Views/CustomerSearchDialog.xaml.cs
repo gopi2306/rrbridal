@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.Ui;
 
 namespace RRBridal.StoreBilling.App.Views;
 
@@ -50,6 +51,7 @@ public partial class CustomerSearchDialog : Window, INotifyPropertyChanged
 
         Loaded += async (_, _) =>
         {
+            DialogLayoutHelper.CenterAndClamp(this, Owner);
             SearchBox.Focus();
             SearchBox.SelectAll();
             if (!string.IsNullOrWhiteSpace(initialQuery))

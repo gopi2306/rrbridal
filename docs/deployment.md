@@ -11,6 +11,7 @@ Environment (`central-backend/.env`):
 - `PORT` — default `3000`
 - `JWT_SECRET` — required for auth
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` — if using Razorpay
+- `BACKUP_*` — optional daily MongoDB backup; see [mongo-backup.md](mongo-backup.md)
 
 Run:
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Views;
@@ -19,9 +21,16 @@ public partial class BillLookupViewModel : ObservableObject
     private readonly AppServices _services;
 
     [ObservableProperty] private string _billNoInput = "";
-    [ObservableProperty] private string _statusMessage = "Enter a bill number and press Look up.";
+    [ObservableProperty] private string _searchCustomerName = "";
+    [ObservableProperty] private string _searchCustomerPhone = "";
+    [ObservableProperty] private string _statusMessage = "Search by bill no, customer name, or mobile.";
     [ObservableProperty] private BillLookupMode _activeMode = BillLookupMode.View;
     [ObservableProperty] private bool _hasRemainingReturnableQty;
+    [ObservableProperty] private BillSearchRow? _selectedSearchBill;
+
+    public ObservableCollection<BillSearchRow> SearchResults { get; } = new();
+
+    public bool ShowSearchResults => SearchResults.Count > 0 && !Detail.IsLoaded;
 
     public BillDetailDialogViewModel Detail { get; }
     public BillDetailDialogViewModel OriginalDetail { get; }
@@ -86,41 +95,94 @@ public partial class BillLookupViewModel : ObservableObject
     private void BackToView() => ActiveMode = BillLookupMode.View;
 
     [RelayCommand]
-    private async Task LookupBill()
+    private async Task SearchBills()
     {
-        var input = (BillNoInput ?? "").Trim();
-        if (string.IsNullOrEmpty(input))
+        if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter a bill number to look up.", "Bill Lookup", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Bill Lookup",
+                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        StatusMessage = "Looking up bill…";
-        var resolved = await ResolveBillNoAsync(input);
-        if (resolved == null)
-        {
-            Detail.Lines.Clear();
-            OriginalDetail.Lines.Clear();
-            StatusMessage = $"Bill '{input}' not found.";
-            return;
-        }
-
-        BillNoInput = resolved;
+        StatusMessage = "Searching…";
         ActiveMode = BillLookupMode.View;
+        Detail.Clear();
+        OriginalDetail.Clear();
+        SearchResults.Clear();
         await Return.ClearFormCommand.ExecuteAsync(null);
         await Adjustment.ClearFormCommand.ExecuteAsync(null);
-        await LoadBillDetailsAsync(resolved);
+
+        try
+        {
+            var rows = await _services.BillDocuments.SearchBillsAsync(
+                string.IsNullOrWhiteSpace(BillNoInput) ? null : BillNoInput.Trim(),
+                dateFrom: null,
+                dateTo: null,
+                customerName: string.IsNullOrWhiteSpace(SearchCustomerName) ? null : SearchCustomerName.Trim(),
+                customerPhone: string.IsNullOrWhiteSpace(SearchCustomerPhone) ? null : SearchCustomerPhone.Trim(),
+                status: null,
+                limit: 100);
+
+            foreach (var row in rows)
+                SearchResults.Add(row);
+
+            SelectedSearchBill = SearchResults.Count > 0 ? SearchResults[0] : null;
+            StatusMessage = rows.Count == 0
+                ? "No bills found."
+                : $"{rows.Count} bill(s) found — select one and press Open bill.";
+            NotifySearchResultsChanged();
+            NotifyActionCommands();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Search failed: " + ex.Message;
+            NotifySearchResultsChanged();
+        }
+    }
+
+    private bool HasSearchCriteria() =>
+        !string.IsNullOrWhiteSpace(BillNoInput)
+        || !string.IsNullOrWhiteSpace(SearchCustomerName)
+        || !string.IsNullOrWhiteSpace(SearchCustomerPhone);
+
+    partial void OnSelectedSearchBillChanged(BillSearchRow? value) =>
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+
+    private bool CanOpenSelectedBill() => SelectedSearchBill != null && !Detail.IsLoaded;
+
+    [RelayCommand(CanExecute = nameof(CanOpenSelectedBill))]
+    private async Task OpenSelectedBill()
+    {
+        if (SelectedSearchBill == null)
+            return;
+
+        var billNo = SelectedSearchBill.BillNo;
+        BillNoInput = billNo;
+        SearchResults.Clear();
+        SelectedSearchBill = null;
+        NotifySearchResultsChanged();
+        await LoadBillDetailsAsync(billNo);
         StatusMessage = Detail.IsNotFound
-            ? $"Bill '{resolved}' not found."
-            : $"Loaded bill {resolved}.";
+            ? $"Bill '{billNo}' not found."
+            : $"Loaded bill {billNo}.";
         NotifyActionCommands();
     }
+
+    private void NotifySearchResultsChanged()
+    {
+        OnPropertyChanged(nameof(ShowSearchResults));
+        OpenSelectedBillCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private async Task LookupBill() => await SearchBills();
 
     private async Task LoadBillDetailsAsync(string billNo)
     {
         await Detail.LoadAsync(billNo);
         await OriginalDetail.LoadAsync(billNo);
         await RefreshReturnEligibilityAsync(billNo);
+        NotifySearchResultsChanged();
     }
 
     private async Task RefreshReturnEligibilityAsync(string billNo)

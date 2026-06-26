@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
@@ -56,6 +55,17 @@ public partial class BillLookupView
             return;
 
         e.Handled = true;
-        await vm.LookupBillCommand.ExecuteAsync(null);
+        await vm.SearchBillsCommand.ExecuteAsync(null);
+    }
+
+    private async void SearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not BillLookupViewModel vm)
+            return;
+
+        if (vm.SelectedSearchBill == null)
+            return;
+
+        await vm.OpenSelectedBillCommand.ExecuteAsync(null);
     }
 }

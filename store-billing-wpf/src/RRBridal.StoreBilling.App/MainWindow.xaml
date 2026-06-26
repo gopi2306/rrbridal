@@ -9,10 +9,8 @@
         xmlns:controls="clr-namespace:RRBridal.StoreBilling.App.Views.Controls"
         mc:Ignorable="d"
         Title="{Binding WindowTitleText}"
-        MinHeight="640"
-        MinWidth="1100"
-        Height="720"
-        Width="1280"
+        MinHeight="600"
+        MinWidth="1024"
         FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Window.InputBindings>
@@ -38,129 +36,137 @@
                 Background="{StaticResource BrushHeaderBar}"
                 BorderBrush="{StaticResource BrushBorder}"
                 BorderThickness="0,0,0,1"
-                Padding="16,10"
+                Padding="12,8"
                 Effect="{StaticResource CardShadowEffect}">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <Grid Grid.Column="0" VerticalAlignment="Center">
+                <Grid Grid.Row="0" Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0"
-                            Width="40" Height="40"
-                            Style="{StaticResource GhostNavButton}"
-                            Margin="0,0,8,0"
-                            Command="{Binding ToggleNavDrawerCommand}"
-                            ToolTip="Open navigation menu">
-                        <Viewbox Width="20" Height="20" Stretch="Uniform">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M3,6h18v2H3V6z M3,11h18v2H3v-2z M3,16h18v2H3v-2z"
-                                      Fill="{StaticResource BrushNavInactive}"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-
-                    <controls:AppLogoMark Grid.Column="1" LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"/>
-                        <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"/>
-                    </StackPanel>
-                </Grid>
-
-                <TextBlock Grid.Column="1"
-                           Text="{Binding CurrentPageLabel}"
-                           Style="{StaticResource TextBody}"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource BrushTextMuted}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBox x:Name="GlobalSearchBox" Width="220" Style="{StaticResource RoundedTextBox}" VerticalAlignment="Center"
-                             Margin="0,0,12,0"
-                             Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Product code (SKU or barcode) adds directly; name opens pick list — Enter on Billing"/>
-
-                    <Border Style="{StaticResource UserBadge}" Margin="0,0,8,0" VerticalAlignment="Center"
-                            ToolTip="Business day status — click to open Day Close">
-                        <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
-                                Command="{Binding NavigateDayCloseCommand}">
-                            <TextBlock Text="{Binding DaySessionStatusChip}" Style="{StaticResource TextCaption}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                        </Button>
-                    </Border>
-
-                    <Border Style="{StaticResource UserBadge}" Margin="0,0,4,0" VerticalAlignment="Center" ToolTip="Logged in user">
-                        <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Width="40" Height="40"
+                                Style="{StaticResource GhostNavButton}"
+                                Margin="0,0,8,0"
+                                Command="{Binding ToggleNavDrawerCommand}"
+                                ToolTip="Open navigation menu">
+                            <Viewbox Width="20" Height="20" Stretch="Uniform">
                                 <Canvas Width="24" Height="24">
-                                    <Path Data="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4z M12,14c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z"
-                                          Fill="{StaticResource BrushAccent}"/>
+                                    <Path Data="M3,6h18v2H3V6z M3,11h18v2H3v-2z M3,16h18v2H3v-2z"
+                                          Fill="{StaticResource BrushNavInactive}"/>
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                        </Button>
+                        <controls:AppLogoMark LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"
+                                       Visibility="{Binding ShowCompactHeaderDetails, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"
+                                       Visibility="{Binding ShowCompactHeaderDetails, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
-                    </Border>
+                    </StackPanel>
 
-                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
-                            Command="{Binding LogoutCommand}"
-                            ToolTip="Sign out and return to login"
-                            Margin="0,0,8,0">
-                        <Viewbox Width="18" Height="18" Stretch="Uniform">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M17,7l-1.41,1.41L18.17,11H8v2h10.17l-2.58,2.58L17,17l5,-5z M4,5h8V3H4c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h8v-2H4V5z"
-                                      Fill="{StaticResource BrushNavInactive}"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CurrentPageLabel}"
+                               Style="{StaticResource TextBody}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource BrushTextMuted}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
 
-                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
-                            Command="{Binding OpenNotificationsCommand}"
-                            ToolTip="{Binding NotificationBellToolTip}"
-                            Opacity="{Binding NotificationBellOpacity}">
-                        <Viewbox Width="18" Height="18" Stretch="Uniform">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2z M18,16v-5c0,-3.07 -1.63,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.64,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"
-                                      Fill="{StaticResource BrushNavInactive}"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="{x:Static vm:ShellPage.Settings}"
-                            Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}">
-                        <Viewbox Width="18" Height="18" Stretch="Uniform">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M19.14,12.94c0.04,-0.31 0.06,-0.63 0.06,-0.94c0,-0.31 -0.02,-0.63 -0.06,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.37 4.8,11.69 4.8,12s0.02,0.63 0.06,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94z M12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z">
-                                    <Path.Style>
-                                        <Style TargetType="Path">
-                                            <Setter Property="Fill" Value="{StaticResource BrushNavInactive}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSettingsPage}" Value="True">
-                                                    <Setter Property="Fill" Value="{StaticResource BrushAccent}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Path.Style>
-                                </Path>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                </StackPanel>
+                    <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
+                                ToolTip="Business day status — click to open Day Close">
+                            <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
+                                    Command="{Binding NavigateDayCloseCommand}">
+                                <TextBlock Text="{Binding DaySessionStatusChip}" Style="{StaticResource TextCaption}"
+                                           FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                            </Button>
+                        </Border>
+                        <Border Style="{StaticResource UserBadge}" Margin="0,0,4,4" VerticalAlignment="Center" ToolTip="Logged in user">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Data="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4z M12,14c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z"
+                                              Fill="{StaticResource BrushAccent}"/>
+                                    </Canvas>
+                                </Viewbox>
+                                <TextBlock Text="{Binding LoggedInUserName}" Style="{StaticResource TextCaption}"
+                                           FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                                Command="{Binding LogoutCommand}"
+                                ToolTip="Sign out and return to login"
+                                Margin="0,0,4,4">
+                            <Viewbox Width="18" Height="18" Stretch="Uniform">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M17,7l-1.41,1.41L18.17,11H8v2h10.17l-2.58,2.58L17,17l5,-5z M4,5h8V3H4c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h8v-2H4V5z"
+                                          Fill="{StaticResource BrushNavInactive}"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                                Command="{Binding OpenNotificationsCommand}"
+                                ToolTip="{Binding NotificationBellToolTip}"
+                                Opacity="{Binding NotificationBellOpacity}"
+                                Margin="0,0,4,4">
+                            <Viewbox Width="18" Height="18" Stretch="Uniform">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2z M18,16v-5c0,-3.07 -1.63,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.64,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"
+                                          Fill="{StaticResource BrushNavInactive}"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static vm:ShellPage.Settings}"
+                                Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,0,4">
+                            <Viewbox Width="18" Height="18" Stretch="Uniform">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M19.14,12.94c0.04,-0.31 0.06,-0.63 0.06,-0.94c0,-0.31 -0.02,-0.63 -0.06,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.37 4.8,11.69 4.8,12s0.02,0.63 0.06,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94z M12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z">
+                                        <Path.Style>
+                                            <Style TargetType="Path">
+                                                <Setter Property="Fill" Value="{StaticResource BrushNavInactive}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSettingsPage}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource BrushAccent}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Path.Style>
+                                    </Path>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </WrapPanel>
+                </Grid>
+
+                <Grid Grid.Row="1"
+                      Visibility="{Binding ShowGlobalSearchBar, Converter={StaticResource BoolToVis}}">
+                    <TextBox x:Name="GlobalSearchBox"
+                             Style="{StaticResource RoundedTextBox}"
+                             VerticalAlignment="Center"
+                             MinWidth="160"
+                             MaxWidth="360"
+                             HorizontalAlignment="Stretch"
+                             Margin="0,0,0,0"
+                             Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Product code (SKU or barcode) adds directly; name opens pick list — Enter on Billing"/>
+                </Grid>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Margin="16,12,16,8">
+        <Grid Grid.Row="1" Margin="12,8,12,8">
             <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
                 <views:BillingView DataContext="{Binding Billing}"/>
             </Grid>
@@ -206,20 +212,20 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Text="Billing" Style="{StaticResource TextCaption}" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="SemiBold"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F1 Help" Command="{Binding ShowHelpCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F2 New" Command="{Binding ClearForNewBillCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F3 Search" Command="{Binding FocusGlobalSearchCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F8 Hold" Command="{Binding HoldBillCommand}"/>
-                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="8,0"/>
-                <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="4,0" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F10 Print" Command="{Binding PrintStubCommand}"/>
-                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="8,0"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}"/>
-            </StackPanel>
+        <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="10,8">
+            <WrapPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Billing" Style="{StaticResource TextCaption}" VerticalAlignment="Center" Margin="0,0,6,4" FontWeight="SemiBold"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F1 Help" Command="{Binding ShowHelpCommand}" Margin="0,0,4,4"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F2 New" Command="{Binding ClearForNewBillCommand}" Margin="0,0,4,4"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F3 Search" Command="{Binding FocusGlobalSearchCommand}" Margin="0,0,4,4"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F8 Hold" Command="{Binding HoldBillCommand}" Margin="0,0,4,4"/>
+                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="4,0,8,4"/>
+                <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="0,0,4,4" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F10 Print" Command="{Binding PrintStubCommand}" Margin="0,0,4,4"/>
+                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="4,0,8,4"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}" Margin="0,0,4,4"/>
+                <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}" Margin="0,0,4,4"/>
+            </WrapPanel>
         </Border>
 
         <Border Grid.RowSpan="3"

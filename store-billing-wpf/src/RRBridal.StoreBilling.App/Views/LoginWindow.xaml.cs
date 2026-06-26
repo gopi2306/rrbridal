@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -21,7 +22,11 @@ public partial class LoginWindow : Window
         DataContext = _vm;
 
         _vm.LoginSucceeded += OnLoginSucceeded;
-        Loaded += async (_, _) => await _vm.RefreshBrandingAsync();
+        Loaded += async (_, _) =>
+        {
+            WindowLayoutHelper.CenterOnScreen(this);
+            await _vm.RefreshBrandingAsync();
+        };
 
         PasswordBox.PasswordChanged += (_, _) => _vm.Password = PasswordBox.Password;
         PasswordBox.KeyDown += OnPasswordKeyDown;

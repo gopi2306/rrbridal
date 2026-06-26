@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
@@ -14,62 +15,106 @@
 
         <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Bill Lookup" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Bill No" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
-                    <TextBox x:Name="BillNoBox"
-                             Style="{StaticResource RoundedTextBoxCompact}"
-                             MinWidth="220"
-                             Text="{Binding BillNoInput, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Enter full bill no or last 3–4 digits"
-                             KeyDown="BillNoBox_KeyDown"/>
-                    <Button Content="Look up" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
-                            Padding="14,6" Command="{Binding LookupBillCommand}"/>
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0"
-                               Foreground="{StaticResource BrushTextMuted}"/>
-                </StackPanel>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                    <StackPanel Width="240" Margin="0,0,8,8">
+                        <TextBlock Text="Bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                        <TextBox x:Name="BillNoBox"
+                                 Style="{StaticResource RoundedTextBox}"
+                                 Margin="0,4,0,0"
+                                 Text="{Binding BillNoInput, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Full bill no or partial match"
+                                 KeyDown="BillNoBox_KeyDown"/>
+                    </StackPanel>
+                    <StackPanel Width="220" Margin="0,0,8,8">
+                        <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                        <TextBox Style="{StaticResource RoundedTextBox}"
+                                 Margin="0,4,0,0"
+                                 Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                 KeyDown="BillNoBox_KeyDown"/>
+                    </StackPanel>
+                    <StackPanel Width="180" Margin="0,0,8,8">
+                        <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                        <TextBox Style="{StaticResource RoundedTextBox}"
+                                 Margin="0,4,0,0"
+                                 Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
+                                 KeyDown="BillNoBox_KeyDown"/>
+                    </StackPanel>
+                    <Button Content="Search" Style="{StaticResource PrimaryButton}"
+                            VerticalAlignment="Bottom" Width="100" Padding="14,8" Margin="0,0,0,8"
+                            Command="{Binding SearchBillsCommand}"/>
+                </WrapPanel>
+                <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12"
+                           Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Visibility="{Binding Detail.IsLoaded, Converter={StaticResource BoolToVis}}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12"
+                MinHeight="240"
+                Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DataGrid Grid.Row="0"
+                          ItemsSource="{Binding SearchResults}"
+                          SelectedItem="{Binding SelectedSearchBill}"
+                          Style="{StaticResource ThemedDataGrid}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          MouseDoubleClick="SearchResults_MouseDoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                        <DataGridTextColumn Header="Date" Binding="{Binding BillDate}" Width="100"/>
+                        <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                        <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="110"/>
+                        <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+                        <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Button Grid.Row="1" Content="Open bill" Style="{StaticResource PrimaryButton}"
+                        HorizontalAlignment="Right" Margin="0,12,0,0" Width="120"
+                        Command="{Binding OpenSelectedBillCommand}"/>
+            </Grid>
+        </Border>
 
-            <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="10,8">
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="View Bill" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
-                            Command="{Binding ShowViewModeCommand}"/>
-                    <Button Content="Add Return" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
-                            Command="{Binding StartReturnCommand}"/>
-                    <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
-                            Command="{Binding StartAdjustmentCommand}"/>
-                    <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
-                            Command="{Binding PrintDuplicateCommand}"/>
-                    <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,0"
-                            Command="{Binding PrintCreditNoteDuplicateCommand}"
-                            Visibility="{Binding Detail.HasCreditNoteReturn, Converter={StaticResource BoolToVis}}"/>
-                    <Button Content="← Back to view" Style="{StaticResource GhostNavButton}" Padding="12,6"
-                            Command="{Binding BackToViewCommand}"
-                            Visibility="{Binding IsViewMode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
-                </StackPanel>
-            </Border>
+        <Grid Grid.Row="1" Visibility="{Binding Detail.IsLoaded, Converter={StaticResource BoolToVis}}" MinHeight="0">
+            <Grid x:Name="MasterDetailGrid" MinHeight="0"
+                  ui:MasterDetailLayoutBehavior.IsEnabled="True">
+            <Grid Grid.Column="0" MinHeight="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-            <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="1*" MinWidth="300" MaxWidth="440"/>
-            </Grid.ColumnDefinitions>
+                <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="10,8">
+                    <WrapPanel>
+                        <Button Content="View Bill" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                                Command="{Binding ShowViewModeCommand}"/>
+                        <Button Content="Add Return" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,4"
+                                Command="{Binding StartReturnCommand}"/>
+                        <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,4"
+                                Command="{Binding StartAdjustmentCommand}"/>
+                        <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                                Command="{Binding PrintDuplicateCommand}"/>
+                        <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                                Command="{Binding PrintCreditNoteDuplicateCommand}"
+                                Visibility="{Binding Detail.HasCreditNoteReturn, Converter={StaticResource BoolToVis}}"/>
+                        <Button Content="← Back to view" Style="{StaticResource GhostNavButton}" Padding="12,6" Margin="0,0,0,4"
+                                Command="{Binding BackToViewCommand}"
+                                Visibility="{Binding IsViewMode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                    </WrapPanel>
+                </Border>
 
-            <!-- VIEW MODE - LEFT -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                          Margin="0,0,12,0" DataContext="{Binding Detail}"
+                <Grid Grid.Row="1" MinHeight="0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          DataContext="{Binding Detail}"
                           Visibility="{Binding DataContext.IsViewMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
                     <Border Style="{StaticResource CardBorder}" Padding="12,10" Margin="0,0,0,12">
@@ -135,6 +180,7 @@
                             <TextBlock Grid.Row="0" Style="{StaticResource TextSectionTitle}" Text="Line items" Margin="0,0,0,10"/>
                             <DataGrid x:Name="LinesGrid"
                                       Grid.Row="1"
+                                      MinHeight="200"
                                       ItemsSource="{Binding Lines}"
                                       Style="{StaticResource ThemedDataGrid}"
                                       AutoGenerateColumns="False"
@@ -219,7 +265,7 @@
             </ScrollViewer>
 
             <!-- RETURN MODE - LEFT -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0"
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding IsReturnMode, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
                     <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10"
@@ -310,7 +356,7 @@
             </ScrollViewer>
 
             <!-- ADJUSTMENT MODE - LEFT -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0"
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding IsAdjustmentMode, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
                     <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10"
@@ -357,10 +403,15 @@
                     </Border>
                 </StackPanel>
             </ScrollViewer>
+                </Grid>
+            </Grid>
 
+            <Grid Grid.Column="1" MinHeight="0">
             <!-- VIEW MODE - RIGHT -->
-            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Detail}"
+            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="10" Padding="0"
+                    VerticalAlignment="Stretch"
+                    DataContext="{Binding Detail}"
                     Visibility="{Binding DataContext.IsViewMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -372,10 +423,15 @@
                     <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="BILL DETAILS" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
-                            <TextBlock Text="{Binding LoadedBillNo, StringFormat=BILL NO: {0}}" Foreground="White" Margin="0,6,0,0"
-                                       FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="BILL NO: " Foreground="White" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding LoadedBillNo}" Foreground="White" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            </StackPanel>
                             <TextBlock Text="{Binding BillDateDisplay}" Foreground="White" Opacity="0.9" Margin="0,4,0,0"/>
-                            <TextBlock Text="{Binding CounterDisplay, StringFormat=Counter: {0}}" Foreground="White" Opacity="0.85" Margin="0,2,0,0" FontSize="11"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="Counter: " Foreground="White" Opacity="0.85" FontSize="11"/>
+                                <TextBlock Text="{Binding CounterDisplay}" Foreground="White" Opacity="0.85" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -507,7 +563,7 @@
             </Border>
 
             <!-- RETURN MODE - RIGHT -->
-            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
                     BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Return}"
                     Visibility="{Binding DataContext.IsReturnMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <Grid>
@@ -566,7 +622,7 @@
             </Border>
 
             <!-- ADJUSTMENT MODE - RIGHT -->
-            <Border Grid.Column="1" Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
+            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
                     BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Adjustment}"
                     Visibility="{Binding DataContext.IsAdjustmentMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <Grid>
@@ -618,6 +674,7 @@
                     </Border>
                 </Grid>
             </Border>
+            </Grid>
             </Grid>
         </Grid>
     </Grid>

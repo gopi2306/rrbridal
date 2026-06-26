@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App.ViewModels;
@@ -66,6 +67,25 @@ public partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private string _currentPageLabel = "Billing";
 
+    [ObservableProperty] private double _shellWidth = 1280;
+
+    [ObservableProperty] private LayoutBreakpoint _layoutBreakpoint = LayoutBreakpoint.Medium;
+
+    public bool IsCompactLayout => LayoutBreakpoint == LayoutBreakpoint.Compact;
+
+    public bool IsMediumOrWideLayout => LayoutBreakpoint is LayoutBreakpoint.Medium or LayoutBreakpoint.Wide;
+
+    public bool ShowCompactHeaderDetails => !IsCompactLayout;
+
+    public void UpdateShellLayout(double width)
+    {
+        ShellWidth = width;
+        LayoutBreakpoint = WindowLayoutHelper.GetBreakpoint(width);
+        OnPropertyChanged(nameof(IsCompactLayout));
+        OnPropertyChanged(nameof(IsMediumOrWideLayout));
+        OnPropertyChanged(nameof(ShowCompactHeaderDetails));
+    }
+
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
     public bool ShowDashboardNav => IsPrimaryCounter;
@@ -125,6 +145,11 @@ public partial class ShellViewModel : ObservableObject
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
         BillLookup = new BillLookupViewModel(services);
+        BillLookup.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(BillLookupViewModel.ActiveMode) or nameof(BillLookupViewModel.IsReturnMode))
+                OnPropertyChanged(nameof(ShowGlobalSearchBar));
+        };
         DuplicatePrint = new DuplicatePrintViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
@@ -180,6 +205,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
+        OnPropertyChanged(nameof(ShowGlobalSearchBar));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -217,6 +243,9 @@ public partial class ShellViewModel : ObservableObject
     public bool IsSaleReturnPage => CurrentPage == ShellPage.SaleReturn;
 
     public bool IsBillLookupPage => CurrentPage == ShellPage.BillLookup;
+
+    public bool ShowGlobalSearchBar =>
+        IsBillingPage || IsSaleReturnPage || (IsBillLookupPage && BillLookup.IsReturnMode);
 
     public bool IsAdjustmentsPage => CurrentPage == ShellPage.Adjustments;
 
@@ -267,6 +296,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
+        OnPropertyChanged(nameof(ShowGlobalSearchBar));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
