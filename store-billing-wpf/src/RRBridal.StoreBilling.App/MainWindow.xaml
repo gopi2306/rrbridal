@@ -9,6 +9,7 @@
         xmlns:controls="clr-namespace:RRBridal.StoreBilling.App.Views.Controls"
         mc:Ignorable="d"
         Title="{Binding WindowTitleText}"
+        Icon="pack://application:,,,/Resources/Assets/TruBill.ico"
         MinHeight="600"
         MinWidth="1024"
         FontFamily="{StaticResource FontFamilyPrimary}"
@@ -39,19 +40,13 @@
                 Padding="12,8"
                 Effect="{StaticResource CardShadowEffect}">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                <Grid Grid.Row="0" Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Width="40" Height="40"
                                 Style="{StaticResource GhostNavButton}"
                                 Margin="0,0,8,0"
@@ -64,7 +59,7 @@
                                 </Canvas>
                             </Viewbox>
                         </Button>
-                        <controls:AppLogoMark LogoHeight="40" LogoMaxWidth="200" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <controls:AppLogoMark LogoHeight="40" LogoMaxWidth="200" ShowTruPrefix="False" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"
@@ -151,19 +146,6 @@
                     </WrapPanel>
                 </Grid>
 
-                <Grid Grid.Row="1"
-                      Visibility="{Binding ShowGlobalSearchBar, Converter={StaticResource BoolToVis}}">
-                    <TextBox x:Name="GlobalSearchBox"
-                             Style="{StaticResource RoundedTextBox}"
-                             VerticalAlignment="Center"
-                             MinWidth="160"
-                             MaxWidth="360"
-                             HorizontalAlignment="Stretch"
-                             Margin="0,0,0,0"
-                             Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Product code (SKU or barcode) adds directly; name opens pick list — Enter on Billing"/>
-                </Grid>
-            </Grid>
         </Border>
 
         <Grid Grid.Row="1" Margin="12,8,12,8">
@@ -184,6 +166,9 @@
             </Grid>
             <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
                 <views:CustomerRegistrationView DataContext="{Binding CustomersRegistration}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsSalesmenPage, Converter={StaticResource BoolToVis}}">
+                <views:SalesmanView DataContext="{Binding Salesmen}"/>
             </Grid>
             <Grid Visibility="{Binding IsLedgerPage, Converter={StaticResource BoolToVis}}">
                 <views:LedgerView DataContext="{Binding Ledger}"/>
@@ -292,6 +277,9 @@
                         <controls:NavDrawerItem Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
+                        <controls:NavDrawerItem Label="Salesmen" Page="{x:Static vm:ShellPage.Salesmen}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Salesmen}}"/>
                         <controls:NavDrawerItem Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"

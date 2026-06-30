@@ -1,6 +1,7 @@
 export const DOCUMENT_NUMBER_CONFIG_KEYS = [
   'product_sku',
   'customer_code',
+  'salesman_code',
   'purchase_order',
   'purchase_intent',
   'purchase_return',
@@ -39,6 +40,14 @@ export const DOCUMENT_NUMBER_CONFIG_DEFAULTS: DocumentNumberConfigDefault[] = [
     startFrom: 1,
     label: 'Customer code',
     description: 'Auto-generated customer code for POS and central',
+  },
+  {
+    configKey: 'salesman_code',
+    prefix: 'SM',
+    padLength: 3,
+    startFrom: 1,
+    label: 'Salesman code',
+    description: 'Auto-generated salesman code per store',
   },
   {
     configKey: 'purchase_order',

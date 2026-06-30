@@ -449,6 +449,92 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Salesmen">
+                <Grid Margin="0,8,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Salesman filter" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding SalesmanFilterOptions}"
+                                          SelectedItem="{Binding SelectedSalesmanFilter}"
+                                          DisplayMemberPath="Label"
+                                          MinWidth="200"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,8,0"
+                                        Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                <TextBlock Text="Business date" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterBusinessDate}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                                <CheckBox Content="Date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,0,0,8"/>
+                                <Button Content="Refresh" Style="{StaticResource PrimaryButton}" MinWidth="100"
+                                        Command="{Binding LoadSalesmanSummaryCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Grid.Row="1" Text="{Binding SalesmanTabStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12" MaxHeight="220">
+                        <DataGrid ItemsSource="{Binding SalesmanSummaryRows}"
+                                  SelectedItem="{Binding SelectedSalesmanSummary}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding SalesmanCode}" Width="75"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding SalesmanName}" Width="*"/>
+                                <DataGridTextColumn Header="Bills" Binding="{Binding BillCount}" Width="55"/>
+                                <DataGridTextColumn Header="Qty sold" Binding="{Binding TotalQtyFormatted}" Width="80"/>
+                                <DataGridTextColumn Header="Bill amount" Binding="{Binding TotalPayableFormatted}" Width="105"/>
+                                <DataGridTextColumn Header="Avg bill" Binding="{Binding AvgPayableFormatted}" Width="95"/>
+                                <DataGridTextColumn Header="Cash" Binding="{Binding TotalCashFormatted}" Width="90"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <TextBlock Grid.Row="3" Text="{Binding SalesmanBillTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}" Padding="8">
+                        <DataGrid ItemsSource="{Binding SalesmanBillRows}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="115"/>
+                                <DataGridTextColumn Header="Bill date" Binding="{Binding BillDate}" Width="95"/>
+                                <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="125"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
+                                <DataGridTextColumn Header="Salesman" Binding="{Binding SalesmanDisplay}" Width="120"/>
+                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120"/>
+                                <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="100"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55"/>
+                                <DataGridTextColumn Header="Payable" Binding="{Binding PayableFormatted}" Width="90"/>
+                                <DataGridTextColumn Header="Cash" Binding="{Binding CashFormatted}" Width="80"/>
+                                <DataGridTextColumn Header="Card" Binding="{Binding CardFormatted}" Width="80"/>
+                                <DataGridTextColumn Header="UPI" Binding="{Binding UpiFormatted}" Width="80"/>
+                                <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
             <TabItem Header="All bills">
                 <Grid Margin="0,8,0,16">
                     <Grid.RowDefinitions>
@@ -470,6 +556,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,8">
                                     <TextBlock Text="Invoice no" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
@@ -489,9 +576,16 @@
                                     <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterBusinessDate}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="Salesman" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding SalesmanFilterOptions}"
+                                              SelectedItem="{Binding SelectedSalesmanFilter}"
+                                              DisplayMemberPath="Label"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,0">
                                     <CheckBox Content="Use date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,18,0,4"/>
                                 </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,0"
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0"
                                             Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="From / To" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
                                     <StackPanel Orientation="Horizontal">
@@ -526,6 +620,7 @@
                                 <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130"/>
                                 <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
                                 <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120"/>
+                                <DataGridTextColumn Header="Salesman" Binding="{Binding SalesmanDisplay}" Width="130"/>
                                 <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="100"/>
                                 <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55"/>
                                 <DataGridTextColumn Header="Payable" Binding="{Binding PayableFormatted}" Width="95"/>

@@ -27,6 +27,8 @@ public partial class ShellViewModel : ObservableObject
 
     public CustomerRegistrationViewModel CustomersRegistration { get; }
 
+    public SalesmanViewModel Salesmen { get; }
+
     public SaleReturnViewModel SaleReturn { get; }
 
     public BillLookupViewModel BillLookup { get; }
@@ -56,8 +58,6 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _tillDisplayLine = "";
 
     [ObservableProperty] private string _windowTitleText = "RR Bridal";
-
-    [ObservableProperty] private string _globalSearchText = "";
 
     [ObservableProperty] private int _pendingNotificationCount;
 
@@ -118,12 +118,8 @@ public partial class ShellViewModel : ObservableObject
         _services = services;
         Billing = new BillingViewModel(services);
         Billing.NavigateToCustomerRegistration = () => CurrentPage = ShellPage.Customers;
+        Billing.NavigateToSalesmen = () => CurrentPage = ShellPage.Salesmen;
         Billing.PostBillCanExecuteChanged += () => PostBillCommand.NotifyCanExecuteChanged();
-        Billing.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(BillingViewModel.SearchText) && CurrentPage == ShellPage.Billing)
-                GlobalSearchText = Billing.SearchText;
-        };
         Dashboard = new DashboardViewModel(services);
         Dashboard.NavigateToReturnForBill = billNo =>
         {
@@ -142,14 +138,10 @@ public partial class ShellViewModel : ObservableObject
         OnlineSales = new OnlineSalesViewModel(services);
         Ledger = new LedgerViewModel(services);
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
+        Salesmen = new SalesmanViewModel(services);
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
         BillLookup = new BillLookupViewModel(services);
-        BillLookup.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(BillLookupViewModel.ActiveMode) or nameof(BillLookupViewModel.IsReturnMode))
-                OnPropertyChanged(nameof(ShowGlobalSearchBar));
-        };
         DuplicatePrint = new DuplicatePrintViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
@@ -202,10 +194,10 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAnalyticsPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsCustomersPage));
+        OnPropertyChanged(nameof(IsSalesmenPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
-        OnPropertyChanged(nameof(ShowGlobalSearchBar));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -238,14 +230,13 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsCustomersPage => CurrentPage == ShellPage.Customers;
 
+    public bool IsSalesmenPage => CurrentPage == ShellPage.Salesmen;
+
     public bool IsLedgerPage => CurrentPage == ShellPage.Ledger;
 
     public bool IsSaleReturnPage => CurrentPage == ShellPage.SaleReturn;
 
     public bool IsBillLookupPage => CurrentPage == ShellPage.BillLookup;
-
-    public bool ShowGlobalSearchBar =>
-        IsBillingPage || IsSaleReturnPage || (IsBillLookupPage && BillLookup.IsReturnMode);
 
     public bool IsAdjustmentsPage => CurrentPage == ShellPage.Adjustments;
 
@@ -293,10 +284,10 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAnalyticsPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsCustomersPage));
+        OnPropertyChanged(nameof(IsSalesmenPage));
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
-        OnPropertyChanged(nameof(ShowGlobalSearchBar));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -315,7 +306,8 @@ public partial class ShellViewModel : ObservableObject
             _ = OnlineSales.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
-        GlobalSearchText = value == ShellPage.Billing ? Billing.SearchText : "";
+        if (value == ShellPage.Salesmen)
+            _ = Salesmen.RefreshCommand.ExecuteAsync(null);
 
         if (value == ShellPage.Billing)
             RequestBillingSearchFocus();
@@ -338,12 +330,6 @@ public partial class ShellViewModel : ObservableObject
 
     public void RequestBarcodeSkuFocus() =>
         _services.FocusBarcodeSkuEntry?.Invoke();
-
-    partial void OnGlobalSearchTextChanged(string value)
-    {
-        if (CurrentPage == ShellPage.Billing)
-            Billing.SearchText = value;
-    }
 
     [RelayCommand]
     private void Navigate(ShellPage page)
@@ -369,6 +355,7 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Analytics => "Analytics",
         ShellPage.OnlineSales => "Online Sales",
         ShellPage.Customers => "Customers",
+        ShellPage.Salesmen => "Salesmen",
         ShellPage.Ledger => "Ledger",
         ShellPage.SaleReturn => "Returns",
         ShellPage.BillLookup => "Bill Lookup",
@@ -420,8 +407,10 @@ public partial class ShellViewModel : ObservableObject
             _services.FocusSearch?.FocusBillingProductSearch();
         else if (CurrentPage == ShellPage.Barcodes)
             RequestBarcodeSkuFocus();
-        else
-            _services.FocusSearch?.FocusGlobalSearch();
+        else if (CurrentPage == ShellPage.SaleReturn)
+            _ = SaleReturn.AddExchangeProductFromSearchAsync("");
+        else if (CurrentPage == ShellPage.BillLookup && BillLookup.IsReturnMode)
+            _ = BillLookup.Return.AddExchangeProductFromSearchAsync("");
     }
 
     [RelayCommand]

@@ -61,6 +61,8 @@ public partial class BillDetailDialogViewModel : ObservableObject
     [ObservableProperty] private string _customerPhone = "";
     [ObservableProperty] private string _customerName = "";
     [ObservableProperty] private string _salesman = "";
+    [ObservableProperty] private string _salesmanCode = "";
+    [ObservableProperty] private string _salesmanDisplay = "";
     [ObservableProperty] private bool _holdBills;
     [ObservableProperty] private bool _doorDelivery;
     [ObservableProperty] private bool _onlineCodOrder;
@@ -191,6 +193,8 @@ public partial class BillDetailDialogViewModel : ObservableObject
         CustomerPhone = "";
         CustomerName = "";
         Salesman = "";
+        SalesmanCode = "";
+        SalesmanDisplay = "";
         HoldBills = false;
         DoorDelivery = false;
         OnlineCodOrder = false;
@@ -236,6 +240,8 @@ public partial class BillDetailDialogViewModel : ObservableObject
         CustomerName = DayBillingCloseDocumentReader.ReadString(doc, "customerName") ?? "";
         CustomerPhone = DayBillingCloseDocumentReader.ReadString(doc, "customerPhone") ?? "";
         Salesman = DayBillingCloseDocumentReader.ReadString(doc, "salesman") ?? "";
+        SalesmanCode = DayBillingCloseDocumentReader.ReadString(doc, "salesmanCode") ?? "";
+        SalesmanDisplay = FormatSalesmanDisplay(SalesmanCode, Salesman);
         HoldBills = doc.GetValue("holdBills", false).ToBoolean();
         DoorDelivery = doc.GetValue("doorDelivery", false).ToBoolean();
         Stitching = doc.GetValue("stitching", false).ToBoolean();
@@ -351,5 +357,14 @@ public partial class BillDetailDialogViewModel : ObservableObject
             return;
         RequestClose?.Invoke();
         NavigateToAdjustmentForBill?.Invoke(_billNo);
+    }
+
+    private static string FormatSalesmanDisplay(string code, string name)
+    {
+        if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(name))
+            return $"{code} — {name}";
+        if (!string.IsNullOrWhiteSpace(code))
+            return code;
+        return name;
     }
 }

@@ -30,6 +30,7 @@ GET /api/bills?storeCode=store-001&page=1&limit=20
 | `limit` | no | `20` | Page size (max `100`) |
 | `status` | no | — | `completed`, `partially_returned`, `returned`, `cancelled` |
 | `paymentMode` | no | — | `cash`, `card`, `upi`, `credit`, `mixed` |
+| `salesmanCode` | no | — | Filter by salesman code (or `__legacy__` for bills without code) |
 
 When `status` or `paymentMode` is set, results are filtered in memory after the date-bounded query (same pattern as dashboard sales filters). Otherwise pagination is applied at the database level.
 
@@ -48,6 +49,9 @@ When `status` or `paymentMode` is set, results are filtered in memory after the 
       "storeCode": "store-001",
       "storeName": "RR Bridal - Main",
       "customerName": "Priya Sharma",
+      "salesmanCode": "SM001",
+      "salesmanId": "674a1b2c3d4e5f6789012345",
+      "salesmanName": "Ravi",
       "itemCount": 3,
       "netAmount": 42599,
       "paymentMode": "UPI",
@@ -119,6 +123,8 @@ Returns `404` when no invoice exists for `{ storeId, invoiceNo }`.
   "customerName": "Priya Sharma",
   "customerPhone": "9876543210",
   "salesman": "Ravi",
+  "salesmanCode": "SM001",
+  "salesmanId": "674a1b2c3d4e5f6789012345",
   "holdBills": false,
   "doorDelivery": false,
   "onlineCod": false,

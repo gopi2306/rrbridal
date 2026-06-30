@@ -18,6 +18,7 @@ using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.Salesmen;
 using RRBridal.StoreBilling.App.Services.WhatsApp;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
@@ -36,8 +37,10 @@ public partial class BillingViewModel : ObservableObject
     private readonly CustomerLookupService _customerLookup;
     private readonly CustomerRegistrationService _customerRegistration;
     private readonly CustomerCodeGenerator _customerCodeGenerator;
+    private readonly SalesmanService _salesmanService;
 
     public Action? NavigateToCustomerRegistration { get; set; }
+    public Action? NavigateToSalesmen { get; set; }
 
     /// <summary>Raised when customer fields change so shell can refresh F9 Post bill.</summary>
     public event Action? PostBillCanExecuteChanged;
@@ -46,7 +49,10 @@ public partial class BillingViewModel : ObservableObject
         !string.IsNullOrWhiteSpace(CustomerName?.Trim())
         && PhoneMatchHelper.IsPhoneLikeQuery((CustomerPhone ?? "").Trim());
 
-    private bool CanPostBill() => IsCustomerReadyForPost;
+    public bool IsSalesmanReadyForPost =>
+        ActiveSalesmen.Count == 0 || SelectedSalesman != null;
+
+    private bool CanPostBill() => IsCustomerReadyForPost && IsSalesmanReadyForPost;
 
     private void NotifyPostBillCanExecute()
     {
@@ -59,6 +65,9 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _customerCode = "";
     [ObservableProperty] private string _customerName = "";
     [ObservableProperty] private string _salesman = "";
+    [ObservableProperty] private string _salesmanCode = "";
+    [ObservableProperty] private string _salesmanId = "";
+    [ObservableProperty] private SalesmanRecord? _selectedSalesman;
     [ObservableProperty] private string _customerPhone = "";
 
     [ObservableProperty] private bool _holdBills;
@@ -175,16 +184,19 @@ public partial class BillingViewModel : ObservableObject
 
     public ObservableCollection<BillingLineItem> Lines { get; } = new();
 
+    public ObservableCollection<SalesmanRecord> ActiveSalesmen { get; } = new();
+
     public BillingViewModel(AppServices services)
     {
         _services = services;
         _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext);
         _promotionEngine = new PromotionEngine(new PromotionSchemeRepository(services.LocalDb));
         RefreshAlterationGstIncludedFromSettings();
         AssignNewBillIdentity();
-        ApplyLoggedInSalesman();
+        _ = LoadActiveSalesmenAsync();
         Lines.CollectionChanged += OnLinesCollectionChanged;
         EnsureEntryRow();
         RecalculateTotals();
@@ -194,9 +206,62 @@ public partial class BillingViewModel : ObservableObject
     /// <summary>View focuses the trailing entry row Product code cell after add.</summary>
     public Action? RequestFocusEntryProductCode { get; set; }
 
-    private void ApplyLoggedInSalesman()
+    partial void OnSelectedSalesmanChanged(SalesmanRecord? value)
     {
-        Salesman = _services.UserSession?.LoggedInUser.Name?.Trim() ?? "";
+        Salesman = value?.Name?.Trim() ?? "";
+        SalesmanCode = value?.SalesmanCode?.Trim() ?? "";
+        SalesmanId = value?.CentralId?.Trim() ?? "";
+        NotifyPostBillCanExecute();
+    }
+
+    private async Task LoadActiveSalesmenAsync(bool applyDefaultSelection = true)
+    {
+        try
+        {
+            var rows = await _salesmanService.ListAsync(activeOnly: true);
+            ActiveSalesmen.Clear();
+            foreach (var row in rows)
+                ActiveSalesmen.Add(row);
+
+            if (!applyDefaultSelection)
+                return;
+
+            if (ActiveSalesmen.Count == 1)
+                SelectedSalesman = ActiveSalesmen[0];
+            else if (SelectedSalesman != null
+                     && !ActiveSalesmen.Any(s => string.Equals(s.CentralId, SelectedSalesman.CentralId, StringComparison.Ordinal)
+                         || string.Equals(s.SalesmanCode, SelectedSalesman.SalesmanCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                SelectedSalesman = null;
+            }
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private void ApplySalesmanFromDocument(BsonDocument doc)
+    {
+        Salesman = doc.GetValue("salesman", "").AsString;
+        SalesmanCode = doc.GetValue("salesmanCode", "").AsString;
+        SalesmanId = doc.GetValue("salesmanId", "").AsString;
+
+        var match = ActiveSalesmen.FirstOrDefault(s =>
+            (!string.IsNullOrWhiteSpace(SalesmanId) && string.Equals(s.CentralId, SalesmanId, StringComparison.Ordinal))
+            || (!string.IsNullOrWhiteSpace(SalesmanCode) && string.Equals(s.SalesmanCode, SalesmanCode, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(Salesman) && string.Equals(s.Name, Salesman, StringComparison.OrdinalIgnoreCase)));
+
+        SelectedSalesman = match;
+        if (match == null && !string.IsNullOrWhiteSpace(Salesman))
+            OnPropertyChanged(nameof(SelectedSalesman));
+    }
+
+    private void AppendSalesmanFields(BsonDocument doc)
+    {
+        doc["salesman"] = Salesman;
+        doc["salesmanCode"] = SalesmanCode;
+        doc["salesmanId"] = SalesmanId;
     }
 
     private void AssignNewBillIdentity()
@@ -1488,7 +1553,11 @@ public partial class BillingViewModel : ObservableObject
     {
         ClearCustomerProfile();
         AssignNewBillIdentity();
-        ApplyLoggedInSalesman();
+        SelectedSalesman = null;
+        Salesman = "";
+        SalesmanCode = "";
+        SalesmanId = "";
+        _ = LoadActiveSalesmenAsync();
         Lines.Clear();
         _suppressDiscountTextSync = true;
         ItemDiscountPercentText = "";
@@ -1523,11 +1592,22 @@ public partial class BillingViewModel : ObservableObject
     {
         if (!CanPostBill())
         {
-            MessageBox.Show(
-                "Enter customer name and a valid 10-digit mobile number before posting the bill.",
-                "RR Bridal Billing",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            if (!IsCustomerReadyForPost)
+            {
+                MessageBox.Show(
+                    "Enter customer name and a valid 10-digit mobile number before posting the bill.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            else
+            {
+                MessageBox.Show(
+                    "Select a salesman before posting the bill.",
+                    "RR Bridal Billing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
             return;
         }
 
@@ -1711,7 +1791,6 @@ public partial class BillingViewModel : ObservableObject
                 { "customerCode", CustomerCode },
                 { "customerName", CustomerName },
                 { "customerPhone", CustomerPhone },
-                { "salesman", Salesman },
                 { "doorNo", "" },
                 { "street", "" },
                 { "fullAddress", "" },
@@ -1771,6 +1850,8 @@ public partial class BillingViewModel : ObservableObject
             {
                 doc["salesChannel"] = "store";
             }
+
+            AppendSalesmanFields(doc);
 
             var postWarnings = new List<string>();
             var postedBillNo = BillNo;
@@ -2007,7 +2088,7 @@ public partial class BillingViewModel : ObservableObject
             CharWidth = print.ReceiptCharWidth is >= 32 and <= 56 ? print.ReceiptCharWidth : 48,
             BillNo = BillNo is "—" or { Length: 0 } ? (HoldNo.Length > 0 ? HoldNo : "PREVIEW") : BillNo,
             BillDate = BillDateDisplay,
-            UserName = Salesman,
+            UserName = FormatSalesmanForReceipt(),
             Time = DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
             Counter = _services.StoreContext.PosCounter,
             CustomerName = CustomerName ?? "",
@@ -2120,7 +2201,7 @@ public partial class BillingViewModel : ObservableObject
         CustomerCode = doc.GetValue("customerCode", "").AsString;
         CustomerName = doc.GetValue("customerName", "").AsString;
         CustomerPhone = doc.GetValue("customerPhone", "").AsString;
-        Salesman = doc.GetValue("salesman", "").AsString;
+        ApplySalesmanFromDocument(doc);
         HoldBills = doc.GetValue("holdBills", false).AsBoolean;
         DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean;
         Stitching = doc.GetValue("stitching", false).AsBoolean;
@@ -2193,13 +2274,20 @@ public partial class BillingViewModel : ObservableObject
         return doc;
     }
 
+    private string FormatSalesmanForReceipt()
+    {
+        if (!string.IsNullOrWhiteSpace(SalesmanCode) && !string.IsNullOrWhiteSpace(Salesman))
+            return $"{SalesmanCode} - {Salesman}";
+        return Salesman;
+    }
+
     private BsonDocument BuildBillPayloadCore()
     {
         RecalculateTotals();
         var totals = _lastBillTotals;
         var linesArr = BuildLinesBsonArray();
 
-        return new BsonDocument
+        var payload = new BsonDocument
         {
             { "billDate", BillDateDisplay },
             { "storeId", _services.StoreContext.StoreId },
@@ -2208,7 +2296,6 @@ public partial class BillingViewModel : ObservableObject
             { "customerCode", CustomerCode },
             { "customerName", CustomerName },
             { "customerPhone", CustomerPhone },
-            { "salesman", Salesman },
             { "doorNo", "" },
             { "street", "" },
             { "fullAddress", "" },
@@ -2238,6 +2325,8 @@ public partial class BillingViewModel : ObservableObject
             { "payable", (double)totals.Payable },
             { "lines", linesArr },
         };
+        AppendSalesmanFields(payload);
+        return payload;
     }
 
     private BsonArray BuildLinesBsonArray()

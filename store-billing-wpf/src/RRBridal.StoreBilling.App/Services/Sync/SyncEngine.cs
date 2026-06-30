@@ -18,6 +18,7 @@ using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Audit;
+using RRBridal.StoreBilling.App.Services.Salesmen;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -82,6 +83,7 @@ public sealed class SyncEngine : ISyncEngine
         await PullUpdatesAsync(ct);
         await PushPendingAsync(ct);
         try { await SyncStoreUsersAsync(ct); } catch { /* store user sync is best-effort */ }
+        try { await SyncSalesmenAsync(ct); } catch { /* salesman sync is best-effort */ }
         if (_receiptConfigSync != null)
         {
             if (_receiptConfigSync != null)
@@ -314,6 +316,22 @@ public sealed class SyncEngine : ISyncEngine
 
             await collection.ReplaceOneAsync(filter, bsonDoc, new ReplaceOptions { IsUpsert = true }, ct);
         }
+    }
+
+    public async Task SyncSalesmenAsync(CancellationToken ct)
+    {
+        var storeId = _storeContext.StoreId;
+        var url = $"/api/salesmen?storeId={Uri.EscapeDataString(storeId)}";
+        var res = await _centralApi.GetAsync(url, ct);
+        if (!res.IsSuccessStatusCode) return;
+
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return;
+
+        var salesmanService = new SalesmanService(_localDb, _centralApi, _storeContext);
+        foreach (var el in doc.RootElement.EnumerateArray())
+            await salesmanService.UpsertFromCentralJsonAsync(el, ct);
     }
 
     private async Task UpsertProductAsync(JsonElement product, CancellationToken ct)

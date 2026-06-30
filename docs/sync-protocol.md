@@ -24,10 +24,11 @@ This document defines the offline-first sync protocol used by the **store client
 
 ## Store sync run order (client run)
 
-Each **Run sync once** performs **pull then push** (then best-effort masters and store users):
+Each **Run sync once** performs **pull then push** (then best-effort masters, store users, and salesmen):
 
 1. **Pull** — applies `StockTransferAwaitingStoreIntake` (local `stockQty` + pending `StockTransferReceived` outbox), product deltas, completed-transfer deltas, etc.
 2. **Push** — sends pending outbox events including `StockTransferReceived`, so central can move the transfer from `awaiting_intake` to **`completed`** in the **same** run.
+3. **Best-effort pull** — `GET /api/store-users` and `GET /api/salesmen?storeId=` refresh local `store_users` and `store_salesmen` caches (not outbox events).
 
 If push ran before pull, the receipt would not exist until the next sync.
 

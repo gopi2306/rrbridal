@@ -43,6 +43,7 @@ public sealed class StoreBillListService
             .Where(d => MatchesInvoiceNo(d, query.InvoiceNo))
             .Where(d => MatchesCustomerName(d, query.CustomerName))
             .Where(d => MatchesCustomerMobile(d, query.CustomerMobile))
+            .Where(d => MatchesSalesmanFilter(d, query))
             .Where(d => MatchesDateFilter(d, query))
             .OrderByDescending(d => GetSortUtc(d))
             .ToList();
@@ -187,6 +188,9 @@ public sealed class StoreBillListService
             BillDate = DayBillingCloseDocumentReader.ReadString(doc, "billDate") ?? "",
             CustomerName = DayBillingCloseDocumentReader.ReadString(doc, "customerName") ?? "",
             CustomerPhone = DayBillingCloseDocumentReader.ReadString(doc, "customerPhone") ?? "",
+            SalesmanCode = DayBillingCloseDocumentReader.ReadString(doc, "salesmanCode") ?? "",
+            SalesmanName = DayBillingCloseDocumentReader.ReadString(doc, "salesman") ?? "",
+            SalesmanId = DayBillingCloseDocumentReader.ReadString(doc, "salesmanId") ?? "",
             CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
             PostedAtLocal = postedLocal,
             TotalQty = DayBillingCloseDocumentReader.SumBillLineQty(doc),
@@ -237,6 +241,34 @@ public sealed class StoreBillListService
 
         var phone = DayBillingCloseDocumentReader.ReadString(doc, "customerPhone") ?? "";
         return PhoneMatchHelper.PhoneMatches(phone, customerMobile);
+    }
+
+    public static bool MatchesSalesmanFilter(BsonDocument doc, StoreBillListQuery query)
+    {
+        if (!string.IsNullOrWhiteSpace(query.SalesmanGroupKey))
+            return SalesmanSalesAggregationService.MatchesSalesmanGroupKey(doc, query.SalesmanGroupKey);
+
+        if (!string.IsNullOrWhiteSpace(query.SalesmanId))
+        {
+            var id = DayBillingCloseDocumentReader.ReadString(doc, "salesmanId") ?? "";
+            if (!string.Equals(id, query.SalesmanId.Trim(), StringComparison.Ordinal))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SalesmanCode))
+        {
+            var code = DayBillingCloseDocumentReader.ReadString(doc, "salesmanCode") ?? "";
+            var name = DayBillingCloseDocumentReader.ReadString(doc, "salesman") ?? "";
+            var filter = query.SalesmanCode.Trim();
+            if (string.Equals(filter, "__legacy__", StringComparison.OrdinalIgnoreCase))
+                return string.IsNullOrWhiteSpace(code);
+            if (!string.Equals(code, filter, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(name, filter, StringComparison.OrdinalIgnoreCase)
+                && !name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return true;
     }
 
     public static bool MatchesDateFilter(BsonDocument doc, StoreBillListQuery query)

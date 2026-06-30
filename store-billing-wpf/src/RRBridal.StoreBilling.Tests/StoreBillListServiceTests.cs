@@ -66,6 +66,40 @@ public class StoreBillListServiceTests
     }
 
     [Fact]
+    public void MatchesSalesmanFilter_by_group_key()
+    {
+        var doc = new BsonDocument
+        {
+            { "salesmanCode", "SM001" },
+            { "salesman", "gopi" },
+            { "salesmanId", "abc123" },
+        };
+
+        var key = SalesmanSalesAggregationService.ResolveSalesmanGroupKey("abc123", "SM001", "gopi");
+        Assert.Equal("id:abc123", key);
+        Assert.True(StoreBillListService.MatchesSalesmanFilter(doc, new StoreBillListQuery { SalesmanGroupKey = key }));
+        Assert.False(StoreBillListService.MatchesSalesmanFilter(doc, new StoreBillListQuery { SalesmanGroupKey = "code:SM002" }));
+    }
+
+    [Fact]
+    public void MatchesSalesmanFilter_by_code_and_legacy()
+    {
+        var doc = new BsonDocument
+        {
+            { "salesmanCode", "SM001" },
+            { "salesman", "Ravi" },
+            { "salesmanId", "abc123" },
+        };
+
+        Assert.True(StoreBillListService.MatchesSalesmanFilter(doc, new StoreBillListQuery { SalesmanCode = "SM001" }));
+        Assert.False(StoreBillListService.MatchesSalesmanFilter(doc, new StoreBillListQuery { SalesmanCode = "SM002" }));
+
+        var legacy = new BsonDocument { { "salesman", "Old User" } };
+        Assert.True(StoreBillListService.MatchesSalesmanFilter(legacy, new StoreBillListQuery { SalesmanCode = "__legacy__" }));
+        Assert.False(StoreBillListService.MatchesSalesmanFilter(doc, new StoreBillListQuery { SalesmanCode = "__legacy__" }));
+    }
+
+    [Fact]
     public void BillListCsvExporter_writes_header_and_row()
     {
         var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"bill-list-{Guid.NewGuid():N}.csv");

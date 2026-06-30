@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
@@ -40,6 +41,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        RegisterDefaultWindowIcon();
         DispatcherUnhandledException += (_, args) =>
         {
             MessageBox.Show(
@@ -55,6 +57,20 @@ public partial class App : Application
         Services = AppServices.CreateDefault();
         CounterConfigValidator.WarnIfDefaultDevice(Services.StoreContext);
         _ = RunStartupAsync();
+    }
+
+    private void RegisterDefaultWindowIcon()
+    {
+        var iconUri = new Uri("pack://application:,,,/Resources/Assets/TruBill.ico", UriKind.Absolute);
+        var appIcon = BitmapFrame.Create(iconUri);
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is Window window && window.Icon == null)
+                    window.Icon = appIcon;
+            }));
     }
 
     private async Task RunStartupAsync()

@@ -6,6 +6,9 @@ export interface BillListRow {
   storeCode: string;
   storeName: string;
   customerName: string | null;
+  salesmanCode: string | null;
+  salesmanId: string | null;
+  salesmanName: string | null;
   itemCount: number;
   netAmount: number;
   paymentMode: string;
@@ -76,6 +79,8 @@ export interface BillDetailResponse {
   customerName: string | null;
   customerPhone: string | null;
   salesman: string | null;
+  salesmanCode: string | null;
+  salesmanId: string | null;
   holdBills: boolean;
   doorDelivery: boolean;
   onlineCod: boolean;
@@ -116,4 +121,5 @@ export interface BillsListOptions {
   limit: number;
   status?: BillListStatusKey | undefined;
   paymentMode?: BillListPaymentModeKey | undefined;
+  salesmanCode?: string | undefined;
 }

@@ -49,6 +49,7 @@ For a technical feature reference (configuration, MongoDB collections, API sync 
 | Create and post sales bills | Billing |
 | Hold bills and resume later | Billing |
 | Register customers | Customers |
+| Register salesmen | Salesmen |
 | Process returns and exchanges | Returns |
 | Correct posted bills | Adjustments |
 | Reprint invoices | Duplicate |
@@ -142,7 +143,7 @@ Billing is the main screen for creating sales invoices.
 | **Phone** | 10-digit mobile number (required to post). The field blinks until a valid number is entered. |
 | **Customer name** | Required to post the bill |
 | **Customer code** | Filled automatically when a customer is found |
-| **Salesman** | Logged-in cashier (read-only) |
+| **Salesman** | Pick from registered salesmen (code + name). Required when at least one active salesman exists in the store master. |
 
 **Finding a customer:**
 

@@ -61,8 +61,11 @@
                             <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
-                            <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding Salesman}"
-                                     IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
+                            <ComboBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedComboBox}"
+                                      ItemsSource="{Binding ActiveSalesmen}"
+                                      SelectedItem="{Binding SelectedSalesman}"
+                                      DisplayMemberPath="DisplayLabel"
+                                      IsEditable="False" Margin="0,0,0,4"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
                             <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Margin="0,0,0,0"

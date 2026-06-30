@@ -20,6 +20,7 @@ export class BillsController {
       limit: query.limit ?? 20,
       status: query.status,
       paymentMode: query.paymentMode,
+      salesmanCode: query.salesmanCode,
     });
   }
 

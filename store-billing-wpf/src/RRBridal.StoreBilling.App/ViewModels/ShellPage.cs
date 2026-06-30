@@ -6,6 +6,7 @@ public enum ShellPage
     Dashboard,
     Analytics,
     Customers,
+    Salesmen,
     Ledger,
     SaleReturn,
     BillLookup,

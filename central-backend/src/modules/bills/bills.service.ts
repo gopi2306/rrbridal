@@ -56,9 +56,10 @@ export class BillsService {
     }
 
     const baseFilter = buildStoreSalePayloadTimeFilter(store.code, range);
-    const filter = options.search?.trim()
-      ? { $and: [baseFilter, this.buildSearchFilter(options.search.trim())] }
-      : baseFilter;
+    const filters: Record<string, unknown>[] = [baseFilter];
+    if (options.search?.trim()) filters.push(this.buildSearchFilter(options.search.trim()));
+    if (options.salesmanCode?.trim()) filters.push(this.buildSalesmanFilter(options.salesmanCode.trim()));
+    const filter = filters.length === 1 ? baseFilter : { $and: filters };
 
     const hasPostFilters = Boolean(options.status || options.paymentMode);
     const page = options.page;
@@ -164,6 +165,8 @@ export class BillsService {
       customerName: readString(payload.customerName) ?? null,
       customerPhone: readString(payload.customerPhone) ?? null,
       salesman: readString(payload.salesman) ?? readString(payload.salesmanName) ?? null,
+      salesmanCode: readString(payload.salesmanCode) ?? null,
+      salesmanId: readString(payload.salesmanId) ?? null,
       holdBills: Boolean(payload.holdBills),
       doorDelivery: Boolean(payload.doorDelivery),
       onlineCod: Boolean(payload.onlineCodOrder ?? payload.onlineCod),
@@ -220,6 +223,9 @@ export class BillsService {
       storeCode: store.code,
       storeName: store.name,
       customerName: readString(payload.customerName) ?? null,
+      salesmanCode: readString(payload.salesmanCode) ?? null,
+      salesmanId: readString(payload.salesmanId) ?? null,
+      salesmanName: readString(payload.salesman) ?? readString(payload.salesmanName) ?? null,
       itemCount: sumInvoiceLineQty(payload),
       netAmount: parseInvoiceNet(payload),
       paymentMode: payment.label,
@@ -252,11 +258,34 @@ export class BillsService {
         { invoiceNo: re },
         { 'payload.billNo': re },
         { 'payload.customerName': re },
+        { 'payload.salesman': re },
+        { 'payload.salesmanCode': re },
         { 'payload.customerPhone': re },
         { 'payload.lines.sku': re },
         { 'payload.lines.productCode': re },
         { 'payload.lines.barcode': re },
         { 'payload.lines.description': re },
+      ],
+    };
+  }
+
+  private buildSalesmanFilter(salesmanCode: string): Record<string, unknown> {
+    if (salesmanCode === '__legacy__') {
+      return {
+        $or: [
+          { 'payload.salesmanCode': { $exists: false } },
+          { 'payload.salesmanCode': null },
+          { 'payload.salesmanCode': '' },
+        ],
+      };
+    }
+
+    const escaped = salesmanCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`^${escaped}$`, 'i');
+    return {
+      $or: [
+        { 'payload.salesmanCode': re },
+        { 'payload.salesman': re },
       ],
     };
   }

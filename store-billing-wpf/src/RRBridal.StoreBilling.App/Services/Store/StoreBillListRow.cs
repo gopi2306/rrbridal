@@ -9,6 +9,9 @@ public sealed class StoreBillListRow
     public string BillDate { get; init; } = "";
     public string CustomerName { get; init; } = "";
     public string CustomerPhone { get; init; } = "";
+    public string SalesmanCode { get; init; } = "";
+    public string SalesmanName { get; init; } = "";
+    public string SalesmanId { get; init; } = "";
     public string CounterDisplay { get; init; } = "";
     public required string PostedAtLocal { get; init; }
     public decimal TotalQty { get; init; }
@@ -26,6 +29,9 @@ public sealed class StoreBillListRow
     public DateTime SortUtc { get; init; }
 
     public string PayableFormatted => MoneyMath.FormatRupee(Payable);
+    public string SalesmanDisplay => !string.IsNullOrWhiteSpace(SalesmanCode)
+        ? $"{SalesmanCode} — {SalesmanName}"
+        : SalesmanName;
     public string CashFormatted => MoneyMath.FormatRupee(CashAmount);
     public string CardFormatted => MoneyMath.FormatRupee(CardAmount);
     public string UpiFormatted => MoneyMath.FormatRupee(UpiAmount);
@@ -57,5 +63,9 @@ public sealed class StoreBillListQuery
     public DateTime? DateFrom { get; init; }
     public DateTime? DateTo { get; init; }
     public string? PosCounterFilter { get; init; }
+    public string? SalesmanCode { get; init; }
+    public string? SalesmanId { get; init; }
+    /// <summary>Matches aggregation group key: id:…, code:…, name:…, or __legacy__.</summary>
+    public string? SalesmanGroupKey { get; init; }
     public int Limit { get; init; } = 500;
 }

@@ -39,12 +39,7 @@ public partial class MainWindow : Window, IFocusSearchService
             return;
         if (DataContext is not ShellViewModel vm)
             return;
-        if (vm.CurrentPage == ShellPage.Billing)
-            App.Services.FocusBillingProductSearch?.Invoke();
-        else if (vm.CurrentPage == ShellPage.Barcodes)
-            vm.RequestBarcodeSkuFocus();
-        else
-            vm.FocusGlobalSearchCommand.Execute(null);
+        vm.FocusGlobalSearchCommand.Execute(null);
         e.Handled = true;
     }
 
@@ -55,7 +50,6 @@ public partial class MainWindow : Window, IFocusSearchService
             shellLayout.UpdateShellLayout(ActualWidth);
 
         App.Services.FocusSearch = this;
-        GlobalSearchBox.KeyDown += GlobalSearchBox_OnKeyDown;
         if (DataContext is ShellViewModel shell)
         {
             shell.EnsurePageVisibilityFresh();
@@ -65,65 +59,20 @@ public partial class MainWindow : Window, IFocusSearchService
         }
     }
 
-    private async void GlobalSearchBox_OnKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter)
-            return;
-        e.Handled = true;
-        if (DataContext is not ShellViewModel shell)
-            return;
-
-        if (shell.CurrentPage == ShellPage.Billing)
-        {
-            shell.Billing.SearchText = shell.GlobalSearchText;
-            await shell.Billing.CommitProductCodeInputAsync(shell.GlobalSearchText);
-            shell.GlobalSearchText = shell.Billing.SearchText;
-        }
-        else if (shell.CurrentPage == ShellPage.SaleReturn)
-        {
-            await shell.SaleReturn.AddExchangeProductFromSearchAsync(shell.GlobalSearchText);
-            shell.GlobalSearchText = "";
-        }
-        else if (shell.CurrentPage == ShellPage.BillLookup && shell.BillLookup.IsReturnMode)
-        {
-            await shell.BillLookup.Return.AddExchangeProductFromSearchAsync(shell.GlobalSearchText);
-            shell.GlobalSearchText = "";
-        }
-    }
-
     private void OnClosed(object? sender, EventArgs e)
     {
         if (ReferenceEquals(App.Services.FocusSearch, this))
             App.Services.FocusSearch = null;
     }
 
-    public void FocusGlobalSearch()
-    {
-        if (!IsLoaded)
-            return;
-
-        Dispatcher.BeginInvoke(() =>
-        {
-            GlobalSearchBox.Focus();
-            Keyboard.Focus(GlobalSearchBox);
-            GlobalSearchBox.CaretIndex = GlobalSearchBox.Text?.Length ?? 0;
-        }, DispatcherPriority.Input);
-    }
-
     public void FocusBillingProductSearch()
     {
-        if (App.Services.FocusBillingProductSearch != null)
-            App.Services.FocusBillingProductSearch.Invoke();
-        else
-            FocusGlobalSearch();
+        App.Services.FocusBillingProductSearch?.Invoke();
     }
 
     public void FocusBarcodeSkuEntry()
     {
-        if (App.Services.FocusBarcodeSkuEntry != null)
-            App.Services.FocusBarcodeSkuEntry.Invoke();
-        else
-            FocusGlobalSearch();
+        App.Services.FocusBarcodeSkuEntry?.Invoke();
     }
 
     private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)

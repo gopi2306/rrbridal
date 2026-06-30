@@ -27,6 +27,14 @@ public sealed class DaySessionRollupRowView
     public required string ClosedBy { get; init; }
 }
 
+public sealed class SalesmanFilterOption
+{
+    public string? GroupKey { get; init; }
+    public required string Label { get; init; }
+
+    public static SalesmanFilterOption All { get; } = new() { Label = "All salesmen" };
+}
+
 public partial class DashboardViewModel : ObservableObject
 {
     private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
@@ -37,6 +45,7 @@ public partial class DashboardViewModel : ObservableObject
     private readonly InventoryGridClient _inventoryClient;
     private readonly StoreContext _storeContext;
     private readonly ShellBrandingService _shellBranding;
+    private readonly SalesmanSalesAggregationService _salesmanAggregation;
     private bool _suppressFilterRefresh;
 
     [ObservableProperty] private string _storeIdDisplay = "";
@@ -156,6 +165,24 @@ public partial class DashboardViewModel : ObservableObject
 
     public ObservableCollection<StoreBillListRow> BillListRows { get; } = new();
 
+    public ObservableCollection<SalesmanSalesSummaryRow> SalesmanSummaryRows { get; } = new();
+
+    public ObservableCollection<StoreBillListRow> SalesmanBillRows { get; } = new();
+
+    [ObservableProperty] private SalesmanSalesSummaryRow? _selectedSalesmanSummary;
+
+    [ObservableProperty] private string _salesmanTabStatusMessage = "";
+
+    [ObservableProperty] private string _salesmanBillTotalsSummary = "";
+
+    [ObservableProperty] private string _filterSalesmanCode = "";
+
+    [ObservableProperty] private string _filterSalesmanGroupKey = "";
+
+    [ObservableProperty] private SalesmanFilterOption? _selectedSalesmanFilter;
+
+    public ObservableCollection<SalesmanFilterOption> SalesmanFilterOptions { get; } = new();
+
     [ObservableProperty] private string _filterInvoiceNo = "";
     [ObservableProperty] private string _filterCustomerName = "";
     [ObservableProperty] private string _filterCustomerMobile = "";
@@ -177,8 +204,11 @@ public partial class DashboardViewModel : ObservableObject
         _inventoryClient = services.InventoryGrid;
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
+        _salesmanAggregation = new SalesmanSalesAggregationService(services.LocalDb);
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
         SelectedPosCounterFilter = PosCounterFilterOptions[0];
+        SalesmanFilterOptions.Add(SalesmanFilterOption.All);
+        SelectedSalesmanFilter = SalesmanFilterOption.All;
         ApplyBrandingFromShell();
     }
 
@@ -230,10 +260,171 @@ public partial class DashboardViewModel : ObservableObject
             StatusMessage = $"Metrics updated {DateTime.Now.ToString("T", InCulture)} · {filterLabel}";
 
             await LoadDayCloseAsync(storeId, posFilter);
+            await LoadSalesmanSummaryAsync();
         }
         catch (Exception ex)
         {
             StatusMessage = "Could not load metrics: " + ex.Message;
+        }
+    }
+
+    partial void OnSelectedSalesmanSummaryChanged(SalesmanSalesSummaryRow? value)
+    {
+        if (value == null)
+        {
+            if (SelectedSalesmanFilter?.GroupKey != null)
+                return;
+            FilterSalesmanGroupKey = "";
+            FilterSalesmanCode = "";
+            _ = LoadSalesmanBillsAsync();
+            return;
+        }
+
+        FilterSalesmanGroupKey = value.GroupKey;
+        FilterSalesmanCode = value.SalesmanCode;
+        _suppressFilterRefresh = true;
+        SelectedSalesmanFilter = SalesmanFilterOptions.FirstOrDefault(o =>
+            o.GroupKey != null && string.Equals(o.GroupKey, value.GroupKey, StringComparison.OrdinalIgnoreCase))
+            ?? SalesmanFilterOption.All;
+        _suppressFilterRefresh = false;
+        _ = LoadSalesmanBillsAsync();
+    }
+
+    partial void OnSelectedSalesmanFilterChanged(SalesmanFilterOption? value)
+    {
+        if (_suppressFilterRefresh)
+            return;
+
+        if (value?.GroupKey == null)
+        {
+            FilterSalesmanGroupKey = "";
+            FilterSalesmanCode = "";
+            _suppressFilterRefresh = true;
+            SelectedSalesmanSummary = null;
+            _suppressFilterRefresh = false;
+            _ = LoadSalesmanBillsAsync();
+            _ = LoadBillList();
+            return;
+        }
+
+        FilterSalesmanGroupKey = value.GroupKey;
+        var match = SalesmanSummaryRows.FirstOrDefault(r =>
+            string.Equals(r.GroupKey, value.GroupKey, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            FilterSalesmanCode = match.SalesmanCode;
+            _suppressFilterRefresh = true;
+            SelectedSalesmanSummary = match;
+            _suppressFilterRefresh = false;
+        }
+        else
+        {
+            FilterSalesmanCode = "";
+            _ = LoadSalesmanBillsAsync();
+        }
+
+        _ = LoadBillList();
+    }
+
+    [RelayCommand]
+    private async Task LoadSalesmanSummary()
+    {
+        await LoadSalesmanSummaryAsync();
+    }
+
+    private async Task LoadSalesmanSummaryAsync()
+    {
+        SalesmanTabStatusMessage = "Loading salesman totals…";
+        try
+        {
+            var rows = await _salesmanAggregation.AggregateAsync(
+                _storeContext.StoreId,
+                SelectedPosCounterFilter?.PosCounter,
+                FilterUseDateRange ? null : FilterBusinessDate,
+                FilterUseDateRange,
+                FilterUseDateRange ? FilterDateFrom : null,
+                FilterUseDateRange ? FilterDateTo : null);
+
+            SalesmanSummaryRows.Clear();
+            foreach (var row in rows)
+                SalesmanSummaryRows.Add(row);
+
+            RebuildSalesmanFilterOptions(rows);
+
+            SalesmanTabStatusMessage = $"{rows.Count} salesman group(s) · updated {DateTime.Now:T}";
+
+            if (SelectedSalesmanSummary != null)
+            {
+                var restored = rows.FirstOrDefault(r =>
+                    string.Equals(r.GroupKey, SelectedSalesmanSummary.GroupKey, StringComparison.OrdinalIgnoreCase));
+                _suppressFilterRefresh = true;
+                SelectedSalesmanSummary = restored ?? rows.FirstOrDefault();
+                _suppressFilterRefresh = false;
+            }
+            else if (rows.Count > 0)
+            {
+                _suppressFilterRefresh = true;
+                SelectedSalesmanSummary = rows[0];
+                _suppressFilterRefresh = false;
+            }
+
+            await LoadSalesmanBillsAsync();
+        }
+        catch (Exception ex)
+        {
+            SalesmanTabStatusMessage = "Could not load salesman totals: " + ex.Message;
+        }
+    }
+
+    private void RebuildSalesmanFilterOptions(IReadOnlyList<SalesmanSalesSummaryRow> rows)
+    {
+        var selectedKey = SelectedSalesmanFilter?.GroupKey;
+        SalesmanFilterOptions.Clear();
+        SalesmanFilterOptions.Add(SalesmanFilterOption.All);
+        foreach (var row in rows)
+        {
+            SalesmanFilterOptions.Add(new SalesmanFilterOption
+            {
+                GroupKey = row.GroupKey,
+                Label = row.DisplayLabel,
+            });
+        }
+
+        SelectedSalesmanFilter = selectedKey == null
+            ? SalesmanFilterOption.All
+            : SalesmanFilterOptions.FirstOrDefault(o => o.GroupKey == selectedKey) ?? SalesmanFilterOption.All;
+    }
+
+    private async Task LoadSalesmanBillsAsync()
+    {
+        try
+        {
+            var query = new StoreBillListQuery
+            {
+                BusinessDate = FilterUseDateRange ? null : FilterBusinessDate,
+                UseDateRange = FilterUseDateRange,
+                DateFrom = FilterUseDateRange ? FilterDateFrom : null,
+                DateTo = FilterUseDateRange ? FilterDateTo : null,
+                PosCounterFilter = SelectedPosCounterFilter?.PosCounter,
+                SalesmanGroupKey = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey) ? null : FilterSalesmanGroupKey,
+                SalesmanCode = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey) ? null : FilterSalesmanCode,
+            };
+
+            var snap = await _services.StoreBillList.LoadAsync(_storeContext.StoreId, query);
+            SalesmanBillRows.Clear();
+            foreach (var row in snap.Rows)
+                SalesmanBillRows.Add(row);
+
+            var filterLabel = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey)
+                ? "All salesmen"
+                : SelectedSalesmanSummary?.DisplayLabel ?? FilterSalesmanGroupKey;
+            SalesmanBillTotalsSummary =
+                $"{filterLabel}: {snap.Rows.Count} bill(s) · Qty {snap.Rows.Sum(r => r.TotalQty):N2} · " +
+                $"Payable {MoneyMath.FormatRupee(snap.TotalPayable)} · Cash {MoneyMath.FormatRupee(snap.TotalCash)}";
+        }
+        catch (Exception ex)
+        {
+            SalesmanBillTotalsSummary = "Could not load bills: " + ex.Message;
         }
     }
 
@@ -501,6 +692,8 @@ public partial class DashboardViewModel : ObservableObject
                 DateFrom = FilterUseDateRange ? FilterDateFrom : null,
                 DateTo = FilterUseDateRange ? FilterDateTo : null,
                 PosCounterFilter = SelectedPosCounterFilter?.PosCounter,
+                SalesmanGroupKey = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey) ? null : FilterSalesmanGroupKey,
+                SalesmanCode = string.IsNullOrWhiteSpace(FilterSalesmanCode) ? null : FilterSalesmanCode,
             };
 
             var snap = await _services.StoreBillList.LoadAsync(_storeContext.StoreId, query);

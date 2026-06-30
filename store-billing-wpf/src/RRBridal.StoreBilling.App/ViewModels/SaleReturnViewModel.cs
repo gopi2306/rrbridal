@@ -493,7 +493,9 @@ public partial class SaleReturnViewModel : ObservableObject
 
         if (q.Length < 1)
         {
-            MessageBox.Show("Enter a SKU, barcode, or product name to add a replacement product.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Information);
+            var picker = new ProductSearchDialog("", _services) { Owner = Application.Current.MainWindow };
+            if (picker.ShowDialog() == true && picker.SelectedProduct != null)
+                AddExchangeLineFromCatalog(picker.SelectedProduct);
             return;
         }
 

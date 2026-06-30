@@ -89,7 +89,7 @@ public static class BillThermalMapper
             CharWidth = charWidth,
             BillNo = ReadString(doc, "billNo") ?? "",
             BillDate = billDate,
-            UserName = ReadString(doc, "salesman") ?? "",
+            UserName = FormatSalesmanForReceipt(ReadString(doc, "salesmanCode"), ReadString(doc, "salesman")),
             Time = time,
             Counter = ReadString(doc, "posCounter") ?? "",
             CustomerName = ReadString(doc, "customerName") ?? "",
@@ -140,6 +140,15 @@ public static class BillThermalMapper
         if (!doc.TryGetValue(key, out var v) || v.IsBsonNull)
             return null;
         return v.IsString ? v.AsString : v.ToString();
+    }
+
+    private static string FormatSalesmanForReceipt(string? code, string? name)
+    {
+        var trimmedCode = code?.Trim() ?? "";
+        var trimmedName = name?.Trim() ?? "";
+        if (trimmedCode.Length > 0 && trimmedName.Length > 0)
+            return $"{trimmedCode} - {trimmedName}";
+        return trimmedName.Length > 0 ? trimmedName : trimmedCode;
     }
 
     private static decimal ReadDecimal(BsonDocument doc, string key)

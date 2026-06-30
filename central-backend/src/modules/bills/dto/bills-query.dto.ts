@@ -51,4 +51,9 @@ export class BillsQueryDto {
   @IsIn(PAYMENT_MODES)
   @IsOptional()
   paymentMode?: BillListPaymentModeKey;
+
+  @ApiProperty({ required: false, description: 'Filter by salesman code (or legacy salesman name substring)' })
+  @IsString()
+  @IsOptional()
+  salesmanCode?: string;
 }

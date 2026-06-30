@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:RRBridal.StoreBilling.App.Views.Controls"
         Title="{Binding WindowTitleText}"
+        Icon="pack://application:,,,/Resources/Assets/TruBill.ico"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Width="440" Height="520"
@@ -16,7 +17,7 @@
                 Padding="32,28"
                 Margin="0">
             <StackPanel>
-                <controls:AppLogoMark LogoHeight="52" LogoMaxWidth="300" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                <controls:AppLogoMark LogoHeight="52" LogoMaxWidth="300" ShowTruPrefix="False" HorizontalAlignment="Center" Margin="0,0,0,16"/>
                 <TextBlock Text="{Binding CompanyTitle}"
                            Style="{StaticResource TextPageTitle}"
                            Foreground="{StaticResource BrushAccent}"

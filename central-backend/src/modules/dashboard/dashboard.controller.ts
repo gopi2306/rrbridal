@@ -9,6 +9,7 @@ import { StoreDashboardQueryDto } from './dto/store-dashboard-query.dto';
 import { StoreDayCloseDashboardQueryDto } from './dto/store-day-close-dashboard-query.dto';
 import { StoreDayCloseExportQueryDto } from './dto/store-day-close-export-query.dto';
 import { StoreOnlineSalesDashboardQueryDto } from './dto/store-online-sales-dashboard-query.dto';
+import { StoreSalesmanDashboardQueryDto, StoreSalesmenDashboardQueryDto } from './dto/store-salesmen-dashboard-query.dto';
 import { WarehouseDashboardQueryDto } from './dto/warehouse-dashboard-query.dto';
 import { StoreDashboardService } from './store-dashboard.service';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
@@ -17,6 +18,7 @@ import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
 import { StoreOnlineSalesDashboardService } from './store-online-sales-dashboard.service';
+import { StoreSalesmenDashboardService } from './store-salesmen-dashboard.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
 import type { StoreSalesDashboardOptions } from './store-sales-dashboard.types';
 import type { StoreVendorSalesDashboardOptions } from './store-vendor-sales-dashboard.types';
@@ -25,6 +27,7 @@ import type { StoreVendorsSalesReportOptions } from './store-vendors-sales-repor
 import type { StoreDayCloseDashboardOptions } from './store-day-close-dashboard.types';
 import type { StoreDashboardOptions } from './store-dashboard.types';
 import type { StoreOnlineSalesDashboardOptions } from './store-online-sales-dashboard.types';
+import type { StoreSalesmanDashboardOptions, StoreSalesmenDashboardOptions } from './store-salesmen-dashboard.types';
 import type { WarehouseDashboardOptions } from './warehouse-dashboard.types';
 import { businessTodayParts, formatBusinessYmd } from './store-sales-payload.util';
 
@@ -41,6 +44,7 @@ export class DashboardController {
     private readonly storeDayCloseDashboardService: StoreDayCloseDashboardService,
     private readonly storeDayCloseReportService: StoreDayCloseReportService,
     private readonly storeOnlineSalesDashboardService: StoreOnlineSalesDashboardService,
+    private readonly storeSalesmenDashboardService: StoreSalesmenDashboardService,
   ) {}
 
   @Get()
@@ -147,6 +151,49 @@ export class DashboardController {
       options.to = query.to;
     }
     return await this.storeOnlineSalesDashboardService.getOnlineSalesDashboard(options);
+  }
+
+  @Get('store/sales/salesmen')
+  async getAllSalesmenSalesDashboard(@Query() query: StoreSalesmenDashboardQueryDto) {
+    const cal = businessTodayParts();
+    const options: StoreSalesmenDashboardOptions = {
+      period: query.period ?? 'today',
+      year: query.year ?? cal.year,
+      month: query.month ?? cal.month,
+      invoiceLimit: query.invoiceLimit ?? 50,
+    };
+    if (query.storeId !== undefined && query.storeId !== '') {
+      options.storeId = query.storeId;
+    }
+    if (query.from !== undefined && query.from !== '') {
+      options.from = query.from;
+    }
+    if (query.to !== undefined && query.to !== '') {
+      options.to = query.to;
+    }
+    return await this.storeSalesmenDashboardService.getAllSalesmenDashboard(options);
+  }
+
+  @Get('store/sales/salesman')
+  async getSingleSalesmanSalesDashboard(@Query() query: StoreSalesmanDashboardQueryDto) {
+    const cal = businessTodayParts();
+    const options: StoreSalesmanDashboardOptions = {
+      salesmanId: query.salesmanId,
+      period: query.period ?? 'today',
+      year: query.year ?? cal.year,
+      month: query.month ?? cal.month,
+      invoiceLimit: query.invoiceLimit ?? 50,
+    };
+    if (query.storeId !== undefined && query.storeId !== '') {
+      options.storeId = query.storeId;
+    }
+    if (query.from !== undefined && query.from !== '') {
+      options.from = query.from;
+    }
+    if (query.to !== undefined && query.to !== '') {
+      options.to = query.to;
+    }
+    return await this.storeSalesmenDashboardService.getSingleSalesmanDashboard(options);
   }
 
   @Get('store/sales/vendors')
