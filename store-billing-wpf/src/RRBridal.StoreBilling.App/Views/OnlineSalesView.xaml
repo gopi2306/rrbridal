@@ -112,25 +112,21 @@
             </DataGrid>
         </Border>
 
-        <Grid Grid.Row="4" Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0"
-                       Text="{Binding StatusMessage}"
+        <StackPanel Grid.Row="4" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{StaticResource BrushTextMuted}"
                        TextWrapping="Wrap"
-                       VerticalAlignment="Center"
-                       Margin="0,0,12,0"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,10"
                        IsHitTestVisible="False"/>
-            <Button Grid.Column="1"
-                    Content="Record payment"
+            <Button Content="Record payment"
                     Style="{StaticResource PrimaryButton}"
-                    MinWidth="140"
-                    Padding="16,10"
+                    MinWidth="160"
+                    Padding="20,10"
+                    HorizontalAlignment="Center"
                     Command="{Binding RecordPaymentCommand}"/>
-        </Grid>
+        </StackPanel>
     </Grid>
     </ScrollViewer>
 </UserControl>

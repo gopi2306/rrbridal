@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Payments;
+using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
@@ -32,6 +33,9 @@ public sealed class OnlineCodPendingBalance
     public int PendingCount { get; init; }
     public int ReceivedTodayCount { get; init; }
     public decimal ReceivedTodayAmount { get; init; }
+    public decimal ReceivedTodayCash { get; init; }
+    public decimal ReceivedTodayUpi { get; init; }
+    public decimal ReceivedTodayCard { get; init; }
 }
 
 public enum CodReceivedPaymentMode
@@ -66,6 +70,9 @@ public sealed class OnlineCodBillService
         int pendingCount = 0;
         int receivedToday = 0;
         decimal receivedTodayAmount = 0m;
+        decimal receivedTodayCash = 0m;
+        decimal receivedTodayUpi = 0m;
+        decimal receivedTodayCard = 0m;
 
         foreach (var doc in docs)
         {
@@ -76,20 +83,18 @@ public sealed class OnlineCodBillService
                 continue;
             }
 
-            if (!doc.TryGetValue("onlineCod", out var oc) || !oc.IsBsonDocument)
+            if (!OnlineCodDocumentReader.IsOnlineCodReceived(doc))
                 continue;
-            var cod = oc.AsBsonDocument;
-            var receivedAt = ReadString(cod, "receivedAtUtc");
-            if (string.IsNullOrWhiteSpace(receivedAt))
+            if (!OnlineCodDocumentReader.MatchesReceivedLocalDay(doc, todayLocal))
                 continue;
-            if (!DateTime.TryParse(receivedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
-                continue;
-            var local = dt.ToLocalTime().Date;
-            if (local == todayLocal)
-            {
-                receivedToday++;
-                receivedTodayAmount += OnlineCodDocumentReader.ReadOnlineCodAmount(doc);
-            }
+
+            receivedToday++;
+            var amount = OnlineCodDocumentReader.ReadOnlineCodAmount(doc);
+            receivedTodayAmount += amount;
+            var payments = DayBillingCloseDocumentReader.SumBillPayments(doc);
+            receivedTodayCash += payments.Cash;
+            receivedTodayUpi += payments.Upi;
+            receivedTodayCard += payments.Card;
         }
 
         return new OnlineCodPendingBalance
@@ -98,6 +103,9 @@ public sealed class OnlineCodBillService
             PendingCount = pendingCount,
             ReceivedTodayCount = receivedToday,
             ReceivedTodayAmount = receivedTodayAmount,
+            ReceivedTodayCash = receivedTodayCash,
+            ReceivedTodayUpi = receivedTodayUpi,
+            ReceivedTodayCard = receivedTodayCard,
         };
     }
 

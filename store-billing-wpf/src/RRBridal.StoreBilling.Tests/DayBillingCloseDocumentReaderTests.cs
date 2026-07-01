@@ -383,6 +383,88 @@ public class DayBillingCloseDocumentReaderTests
     }
 
     [Fact]
+    public void AggregatePriorOnlineCodReceivedOnLocalDay_adds_cross_day_payments_to_modes()
+    {
+        var paymentDay = new DateTime(2026, 6, 30);
+        var billDay = paymentDay.AddDays(-1);
+        var receivedUtc = new DateTime(2026, 6, 30, 6, 30, 0, DateTimeKind.Utc);
+        var createdUtc = new DateTime(2026, 6, 29, 10, 0, 0, DateTimeKind.Utc);
+
+        var doc = new BsonDocument
+        {
+            { "status", "posted" },
+            { "billNo", "B-OLD-COD" },
+            { "salesChannel", "online" },
+            { "createdAtUtc", createdUtc.ToString("O") },
+            { "payable", 4899 },
+            { "posCounter", "1" },
+            { "onlineCod", new BsonDocument
+                {
+                    { "status", "received" },
+                    { "amount", 4899 },
+                    { "receivedAtUtc", receivedUtc.ToString("O") },
+                    { "receivedPaymentMode", "Cash" },
+                }},
+            { "payments", new BsonArray
+                {
+                    new BsonDocument
+                    {
+                        { "provider", "Cash" },
+                        { "amount", 4899 },
+                        { "status", "posted" },
+                    },
+                }},
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregatePriorOnlineCodReceivedOnLocalDay(
+            new[] { doc },
+            paymentDay,
+            posCounterFilter: null,
+            outboxByBillNo: new Dictionary<string, string>());
+
+        Assert.Equal(4899m, totals.Payments.Cash);
+        Assert.Equal(0m, totals.Payments.Card);
+        Assert.Equal(0m, totals.Payments.Upi);
+        Assert.Equal(4899m, totals.TotalAmount);
+        Assert.Single(totals.InvoiceRows);
+        Assert.Contains("COD received", totals.InvoiceRows[0].PaymentMode);
+    }
+
+    [Fact]
+    public void AggregatePriorOnlineCodReceivedOnLocalDay_skips_same_day_post_and_receive()
+    {
+        var day = new DateTime(2026, 6, 30);
+        var utc = new DateTime(2026, 6, 30, 8, 0, 0, DateTimeKind.Utc);
+        var doc = new BsonDocument
+        {
+            { "status", "posted" },
+            { "billNo", "B-SAME-DAY" },
+            { "salesChannel", "online" },
+            { "createdAtUtc", utc.ToString("O") },
+            { "onlineCod", new BsonDocument
+                {
+                    { "status", "received" },
+                    { "amount", 1000 },
+                    { "receivedAtUtc", utc.AddHours(2).ToString("O") },
+                    { "receivedPaymentMode", "UPI" },
+                }},
+            { "payments", new BsonArray
+                {
+                    new BsonDocument { { "provider", "Razorpay" }, { "amount", 1000 } },
+                }},
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregatePriorOnlineCodReceivedOnLocalDay(
+            new[] { doc },
+            day,
+            posCounterFilter: null,
+            outboxByBillNo: new Dictionary<string, string>());
+
+        Assert.Equal(0m, totals.Payments.Upi);
+        Assert.Empty(totals.InvoiceRows);
+    }
+
+    [Fact]
     public void FilterAdjustmentsForLocalDay_filters_by_date_and_counter()
     {
         var localDate = new DateTime(2024, 6, 17);

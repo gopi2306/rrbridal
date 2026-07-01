@@ -59,6 +59,7 @@ import { StockAuditModule } from '../stock-audit/stock-audit.module';
 import { StockTallyModule } from '../stock-tally/stock-tally.module';
 import { BillsModule } from '../bills/bills.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
+import { ReportsModule } from '../reports/reports.module';
 
 
 @Module({
@@ -127,6 +128,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
     StockTallyModule,
     BillsModule,
     WhatsAppModule,
+    ReportsModule,
   ],
   controllers: [AppController],
 })

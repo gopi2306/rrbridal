@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using MongoDB.Bson;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Payments;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
@@ -384,4 +385,68 @@ public static class DayBillingCloseDocumentReader
             .Where(IsPostedCashout)
             .Where(d => MatchesLocalDay(d, localDate))
             .Where(d => MatchesPosCounterFilter(d, posCounterFilter));
+
+    /// <summary>
+    /// Online COD bills paid on <paramref name="localDate"/> but posted on an earlier day.
+    /// Same-day post + receive is already included in the main day-close bill loop.
+    /// </summary>
+    public static OnlineCodReceivedDayTotals AggregatePriorOnlineCodReceivedOnLocalDay(
+        IEnumerable<BsonDocument> billDocs,
+        DateTime localDate,
+        string? posCounterFilter,
+        IReadOnlyDictionary<string, string> outboxByBillNo)
+    {
+        decimal cash = 0m, card = 0m, upi = 0m, creditNote = 0m, totalAmount = 0m;
+        var invoiceRows = new List<DayCloseInvoiceRow>();
+
+        foreach (var doc in billDocs)
+        {
+            if (!IsPostedBill(doc))
+                continue;
+            if (!OnlineCodDocumentReader.IsOnlineCodReceived(doc))
+                continue;
+            if (!OnlineCodDocumentReader.MatchesReceivedLocalDay(doc, localDate))
+                continue;
+            if (!MatchesPosCounterFilter(doc, posCounterFilter))
+                continue;
+            if (MatchesLocalDay(doc, localDate))
+                continue;
+
+            var payments = SumBillPayments(doc);
+            cash += payments.Cash;
+            card += payments.Card;
+            upi += payments.Upi;
+            creditNote += payments.CreditNote;
+
+            var amount = OnlineCodDocumentReader.ReadOnlineCodAmount(doc);
+            totalAmount += amount;
+
+            OnlineCodDocumentReader.TryReadReceivedAtUtc(doc, out var receivedUtc);
+            var receivedLocal = receivedUtc == default
+                ? "—"
+                : receivedUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+
+            var billNo = ReadString(doc, "billNo") ?? "";
+            var pos = ReadString(doc, "posCounter") ?? "";
+            var dev = ReadString(doc, "deviceId") ?? "";
+            var paymentMode = OnlineCodDocumentReader.ReadReceivedPaymentMode(doc) ?? ReadString(doc, "paymentMode") ?? "";
+
+            invoiceRows.Add(new DayCloseInvoiceRow
+            {
+                BillNo = billNo,
+                CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
+                PostedAtLocal = receivedLocal,
+                TotalQty = SumBillLineQty(doc),
+                Payable = amount,
+                PaymentMode = string.IsNullOrWhiteSpace(paymentMode) ? "COD received" : $"{paymentMode} (COD received)",
+                SyncStatus = ResolveSyncStatus(doc, outboxByBillNo),
+                SortUtc = receivedUtc == default ? DateTime.MinValue : receivedUtc,
+            });
+        }
+
+        return new OnlineCodReceivedDayTotals(
+            new PaymentDayTotals(cash, card, upi, creditNote),
+            totalAmount,
+            invoiceRows);
+    }
 }

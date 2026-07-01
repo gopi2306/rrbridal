@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
@@ -113,11 +114,31 @@ public partial class OnlineSalesViewModel : ObservableObject
             var bal = await _services.OnlineCodBills.GetPendingBalanceAsync(_services.StoreContext.StoreId);
             BalanceTillSummary = MoneyMath.FormatRupee(bal.BalanceTill);
             PendingCountSummary = bal.PendingCount.ToString();
-            ReceivedTodaySummary = $"{bal.ReceivedTodayCount} · {MoneyMath.FormatRupee(bal.ReceivedTodayAmount)}";
+            ReceivedTodaySummary = FormatReceivedTodaySummary(bal);
         }
         catch
         {
             BalanceTillSummary = "—";
         }
+    }
+
+    private static string FormatReceivedTodaySummary(OnlineCodPendingBalance bal)
+    {
+        if (bal.ReceivedTodayCount <= 0)
+            return "0 · ₹ 0.00";
+
+        var parts = new List<string>
+        {
+            $"{bal.ReceivedTodayCount} · {MoneyMath.FormatRupee(bal.ReceivedTodayAmount)}",
+        };
+
+        if (bal.ReceivedTodayCash > 0)
+            parts.Add($"Cash {MoneyMath.FormatRupee(bal.ReceivedTodayCash)}");
+        if (bal.ReceivedTodayUpi > 0)
+            parts.Add($"UPI {MoneyMath.FormatRupee(bal.ReceivedTodayUpi)}");
+        if (bal.ReceivedTodayCard > 0)
+            parts.Add($"Card {MoneyMath.FormatRupee(bal.ReceivedTodayCard)}");
+
+        return string.Join(" · ", parts);
     }
 }

@@ -129,6 +129,11 @@ public sealed class DayCloseStockExceptionRow
 
 public sealed record PaymentDayTotals(decimal Cash, decimal Card, decimal Upi, decimal CreditNote);
 
+public sealed record OnlineCodReceivedDayTotals(
+    PaymentDayTotals Payments,
+    decimal TotalAmount,
+    IReadOnlyList<DayCloseInvoiceRow> InvoiceRows);
+
 public sealed record ReturnDayTotals(
     int ReturnCount,
     decimal ReturnTotalAmount,

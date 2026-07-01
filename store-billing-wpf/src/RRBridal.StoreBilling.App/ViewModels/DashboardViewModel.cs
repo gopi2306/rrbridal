@@ -35,6 +35,14 @@ public sealed class SalesmanFilterOption
     public static SalesmanFilterOption All { get; } = new() { Label = "All salesmen" };
 }
 
+public sealed class BrandFilterOption
+{
+    public string? BrandId { get; init; }
+    public required string Label { get; init; }
+
+    public static BrandFilterOption All { get; } = new() { Label = "All brands" };
+}
+
 public partial class DashboardViewModel : ObservableObject
 {
     private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
@@ -46,6 +54,7 @@ public partial class DashboardViewModel : ObservableObject
     private readonly StoreContext _storeContext;
     private readonly ShellBrandingService _shellBranding;
     private readonly SalesmanSalesAggregationService _salesmanAggregation;
+    private readonly StockSalesAggregationService _stockSalesAggregation;
     private bool _suppressFilterRefresh;
 
     [ObservableProperty] private string _storeIdDisplay = "";
@@ -193,6 +202,52 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _billListStatusMessage = "";
     [ObservableProperty] private string _billListTotalsSummary = "";
 
+    [ObservableProperty] private StockSalesViewMode _stockSalesViewMode = StockSalesViewMode.BrandWise;
+
+    [ObservableProperty] private string _filterStockProductSearch = "";
+
+    [ObservableProperty] private string _filterStockBrandName = "";
+
+    [ObservableProperty] private BrandFilterOption? _selectedStockBrandFilter;
+
+    [ObservableProperty] private string _stockSalesStatusMessage = "";
+
+    [ObservableProperty] private string _stockSalesTotalsSummary = "";
+
+    [ObservableProperty] private StockAvailabilityFilterOption? _selectedStockAvailabilityFilter;
+
+    public bool IsStockBrandFilterActive =>
+        !string.IsNullOrWhiteSpace(SelectedStockBrandFilter?.BrandId)
+        || !string.IsNullOrWhiteSpace(FilterStockBrandName);
+
+    public bool IsStockSalesBrandView =>
+        StockSalesViewMode == StockSalesViewMode.BrandWise && !IsStockBrandFilterActive;
+
+    public bool IsStockSalesProductView =>
+        StockSalesViewMode == StockSalesViewMode.ProductWise || IsStockBrandFilterActive;
+
+    public ObservableCollection<BrandFilterOption> StockSalesBrandFilterOptions { get; } = new();
+
+    public ObservableCollection<BrandSalesSummaryRow> StockSalesBrandRows { get; } = new();
+
+    public ObservableCollection<ProductSalesSummaryRow> StockSalesProductRows { get; } = new();
+
+    public IReadOnlyList<StockSalesViewModeOption> StockSalesViewModeOptions { get; } =
+    [
+        new(StockSalesViewMode.BrandWise, "Brand wise"),
+        new(StockSalesViewMode.ProductWise, "Product wise"),
+    ];
+
+    [ObservableProperty] private StockSalesViewModeOption? _selectedStockSalesViewModeOption;
+
+    public IReadOnlyList<StockAvailabilityFilterOption> StockAvailabilityFilterOptions { get; } =
+    [
+        new(StockAvailabilityFilter.All, "All stock"),
+        new(StockAvailabilityFilter.InStock, "Available qty > 0"),
+        new(StockAvailabilityFilter.OutOfStock, "Available qty = 0"),
+        new(StockAvailabilityFilter.NegativeStock, "Available qty < 0"),
+    ];
+
     public Action<string>? NavigateToReturnForBill { get; set; }
     public Action<string>? NavigateToAdjustmentForBill { get; set; }
 
@@ -205,10 +260,15 @@ public partial class DashboardViewModel : ObservableObject
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
         _salesmanAggregation = new SalesmanSalesAggregationService(services.LocalDb);
+        _stockSalesAggregation = new StockSalesAggregationService(services.LocalDb);
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
         SelectedPosCounterFilter = PosCounterFilterOptions[0];
         SalesmanFilterOptions.Add(SalesmanFilterOption.All);
         SelectedSalesmanFilter = SalesmanFilterOption.All;
+        StockSalesBrandFilterOptions.Add(BrandFilterOption.All);
+        SelectedStockBrandFilter = BrandFilterOption.All;
+        SelectedStockSalesViewModeOption = StockSalesViewModeOptions[0];
+        SelectedStockAvailabilityFilter = StockAvailabilityFilterOptions[0];
         ApplyBrandingFromShell();
     }
 
@@ -821,4 +881,107 @@ public partial class DashboardViewModel : ObservableObject
         else if (row.HasAdjustment)
             NavigateToAdjustmentForBill?.Invoke(row.BillNo);
     }
+
+    partial void OnSelectedStockSalesViewModeOptionChanged(StockSalesViewModeOption? value)
+    {
+        if (value == null)
+            return;
+
+        StockSalesViewMode = value.Mode;
+        NotifyStockSalesViewVisibility();
+    }
+
+    partial void OnStockSalesViewModeChanged(StockSalesViewMode value) => NotifyStockSalesViewVisibility();
+
+    partial void OnSelectedStockBrandFilterChanged(BrandFilterOption? value) => NotifyStockSalesViewVisibility();
+
+    partial void OnFilterStockBrandNameChanged(string value) => NotifyStockSalesViewVisibility();
+
+    private void NotifyStockSalesViewVisibility()
+    {
+        OnPropertyChanged(nameof(IsStockBrandFilterActive));
+        OnPropertyChanged(nameof(IsStockSalesBrandView));
+        OnPropertyChanged(nameof(IsStockSalesProductView));
+    }
+
+    [RelayCommand]
+    private async Task LoadStockSales()
+    {
+        StockSalesStatusMessage = "Loading stock sales…";
+        try
+        {
+            await RebuildStockBrandFilterOptionsAsync();
+
+            var result = await _stockSalesAggregation.AggregateAsync(
+                _storeContext.StoreId,
+                SelectedPosCounterFilter?.PosCounter,
+                FilterUseDateRange ? null : FilterBusinessDate,
+                FilterUseDateRange,
+                FilterUseDateRange ? FilterDateFrom : null,
+                FilterUseDateRange ? FilterDateTo : null,
+                SelectedStockBrandFilter?.BrandId,
+                string.IsNullOrWhiteSpace(FilterStockBrandName) ? null : FilterStockBrandName.Trim(),
+                string.IsNullOrWhiteSpace(FilterStockProductSearch) ? null : FilterStockProductSearch.Trim(),
+                SelectedStockAvailabilityFilter?.Filter ?? StockAvailabilityFilter.All);
+
+            StockSalesBrandRows.Clear();
+            foreach (var row in result.BrandRows)
+                StockSalesBrandRows.Add(row);
+
+            StockSalesProductRows.Clear();
+            foreach (var row in result.ProductRows)
+                StockSalesProductRows.Add(row);
+
+            var dateLabel = FilterUseDateRange
+                ? $"{FilterDateFrom:dd-MMM-yyyy} – {FilterDateTo:dd-MMM-yyyy}"
+                : FilterBusinessDate.ToString("dd-MMM-yyyy", InCulture);
+            var viewLabel = IsStockSalesProductView ? "product" : "brand";
+            StockSalesTotalsSummary =
+                $"{result.BillCount} bill(s) · {result.ProductRows.Count} product(s) · Sold qty {result.TotalQty:N2} · Available qty {result.TotalAvailableQty:N2} · Amount {MoneyMath.FormatRupee(result.TotalAmount)}";
+            StockSalesStatusMessage =
+                $"{(IsStockSalesProductView ? result.ProductRows.Count : result.BrandRows.Count)} {viewLabel} row(s) · {dateLabel} · updated {DateTime.Now:T}";
+            NotifyStockSalesViewVisibility();
+        }
+        catch (Exception ex)
+        {
+            StockSalesStatusMessage = "Could not load stock sales: " + ex.Message;
+            StockSalesTotalsSummary = "";
+        }
+    }
+
+    private async Task RebuildStockBrandFilterOptionsAsync()
+    {
+        var brands = await _services.MasterData.GetAsync("brands");
+        var previous = SelectedStockBrandFilter?.BrandId;
+
+        StockSalesBrandFilterOptions.Clear();
+        StockSalesBrandFilterOptions.Add(BrandFilterOption.All);
+        foreach (var brand in brands.Where(b => b.IsActive).OrderBy(b => b.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var label = string.IsNullOrWhiteSpace(brand.Code)
+                ? brand.Name
+                : $"{brand.Code} — {brand.Name}";
+            StockSalesBrandFilterOptions.Add(new BrandFilterOption
+            {
+                BrandId = brand.Id,
+                Label = label,
+            });
+        }
+
+        SelectedStockBrandFilter = StockSalesBrandFilterOptions.FirstOrDefault(o =>
+            o.BrandId != null && string.Equals(o.BrandId, previous, StringComparison.OrdinalIgnoreCase))
+            ?? BrandFilterOption.All;
+    }
+}
+
+public sealed class StockSalesViewModeOption
+{
+    public StockSalesViewModeOption(StockSalesViewMode mode, string label)
+    {
+        Mode = mode;
+        Label = label;
+    }
+
+    public StockSalesViewMode Mode { get; }
+    public string Label { get; }
 }

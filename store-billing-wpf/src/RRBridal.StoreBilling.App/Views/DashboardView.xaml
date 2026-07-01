@@ -535,16 +535,132 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="All bills">
-                <Grid Margin="0,8,0,16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+            <TabItem Header="Stock sales">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,8,0,16">
 
-                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                                <TextBlock Text="View" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding StockSalesViewModeOptions}"
+                                          SelectedItem="{Binding SelectedStockSalesViewModeOption}"
+                                          DisplayMemberPath="Label"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,4,8">
+                                <TextBlock Text="Brand" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding StockSalesBrandFilterOptions}"
+                                          SelectedItem="{Binding SelectedStockBrandFilter}"
+                                          DisplayMemberPath="Label"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="4,0,4,8">
+                                <TextBlock Text="Stock filter" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding StockAvailabilityFilterOptions}"
+                                          SelectedItem="{Binding SelectedStockAvailabilityFilter}"
+                                          DisplayMemberPath="Label"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="3" Margin="4,0,4,8">
+                                <TextBlock Text="Brand name search" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Text="{Binding FilterStockBrandName, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Filter by brand name (e.g. PAKEEZA)"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="4" Margin="4,0,0,8">
+                                <TextBlock Text="Product code / name" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}"
+                                         Text="{Binding FilterStockProductSearch, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="5" VerticalAlignment="Bottom" Margin="8,0,0,8">
+                                <Button Content="Refresh" Style="{StaticResource PrimaryButton}" MinWidth="100"
+                                        Command="{Binding LoadStockSalesCommand}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                        Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                <TextBlock Text="Business date" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterBusinessDate}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="4,0,0,0">
+                                <CheckBox Content="Use date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,18,0,4"/>
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}}">
+                                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateFrom}" Width="130" Margin="0,0,8,0"/>
+                                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateTo}" Width="130"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="{Binding StockSalesTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding StockSalesStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+
+                    <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12"
+                            Visibility="{Binding IsStockSalesBrandView, Converter={StaticResource BoolToVis}}">
+                        <DataGrid ItemsSource="{Binding StockSalesBrandRows}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  MinHeight="280"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Brand code" Binding="{Binding BrandCode}" Width="90"/>
+                                <DataGridTextColumn Header="Brand" Binding="{Binding BrandName}" Width="*"/>
+                                <DataGridTextColumn Header="Products" Binding="{Binding ProductCount}" Width="75"/>
+                                <DataGridTextColumn Header="Bills" Binding="{Binding BillCount}" Width="60"/>
+                                <DataGridTextColumn Header="Qty sold" Binding="{Binding TotalQtyFormatted}" Width="85"/>
+                                <DataGridTextColumn Header="Available qty" Binding="{Binding AvailableQtyFormatted}" Width="95"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding TotalAmountFormatted}" Width="110"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" Padding="8"
+                            Visibility="{Binding IsStockSalesProductView, Converter={StaticResource BoolToVis}}">
+                        <DataGrid ItemsSource="{Binding StockSalesProductRows}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  MinHeight="280"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110"/>
+                                <DataGridTextColumn Header="Product" Binding="{Binding ProductName}" Width="*"/>
+                                <DataGridTextColumn Header="Brand" Binding="{Binding BrandName}" Width="130"/>
+                                <DataGridTextColumn Header="Bills" Binding="{Binding BillCount}" Width="60"/>
+                                <DataGridTextColumn Header="Qty sold" Binding="{Binding TotalQtyFormatted}" Width="85"/>
+                                <DataGridTextColumn Header="Available qty" Binding="{Binding AvailableQtyFormatted}" Width="95"/>
+                                <DataGridTextColumn Header="Age" Binding="{Binding AgeDisplay}" Width="75"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding TotalAmountFormatted}" Width="110"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="All bills">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,8,0,16">
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Search posted bills" FontWeight="SemiBold" Margin="0,0,0,10"/>
                             <Grid>
@@ -603,18 +719,19 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Grid.Row="1" Text="{Binding BillListTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <TextBlock Grid.Row="2" Text="{Binding BillListStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding BillListTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding BillListStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
 
-                    <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8" VerticalAlignment="Stretch">
+                    <Border Style="{StaticResource CardBorder}" Padding="8">
                         <DataGrid ItemsSource="{Binding BillListRows}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
                                   HeadersVisibility="Column"
-                                  VerticalScrollBarVisibility="Auto"
-                                  VerticalAlignment="Stretch">
+                                  MinHeight="280"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
                                 <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130"/>
@@ -656,7 +773,8 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </Border>
-                </Grid>
+                </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

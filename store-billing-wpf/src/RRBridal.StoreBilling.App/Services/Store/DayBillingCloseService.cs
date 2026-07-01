@@ -102,6 +102,18 @@ public sealed class DayBillingCloseService
             AppendStockExceptionRows(doc, billNo, pos, dev, postedLocal, stockExceptions);
         }
 
+        var priorCodReceived = DayBillingCloseDocumentReader.AggregatePriorOnlineCodReceivedOnLocalDay(
+            billDocs,
+            localDate,
+            posCounterFilter,
+            outboxByBillNo);
+        cash += priorCodReceived.Payments.Cash;
+        card += priorCodReceived.Payments.Card;
+        upi += priorCodReceived.Payments.Upi;
+        creditNote += priorCodReceived.Payments.CreditNote;
+        totalAmount += priorCodReceived.TotalAmount;
+        invoices.AddRange(priorCodReceived.InvoiceRows);
+
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
 
         var dayReturns = returnDocs

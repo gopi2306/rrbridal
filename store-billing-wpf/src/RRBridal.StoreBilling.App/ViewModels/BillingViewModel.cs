@@ -50,7 +50,7 @@ public partial class BillingViewModel : ObservableObject
         && PhoneMatchHelper.IsPhoneLikeQuery((CustomerPhone ?? "").Trim());
 
     public bool IsSalesmanReadyForPost =>
-        ActiveSalesmen.Count == 0 || SelectedSalesman != null;
+        OnlineCodOrder || ActiveSalesmen.Count == 0 || SelectedSalesman != null;
 
     private bool CanPostBill() => IsCustomerReadyForPost && IsSalesmanReadyForPost;
 
@@ -82,6 +82,8 @@ public partial class BillingViewModel : ObservableObject
         if (!value)
             DeliveryDate = null;
     }
+
+    partial void OnOnlineCodOrderChanged(bool value) => NotifyPostBillCanExecute();
 
     [ObservableProperty] private string _billNo = "—";
     [ObservableProperty] private string _holdNo = "";
@@ -1684,6 +1686,18 @@ public partial class BillingViewModel : ObservableObject
                 MessageBoxImage.Warning);
             return;
         }
+
+        var itemCount = Lines.Count(l => l.Amount > 0);
+        var confirmDlg = new BillPostConfirmDialog(
+            CustomerName,
+            PayableTotalFormatted,
+            itemCount,
+            OnlineCodOrder)
+        {
+            Owner = Application.Current.MainWindow,
+        };
+        if (confirmDlg.ShowDialog() != true)
+            return;
 
         await AssignBillNumberAsync();
 

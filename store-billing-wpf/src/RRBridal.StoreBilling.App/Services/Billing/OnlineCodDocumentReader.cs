@@ -54,6 +54,28 @@ public static class OnlineCodDocumentReader
         return ReadString(oc.AsBsonDocument, "receivedPaymentMode");
     }
 
+    public static bool IsOnlineCodReceived(BsonDocument doc) =>
+        IsOnlineCodBill(doc)
+        && string.Equals(ReadOnlineCodStatus(doc), StatusReceived, StringComparison.OrdinalIgnoreCase);
+
+    public static bool TryReadReceivedAtUtc(BsonDocument doc, out DateTime receivedUtc)
+    {
+        receivedUtc = default;
+        if (!doc.TryGetValue("onlineCod", out var oc) || !oc.IsBsonDocument)
+            return false;
+        var receivedAt = ReadString(oc.AsBsonDocument, "receivedAtUtc");
+        if (string.IsNullOrWhiteSpace(receivedAt))
+            return false;
+        if (!DateTime.TryParse(receivedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            return false;
+        receivedUtc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+        return true;
+    }
+
+    public static bool MatchesReceivedLocalDay(BsonDocument doc, DateTime localDate) =>
+        TryReadReceivedAtUtc(doc, out var receivedUtc)
+        && receivedUtc.ToLocalTime().Date == localDate.Date;
+
     public static DateTime ReadSortUtc(BsonDocument doc)
     {
         if (!doc.TryGetValue("createdAtUtc", out var cu) || !cu.IsString)
