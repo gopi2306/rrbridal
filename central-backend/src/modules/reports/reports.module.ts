@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { GoodsReceipt, GoodsReceiptSchema } from '../goods-receipts/schemas/goods-receipt.schema';
+import { HsnCode, HsnCodeSchema } from '../hsn-codes/schemas/hsn-code.schema';
 import { InventoryModule } from '../inventory/inventory.module';
 import {
   PurchaseOrder,
@@ -12,6 +13,9 @@ import {
   StoreSaleReturn,
   StoreSaleReturnSchema,
 } from '../store-sales/schemas/store-sale-return.schema';
+import { GstReportController } from './gst-report.controller';
+import { GstReportExportService } from './gst-report-export.service';
+import { GstReportService } from './gst-report.service';
 import { ItemDetailsReportController } from './item-details-report.controller';
 import { ItemDetailsReportExportService } from './item-details-report-export.service';
 import { ItemDetailsReportService } from './item-details-report.service';
@@ -25,9 +29,15 @@ import { ItemDetailsReportService } from './item-details-report.service';
       { name: StoreInvoice.name, schema: StoreInvoiceSchema },
       { name: StoreSaleReturn.name, schema: StoreSaleReturnSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: HsnCode.name, schema: HsnCodeSchema },
     ]),
   ],
-  controllers: [ItemDetailsReportController],
-  providers: [ItemDetailsReportService, ItemDetailsReportExportService],
+  controllers: [ItemDetailsReportController, GstReportController],
+  providers: [
+    ItemDetailsReportService,
+    ItemDetailsReportExportService,
+    GstReportService,
+    GstReportExportService,
+  ],
 })
 export class ReportsModule {}

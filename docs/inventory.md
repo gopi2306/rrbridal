@@ -16,8 +16,13 @@ The central API maintains **location-aware** stock in the `inventoryledgerentrie
 | Transfer **out** → `in_transit` | Negative `qtyDelta` at **store** for `fromStoreId`; positive in-transit |
 | Transfer **out** → `completed` | Negative in-transit; positive at **warehouse** (`StockTransferReceived`) |
 | Transfer **out** → `cancelled` | Reverse in-transit to **store** (`StockTransferCancelled`) |
+| Store bill synced (`InvoiceCreated`) | Negative `qtyDelta` at **store** for `storeId` (`StoreInvoicePosted`) |
+| Store return synced (`SaleReturnCreated`) | Positive `qtyDelta` at **store** (`StoreSaleReturnPosted`) |
+| Store exchange synced (`SaleExchangeCreated`) | Positive return lines + negative exchange lines at **store** (`StoreSaleReturnPosted`, `StoreSaleExchangePosted`) |
 
 While a transfer is `in_transit` / `awaiting_intake`, quantity sits in the **in_transit** bucket (not at the source site). See [stock-transfers.md](./stock-transfers.md).
+
+Bill/return ledger rows use sync `eventId` as `sourceId` (idempotent). Invoice lines listed in `stockExceptions` with `stockDecremented: false` are excluded (same rule as local POS). To backfill historical bills/returns already in MongoDB, run `POST /api/store-sales/inventory/backfill` (optional `?dryRun=true`).
 
 ## Warehouse + store grid API
 

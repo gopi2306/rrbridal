@@ -19,6 +19,40 @@ This repo does not include the admin web UI; an external front end should call t
 - Optional `lineOverrides` per SKU.
 - Rejected if the intent is `rejected`, `cancelled`, or `fulfilled`.
 
+## Auto transfer from GRN
+
+**Transfer in only.** Create a transfer from a **posted** goods receipt and advance it directly to **`awaiting_intake`** in one call:
+
+`POST /stock-transfers/from-grn/:grnId`
+
+Prerequisites:
+
+- GRN must already be posted (`POST /goods-receipts/:id/post`).
+- Caller supplies `toStoreId` in the request body.
+
+Request body:
+
+```json
+{
+  "toStoreId": "store-01",
+  "locationId": "<optional warehouse Location ObjectId>",
+  "stockClassification": "Normal Stock",
+  "receivedBy": "Warehouse Admin",
+  "remarks": "Auto from GRN-000032",
+  "lineOverrides": [{ "sku": "SKU-001", "qty": 3 }]
+}
+```
+
+Behavior:
+
+- Builds transfer **lines** from GRN valid rows (`outcome === 'valid'`); uses `receivedQty` unless overridden.
+- Skips warehouse stock checks (GRN already posted stock to warehouse).
+- Auto-advances: `draft` → `in_transit` → `awaiting_intake` (ledger movements same as manual dispatch + receive).
+- Sets `goodsReceiptId` on the transfer for traceability.
+- Store POS completes intake via existing sync (`StockTransferReceived` → `completed`).
+
+Rejected if GRN is not `posted`, has no valid lines, or `toStoreId` is unknown.
+
 ## Data model (collection `stock_transfers`)
 
 | Field | Description |
@@ -31,6 +65,7 @@ This repo does not include the admin web UI; an external front end should call t
 | `toStoreId` | Destination store (transfer in) |
 | `toLocationId` | Destination warehouse location (transfer out, optional) |
 | `purchaseIntentId` | Set when created from an intent (in only) |
+| `goodsReceiptId` | Set when created from a posted GRN (in only) |
 | `status` | See lifecycle below |
 | `transferDate`, `remarks`, `stockClassification` | Optional |
 | `receivedAt`, `receivedBy` | Store confirmation metadata |
@@ -86,6 +121,7 @@ sequenceDiagram
 |--------|------|---------|
 | `POST` | `/stock-transfers` | Create in or out (see examples) |
 | `POST` | `/stock-transfers/from-purchase-intent/:intentId` | Draft **in** from purchase intent |
+| `POST` | `/stock-transfers/from-grn/:grnId` | **In** from posted GRN → `awaiting_intake` |
 | `GET` | `/stock-transfers` | List; query: `direction`, `toStoreId`, `fromStoreId`, `status`, `purchaseIntentId`, `search` |
 | `GET` | `/stock-transfers/:id` | Detail |
 | `PATCH` | `/stock-transfers/:id` | Update **draft** only |

@@ -9,6 +9,7 @@ import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schema
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from './schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
+import { StoreSalesInventoryService } from './store-sales-inventory.service';
 
 export type StoreSyncEventMeta = {
   eventId: string;
@@ -28,6 +29,7 @@ export class StoreSalesSyncService {
     private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
     @InjectModel(StoreDayClose.name) private readonly dayCloseModel: Model<StoreDayCloseDocument>,
     @InjectModel(StoreCashMovement.name) private readonly cashMovementModel: Model<StoreCashMovementDocument>,
+    private readonly storeSalesInventoryService: StoreSalesInventoryService,
   ) {}
 
   private requireString(payload: Record<string, unknown>, key: string): string {
@@ -77,6 +79,7 @@ export class StoreSalesSyncService {
         posCounter,
         payload,
       });
+      await this.storeSalesInventoryService.postInvoiceLedger(meta, payload);
     } catch (err: unknown) {
       const dup =
         err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
@@ -116,6 +119,7 @@ export class StoreSalesSyncService {
         kind,
         payload,
       });
+      await this.storeSalesInventoryService.postReturnLedger(meta, payload, kind);
     } catch (err: unknown) {
       const dup =
         err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;

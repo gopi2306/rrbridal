@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { GoodsReceipt, GoodsReceiptSchema } from '../goods-receipts/schemas/goods-receipt.schema';
 import { InventoryModule } from '../inventory/inventory.module';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { LocationsModule } from '../locations/locations.module';
@@ -14,6 +15,7 @@ import { StockTransfersService } from './stock-transfers.service';
     MongooseModule.forFeature([
       { name: StockTransfer.name, schema: StockTransferSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: GoodsReceipt.name, schema: GoodsReceiptSchema },
     ]),
     PurchaseIntentsModule,
     InventoryModule,

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CreateFromGrnDto } from './dto/create-from-grn.dto';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 import { FilterStockTransferDto } from './dto/filter-stock-transfer.dto';
@@ -24,6 +25,11 @@ export class StockTransfersController {
     @Body() dto: CreateFromPurchaseIntentDto,
   ) {
     return await this.transfersService.createFromPurchaseIntent(intentId, dto);
+  }
+
+  @Post('from-grn/:grnId')
+  async createFromGrn(@Param('grnId') grnId: string, @Body() dto: CreateFromGrnDto) {
+    return await this.transfersService.createFromGrnAwaitingIntake(grnId, dto);
   }
 
   @Post('filter')

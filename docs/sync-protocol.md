@@ -132,11 +132,15 @@ Raised when a **posted** store bill is saved locally (`store_bills`). Payments a
 
 Central: collection `store_invoices`, idempotent by `sourceEventId` (`eventId`). Duplicate `billNo` for the same store → `rejected`.
 
+**Inventory:** Central also posts `StoreInvoicePosted` ledger rows at the store (`locationKind: store`, negative `qtyDelta` per sold line). Lines in `stockExceptions` with `stockDecremented: false` are skipped. Idempotent by `eventId` — duplicate sync does not double-post stock.
+
 ### Event: `SaleReturnCreated` / `SaleExchangeCreated`
 
 Raised after a sale return or exchange is posted locally. `payload` includes `returnNo`, `originalBillNo`, lines, totals, `returnMode`, optional `creditNoteNo`.
 
 Central: `store_sale_returns` with unique `(storeId, returnNo)`.
+
+**Inventory:** `SaleReturnCreated` posts `StoreSaleReturnPosted` (positive qty at store). `SaleExchangeCreated` also posts `StoreSaleExchangePosted` (negative qty for replacement lines). Idempotent by `eventId`.
 
 ### Event: `AdjustmentBillCreated`
 

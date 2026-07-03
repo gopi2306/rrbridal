@@ -2,12 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types, UpdateQuery } from 'mongoose';
 import { attachLineProducts, enrichDocWithLineProducts, resolveProductIdForSku } from '../../common/product-line-enrichment';
+import { GoodsReceipt, GoodsReceiptDocument } from '../goods-receipts/schemas/goods-receipt.schema';
 import { InventoryService } from '../inventory/inventory.service';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { PurchaseIntentLine } from '../purchase-intents/schemas/purchase-intent.schema';
 import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.service';
 import { StoresService } from '../stores/stores.service';
 import { LocationsService } from '../locations/locations.service';
+import { CreateFromGrnDto } from './dto/create-from-grn.dto';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 import { FilterStockTransferDto } from './dto/filter-stock-transfer.dto';
@@ -37,6 +39,7 @@ export class StockTransfersService {
   constructor(
     @InjectModel(StockTransfer.name) private readonly model: Model<StockTransferDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(GoodsReceipt.name) private readonly grModel: Model<GoodsReceiptDocument>,
     private readonly purchaseIntentsService: PurchaseIntentsService,
     private readonly inventoryService: InventoryService,
     private readonly storesService: StoresService,
@@ -333,6 +336,84 @@ export class StockTransfersService {
     return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
   }
 
+  async createFromGrnAwaitingIntake(grnId: string, dto: CreateFromGrnDto) {
+    if (!Types.ObjectId.isValid(grnId)) throw new NotFoundException('Goods receipt not found');
+    const grn = await this.grModel.findById(grnId);
+    if (!grn) throw new NotFoundException('Goods receipt not found');
+    if (grn.status !== 'posted') {
+      throw new BadRequestException(
+        `Cannot create transfer from goods receipt in status '${grn.status}'; GRN must be posted`,
+      );
+    }
+
+    const grnLines = (grn.lines ?? []).filter((l) => (l.outcome ?? 'valid') === 'valid');
+    if (!grnLines.length) {
+      throw new BadRequestException('Goods receipt has no valid lines to transfer');
+    }
+
+    const overrideMap = new Map(
+      (dto.lineOverrides ?? []).map((o) => [o.sku.trim(), o.qty] as const),
+    );
+    const grnSkus = new Set(grnLines.map((l) => l.sku.trim()));
+    for (const sku of overrideMap.keys()) {
+      if (!grnSkus.has(sku)) {
+        throw new BadRequestException(`lineOverrides contains unknown sku: ${sku}`);
+      }
+    }
+
+    const lines: StockTransferLine[] = [];
+    for (const gl of grnLines) {
+      const sku = gl.sku.trim();
+      const qtyOverride = overrideMap.get(sku);
+      const qty = qtyOverride ?? gl.receivedQty ?? 0;
+      if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) continue;
+
+      const productId = await resolveProductIdForSku(
+        this.productModel,
+        sku,
+        gl.productId ? String(gl.productId) : undefined,
+      );
+      const line: StockTransferLine = { sku, qty };
+      if (gl.description) line.description = gl.description;
+      if (productId) line.productId = productId;
+      lines.push(line);
+    }
+
+    if (!lines.length) {
+      throw new BadRequestException('Goods receipt has no lines with positive quantity to transfer');
+    }
+
+    const toStoreId = dto.toStoreId.trim();
+    const storeExists = await this.storesService.existsByCode(toStoreId);
+    if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${toStoreId}'`);
+
+    const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
+    const transferNo = await this.nextTransferNo();
+    const grnLabel = grn.grnNumber?.trim() || grn.receiptNo?.trim() || grnId;
+    const remarks = dto.remarks?.trim() || `Auto transfer from ${grnLabel}`;
+
+    const created = await this.model.create({
+      transferNo,
+      direction: 'warehouse_to_store' as const,
+      fromKind: 'warehouse' as const,
+      ...(fromLocationId ? { fromLocationId } : {}),
+      toStoreId,
+      goodsReceiptId: new Types.ObjectId(grnId),
+      status: 'draft',
+      remarks,
+      stockClassification: this.normalizeStockClassification(dto.stockClassification),
+      lines,
+    });
+
+    await this.transitionStatus(created, 'in_transit', { skipStockCheck: true });
+    created.receivedAt = new Date().toISOString();
+    const receivedBy = dto.receivedBy?.trim();
+    if (receivedBy) created.receivedBy = receivedBy;
+    await this.transitionStatus(created, 'awaiting_intake', { allowStoreIntake: true });
+
+    return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
+  }
+
   async findById(id: string) {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Stock transfer not found');
     const doc = await this.model.findById(id).lean();
@@ -626,7 +707,7 @@ export class StockTransfersService {
   private async transitionStatus(
     doc: StockTransferDocument,
     to: StockTransferStatus,
-    options?: { allowStoreIntake?: boolean },
+    options?: { allowStoreIntake?: boolean; skipStockCheck?: boolean },
   ) {
     const from = doc.status;
     if (from === to) return doc;
@@ -637,7 +718,7 @@ export class StockTransfersService {
       this.assertTransition(from, to);
     }
 
-    await this.applyTransferLedger(from, to, doc);
+    await this.applyTransferLedger(from, to, doc, options);
     doc.status = to;
     await doc.save();
     return doc;
@@ -648,6 +729,7 @@ export class StockTransfersService {
     from: StockTransferStatus,
     to: StockTransferStatus,
     doc: StockTransferDocument,
+    options?: { skipStockCheck?: boolean },
   ) {
     const transferId = String(doc._id);
     const lines = doc.lines ?? [];
@@ -682,7 +764,9 @@ export class StockTransfersService {
           })),
         ]);
       } else {
-        await this.assertSufficientWarehouseStock(lines, doc.fromLocationId);
+        if (!options?.skipStockCheck) {
+          await this.assertSufficientWarehouseStock(lines, doc.fromLocationId);
+        }
         await this.inventoryService.addLedgerEntries([
           ...lines.map((l) => ({
             sku: l.sku,

@@ -90,6 +90,13 @@ export class StockTransfer {
   @Prop({ type: Types.ObjectId, index: true })
   purchaseIntentId?: Types.ObjectId;
 
+  @ApiProperty({
+    required: false,
+    description: 'Mongo _id of the source goods receipt (GRN) when created via from-grn',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'GoodsReceipt', index: true })
+  goodsReceiptId?: Types.ObjectId;
+
   @ApiProperty()
   @Prop({ required: true, default: 'draft', index: true })
   status!: StockTransferStatus;
