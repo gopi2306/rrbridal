@@ -34,9 +34,18 @@ expectedCash = openingCash + netCashInHand - depositsToBank - cashWithdrawals
 
 ## Central API
 
-`GET /api/dashboard/store/day-close?storeId=&businessDate=YYYY-MM-DD&posCounter=`
+`GET /api/dashboard/store/day-close?storeId=store-001&date=2026-06-03&posCounter=`
 
-Returns counter session rows and store totals from synced `store_day_closes`.
+Query parameters:
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `storeId` | no | Store code; defaults to first active store |
+| `date` | no | Business day `YYYY-MM-DD`; defaults to today |
+| `businessDate` | no | Alias of `date` |
+| `posCounter` | no | Single counter; omit for all counters |
+
+Returns counter session rows and store totals from synced `store_day_closes`. Response includes `storeId`, `date`, and `businessDate` (same value).
 
 ### Full report export (CSV / Excel)
 
@@ -49,12 +58,13 @@ Save dialog supports `*.csv` or `*.xlsx`. Default filename: `day-close-{storeId}
 
 **Central API**
 
-`GET /api/dashboard/store/day-close/export?format=csv|xlsx&storeId=&businessDate=YYYY-MM-DD&posCounter=`
+`GET /api/dashboard/store/day-close/export?format=csv|xlsx&storeId=store-001&date=2026-06-03&posCounter=`
 
-Returns a file download with the same section layout as WPF.
+Same filters as the dashboard endpoint (`storeId`, `date` / `businessDate`, `posCounter`).
 
 ```bash
-curl -O -J "http://localhost:3000/api/dashboard/store/day-close/export?format=csv&storeId=store-001&businessDate=2024-06-17"
+curl -O -J "http://localhost:3000/api/dashboard/store/day-close?storeId=store-001&date=2026-06-03"
+curl -O -J "http://localhost:3000/api/dashboard/store/day-close/export?format=csv&storeId=store-001&date=2026-06-03"
 ```
 
 **Report sections:** METADATA, SUMMARY (reconciliation), COUNTER_ROLLUP, BILLS, RETURNS, ADJUSTMENTS, EXPENSES, CASH_MOVEMENTS, CREDIT_NOTE_CASHOUTS (if any), DENOMINATIONS (if closed), STOCK_EXCEPTIONS (if any).

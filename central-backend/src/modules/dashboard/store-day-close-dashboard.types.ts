@@ -18,6 +18,8 @@ export type StoreDayCloseCounterRow = {
 
 export type StoreDayCloseDashboardResponse = {
   storeId: string;
+  /** Business calendar day (YYYY-MM-DD); same as `businessDate` */
+  date: string;
   businessDate: string;
   counters: StoreDayCloseCounterRow[];
   totals: {

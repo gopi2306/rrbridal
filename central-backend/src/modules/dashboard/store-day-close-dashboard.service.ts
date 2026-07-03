@@ -46,6 +46,7 @@ export class StoreDayCloseDashboardService {
 
     return {
       storeId,
+      date: options.businessDate,
       businessDate: options.businessDate,
       counters,
       totals: {

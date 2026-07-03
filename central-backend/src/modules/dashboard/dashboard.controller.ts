@@ -7,6 +7,7 @@ import { StoreVendorSalesDashboardQueryDto } from './dto/store-vendor-sales-dash
 import { StoreVendorsSalesDashboardQueryDto } from './dto/store-vendors-sales-dashboard-query.dto';
 import { StoreDashboardQueryDto } from './dto/store-dashboard-query.dto';
 import { StoreDayCloseDashboardQueryDto } from './dto/store-day-close-dashboard-query.dto';
+import { resolveStoreDayCloseOptions } from './dto/store-day-close-query.util';
 import { StoreDayCloseExportQueryDto } from './dto/store-day-close-export-query.dto';
 import { StoreOnlineSalesDashboardQueryDto } from './dto/store-online-sales-dashboard-query.dto';
 import { StoreSalesmanDashboardQueryDto, StoreSalesmenDashboardQueryDto } from './dto/store-salesmen-dashboard-query.dto';
@@ -24,12 +25,11 @@ import type { StoreSalesDashboardOptions } from './store-sales-dashboard.types';
 import type { StoreVendorSalesDashboardOptions } from './store-vendor-sales-dashboard.types';
 import type { StoreVendorsSalesDashboardOptions } from './store-vendors-sales-dashboard.types';
 import type { StoreVendorsSalesReportOptions } from './store-vendors-sales-report.types';
-import type { StoreDayCloseDashboardOptions } from './store-day-close-dashboard.types';
 import type { StoreDashboardOptions } from './store-dashboard.types';
 import type { StoreOnlineSalesDashboardOptions } from './store-online-sales-dashboard.types';
 import type { StoreSalesmanDashboardOptions, StoreSalesmenDashboardOptions } from './store-salesmen-dashboard.types';
 import type { WarehouseDashboardOptions } from './warehouse-dashboard.types';
-import { businessTodayParts, formatBusinessYmd } from './store-sales-payload.util';
+import { businessTodayParts } from './store-sales-payload.util';
 
 @ApiTags('dashboard')
 @Controller('dashboard')
@@ -80,10 +80,7 @@ export class DashboardController {
 
   @Get('store/day-close')
   async getStoreDayClose(@Query() query: StoreDayCloseDashboardQueryDto) {
-    const businessDate = query.businessDate?.trim() || formatBusinessYmd(new Date());
-    const options: StoreDayCloseDashboardOptions = { businessDate };
-    if (query.storeId?.trim()) options.storeId = query.storeId.trim();
-    if (query.posCounter?.trim()) options.posCounter = query.posCounter.trim();
+    const options = resolveStoreDayCloseOptions(query);
     return await this.storeDayCloseDashboardService.getDayCloseDashboard(options);
   }
 
@@ -93,14 +90,11 @@ export class DashboardController {
     @Query() query: StoreDayCloseExportQueryDto,
     @Res() res: Response,
   ) {
-    const businessDate = query.businessDate?.trim() || formatBusinessYmd(new Date());
-    const options = {
-      businessDate,
+    const dayClose = resolveStoreDayCloseOptions(query);
+    const result = await this.storeDayCloseReportService.buildExport({
+      ...dayClose,
       format: query.format,
-      ...(query.storeId?.trim() ? { storeId: query.storeId.trim() } : {}),
-      ...(query.posCounter?.trim() ? { posCounter: query.posCounter.trim() } : {}),
-    };
-    const result = await this.storeDayCloseReportService.buildExport(options);
+    });
     res.setHeader('Content-Type', result.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
