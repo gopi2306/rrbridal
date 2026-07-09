@@ -8,6 +8,7 @@ import {
   stripInvalidObjectIdRefs,
   toObjectId,
 } from '../../common/object-id.util';
+import { normalizeMediaPublicUrl } from '../../common/media-url.util';
 import { MONEY_DECIMAL_PLACES } from '../../common/money.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
@@ -49,7 +50,10 @@ export class ProductsService {
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
     const doc = await this.productModel.create(payload);
-    const lean = serializeAuditDocument(doc.toObject()) as Record<string, unknown>;
+    const lean = serializeAuditDocument(this.withNormalizedMediaUrls(doc.toObject())) as Record<
+      string,
+      unknown
+    >;
     const auditInput: LogProductChangeInput = {
       productId: String(doc._id),
       sku: doc.sku,
@@ -58,11 +62,37 @@ export class ProductsService {
     };
     if (actor) auditInput.actor = actor;
     await this.auditLogs.logProductChange(auditInput);
-    return doc;
+    return this.withNormalizedMediaUrls(doc.toObject());
+  }
+
+  private apiPublicOrigin(): string | undefined {
+    return process.env.API_PUBLIC_ORIGIN?.trim() || undefined;
+  }
+
+  private normalizeMediaUrlsInput(urls: unknown): string[] | undefined {
+    if (urls === undefined) return undefined;
+    if (!Array.isArray(urls)) return undefined;
+    const origin = this.apiPublicOrigin();
+    return urls
+      .map((u) => (typeof u === 'string' ? u.trim() : ''))
+      .filter((u) => u.length > 0)
+      .map((u) => normalizeMediaPublicUrl(u, origin) ?? u);
+  }
+
+  private withNormalizedMediaUrls<T extends { mediaUrls?: string[] }>(doc: T): T {
+    if (!doc.mediaUrls?.length) return doc;
+    const origin = this.apiPublicOrigin();
+    return {
+      ...doc,
+      mediaUrls: doc.mediaUrls.map((u) => normalizeMediaPublicUrl(u, origin) ?? u),
+    };
   }
 
   private normalizeProductWritePayload(dto: Record<string, unknown>): Record<string, unknown> {
     const doc = { ...dto };
+    if ('mediaUrls' in doc) {
+      doc.mediaUrls = this.normalizeMediaUrlsInput(doc.mediaUrls) ?? [];
+    }
     stripInvalidObjectIdRefs(doc, PRODUCT_REF_OBJECT_ID_FIELDS);
     for (const field of PRODUCT_REF_OBJECT_ID_FIELDS) {
       const v = doc[field];
@@ -109,7 +139,7 @@ export class ProductsService {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
     const doc = await this.productModel.findById(toObjectId(id)).lean();
     if (!doc) throw new NotFoundException('Product not found');
-    return doc;
+    return this.withNormalizedMediaUrls(doc);
   }
 
   /** Create or update by SKU, or by itemName when SKU is missing or not found. */
@@ -161,7 +191,41 @@ export class ProductsService {
     if (typeof doc.sku === 'string') auditInput.sku = doc.sku;
     if (actor) auditInput.actor = actor;
     await this.auditLogs.logProductChange(auditInput);
-    return doc;
+    return this.withNormalizedMediaUrls(doc);
+  }
+
+  async appendMediaUrl(id: string, url: string, actor?: AuditActor) {
+    const normalized = this.normalizeMediaUrlsInput([url])?.[0];
+    if (!normalized) return await this.findById(id);
+
+    const before = await this.productModel.findById(toObjectId(id)).lean();
+    if (!before) throw new NotFoundException('Product not found');
+
+    const existing = Array.isArray(before.mediaUrls) ? before.mediaUrls : [];
+    if (existing.includes(normalized)) {
+      return this.withNormalizedMediaUrls(before);
+    }
+
+    const doc = await this.productModel
+      .findByIdAndUpdate(
+        toObjectId(id),
+        { $push: { mediaUrls: normalized } },
+        { new: true },
+      )
+      .lean();
+    if (!doc) throw new NotFoundException('Product not found');
+
+    const auditInput: LogProductChangeInput = {
+      productId: id,
+      action: 'updated',
+      before: serializeAuditDocument(before) as Record<string, unknown>,
+      after: serializeAuditDocument(doc) as Record<string, unknown>,
+      changedFields: ['mediaUrls'],
+    };
+    if (typeof doc.sku === 'string') auditInput.sku = doc.sku;
+    if (actor) auditInput.actor = actor;
+    await this.auditLogs.logProductChange(auditInput);
+    return this.withNormalizedMediaUrls(doc);
   }
 
   async list(params: ProductListFilterParams & { skip?: number; limit?: number }) {
@@ -174,7 +238,8 @@ export class ProductsService {
       .skip(skip)
       .limit(limit)
       .lean();
-    return await this.populateProductRefLookups(rawData);
+    const data = await this.populateProductRefLookups(rawData);
+    return data.map((row) => this.withNormalizedMediaUrls(row));
   }
 
   /** Expand each ObjectId ref to its master document (same as POST /products/filter). */
@@ -320,7 +385,9 @@ export class ProductsService {
       this.productModel.countDocuments(filter),
     ]);
 
-    const data = await this.populateProductRefLookups(rawData);
+    const data = (await this.populateProductRefLookups(rawData)).map((row) =>
+      this.withNormalizedMediaUrls(row),
+    );
 
     return {
       data,

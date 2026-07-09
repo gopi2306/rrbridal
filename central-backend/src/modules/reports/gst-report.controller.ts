@@ -14,7 +14,10 @@ export class GstReportController {
   ) {}
 
   @Get()
-  @ApiOkResponse({ description: 'Sales and purchase GST report with HSN-wise breakdown (JSON)' })
+  @ApiOkResponse({
+    description:
+      'Combined sales and purchase GST report with rate, HSN, item, and invoice-wise breakdown (JSON)',
+  })
   getReport(@Query() query: GstReportQueryDto) {
     return this.reportService.buildReport(query);
   }
@@ -23,6 +26,36 @@ export class GstReportController {
   @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportReport(@Query() query: GstReportQueryDto, @Res() res: Response) {
     const result = await this.exportService.buildExport(query);
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.send(result.buffer);
+  }
+
+  @Get('sales')
+  @ApiOkResponse({ description: 'Sales GST report with SGST/CGST split (JSON)' })
+  getSalesReport(@Query() query: GstReportQueryDto) {
+    return this.reportService.buildSalesReport(query);
+  }
+
+  @Get('sales/export')
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportSalesReport(@Query() query: GstReportQueryDto, @Res() res: Response) {
+    const result = await this.exportService.buildSalesExport(query);
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.send(result.buffer);
+  }
+
+  @Get('purchase')
+  @ApiOkResponse({ description: 'Purchase GST report with SGST/CGST split (JSON)' })
+  getPurchaseReport(@Query() query: GstReportQueryDto) {
+    return this.reportService.buildPurchaseReport(query);
+  }
+
+  @Get('purchase/export')
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportPurchaseReport(@Query() query: GstReportQueryDto, @Res() res: Response) {
+    const result = await this.exportService.buildPurchaseExport(query);
     res.setHeader('Content-Type', result.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.send(result.buffer);

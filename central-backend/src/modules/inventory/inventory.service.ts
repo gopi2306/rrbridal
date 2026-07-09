@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { ProductsService, ProductListFilterParams } from '../products/products.service';
+import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import { InventoryLedgerEntry, InventoryLedgerDocument, InventoryLocationKind } from './schemas/inventory-ledger.schema';
 
 export type LedgerEntryInput = {
@@ -43,10 +44,58 @@ export type WarehouseStoreGridRow = {
   storePrice?: number;
 };
 
+export type FilteredInventoryParams = {
+  storeCode?: string;
+  search?: string;
+  minQty?: number;
+  maxQty?: number;
+  minAgeDays?: number;
+  maxAgeDays?: number;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type FilteredInventoryRow = {
+  sku: string;
+  productId?: string;
+  upcEanCode?: string;
+  product: Record<string, unknown>;
+  inventoryKind: 'warehouse' | 'store';
+  storeCode?: string;
+  stockQty: number;
+  warehouseQty: number;
+  inTransitQty: number;
+  storeQty: number;
+  stockAgeDays: number | null;
+  mrp?: number;
+  storePrice?: number;
+};
+
+export type ProductInventoryStoreDetail = {
+  storeCode: string;
+  storeName: string | null;
+  storeQty: number;
+  ageDays: number | null;
+};
+
+export type ProductInventoryDetail = {
+  product: Record<string, unknown>;
+  warehouse: {
+    warehouseQty: number;
+    inTransitQty: number;
+    ageDays: number | null;
+  };
+  stores: ProductInventoryStoreDetail[];
+};
+
 type BalanceBucket = { warehouseQty: number; inTransitQty: number; storeById: Map<string, number> };
+type RankedInventoryItem = { sku: string; qty: number; ageDays: number | null; inTransitQty?: number };
 
 const EXPORT_MAX_ROWS = 10_000;
 const EXPORT_PAGE_SIZE = 500;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class InventoryService {
@@ -54,6 +103,7 @@ export class InventoryService {
     @InjectModel(InventoryLedgerEntry.name) private readonly ledgerModel: Model<InventoryLedgerDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     @InjectModel(Location.name) private readonly locationModel: Model<LocationDocument>,
+    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly productsService: ProductsService,
   ) {}
 
@@ -80,6 +130,93 @@ export class InventoryService {
       return row;
     });
     return await this.ledgerModel.insertMany(docs);
+  }
+
+  async getFilteredInventory(params: FilteredInventoryParams) {
+    this.validateRange(params.minQty, params.maxQty, 'quantity');
+    this.validateRange(params.minAgeDays, params.maxAgeDays, 'stock age');
+    this.validateDateRange(params.fromDate, params.toDate);
+
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(500, Math.max(1, params.limit ?? 200));
+    const storeCode = params.storeCode?.trim().toLowerCase();
+
+    const ranked = storeCode
+      ? await this.resolveFilteredStoreInventory(storeCode, params)
+      : await this.resolveFilteredWarehouseInventory(params);
+    const total = ranked.length;
+    const pageSlice = ranked.slice((page - 1) * limit, page * limit);
+    const productBySku = await this.fetchEnrichedProductMap(pageSlice.map((row) => row.sku));
+
+    const data = pageSlice
+      .map((row) => {
+        const product = productBySku.get(row.sku);
+        if (!product) return null;
+        return this.mapFilteredInventoryRow(product, row, storeCode);
+      })
+      .filter((row): row is FilteredInventoryRow => row != null);
+
+    return {
+      inventoryKind: storeCode ? 'store' : 'warehouse',
+      ...(storeCode ? { storeCode } : {}),
+      data,
+      total,
+      page,
+      limit,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
+  }
+
+  async getProductInventoryDetail(code: string): Promise<ProductInventoryDetail> {
+    const trimmedCode = code?.trim();
+    if (!trimmedCode) throw new BadRequestException('code is required');
+
+    const rawProduct = await this.resolveProductByCode(trimmedCode);
+    if (!rawProduct) throw new NotFoundException(`Product '${trimmedCode}' not found`);
+
+    const [product] = await enrichProductDocuments(this.productModel, [
+      rawProduct as Record<string, unknown>,
+    ]);
+    if (!product) throw new NotFoundException(`Product '${trimmedCode}' not found`);
+    const enrichedProduct: Record<string, unknown> = product;
+    const sku = typeof enrichedProduct.sku === 'string' ? enrichedProduct.sku : '';
+    if (!sku) throw new NotFoundException(`Product '${trimmedCode}' not found`);
+
+    const [warehouseMaps, warehouseAgeMap, storeQtyMaps, storeAgeMap] = await Promise.all([
+      this.getWarehouseSkuQtyMaps(),
+      this.getWarehouseStockAgeBySku([sku]),
+      this.getAllStoreSkuQtyMaps(),
+      this.getStoreStockAgeByStoreForSku(sku),
+    ]);
+
+    const storeCodes: string[] = [];
+    const storeQtyByCode = new Map<string, number>();
+    for (const [storeCode, skuQtyMap] of storeQtyMaps.entries()) {
+      const storeQty = skuQtyMap.get(sku) ?? 0;
+      if (storeQty <= 0) continue;
+      storeCodes.push(storeCode);
+      storeQtyByCode.set(storeCode, storeQty);
+    }
+
+    const storeNameByCode = await this.getStoreNameByCode(storeCodes);
+    const stores = storeCodes
+      .sort((a, b) => a.localeCompare(b))
+      .map((storeCode) => ({
+        storeCode,
+        storeName: storeNameByCode.get(storeCode) ?? null,
+        storeQty: storeQtyByCode.get(storeCode) ?? 0,
+        ageDays: storeAgeMap.get(storeCode) ?? null,
+      }));
+
+    return {
+      product: enrichedProduct,
+      warehouse: {
+        warehouseQty: warehouseMaps.warehouseBySku.get(sku) ?? 0,
+        inTransitQty: warehouseMaps.inTransitBySku.get(sku) ?? 0,
+        ageDays: warehouseAgeMap.get(sku) ?? null,
+      },
+      stores,
+    };
   }
 
   /**
@@ -401,6 +538,310 @@ export class InventoryService {
       if (row.qty !== 0) storeMap.set(sku, row.qty);
     }
     return result;
+  }
+
+  private async resolveFilteredWarehouseInventory(
+    params: FilteredInventoryParams,
+  ): Promise<RankedInventoryItem[]> {
+    const qtyMaps = await this.getWarehouseSkuQtyMaps();
+    let ranked: RankedInventoryItem[] = [...qtyMaps.warehouseBySku.entries()]
+      .filter(([, qty]) => qty > 0)
+      .filter(([, qty]) => this.numberInRange(qty, params.minQty, params.maxQty))
+      .map(([sku, qty]) => ({
+        sku,
+        qty,
+        ageDays: null as number | null,
+        inTransitQty: qtyMaps.inTransitBySku.get(sku) ?? 0,
+      }));
+
+    const oldestInwardBySku = await this.getWarehouseOldestInwardDateBySku(ranked.map((row) => row.sku));
+    ranked = this.applyAgeAndDateFilters(ranked, oldestInwardBySku, params);
+    return await this.applyProductSearchAndSort(ranked, params.search);
+  }
+
+  private async resolveFilteredStoreInventory(
+    storeCode: string,
+    params: FilteredInventoryParams,
+  ): Promise<RankedInventoryItem[]> {
+    const storeQtyMap = await this.getStoreSkuQtyMap(storeCode);
+    let ranked: RankedInventoryItem[] = [...storeQtyMap.entries()]
+      .filter(([, qty]) => qty > 0)
+      .filter(([, qty]) => this.numberInRange(qty, params.minQty, params.maxQty))
+      .map(([sku, qty]) => ({ sku, qty, ageDays: null as number | null }));
+
+    const oldestInwardBySku = await this.getStoreOldestInwardDateBySku(
+      ranked.map((row) => row.sku),
+      storeCode,
+    );
+    ranked = this.applyAgeAndDateFilters(ranked, oldestInwardBySku, params);
+    return await this.applyProductSearchAndSort(ranked, params.search);
+  }
+
+  private applyAgeAndDateFilters(
+    ranked: RankedInventoryItem[],
+    oldestInwardBySku: Map<string, Date>,
+    params: Pick<FilteredInventoryParams, 'minAgeDays' | 'maxAgeDays' | 'fromDate' | 'toDate'>,
+  ): RankedInventoryItem[] {
+    const ageBySku = this.mapAgesFromOldestDates(oldestInwardBySku);
+    const fromBoundary = this.parseDateBoundary(params.fromDate, 'start');
+    const toBoundary = this.parseDateBoundary(params.toDate, 'end');
+
+    return ranked
+      .map((row) => ({ ...row, ageDays: ageBySku.get(row.sku) ?? null }))
+      .filter((row) => this.ageInRange(row.ageDays, params.minAgeDays, params.maxAgeDays))
+      .filter((row) => {
+        if (!fromBoundary && !toBoundary) return true;
+        const inwardDate = oldestInwardBySku.get(row.sku);
+        if (!inwardDate) return false;
+        const time = inwardDate.getTime();
+        if (Number.isNaN(time)) return false;
+        if (fromBoundary && time < fromBoundary.getTime()) return false;
+        if (toBoundary && time > toBoundary.getTime()) return false;
+        return true;
+      });
+  }
+
+  private async applyProductSearchAndSort(
+    ranked: RankedInventoryItem[],
+    search?: string,
+  ): Promise<RankedInventoryItem[]> {
+    if (ranked.length === 0) return [];
+    const productBySku = await this.fetchEnrichedProductMap(ranked.map((row) => row.sku));
+    const filtered = ranked.filter((row) => {
+      const product = productBySku.get(row.sku);
+      if (!product) return false;
+      return this.productMatchesSearch(product, search);
+    });
+    return filtered.sort((a, b) => b.qty - a.qty || a.sku.localeCompare(b.sku));
+  }
+
+  private async fetchEnrichedProductMap(skus: string[]): Promise<Map<string, Record<string, unknown>>> {
+    const uniqueSkus = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    const result = new Map<string, Record<string, unknown>>();
+    if (uniqueSkus.length === 0) return result;
+
+    const rawProducts = await this.productModel.find({ sku: { $in: uniqueSkus } }).lean();
+    const enriched = await enrichProductDocuments(
+      this.productModel,
+      rawProducts as Array<Record<string, unknown>>,
+    );
+    for (const product of enriched) {
+      if (typeof product.sku === 'string') result.set(product.sku, product);
+    }
+    return result;
+  }
+
+  private mapFilteredInventoryRow(
+    product: Record<string, unknown>,
+    row: RankedInventoryItem,
+    storeCode?: string,
+  ): FilteredInventoryRow {
+    const storePrice =
+      (typeof product.storePrice === 'number' ? product.storePrice : undefined) ??
+      (typeof product.sellingPrice === 'number' ? product.sellingPrice : undefined);
+    const inventoryKind = storeCode ? 'store' : 'warehouse';
+    const result: FilteredInventoryRow = {
+      sku: row.sku,
+      product,
+      inventoryKind,
+      ...(storeCode ? { storeCode } : {}),
+      stockQty: row.qty,
+      warehouseQty: inventoryKind === 'warehouse' ? row.qty : 0,
+      inTransitQty: row.inTransitQty ?? 0,
+      storeQty: inventoryKind === 'store' ? row.qty : 0,
+      stockAgeDays: row.ageDays,
+    };
+    if (product._id != null) result.productId = String(product._id);
+    if (typeof product.upcEanCode === 'string') result.upcEanCode = product.upcEanCode;
+    if (typeof product.mrp === 'number') result.mrp = product.mrp;
+    if (storePrice !== undefined) result.storePrice = storePrice;
+    return result;
+  }
+
+  private async getWarehouseStockAgeBySku(skus: string[]): Promise<Map<string, number>> {
+    return this.mapAgesFromOldestDates(await this.getWarehouseOldestInwardDateBySku(skus));
+  }
+
+  private async getWarehouseOldestInwardDateBySku(skus: string[]): Promise<Map<string, Date>> {
+    const uniqueSkus = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    const result = new Map<string, Date>();
+    if (uniqueSkus.length === 0) return result;
+
+    type AgeRow = { _id: string; oldestAt?: Date | string | null };
+    const rows = await this.ledgerModel.aggregate<AgeRow>([
+      { $match: { sku: { $in: uniqueSkus }, qtyDelta: { $gt: 0 } } },
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: 'warehouse' } },
+      { $group: { _id: '$sku', oldestAt: { $min: '$createdAt' } } },
+    ]);
+
+    for (const row of rows) {
+      const date = this.toValidDate(row.oldestAt);
+      if (date) result.set(row._id, date);
+    }
+    return result;
+  }
+
+  private async getStoreStockAgeBySku(skus: string[], storeCode: string): Promise<Map<string, number>> {
+    return this.mapAgesFromOldestDates(await this.getStoreOldestInwardDateBySku(skus, storeCode));
+  }
+
+  private async getStoreOldestInwardDateBySku(
+    skus: string[],
+    storeCode: string,
+  ): Promise<Map<string, Date>> {
+    const uniqueSkus = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    const normalizedStoreCode = storeCode.trim().toLowerCase();
+    const result = new Map<string, Date>();
+    if (uniqueSkus.length === 0 || !normalizedStoreCode) return result;
+
+    type AgeRow = { _id: string; oldestAt?: Date | string | null };
+    const rows = await this.ledgerModel.aggregate<AgeRow>([
+      { $match: { sku: { $in: uniqueSkus }, qtyDelta: { $gt: 0 } } },
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: 'store', storeId: { $exists: true, $nin: [null, ''] } } },
+      {
+        $addFields: {
+          normalizedStoreId: { $toLower: { $trim: { input: { $toString: '$storeId' } } } },
+        },
+      },
+      { $match: { normalizedStoreId: normalizedStoreCode } },
+      { $group: { _id: '$sku', oldestAt: { $min: '$createdAt' } } },
+    ]);
+
+    for (const row of rows) {
+      const date = this.toValidDate(row.oldestAt);
+      if (date) result.set(row._id, date);
+    }
+    return result;
+  }
+
+  private async getStoreStockAgeByStoreForSku(sku: string): Promise<Map<string, number>> {
+    const trimmedSku = sku.trim();
+    const result = new Map<string, number>();
+    if (!trimmedSku) return result;
+
+    type AgeRow = { _id: string; oldestAt?: Date | string | null };
+    const rows = await this.ledgerModel.aggregate<AgeRow>([
+      { $match: { sku: trimmedSku, qtyDelta: { $gt: 0 } } },
+      { $addFields: { loc: { $ifNull: ['$locationKind', 'warehouse'] } } },
+      { $match: { loc: 'store', storeId: { $exists: true, $nin: [null, ''] } } },
+      {
+        $addFields: {
+          normalizedStoreId: { $toLower: { $trim: { input: { $toString: '$storeId' } } } },
+        },
+      },
+      { $match: { normalizedStoreId: { $nin: [null, ''] } } },
+      { $group: { _id: '$normalizedStoreId', oldestAt: { $min: '$createdAt' } } },
+    ]);
+
+    for (const row of rows) {
+      const ageDays = this.ageDaysFromDate(row.oldestAt);
+      if (ageDays !== null) result.set(row._id, ageDays);
+    }
+    return result;
+  }
+
+  private async resolveProductByCode(code: string): Promise<Record<string, unknown> | null> {
+    const bySku = await this.productsService.findBySku(code);
+    if (bySku) return bySku as Record<string, unknown>;
+
+    const exactBarcode = await this.productModel.findOne({ upcEanCode: code }).lean();
+    if (exactBarcode) return exactBarcode as Record<string, unknown>;
+
+    const rx = new RegExp(`^${this.escapeRegex(code)}$`, 'i');
+    const caseInsensitive = await this.productModel
+      .findOne({ $or: [{ sku: rx }, { upcEanCode: rx }] })
+      .lean();
+    return (caseInsensitive as Record<string, unknown> | null) ?? null;
+  }
+
+  private async getStoreNameByCode(storeCodes: string[]): Promise<Map<string, string>> {
+    const uniqueCodes = [...new Set(storeCodes.map((code) => code.trim().toLowerCase()).filter(Boolean))];
+    const result = new Map<string, string>();
+    if (uniqueCodes.length === 0) return result;
+
+    const stores = await this.storeModel.find({ code: { $in: uniqueCodes } }).select('code name').lean();
+    for (const store of stores) {
+      if (store.code) result.set(store.code, store.name);
+    }
+    return result;
+  }
+
+  private validateRange(min: number | undefined, max: number | undefined, label: string) {
+    if (min !== undefined && max !== undefined && min > max) {
+      throw new BadRequestException(`min ${label} cannot be greater than max ${label}`);
+    }
+  }
+
+  private validateDateRange(fromDate?: string, toDate?: string) {
+    if (!fromDate || !toDate) return;
+    const from = this.parseDateBoundary(fromDate, 'start');
+    const to = this.parseDateBoundary(toDate, 'end');
+    if (!from || !to) throw new BadRequestException('Invalid date range');
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('fromDate cannot be greater than toDate');
+    }
+  }
+
+  private numberInRange(value: number, min?: number, max?: number): boolean {
+    if (min !== undefined && value < min) return false;
+    if (max !== undefined && value > max) return false;
+    return true;
+  }
+
+  private ageInRange(ageDays: number | null, min?: number, max?: number): boolean {
+    if (min === undefined && max === undefined) return true;
+    if (ageDays === null) return false;
+    return this.numberInRange(ageDays, min, max);
+  }
+
+  private ageDaysFromDate(value: Date | string | null | undefined): number | null {
+    const date = this.toValidDate(value);
+    if (!date) return null;
+    const time = date.getTime();
+    if (Number.isNaN(time)) return null;
+    return Math.max(0, Math.floor((Date.now() - time) / MS_PER_DAY));
+  }
+
+  private toValidDate(value: Date | string | null | undefined): Date | null {
+    if (value == null) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    const time = date.getTime();
+    return Number.isNaN(time) ? null : date;
+  }
+
+  private mapAgesFromOldestDates(oldestBySku: Map<string, Date>): Map<string, number> {
+    const result = new Map<string, number>();
+    for (const [sku, date] of oldestBySku.entries()) {
+      const age = this.ageDaysFromDate(date);
+      if (age !== null) result.set(sku, age);
+    }
+    return result;
+  }
+
+  private parseDateBoundary(value: string | undefined, boundary: 'start' | 'end'): Date | null {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+    const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/;
+    const normalized =
+      boundary === 'start'
+        ? (isoDateOnly.test(trimmed) ? `${trimmed}T00:00:00.000Z` : trimmed)
+        : (isoDateOnly.test(trimmed) ? `${trimmed}T23:59:59.999Z` : trimmed);
+    return this.toValidDate(normalized);
+  }
+
+  private productMatchesSearch(product: Record<string, unknown>, search?: string): boolean {
+    const needle = search?.trim().toLowerCase();
+    if (!needle) return true;
+    return ['itemName', 'shortName', 'alias', 'sku', 'upcEanCode'].some((field) => {
+      const value = product[field];
+      return typeof value === 'string' && value.toLowerCase().includes(needle);
+    });
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private buildListParams(search?: string): ProductListFilterParams {

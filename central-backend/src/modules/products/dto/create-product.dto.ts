@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
@@ -272,6 +273,19 @@ export class CreateProductDto {
   @IsNumber()
   @IsOptional()
   reorderLevel?: number;
+
+  // ── Media ──
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Public URLs of uploaded product media',
+    example: ['/api/media/files/products/507f1f77bcf86cd799439011.jpg'],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  mediaUrls?: string[];
 
   // ── Status ──
 

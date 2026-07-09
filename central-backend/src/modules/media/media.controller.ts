@@ -235,7 +235,9 @@ export class MediaController {
   async uploadProductImage(@Param('productId') productId: string, @UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('file is required');
     await this.productsService.findById(productId);
-    return { ok: true, filename: file.filename };
+    const url = mediaFilePublicPath('products', file.filename);
+    await this.productsService.appendMediaUrl(productId, url);
+    return { ok: true, filename: file.filename, url };
   }
 
   @Get('products/:productId/image')

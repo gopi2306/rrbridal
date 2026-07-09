@@ -7,7 +7,11 @@ export function buildExcelBuffer(
   rows: string[][],
   sheetName = 'Export',
 ): Buffer {
-  const sheet = XLSX.utils.aoa_to_sheet([[...headers], ...rows]);
+  return buildExcelBufferFromAoa([[...headers], ...rows], sheetName);
+}
+
+export function buildExcelBufferFromAoa(rows: string[][], sheetName = 'Export'): Buffer {
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   return Buffer.from(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));

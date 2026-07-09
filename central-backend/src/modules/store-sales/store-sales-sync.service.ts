@@ -11,6 +11,7 @@ import { StoreInvoice, StoreInvoiceDocument } from './schemas/store-invoice.sche
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
 import { StoreSalesInventoryService } from './store-sales-inventory.service';
 
+
 export type StoreSyncEventMeta = {
   eventId: string;
   storeId: string;

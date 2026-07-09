@@ -214,6 +214,16 @@ export class Product {
   @Prop()
   reorderLevel?: number;
 
+  // ── Media ──
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Public URLs of product images/files (from /api/media/upload or /api/media/files/...)',
+  })
+  @Prop({ type: [String], default: [] })
+  mediaUrls?: string[];
+
   // ── Status ──
 
   @ApiProperty({ required: false })
