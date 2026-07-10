@@ -7,11 +7,6 @@ export class CreateCategoryDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  departmentId?: string;
-
   @ApiProperty({ required: false, default: true })
   @IsBoolean()
   @IsOptional()

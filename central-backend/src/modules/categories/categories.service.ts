@@ -33,7 +33,6 @@ export class CategoriesService {
         return await this.model.create({
           code,
           name: dto.name.trim(),
-          departmentId: dto.departmentId,
           isActive: dto.isActive ?? true,
         });
       } catch (err: unknown) {
@@ -64,7 +63,6 @@ export class CategoriesService {
   async update(id: string, dto: UpdateCategoryDto) {
     const set: Record<string, unknown> = {};
     if (dto.name !== undefined) set.name = dto.name.trim();
-    if (dto.departmentId !== undefined) set.departmentId = dto.departmentId;
     if (dto.isActive !== undefined) set.isActive = dto.isActive;
     const doc = await this.model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
     if (!doc) throw new NotFoundException('Not found');

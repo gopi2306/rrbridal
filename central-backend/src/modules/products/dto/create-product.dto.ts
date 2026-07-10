@@ -251,7 +251,7 @@ export class CreateProductDto {
 
   @ApiProperty({ required: false })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   skuTypeId?: string;
 
   @ApiProperty({ required: false })

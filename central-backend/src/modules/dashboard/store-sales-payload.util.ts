@@ -331,8 +331,18 @@ export function parseInvoiceNet(payload: Record<string, unknown>): number {
   return readNumber(payload.payable);
 }
 
+export function parseInvoiceSchemeDiscount(payload: Record<string, unknown>): number {
+  const legacy = readNumber(payload.schemeDiscount);
+  if (legacy > 0) return legacy;
+  return roundMoney(readNumber(payload.schemeLineDiscount) + readNumber(payload.schemeBillDiscount));
+}
+
 export function parseInvoiceDiscounts(payload: Record<string, unknown>): number {
-  return readNumber(payload.itemDiscount) + readNumber(payload.cashDiscAmount);
+  return (
+    readNumber(payload.itemDiscount) +
+    readNumber(payload.cashDiscAmount) +
+    parseInvoiceSchemeDiscount(payload)
+  );
 }
 
 export function parseInvoiceCreditApplied(payload: Record<string, unknown>): number {
@@ -373,6 +383,39 @@ export type PaymentTotals = {
   creditNote: number;
 };
 
+export function sumPaymentTotals(totals: PaymentTotals): number {
+  return roundMoney(totals.cash + totals.card + totals.upi + totals.creditNote);
+}
+
+/** Inclusive bill total before checkout credit note is applied. */
+export function parseInvoicePayableBeforeCredit(payload: Record<string, unknown>): number {
+  const before = readNumber(payload.payableBeforeCredit);
+  if (before > 0) return before;
+  const payable = parseInvoiceNet(payload);
+  const credit = parseInvoiceCreditApplied(payload);
+  if (credit > 0 || payable > 0) return roundMoney(payable + credit);
+  return 0;
+}
+
+/**
+ * Bill amount for reconciliation reports: payable-before-credit when known,
+ * else payable, else sum of recorded payments (sparse / inconsistent payloads).
+ */
+export function parseInvoiceBillAmount(
+  payload: Record<string, unknown>,
+  payments?: PaymentTotals,
+): number {
+  const pay = payments ?? parsePaymentTotals(payload);
+  const paymentSum = sumPaymentTotals(pay);
+  const beforeCredit = parseInvoicePayableBeforeCredit(payload);
+  const payable = parseInvoiceNet(payload);
+
+  if (beforeCredit > 0) return beforeCredit;
+  if (paymentSum > 0 && payable <= 0) return paymentSum;
+  if (payable > 0) return payable;
+  return paymentSum;
+}
+
 function addPaymentToTotals(totals: PaymentTotals, mode: PaymentModeBucket, amount: number) {
   switch (mode) {
     case 'Cash':
@@ -392,19 +435,58 @@ function addPaymentToTotals(totals: PaymentTotals, mode: PaymentModeBucket, amou
   }
 }
 
+function resolveSparsePaymentMode(payload: Record<string, unknown>): PaymentModeBucket {
+  const mode = classifyPaymentProvider(readString(payload.paymentMode) ?? '');
+  return mode === 'Other' ? 'Cash' : mode;
+}
+
+function addMissingCreditApplied(
+  totals: PaymentTotals,
+  creditApplied: number,
+): void {
+  if (creditApplied > totals.creditNote) {
+    addPaymentToTotals(totals, 'Credit', roundMoney(creditApplied - totals.creditNote));
+  }
+}
+
 export function parsePaymentTotals(payload: Record<string, unknown>): PaymentTotals {
   const totals: PaymentTotals = { cash: 0, card: 0, upi: 0, creditNote: 0 };
+
+  if (isOnlineCodPending(payload)) {
+    return totals;
+  }
+
   const parsed = parseInvoicePayments(payload);
   for (const pay of parsed) {
     addPaymentToTotals(totals, pay.mode as PaymentModeBucket, pay.amount);
   }
 
-  // Legacy / sparse payloads: paymentMode + payable without payments[] legs
+  const payable = parseInvoiceNet(payload);
+  const creditApplied = parseInvoiceCreditApplied(payload);
+  const beforeCredit = parseInvoicePayableBeforeCredit(payload);
+  const targetTotal = beforeCredit > 0 ? beforeCredit : payable;
+
   if (parsed.length === 0) {
-    const payable = readNumber(payload.payable);
-    const mode = classifyPaymentProvider(readString(payload.paymentMode) ?? '');
-    if (payable > 0 && mode !== 'Other') {
-      addPaymentToTotals(totals, mode, payable);
+    if (isOnlineCodBill(payload) && readOnlineCodStatus(payload).toLowerCase() === 'received') {
+      const amount = parseOnlineCodAmount(payload);
+      const mode = classifyPaymentProvider(
+        parseOnlineCodReceivedPaymentMode(payload) ?? readString(payload.paymentMode) ?? '',
+      );
+      if (amount > 0 && mode !== 'Other') {
+        addPaymentToTotals(totals, mode, amount);
+      }
+    } else if (targetTotal > 0) {
+      addMissingCreditApplied(totals, creditApplied);
+      const remaining = roundMoney(targetTotal - sumPaymentTotals(totals));
+      if (remaining > 0) {
+        addPaymentToTotals(totals, resolveSparsePaymentMode(payload), remaining);
+      }
+    }
+  } else {
+    addMissingCreditApplied(totals, creditApplied);
+    const gap = roundMoney(targetTotal - sumPaymentTotals(totals));
+    if (gap > 0.01) {
+      addPaymentToTotals(totals, resolveSparsePaymentMode(payload), gap);
     }
   }
 

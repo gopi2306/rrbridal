@@ -14,10 +14,6 @@ export class Category {
   @Prop({ required: true, trim: true })
   name!: string;
 
-  @ApiProperty({ required: false })
-  @Prop({ index: true })
-  departmentId?: string;
-
   @ApiProperty({ default: true })
   @Prop({ required: true, default: true, index: true })
   isActive!: boolean;

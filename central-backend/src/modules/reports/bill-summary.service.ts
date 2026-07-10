@@ -2,13 +2,15 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { FilterQuery } from 'mongoose';
+import { roundMoney } from '../../common/money.util';
 import { resolveDashboardStore } from '../dashboard/dashboard-store.util';
 import {
   aggregateMarginLines,
   buildStoreSalePayloadTimeFilter,
+  parseInvoiceBillAmount,
   parseInvoiceDiscounts,
   parseInvoiceMarginLines,
-  parseInvoiceNet,
+  parseInvoicePayableBeforeCredit,
   parsePaymentTotals,
   resolveBillsListDateRange,
   sumInvoiceLineQty,
@@ -95,10 +97,8 @@ export class BillSummaryService {
       const customerName = readString(payload.customerName) ?? '';
 
       const totalQty = sumInvoiceLineQty(payload);
-      const billAmount = parseInvoiceNet(payload);
       const taxDiscount = parseInvoiceDiscounts(payload);
-      const schemeDiscount = readNumber(payload.schemeDiscount);
-      const discountAmount = taxDiscount + schemeDiscount;
+      const discountAmount = taxDiscount;
 
       const cust = readString(payload.customerName);
       const docContext: GstDocumentContext = {
@@ -129,7 +129,36 @@ export class BillSummaryService {
       const payloadTaxFallback = cgstTotal + sgstTotal + igstTotal;
       const taxAmount = gstTaxTotal > 0 ? gstTaxTotal : payloadTaxFallback;
 
-      const goodsValue = gstTaxableTotal > 0 ? gstTaxableTotal : Math.max(0, billAmount - taxAmount);
+      const roundOff = readNumber(payload.roundOff);
+      const alterationTotal = readNumber(payload.alterationTotal);
+      const alterationGstIncluded =
+        payload.alterationGstIncluded === true || payload.alterationGstIncluded === 'true';
+      const exclusiveAlteration = alterationGstIncluded ? 0 : alterationTotal;
+
+      const payments = parsePaymentTotals(payload);
+      let billAmount = parseInvoiceBillAmount(payload, payments);
+
+      let goodsValue =
+        gstTaxableTotal > 0
+          ? gstTaxableTotal
+          : Math.max(0, roundMoney(billAmount - taxAmount - roundOff - exclusiveAlteration));
+
+      const reconstructedBill = roundMoney(
+        goodsValue + taxAmount + roundOff + exclusiveAlteration,
+      );
+      if (gstTaxableTotal > 0 || gstTaxTotal > 0) {
+        if (billAmount <= 0) {
+          billAmount = reconstructedBill;
+        } else if (Math.abs(reconstructedBill - billAmount) > 0.01) {
+          goodsValue = Math.max(
+            0,
+            roundMoney(billAmount - taxAmount - roundOff - exclusiveAlteration),
+          );
+        }
+      } else if (billAmount <= 0) {
+        const beforeCredit = parseInvoicePayableBeforeCredit(payload);
+        if (beforeCredit > 0) billAmount = beforeCredit;
+      }
 
       // Margin: collect per-invoice margin lines now, compute cost later.
       const marginLines = parseInvoiceMarginLines(payload);
@@ -137,8 +166,6 @@ export class BillSummaryService {
         if (l.sku && l.sku !== 'UNKNOWN') skus.add(l.sku);
       }
       marginByBillNo.set(billNo, marginLines);
-
-      const payments = parsePaymentTotals(payload);
 
       const grossMargin = 0; // computed after loading costs
 

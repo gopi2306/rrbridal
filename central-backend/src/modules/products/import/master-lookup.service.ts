@@ -262,19 +262,16 @@ export class MasterLookupService {
 
   async resolveCategory(
     name: string | undefined,
-    departmentId: string | undefined,
     createMissing: boolean,
   ): Promise<string | undefined> {
     if (!name?.trim()) return undefined;
-    const scope = departmentId ?? '';
-    const key = this.cacheKey('Category', name, scope);
+    const key = this.cacheKey('Category', name);
     const cached = this.cache.get(key);
     if (cached) return cached;
 
-    const filter: Record<string, unknown> = { isActive: { $ne: false } };
-    if (departmentId) filter.departmentId = departmentId;
-
-    const found = await this.findByNameExact(this.categoryModel, name, filter);
+    const found = await this.findByNameExact(this.categoryModel, name, {
+      isActive: { $ne: false },
+    });
     if (found) {
       const id = String(found._id);
       this.cache.set(key, id);
@@ -282,10 +279,10 @@ export class MasterLookupService {
     }
     if (!createMissing) throw new Error(`Category '${name.trim()}' not found`);
 
-    const categoryDto = { name: name.trim(), isActive: true as const };
-    const created = await this.categoriesService.create(
-      departmentId ? { ...categoryDto, departmentId } : categoryDto,
-    );
+    const created = await this.categoriesService.create({
+      name: name.trim(),
+      isActive: true,
+    });
     this.bumpMaster('Category');
     const id = String(created._id);
     this.cache.set(key, id);
@@ -374,7 +371,7 @@ export class MasterLookupService {
     createMissing: boolean,
   ): Promise<Record<string, string | undefined>> {
     const departmentId = await this.resolveDepartment(row.departmentName, createMissing);
-    const categoryId = await this.resolveCategory(row.categoryName, departmentId, createMissing);
+    const categoryId = await this.resolveCategory(row.categoryName, createMissing);
     const supplierNameId = await this.resolveSupplier(row.supplierName, createMissing);
 
     return {

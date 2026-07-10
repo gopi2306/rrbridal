@@ -206,12 +206,12 @@ export class TestDataSeedService implements OnModuleInit {
   private async seedLayer2Masters() {
     this.logger.log('Layer 2: Seeding dependent masters …');
 
-    // Categories (reference departmentId)
+    // Categories
     await this.upsert('Category', { code: 'cat-001' }, {
-      name: 'Lehengas', departmentId: this.refs['dept-001'], isActive: true,
+      name: 'Lehengas', isActive: true,
     }, 'cat-001');
     await this.upsert('Category', { code: 'cat-002' }, {
-      name: 'Jewellery', departmentId: this.refs['dept-002'], isActive: true,
+      name: 'Jewellery', isActive: true,
     }, 'cat-002');
 
     // Sub-Categories (reference categoryId)
