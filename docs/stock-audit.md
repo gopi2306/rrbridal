@@ -2,6 +2,8 @@
 
 Store-wise stock audit comparing **ordered** (store on-hand from inventory ledger) vs **scanned** (physical count from stock tally) quantities.
 
+Variance (`scannedQty − orderedQty`) is for reporting only. To correct central book stock and sync other tills, use [inventory-adjustments.md](./inventory-adjustments.md) (REST or WPF dashboard **Adjust**).
+
 Each store has its own open audit (`draft` / `in_progress`). Pass `storeCode` on every request (e.g. from the logged-in user's assigned store).
 
 ## List audit lines

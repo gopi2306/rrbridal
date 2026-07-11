@@ -164,6 +164,17 @@
                                     <DataGridTextColumn Header="Local store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="120"/>
                                     <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N2}}" Width="85"/>
                                     <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N2}}" Width="95"/>
+                                    <DataGridTemplateColumn Header="" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Adjust"
+                                                        Style="{StaticResource OutlineButton}"
+                                                        Padding="8,2"
+                                                        Command="{Binding DataContext.AdjustInventoryStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
@@ -449,7 +460,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Salesmen">
+            <TabItem Header="Salesman">
                 <Grid Margin="0,8,0,16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>

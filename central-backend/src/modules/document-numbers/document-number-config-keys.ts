@@ -7,6 +7,7 @@ export const DOCUMENT_NUMBER_CONFIG_KEYS = [
   'purchase_return',
   'goods_receipt_rcv',
   'goods_receipt_grn',
+  'inventory_adjustment',
 ] as const;
 
 export type DocumentNumberConfigKey = (typeof DOCUMENT_NUMBER_CONFIG_KEYS)[number];
@@ -88,5 +89,13 @@ export const DOCUMENT_NUMBER_CONFIG_DEFAULTS: DocumentNumberConfigDefault[] = [
     startFrom: 1,
     label: 'GRN',
     description: 'Goods receipt GRN number (grnNumber)',
+  },
+  {
+    configKey: 'inventory_adjustment',
+    prefix: 'IA-',
+    padLength: 6,
+    startFrom: 1,
+    label: 'Inventory adjustment',
+    description: 'Inventory adjustment number (adjustmentNo)',
   },
 ];

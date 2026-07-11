@@ -10,6 +10,7 @@ import { PurchaseIntentsService } from '../purchase-intents/purchase-intents.ser
 import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
 import { StoreSalesSyncService } from '../store-sales/store-sales-sync.service';
 import { PromotionSchemesService } from '../promotion-schemes/promotion-schemes.service';
+import { InventoryAdjustmentsService } from '../inventory-adjustments/inventory-adjustments.service';
 
 @Injectable()
 export class SyncService {
@@ -22,6 +23,7 @@ export class SyncService {
     private readonly stockTransfersService: StockTransfersService,
     private readonly storeSalesSyncService: StoreSalesSyncService,
     private readonly promotionSchemesService: PromotionSchemesService,
+    private readonly inventoryAdjustmentsService: InventoryAdjustmentsService,
   ) {}
 
   async push(events: SyncEventDto[]) {
@@ -71,6 +73,8 @@ export class SyncService {
           await this.storeSalesSyncService.applyCashMovementCreated(meta, ev.payload);
         } else if (ev.type === 'InvoiceCodPaymentReceived') {
           await this.storeSalesSyncService.applyInvoiceCodPaymentReceived(meta, ev.payload);
+        } else if (ev.type === 'InventoryAdjustmentCreated') {
+          await this.inventoryAdjustmentsService.applyFromSync(meta, ev.payload);
         }
 
         await this.syncEventModel.create({
@@ -107,6 +111,7 @@ export class SyncService {
     limit: number,
     sinceTransferCursor = '0',
     sincePromotionCursor = '0',
+    sinceAdjustmentCursor = '0',
   ) {
     // Upgrade: for now, sync pull delivers ProductUpserted deltas from central products.
     // Cursor is an ObjectId string corresponding to the last product _id sent.
@@ -130,6 +135,11 @@ export class SyncService {
     const promotionSchemes = await this.promotionSchemesService.listDeltasForStore(
       storeId,
       promotionCursorFilter,
+      limit,
+    );
+    const storeAdjustments = await this.inventoryAdjustmentsService.listForStorePull(
+      storeId,
+      sinceAdjustmentCursor,
       limit,
     );
     const last = products.length > 0 ? products[products.length - 1] : undefined;
@@ -178,7 +188,6 @@ export class SyncService {
         isActive?: boolean;
         code?: string;
       };
-      // Store should not keep inactive or soft-deleted schemes.
       const isDeleted = Boolean(row.deletedAt) || row.isActive === false;
       return {
         type: isDeleted ? 'PromotionSchemeDeleted' : 'PromotionSchemeUpserted',
@@ -187,6 +196,25 @@ export class SyncService {
         payload: isDeleted
           ? { schemeId: String(row._id), code: row.code }
           : { scheme },
+      };
+    });
+
+    const adjustmentUpdates = storeAdjustments.map((adjustment) => {
+      const row = adjustment as typeof adjustment & { _id?: unknown; updatedAt?: Date; createdAt?: Date };
+      return {
+        type: 'StoreInventoryAdjusted',
+        storeId,
+        createdAt:
+          row.updatedAt instanceof Date
+            ? row.updatedAt.toISOString()
+            : row.createdAt instanceof Date
+              ? row.createdAt.toISOString()
+              : new Date().toISOString(),
+        payload: {
+          adjustment: this.inventoryAdjustmentsService.toSyncPayload(
+            row as unknown as Record<string, unknown>,
+          ),
+        },
       };
     });
 
@@ -202,6 +230,12 @@ export class SyncService {
       promotionCursor = lastP._id ? String(lastP._id) : promotionCursor;
     }
 
+    let adjustmentCursor = sinceAdjustmentCursor ?? '0';
+    if (storeAdjustments.length > 0) {
+      const lastA = storeAdjustments[storeAdjustments.length - 1] as { _id?: unknown };
+      adjustmentCursor = lastA._id ? String(lastA._id) : adjustmentCursor;
+    }
+
     await this.syncCursorModel.updateOne(
       { storeId },
       { $setOnInsert: { storeId }, $set: { cursor, lastSuccessAt: new Date().toISOString() } },
@@ -212,7 +246,14 @@ export class SyncService {
       cursor,
       transferCursor,
       promotionCursor,
-      updates: [...productUpdates, ...transferUpdates, ...completedTransferUpdates, ...promotionUpdates],
+      adjustmentCursor,
+      updates: [
+        ...productUpdates,
+        ...transferUpdates,
+        ...completedTransferUpdates,
+        ...adjustmentUpdates,
+        ...promotionUpdates,
+      ],
     };
   }
 }

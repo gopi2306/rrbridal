@@ -32,7 +32,7 @@ public sealed class SalesmanFilterOption
     public string? GroupKey { get; init; }
     public required string Label { get; init; }
 
-    public static SalesmanFilterOption All { get; } = new() { Label = "All salesmen" };
+    public static SalesmanFilterOption All { get; } = new() { Label = "All salesman" };
 }
 
 public sealed class BrandFilterOption
@@ -476,7 +476,7 @@ public partial class DashboardViewModel : ObservableObject
                 SalesmanBillRows.Add(row);
 
             var filterLabel = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey)
-                ? "All salesmen"
+                ? "All salesman"
                 : SelectedSalesmanSummary?.DisplayLabel ?? FilterSalesmanGroupKey;
             SalesmanBillTotalsSummary =
                 $"{filterLabel}: {snap.Rows.Count} bill(s) · Qty {snap.Rows.Sum(r => r.TotalQty):N2} · " +
@@ -686,6 +686,42 @@ public partial class DashboardViewModel : ObservableObject
             return;
         InventoryPage--;
         await LoadInventoryGridAsync();
+    }
+
+    [RelayCommand]
+    private async Task AdjustInventoryStock(InventoryGridRow? row)
+    {
+        if (row == null || string.IsNullOrWhiteSpace(row.Sku))
+            return;
+
+        if (!InventoryAdjustStockDialog.TryShow(
+                Application.Current.MainWindow!,
+                row,
+                out var mode,
+                out var quantity,
+                out var reason))
+        {
+            return;
+        }
+
+        InventoryHint = "Applying adjustment…";
+        try
+        {
+            var (success, message) = await _services.InventoryAdjustments.AdjustAsync(
+                row.Sku,
+                row.StoreQty,
+                mode,
+                quantity,
+                reason);
+
+            InventoryHint = message;
+            if (success)
+                await LoadInventoryGridAsync();
+        }
+        catch (Exception ex)
+        {
+            InventoryHint = "Could not adjust stock. " + ex.Message;
+        }
     }
 
     private async Task LoadInventoryGridAsync()

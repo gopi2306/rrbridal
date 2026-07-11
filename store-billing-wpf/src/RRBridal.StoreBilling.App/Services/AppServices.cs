@@ -36,6 +36,7 @@ public sealed class AppServices
     public required ProductImageCache ProductImageCache { get; init; }
     public required ProductCatalogService ProductCatalog { get; init; }
     public required InventoryGridClient InventoryGrid { get; init; }
+    public required InventoryAdjustmentService InventoryAdjustments { get; init; }
     public required CentralAuthSession CentralAuthSession { get; init; }
     public required CentralAuthClient CentralAuthClient { get; init; }
 
@@ -108,6 +109,8 @@ public sealed class AppServices
         var storeAuditLog = new StoreAuditLogService(localDb, storeContext);
         var productCatalog = new ProductCatalogService(localDb, http, storeAuditLog);
         var inventoryGrid = new InventoryGridClient(localDb);
+        var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
+        var inventoryAdjustments = new InventoryAdjustmentService(localDb, productCatalog, billingOutbox, storeContext);
         var receiptConfig = new ReceiptConfigStore();
         var receiptLogoCache = new ReceiptLogoCache(http);
         var companyProfileClient = new CompanyProfileClient(http);
@@ -128,9 +131,8 @@ public sealed class AppServices
             authSession,
             http);
 
-        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync, storeAuditLog);
+        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync, storeAuditLog, inventoryAdjustments);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
-        var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
@@ -170,6 +172,7 @@ public sealed class AppServices
             ProductImageCache = productImageCache,
             ProductCatalog = productCatalog,
             InventoryGrid = inventoryGrid,
+            InventoryAdjustments = inventoryAdjustments,
             CentralAuthSession = authSession,
             CentralAuthClient = centralAuthClient,
             MasterData = masterData,

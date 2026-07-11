@@ -65,18 +65,19 @@ public static class SettingsColumnsLayoutBehavior
                 foreach (var child in spacer)
                     child.Visibility = Visibility.Collapsed;
 
-                for (var i = 0; i < left.Count; i++)
-                {
-                    Grid.SetColumn(left[i], 0);
-                    Grid.SetRow(left[i], 0);
-                    left[i].Margin = new Thickness(0, 0, 0, 12);
-                }
-
+                // Central login (column 2) first so it stays visible on narrow / remote-desktop widths.
                 for (var i = 0; i < right.Count; i++)
                 {
                     Grid.SetColumn(right[i], 0);
-                    Grid.SetRow(right[i], 1);
-                    right[i].Margin = new Thickness(0);
+                    Grid.SetRow(right[i], 0);
+                    right[i].Margin = new Thickness(0, 0, 0, 12);
+                }
+
+                for (var i = 0; i < left.Count; i++)
+                {
+                    Grid.SetColumn(left[i], 0);
+                    Grid.SetRow(left[i], 1);
+                    left[i].Margin = new Thickness(0);
                 }
             }
             else

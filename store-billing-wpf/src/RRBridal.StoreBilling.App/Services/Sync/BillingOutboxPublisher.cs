@@ -157,4 +157,39 @@ public sealed class BillingOutboxPublisher
         var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
         return EnqueueAsync("InvoiceCodPaymentReceived", payload, hash, ct);
     }
+
+    public Task<string> PublishInventoryAdjustmentCreatedAsync(
+        string adjustmentNo,
+        string reason,
+        string sku,
+        decimal qtyDelta,
+        string? lineNote = null,
+        CancellationToken ct = default)
+    {
+        var lineDoc = new BsonDocument
+        {
+            { "sku", sku.Trim() },
+            { "qtyDelta", (double)qtyDelta },
+        };
+        if (!string.IsNullOrWhiteSpace(lineNote))
+            lineDoc["note"] = lineNote.Trim();
+
+        var payload = new BsonDocument
+        {
+            { "adjustmentNo", adjustmentNo.Trim() },
+            { "locationKind", "store" },
+            { "reason", reason.Trim() },
+            { "lines", new BsonArray { lineDoc } },
+        };
+
+        var hash = JsonSerializer.Serialize(new
+        {
+            adjustmentNo = adjustmentNo.Trim(),
+            locationKind = "store",
+            reason = reason.Trim(),
+            lines = new[] { new { sku = sku.Trim(), qtyDelta, note = lineNote } },
+        });
+
+        return EnqueueAsync("InventoryAdjustmentCreated", payload, hash, ct);
+    }
 }

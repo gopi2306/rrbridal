@@ -355,7 +355,7 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Analytics => "Analytics",
         ShellPage.OnlineSales => "Online Sales",
         ShellPage.Customers => "Customers",
-        ShellPage.Salesmen => "Salesmen",
+        ShellPage.Salesmen => "Salesman",
         ShellPage.Ledger => "Ledger",
         ShellPage.SaleReturn => "Returns",
         ShellPage.BillLookup => "Bill Lookup",

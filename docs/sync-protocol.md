@@ -148,6 +148,30 @@ Raised after an adjustment bill is posted. `payload` includes `adjustmentNo`, `o
 
 Central: `store_adjustments` with unique `(storeId, adjustmentNo)`.
 
+### Event: `InventoryAdjustmentCreated`
+
+Raised when store staff posts a **manual inventory adjustment** from the WPF dashboard (per-SKU stock correction). Not related to `AdjustmentBillCreated` (financial bill adjustment).
+
+`payload` shape:
+
+```json
+{
+  "adjustmentNo": "IADJ-20260711-0001",
+  "locationKind": "store",
+  "reason": "Cycle count correction",
+  "lines": [
+    { "sku": "SKU-000235", "qtyDelta": 3, "note": "Found extra unit" }
+  ]
+}
+```
+
+Rules:
+
+- `locationKind` must be `store` for WPF events.
+- `lines[]` required; each line needs non-empty `sku` and non-zero `qtyDelta`.
+- Central creates `inventory_adjustments` with `source: wpf_sync`, posts `InventoryAdjustmentPosted` ledger rows, idempotent by `eventId` (`sourceEventId`).
+- Duplicate `eventId` → `duplicate`.
+
 ### Event: `DailyExpenseCreated`
 
 Raised when a **daily cash expense slip** is posted locally (`store_daily_expenses`). Simple fields: `expenseNo`, `storeId`, `deviceId`, `posCounter`, `businessDate` (`YYYY-MM-DD` IST calendar date), `description`, `amount` (cash, > 0), `status: posted`, `createdAtUtc`.
@@ -193,17 +217,21 @@ Raised when staff records **COD payment received** on the Online Sales screen (l
 Central: finds existing `store_invoices` by `(storeId, billNo)` and merges payment fields into `payload`. Idempotent by `sourceEventId` (`eventId`). See [online-cod-orders.md](./online-cod-orders.md).
 
 ## Central → Store (pull)
-Endpoint: `GET /api/sync/pull?storeId=...&sinceCursor=...&sinceTransferCursor=...&limit=...`
+Endpoint: `GET /api/sync/pull?storeId=...&sinceCursor=...&sinceTransferCursor=...&sincePromotionCursor=...&sinceAdjustmentCursor=...&limit=...`
 
 Parameters:
 - `storeId`: required
 - `sinceCursor`: optional, pass `0` for first sync (product `_id` cursor)
 - `sinceTransferCursor`: optional, pass `0` for bootstrap window (see below)
+- `sincePromotionCursor`: optional, pass `0` for first promotion sync
+- `sinceAdjustmentCursor`: optional, pass `0` for bootstrap window (store inventory adjustments, last 90 days)
 - `limit`: optional (server clamps to max)
 
 Response:
 - `cursor`: new product cursor after returned product deltas
 - `transferCursor`: new transfer cursor after returned completed-transfer batch
+- `promotionCursor`: new promotion scheme cursor
+- `adjustmentCursor`: new inventory adjustment cursor
 - `updates[]`: ordered list of updates (see ordering below)
 
 ### Product cursor
@@ -222,7 +250,7 @@ Store persists `transferCursor` in `sync_state` and sends it as `sinceTransferCu
 
 ### Pull update ordering
 
-Server builds `updates` as: **all `ProductUpserted`**, then **all `StockTransferAwaitingStoreIntake`**, then **all `StockTransferCompleted`**. The store applies them in that order in one pass.
+Server builds `updates` as: **all `ProductUpserted`**, then **all `StockTransferAwaitingStoreIntake`**, then **all `StockTransferCompleted`**, then **all `StoreInventoryAdjusted`**, then promotion scheme updates. The store applies them in that order in one pass.
 
 ### Local `local_products_cache` consistency (SKU vs `centralProductId`)
 
@@ -262,6 +290,22 @@ Used when central is already **`completed`** (e.g. another till already pushed `
 - Skips if `local_stock_transfers` already has `stockApplied: true` for that `transferId` / `transferNo`.
 - Otherwise applies the same stock adjustment as awaiting (**in** = increment, **out** = decrement), sets `stockApplied: true`, `intakeSource: central_completed_pull`.
 - **Does not** enqueue `StockTransferReceived` (no second receipt).
+
+### Update: `StoreInventoryAdjusted`
+
+Delivered for **store** inventory adjustments posted on central (`inventory_adjustments`, both `central_admin` REST and `wpf_sync` from other devices).
+
+`payload.adjustment` includes: `adjustmentId`, `adjustmentNo`, optional `sourceEventId`, `reason`, `lines[]` (`sku`, `qtyDelta`, optional `note`).
+
+The store:
+
+- Skips if `local_inventory_adjustments` already contains `sourceEventId` or `centralAdjustmentId`.
+- Applies each line’s `qtyDelta` to `local_products_cache.stockQty` (decrement clamped at 0).
+- Records intake in `local_inventory_adjustments` for idempotency.
+
+Store persists `adjustmentCursor` in `sync_state` (ObjectId ordering on `inventory_adjustments._id`, bootstrap last 90 days when cursor is `0`).
+
+See [inventory-adjustments.md](./inventory-adjustments.md).
 
 ### Sales stock rule
 

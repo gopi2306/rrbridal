@@ -4,6 +4,9 @@ public sealed class PosBillingSettingsDocument
 {
     public bool AllowDuplicatePrint { get; set; } = true;
 
+    /// <summary>When true, adding an SKU already on the bill asks before increasing its quantity.</summary>
+    public bool ConfirmDuplicateProductAdd { get; set; } = true;
+
     /// <summary>When true, Payment dialog can pay out credit note remaining balance as cash.</summary>
     public bool AllowCreditNoteRemainingCashout { get; set; }
 

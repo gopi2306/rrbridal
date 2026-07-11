@@ -77,6 +77,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _receiptPrinterWarningText = "";
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
+    [ObservableProperty] private bool _billingConfirmDuplicateProductAdd = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
     [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
     [ObservableProperty] private bool _billingAlterationGstIncluded;
@@ -158,13 +159,24 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool IsA4CommercialReceiptFormat
+    {
+        get => ReceiptPrintFormat == InvoicePrintFormat.A4Commercial;
+        set
+        {
+            if (value)
+                ReceiptPrintFormat = InvoicePrintFormat.A4Commercial;
+        }
+    }
+
     public bool IsOfficeInvoiceFormat =>
-        ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5;
+        ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
 
     partial void OnReceiptPrintFormatChanged(InvoicePrintFormat value)
     {
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
+        OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
@@ -241,6 +253,7 @@ public partial class SettingsViewModel : ObservableObject
         A5Layout.ApplyFrom(c.Print.A5PrePrintedLayout ?? A5PrePrintedLayoutSettings.CreateDefault());
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
+        OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         ReceiptCentralSyncText = c.LastReceiptSettingsSyncUtc.HasValue
@@ -343,7 +356,7 @@ public partial class SettingsViewModel : ObservableObject
         c.Print.ReceiptCharWidth = w;
         c.Print.PrintFormat = ReceiptPrintFormat;
         c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
-        c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+        c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial
             && AlsoPrintThermalFirst;
         c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
@@ -379,24 +392,155 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task PreviewReceiptSettingsAsync() =>
+        await ShowReceiptSettingsPreviewAsync(isDuplicate: false);
+
+    [RelayCommand]
     public void PreviewA5PrePrintedAlignment() =>
-        ShowA5PrePrintedPreview(isDuplicate: false);
+        _ = ShowReceiptSettingsPreviewAsync(isDuplicate: false);
 
     [RelayCommand]
     public void PreviewA5PrePrintedDuplicateAlignment() =>
-        ShowA5PrePrintedPreview(isDuplicate: true);
+        _ = ShowReceiptSettingsPreviewAsync(isDuplicate: true);
 
-    private void ShowA5PrePrintedPreview(bool isDuplicate)
+    private async Task ShowReceiptSettingsPreviewAsync(bool isDuplicate)
     {
-        var layout = A5Layout.ToSettings();
-        var store = _services.ReceiptConfig.Current.Store;
-        var input = new ThermalInvoiceInput
+        try
+        {
+            var store = BuildStoreProfileFromUi();
+            var input = CreateSampleInvoiceInput(store, isDuplicate);
+            var printFormat = ReceiptPrintFormat;
+            var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && A5PrePrintedEnabled;
+            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
+            var dualPrint = isOfficeFormat && AlsoPrintThermalFirst;
+            var layout = A5Layout.ToSettings();
+            var previewConfig = new ReceiptConfigDocument
+            {
+                Store = store,
+                Print = _services.ReceiptConfig.Current.Print,
+            };
+
+            var assets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
+                previewConfig,
+                input.BillNo,
+                _services.ReceiptLogoCache);
+            var text = ThermalInvoiceTextBuilder.Build(input);
+
+            FlowDocument doc;
+            FlowDocument? thermalDoc = null;
+
+            if (dualPrint)
+            {
+                var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
+                thermalDoc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA5PrePrinted, layout);
+            }
+            else if (isA5PrePrinted)
+            {
+                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, layout);
+            }
+            else if (isOfficeFormat)
+            {
+                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA5PrePrinted, layout);
+            }
+            else
+            {
+                var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
+                doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+            }
+
+            var isA5 = printFormat == InvoicePrintFormat.A5;
+            var isTaxInvoice = isOfficeFormat;
+            var title = isA5PrePrinted
+                ? isDuplicate ? "A5 pre-printed duplicate layout" : "A5 pre-printed test layout"
+                : printFormat == InvoicePrintFormat.A4Commercial
+                    ? "A4 commercial invoice preview"
+                : isA5
+                    ? "A5 invoice preview"
+                    : printFormat == InvoicePrintFormat.A4
+                        ? "A4 invoice preview"
+                        : "Thermal receipt preview";
+            var dlg = new InvoicePrintPreviewWindow(
+                _services,
+                doc,
+                text,
+                printInvoiceEnabled: true,
+                thermalDoc,
+                dualPrint)
+            {
+                Owner = Application.Current.MainWindow,
+                Width = isA5 ? 508 : isTaxInvoice ? 720 : 420,
+                Height = isA5 ? 720 : isTaxInvoice ? 820 : 560,
+                Title = title,
+            };
+            dlg.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not open invoice preview: {ex.Message}",
+                "Preview",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private static FlowDocument BuildSettingsPreviewInvoiceDocument(
+        ThermalInvoiceInput input,
+        ThermalReceiptAssets assets,
+        InvoicePrintFormat printFormat,
+        bool isA5PrePrinted,
+        A5PrePrintedLayoutSettings? a5Layout)
+    {
+        if (isA5PrePrinted)
+            return A5PrePrintedInvoiceDocumentBuilder.Create(input, a5Layout);
+
+        if (printFormat == InvoicePrintFormat.A4Commercial)
+            return CommercialA4InvoiceDocumentBuilder.Create(input);
+
+        var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
+            ? (148.0, 210.0)
+            : (210.0, 297.0);
+        var linesPerPage = a5Layout?.MaxLineRows ?? 10;
+        if (linesPerPage <= 0) linesPerPage = 10;
+        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH, linesPerPage, a5Layout);
+    }
+
+    private StoreProfile BuildStoreProfileFromUi()
+    {
+        var saved = _services.ReceiptConfig.Current.Store;
+        return new StoreProfile
+        {
+            StoreName = string.IsNullOrWhiteSpace(ReceiptStoreName) ? saved.StoreName : ReceiptStoreName.Trim(),
+            Address = ReceiptAddress.Trim(),
+            CustomerCarePhone = ReceiptCustomerCarePhone.Trim(),
+            Gstin = ReceiptGstin.Trim(),
+            StateName = saved.StateName,
+            FssaiNo = ReceiptFssaiNo.Trim(),
+            BranchCode = ReceiptBranchCode.Trim(),
+            Website = ReceiptWebsite.Trim(),
+            TermsAndConditions = ReceiptTerms.Trim(),
+            ThankYouLine = ReceiptThankYouLine.Trim(),
+            PolicyLines = ReceiptPolicyLinesText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim())
+                .Where(x => x.Length > 0)
+                .ToList(),
+            LogoUrl = saved.LogoUrl,
+            LogoFilePath = saved.LogoFilePath,
+            QrSlots = saved.QrSlots,
+            ShowBillBarcode = saved.ShowBillBarcode,
+        };
+    }
+
+    private ThermalInvoiceInput CreateSampleInvoiceInput(StoreProfile store, bool isDuplicate) =>
+        new()
         {
             Store = store,
             CharWidth = ReceiptCharWidth,
-            BillNo = "TEST-001",
-            BillDate = DateTime.Now.ToString("dd-MMM-yyyy").ToUpperInvariant(),
-            UserName = "Test",
+            BillNo = "1916",
+            BillDate = DateTime.Now.ToString("dd-MMM-yy").ToUpperInvariant(),
+            UserName = "MUBEEN",
             Time = DateTime.Now.ToString("HH:mm"),
             Counter = "01",
             CustomerName = "Sample Customer Name Long",
@@ -406,9 +550,9 @@ public partial class SettingsViewModel : ObservableObject
             IsDuplicateCopy = isDuplicate,
             Lines =
             [
-                new InvoiceLineSnap { LineNo = 1, Description = "Bridal Lehenga", Qty = 1, Rate = 15000, Amount = 15000, TaxableAmount = 15000 },
-                new InvoiceLineSnap { LineNo = 2, Description = "Dupatta", Qty = 2, Rate = 500, Amount = 1000, TaxableAmount = 1000 },
-                new InvoiceLineSnap { LineNo = 3, Description = "Blouse piece", Qty = 1, Rate = 800, Amount = 800, TaxableAmount = 800 },
+                new InvoiceLineSnap { LineNo = 1, Description = "DNO-3139/AA", Hsn = "6204", Qty = 8, Rate = 311, Amount = 2488, TaxableAmount = 2488, LineInclusiveAmount = 2488 },
+                new InvoiceLineSnap { LineNo = 2, Description = "DNO-5100/AA", Hsn = "6204", Qty = 8, Rate = 351, Amount = 2808, TaxableAmount = 2808, LineInclusiveAmount = 2808 },
+                new InvoiceLineSnap { LineNo = 3, Description = "SUITS", Hsn = "6203", Qty = 4, Rate = 495, Amount = 1980, TaxableAmount = 1980, LineInclusiveAmount = 1980 },
                 new InvoiceLineSnap { LineNo = 4, Description = "Embroidery work", Qty = 1, Rate = 2500, Amount = 2500, TaxableAmount = 2500 },
                 new InvoiceLineSnap { LineNo = 5, Description = "Border lace", Qty = 3, Rate = 150, Amount = 450, TaxableAmount = 450 },
                 new InvoiceLineSnap { LineNo = 6, Description = "Stone work", Qty = 1, Rate = 1200, Amount = 1200, TaxableAmount = 1200 },
@@ -422,27 +566,17 @@ public partial class SettingsViewModel : ObservableObject
                 new InvoiceLineSnap { LineNo = 14, Description = "Hair accessory", Qty = 1, Rate = 450, Amount = 450, TaxableAmount = 450 },
                 new InvoiceLineSnap { LineNo = 15, Description = "Carry bag", Qty = 1, Rate = 100, Amount = 100, TaxableAmount = 100 },
             ],
-            Payable = 24200,
-            SubTotal = 24200,
-            RevisedSubTotal = 24200,
-            ItemDiscountPercent = 10,
-            ItemDiscount = 1500,
-            CashDiscAmount = 500,
+            Payable = 7270,
+            SubTotal = 7276,
+            RevisedSubTotal = 7270,
+            ItemDiscountPercent = 0,
+            ItemDiscount = 0,
+            CashDiscAmount = 6,
             AlterationTotal = 400,
             ItemCount = 15,
-            TotalQty = 18,
+            TotalQty = 20,
+            Payments = PaymentReceiptSnap.Preview(),
         };
-
-        var doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, layout);
-        var dlg = new InvoicePrintPreviewWindow(_services, doc, "", printInvoiceEnabled: true)
-        {
-            Owner = Application.Current.MainWindow,
-            Width = 508,
-            Height = 720,
-            Title = isDuplicate ? "A5 pre-printed duplicate layout" : "A5 pre-printed test layout",
-        };
-        dlg.ShowDialog();
-    }
 
     [RelayCommand]
     public async Task LoginCentralAsync()
@@ -611,6 +745,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
+        BillingConfirmDuplicateProductAdd = _services.PosBillingSettings.Current.ConfirmDuplicateProductAdd;
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
         BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
         BillingAlterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
@@ -623,6 +758,7 @@ public partial class SettingsViewModel : ObservableObject
         _services.PosBillingSettings.Update(s =>
         {
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
+            s.ConfirmDuplicateProductAdd = BillingConfirmDuplicateProductAdd;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
             s.AllowMultipleReturnsPerBill = BillingAllowMultipleReturnsPerBill;
             s.AlterationGstIncluded = BillingAlterationGstIncluded;
@@ -640,6 +776,7 @@ public partial class SettingsViewModel : ObservableObject
             Metadata = new BsonDocument
             {
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
+                { "confirmDuplicateProductAdd", BillingConfirmDuplicateProductAdd },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
                 { "allowMultipleReturnsPerBill", BillingAllowMultipleReturnsPerBill },
                 { "alterationGstIncluded", BillingAlterationGstIncluded },

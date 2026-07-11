@@ -1,0 +1,76 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.InventoryAdjustStockDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Adjust stock"
+        Width="460"
+        SizeToContent="Height"
+        MinWidth="400"
+        MaxWidth="560"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="{StaticResource FontFamilyPrimary}"
+        Background="{StaticResource BrushBackground}">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Adjust local store stock" Style="{StaticResource TextSectionTitle}"/>
+
+            <StackPanel Grid.Row="1" Margin="0,12,0,8">
+                <TextBlock Text="SKU" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                <TextBox x:Name="SkuBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                <TextBlock Text="Product" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                <TextBox x:Name="ProductBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Margin="0,0,0,8">
+                <TextBlock Text="Current local qty" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                <TextBox x:Name="CurrentQtyBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+            </StackPanel>
+
+            <Grid Grid.Row="4" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Adjustment mode" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="ModeBox" Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
+                        <ComboBoxItem Content="Add quantity"/>
+                        <ComboBoxItem Content="Remove quantity"/>
+                        <ComboBoxItem Content="Set quantity to"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Quantity" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="QuantityBox" Style="{StaticResource RoundedTextBox}"/>
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="5" Margin="0,0,0,16">
+                <TextBlock Text="Reason (required)" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                <TextBox x:Name="ReasonBox" Style="{StaticResource RoundedTextBox}" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
+                        IsCancel="True" Click="Cancel_OnClick"/>
+                <Button Content="Apply" Style="{StaticResource PrimaryButton}" Width="90"
+                        IsDefault="True" Click="Apply_OnClick"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -16,7 +16,7 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Salesmen" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Salesman" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
                 <TextBlock Text="Add floor sales staff and view salesman records for billing and reports."
                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>

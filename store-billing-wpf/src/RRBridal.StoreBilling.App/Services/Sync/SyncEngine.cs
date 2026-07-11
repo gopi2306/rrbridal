@@ -19,6 +19,7 @@ using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Salesmen;
+using RRBridal.StoreBilling.App.Services.Inventory;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -29,6 +30,7 @@ public sealed class SyncEngine : ISyncEngine
     private readonly IMongoCollection<BsonDocument> _products;
     private readonly IMongoCollection<BsonDocument> _transfers;
     private readonly IMongoCollection<BsonDocument> _promotionSchemes;
+    private readonly InventoryAdjustmentService _inventoryAdjustments;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
     private readonly MasterDataService _masterData;
@@ -43,13 +45,16 @@ public sealed class SyncEngine : ISyncEngine
         StoreContext storeContext,
         MasterDataService masterData,
         ReceiptConfigSyncService? receiptConfigSync = null,
-        StoreAuditLogService? auditLog = null)
+        StoreAuditLogService? auditLog = null,
+        InventoryAdjustmentService? inventoryAdjustments = null)
     {
         _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
         _products = localDb.GetCollection<BsonDocument>("local_products_cache");
         _transfers = localDb.GetCollection<BsonDocument>("local_stock_transfers");
         _promotionSchemes = localDb.GetCollection<BsonDocument>("local_promotion_schemes");
+        _inventoryAdjustments = inventoryAdjustments
+            ?? throw new ArgumentNullException(nameof(inventoryAdjustments));
         _centralApi = centralApi;
         _storeContext = storeContext;
         _masterData = masterData;
@@ -144,10 +149,11 @@ public sealed class SyncEngine : ISyncEngine
         var cursor = state?.GetValue("cursor", "0").AsString ?? "0";
         var transferCursor = state?.GetValue("transferCursor", "0").AsString ?? "0";
         var promotionCursor = state?.GetValue("promotionCursor", "0").AsString ?? "0";
+        var adjustmentCursor = state?.GetValue("adjustmentCursor", "0").AsString ?? "0";
 
         var storeId = _storeContext.StoreId;
         var url =
-            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&sincePromotionCursor={Uri.EscapeDataString(promotionCursor)}&limit=200";
+            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&sincePromotionCursor={Uri.EscapeDataString(promotionCursor)}&sinceAdjustmentCursor={Uri.EscapeDataString(adjustmentCursor)}&limit=200";
 
         var res = await _centralApi.GetAsync(url, ct);
         res.EnsureSuccessStatusCode();
@@ -165,6 +171,12 @@ public sealed class SyncEngine : ISyncEngine
         {
             var pcs = pcEl.GetString();
             if (!string.IsNullOrEmpty(pcs)) newPromotionCursor = pcs;
+        }
+        var newAdjustmentCursor = adjustmentCursor;
+        if (payload.TryGetProperty("adjustmentCursor", out var acEl) && acEl.ValueKind == JsonValueKind.String)
+        {
+            var acs = acEl.GetString();
+            if (!string.IsNullOrEmpty(acs)) newAdjustmentCursor = acs;
         }
 
         var pullWarnings = new List<string>();
@@ -207,6 +219,11 @@ public sealed class SyncEngine : ISyncEngine
                     var payloadEl = upd.GetProperty("payload");
                     await DeletePromotionSchemeAsync(payloadEl, ct);
                 }
+                else if (type == "StoreInventoryAdjusted")
+                {
+                    var adjustment = upd.GetProperty("payload").GetProperty("adjustment");
+                    await ApplyStoreInventoryAdjustedAsync(adjustment, ct, pullWarnings);
+                }
             }
         }
 
@@ -240,6 +257,7 @@ public sealed class SyncEngine : ISyncEngine
             { "cursor", newCursor },
             { "transferCursor", newTransferCursor },
             { "promotionCursor", newPromotionCursor },
+            { "adjustmentCursor", newAdjustmentCursor },
             { "updatedAt", DateTime.UtcNow.ToString("O") },
             { "diagnosticsSummary", diagnosticsSummary },
         };
@@ -653,6 +671,108 @@ public sealed class SyncEngine : ISyncEngine
 
     private static bool IsTransferOut(string direction) =>
         string.Equals(direction, "store_to_warehouse", StringComparison.Ordinal);
+
+    private async Task ApplyStoreInventoryAdjustedAsync(
+        JsonElement adjustment,
+        CancellationToken ct,
+        List<string>? pullWarnings)
+    {
+        var adjustmentId = adjustment.TryGetProperty("adjustmentId", out var idEl) ? idEl.GetString() ?? "" : "";
+        var adjustmentNo = adjustment.TryGetProperty("adjustmentNo", out var noEl) ? noEl.GetString() ?? "" : "";
+        var sourceEventId = adjustment.TryGetProperty("sourceEventId", out var seEl) && seEl.ValueKind == JsonValueKind.String
+            ? seEl.GetString()
+            : null;
+        var reason = adjustment.TryGetProperty("reason", out var rEl) ? rEl.GetString() ?? "" : "";
+
+        if (await _inventoryAdjustments.HasAppliedAsync(sourceEventId, adjustmentId, ct))
+            return;
+
+        if (!adjustment.TryGetProperty("lines", out var linesEl) || linesEl.ValueKind != JsonValueKind.Array)
+        {
+            pullWarnings?.Add($"StoreInventoryAdjusted {adjustmentNo}: missing lines.");
+            return;
+        }
+
+        foreach (var lineEl in linesEl.EnumerateArray())
+        {
+            var sku = lineEl.TryGetProperty("sku", out var skuEl) ? skuEl.GetString()?.Trim() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(sku)) continue;
+
+            if (!lineEl.TryGetProperty("qtyDelta", out var deltaEl) || !deltaEl.TryGetDecimal(out var qtyDelta) || qtyDelta == 0)
+                continue;
+
+            var note = lineEl.TryGetProperty("note", out var noteEl) && noteEl.ValueKind == JsonValueKind.String
+                ? noteEl.GetString() ?? ""
+                : reason;
+
+            if (qtyDelta > 0)
+            {
+                await IncrementLocalStockForAdjustmentLineAsync(sku, qtyDelta, ct);
+            }
+            else
+            {
+                await DecrementLocalStockForAdjustmentLineAsync(sku, -qtyDelta, pullWarnings, ct);
+            }
+
+            await _inventoryAdjustments.RecordPulledAdjustmentAsync(
+                sourceEventId,
+                adjustmentId,
+                adjustmentNo,
+                sku,
+                qtyDelta,
+                note,
+                ct);
+        }
+    }
+
+    private async Task IncrementLocalStockForAdjustmentLineAsync(string sku, decimal qty, CancellationToken ct)
+    {
+        var filter = Builders<BsonDocument>.Filter.Eq("sku", sku);
+        var update = Builders<BsonDocument>.Update
+            .Inc("stockQty", (double)qty)
+            .SetOnInsert("sku", sku)
+            .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O"));
+        await _products.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, ct);
+    }
+
+    private async Task DecrementLocalStockForAdjustmentLineAsync(
+        string sku,
+        decimal qty,
+        List<string>? pullWarnings,
+        CancellationToken ct)
+    {
+        var escaped = Regex.Escape(sku);
+        var skuFilter = Builders<BsonDocument>.Filter.Regex(
+            "sku",
+            new BsonRegularExpression("^" + escaped + "$", "i"));
+
+        var list = await _products.Find(skuFilter).ToListAsync(ct);
+        if (list.Count == 0)
+        {
+            pullWarnings?.Add($"StoreInventoryAdjusted SKU '{sku}': no local product row; skipped decrement.");
+            return;
+        }
+
+        var target = list.Count == 1
+            ? list[0]
+            : list.OrderByDescending(d => d.Contains("centralProductId") && !d["centralProductId"].IsBsonNull).First();
+
+        var current = target.TryGetValue("stockQty", out var sq) ? ToDouble(sq) : 0;
+        var requested = (double)qty;
+        var next = Math.Max(0, current - requested);
+        if (next < current - requested + 0.0001)
+        {
+            pullWarnings?.Add(
+                $"StoreInventoryAdjusted SKU '{sku}': requested decrement {requested}, applied {current - next} (clamped at 0).");
+        }
+
+        await _products.UpdateOneAsync(
+            Builders<BsonDocument>.Filter.Eq("_id", target["_id"]),
+            Builders<BsonDocument>.Update
+                .Set("stockQty", next)
+                .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O")),
+            cancellationToken: ct);
+    }
 
     private async Task ApplyStockAdjustmentForTransferLineAsync(
         TransferLine line,

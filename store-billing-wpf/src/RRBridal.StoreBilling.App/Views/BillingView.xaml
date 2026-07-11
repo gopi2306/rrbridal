@@ -132,13 +132,16 @@
                                   Grid.Row="1"
                                   ItemsSource="{Binding Lines}"
                                   Style="{StaticResource ThemedDataGrid}"
+                                  SelectionUnit="Cell"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   RowHeight="36"
                                   BorderThickness="1"
                                   BorderBrush="{StaticResource BrushBorder}"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                  PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
+                                  PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit"
+                                  PreviewKeyDown="LinesGrid_OnPreviewKeyDown"
+                                  CurrentCellChanged="LinesGrid_OnCurrentCellChanged">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"/>
@@ -153,10 +156,10 @@
                                 <DataGridTextColumn Header="Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="*"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn x:Name="ColHsn" Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"
+                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
-                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="70"
+                                <DataGridTextColumn x:Name="ColHsn" Header="HSN" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" Width="90"
                                                     ElementStyle="{StaticResource ThemedDataGridCellText}"
                                                     EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"/>
                                 <DataGridTextColumn Header="Rate" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="90"
@@ -215,17 +218,16 @@
                                     <ColumnDefinition Width="50"/>
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="90"/>
                                     <ColumnDefinition Width="70"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Grid.ColumnSpan="4"
+                                <TextBlock Grid.Column="0" Grid.ColumnSpan="3"
                                            Text="Total qty"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Center"
                                            HorizontalAlignment="Right"
                                            Margin="0,0,8,0"
                                            Foreground="{StaticResource BrushText}"/>
-                                <TextBlock Grid.Column="4"
+                                <TextBlock Grid.Column="3"
                                            Text="{Binding TotalLineQtyFormatted}"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Center"
@@ -234,7 +236,7 @@
                             </Grid>
                         </Border>
                         <TextBlock Grid.Row="3" Margin="0,8,0,0" FontStyle="Italic" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
-                                   Text="Last row Product code: SKU/barcode Enter adds line; name opens pick list. F3 focuses entry row. TAB between cells."/>
+                                   Text="Last row Product code: scan/type SKU and Enter to add (Qty optional, default 1). Change Qty then Enter to jump to Product code. F3 focuses Product code."/>
                     </Grid>
                 </Border>
             </StackPanel>

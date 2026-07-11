@@ -134,6 +134,7 @@ public sealed class ReceiptConfigSyncService
             store.Address = address;
 
         store.Gstin = GetString(profile, "gstin") ?? store.Gstin;
+        store.StateName = GetString(profile, "state") ?? store.StateName;
         store.CustomerCarePhone = GetString(profile, "phone") ?? store.CustomerCarePhone;
 
         var logo = GetString(profile, "companyLogo");

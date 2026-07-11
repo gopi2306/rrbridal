@@ -205,8 +205,24 @@ public partial class BillingViewModel : ObservableObject
         NotifyPostBillCanExecute();
     }
 
-    /// <summary>View focuses the trailing entry row Product code cell after add.</summary>
+    /// <summary>View focuses the trailing entry row Product code cell.</summary>
     public Action? RequestFocusEntryProductCode { get; set; }
+
+    public decimal ResolvePendingLineQty()
+    {
+        var entry = GetEntryRow();
+        if (entry == null || entry.Qty <= 0)
+            return 1m;
+
+        return entry.Qty;
+    }
+
+    private void FocusEntryProductCodeAfterAdd()
+    {
+        RequestFocusEntryProductCode?.Invoke();
+        if (RequestFocusEntryProductCode == null)
+            _services.FocusSearch?.FocusBillingProductSearch();
+    }
 
     partial void OnSelectedSalesmanChanged(SalesmanRecord? value)
     {
@@ -1371,7 +1387,7 @@ public partial class BillingViewModel : ObservableObject
         try
         {
             var eventId = await _services.PurchaseIntentPublisher.SubmitAsync(
-                new[] { new PurchaseIntentLineInput(sku, 1, "Reference intent from local stock shortage") },
+                new[] { new PurchaseIntentLineInput(sku, (double)ResolvePendingLineQty(), "Reference intent from local stock shortage") },
                 "Reference intent created from WPF billing because local stock was unavailable.",
                 ct);
 
@@ -1382,7 +1398,7 @@ public partial class BillingViewModel : ObservableObject
                 { "description", description },
                 { "centralProductId", centralProductId ?? "" },
                 { "storeId", _services.StoreContext.StoreId },
-                { "requestedQty", 1 },
+                { "requestedQty", (double)ResolvePendingLineQty() },
                 { "sourceEventId", eventId },
                 { "status", "pending" },
                 { "createdAtUtc", DateTime.UtcNow.ToString("O") },
@@ -1409,14 +1425,14 @@ public partial class BillingViewModel : ObservableObject
             entry.ProductCode = "";
     }
 
-    private static void FillLineFromCatalog(BillingLineItem line, CatalogProduct p)
+    private static void FillLineFromCatalog(BillingLineItem line, CatalogProduct p, decimal qty)
     {
         line.IsEntryRow = false;
         line.CentralProductId = p.CentralId ?? "";
         line.ProductCode = p.Sku;
         line.Description = p.Name;
         line.HsnCode = string.IsNullOrWhiteSpace(p.HsnSac) ? "" : p.HsnSac.Trim();
-        line.Qty = 1;
+        line.Qty = qty;
         line.CostPrice = p.CostPrice ?? 0;
         line.MarginPercent = p.MarginPercent ?? 0;
         line.Rate = p.SuggestedRate;
@@ -1467,6 +1483,7 @@ public partial class BillingViewModel : ObservableObject
 
     private void AddLineFromCatalog(CatalogProduct p)
     {
+        var addQty = ResolvePendingLineQty();
         var sku = (p.Sku ?? "").Trim();
         if (!string.IsNullOrEmpty(sku))
         {
@@ -1478,25 +1495,29 @@ public partial class BillingViewModel : ObservableObject
                 var productLabel = string.IsNullOrWhiteSpace(existing.Description)
                     ? sku
                     : $"{existing.Description} ({sku})";
-                var confirm = MessageBox.Show(
-                    $"\"{productLabel}\" is already on this bill (qty {existing.Qty:0.###}).\n\nAdd 1 more to quantity?",
-                    "RR Bridal Billing",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question,
-                    MessageBoxResult.Yes);
-                if (confirm != MessageBoxResult.Yes)
+                _services.PosBillingSettings.Load();
+                if (_services.PosBillingSettings.Current.ConfirmDuplicateProductAdd)
                 {
-                    ClearEntryRowProductCode();
-                    EnsureEntryRow();
-                    RequestFocusEntryProductCode?.Invoke();
-                    return;
+                    var confirm = MessageBox.Show(
+                        $"\"{productLabel}\" is already on this bill (qty {existing.Qty:0.###}).\n\nAdd {addQty:0.###} more to quantity?",
+                        "RR Bridal Billing",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question,
+                        MessageBoxResult.Yes);
+                    if (confirm != MessageBoxResult.Yes)
+                    {
+                        ClearEntryRowProductCode();
+                        EnsureEntryRow();
+                        RequestFocusEntryProductCode?.Invoke();
+                        return;
+                    }
                 }
 
-                existing.Qty += 1;
+                existing.Qty += addQty;
                 WarnIfBelowMargin(existing);
                 ClearEntryRowProductCode();
                 EnsureEntryRow();
-                RequestFocusEntryProductCode?.Invoke();
+                FocusEntryProductCodeAfterAdd();
                 return;
             }
         }
@@ -1504,22 +1525,22 @@ public partial class BillingViewModel : ObservableObject
         var entry = GetEntryRow();
         if (entry != null)
         {
-            FillLineFromCatalog(entry, p);
+            FillLineFromCatalog(entry, p, addQty);
             EnrichLineProductMetadata(entry);
             entry.IsIgst = IsInterState;
             WarnIfBelowMargin(entry);
             EnsureEntryRow();
-            RequestFocusEntryProductCode?.Invoke();
+            FocusEntryProductCodeAfterAdd();
             return;
         }
 
         var line = new BillingLineItem { IsIgst = IsInterState };
-        FillLineFromCatalog(line, p);
+        FillLineFromCatalog(line, p, addQty);
         EnrichLineProductMetadata(line);
         WarnIfBelowMargin(line);
         Lines.Add(line);
         EnsureEntryRow();
-        RequestFocusEntryProductCode?.Invoke();
+        FocusEntryProductCodeAfterAdd();
     }
 
     [RelayCommand]
@@ -1586,7 +1607,7 @@ public partial class BillingViewModel : ObservableObject
         EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
-        RequestFocusEntryProductCode?.Invoke();
+        FocusEntryProductCodeAfterAdd();
     }
 
     [RelayCommand(CanExecute = nameof(CanPostBill))]
@@ -2000,10 +2021,8 @@ public partial class BillingViewModel : ObservableObject
 
         if (clearBillingAfterPrint)
             ClearForNewBill();
-
-        RequestFocusEntryProductCode?.Invoke();
-        if (RequestFocusEntryProductCode == null)
-            _services.FocusSearch?.FocusBillingProductSearch();
+        else
+            FocusEntryProductCodeAfterAdd();
     }
 
     [RelayCommand]
@@ -2013,8 +2032,9 @@ public partial class BillingViewModel : ObservableObject
             "Store billing flow:\n" +
             "• Settings (gear): login to central, Run sync once — fills local product cache.\n" +
             "• Barcode labels: store the printed code in central product field barcode (or sku), then sync — scan into last row Product code.\n" +
-            "• Last row Product code — SKU/barcode adds directly; product name opens pick list. Enter → next row.\n" +
-            "• F3 — focus entry row Product code; toolbar search uses same rules.\n" +
+            "• Last row Product code — SKU/barcode Enter adds line (Qty on row optional, default 1).\n" +
+            "• Change Qty on the entry row and press Enter to move to Product code before scanning.\n" +
+            "• F3 — focus entry row Product code.\n" +
             "• F2 — new bill (clears lines).\n" +
             "• Add manual — same as typing product code in the last grid row.\n" +
             "• F8 — hold bill (save draft without payment or stock change).\n" +

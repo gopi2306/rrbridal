@@ -8,6 +8,7 @@ public enum InvoicePrintFormat
     Thermal,
     A4,
     A5,
+    A4Commercial,
 }
 
 public sealed class ReceiptConfigDocument
@@ -35,6 +36,8 @@ public sealed class StoreProfile
     public string CustomerCarePhone { get; set; } = "";
 
     public string Gstin { get; set; } = "";
+
+    public string StateName { get; set; } = "";
 
     public string FssaiNo { get; set; } = "";
 
@@ -87,7 +90,7 @@ public sealed class ReceiptPrintSettings
     /// <summary>When A5 format: print data values only on pre-printed stationery.</summary>
     public bool A5PrePrintedEnabled { get; set; }
 
-    /// <summary>When PrintFormat is A4 or A5: also print 80mm thermal receipt before the invoice.</summary>
+    /// <summary>When PrintFormat is A4, A4Commercial, or A5: also print 80mm thermal receipt before the invoice.</summary>
     public bool AlsoPrintThermalFirst { get; set; }
 
     /// <summary>mm alignment and font for A5 pre-printed value-only mode.</summary>

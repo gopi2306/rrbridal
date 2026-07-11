@@ -277,7 +277,7 @@
                         <controls:NavDrawerItem Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
-                        <controls:NavDrawerItem Label="Salesmen" Page="{x:Static vm:ShellPage.Salesmen}"
+                        <controls:NavDrawerItem Label="Salesman" Page="{x:Static vm:ShellPage.Salesmen}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Salesmen}}"/>
                         <controls:NavDrawerItem Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"

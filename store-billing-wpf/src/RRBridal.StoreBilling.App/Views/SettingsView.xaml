@@ -54,7 +54,9 @@
         <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                     SelectionChanged="SettingsTabs_OnSelectionChanged">
             <TabItem Header="Connection &amp; sync">
-                <Grid Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Padding="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch"
                       ui:SettingsColumnsLayoutBehavior.IsEnabled="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280"/>
@@ -63,6 +65,39 @@
                     </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0" VerticalAlignment="Stretch">
+                            <DockPanel LastChildFill="True">
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Sync" Style="{StaticResource TextSectionTitle}"/>
+                                        <TextBlock Text="Push local bills and pull master data from central."
+                                                   Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                                Command="{Binding RefreshStatusCommand}" MinWidth="100"/>
+                                        <Button Content="Run sync" Style="{StaticResource PrimaryButton}"
+                                                Command="{Binding RunSyncOnceCommand}" MinWidth="100"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Stretch" MinHeight="160">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding PendingOutboxText}" Style="{StaticResource TextBody}" Margin="0,0,0,6"/>
+                                            <TextBlock Text="{Binding CursorText}" Style="{StaticResource TextCaption}" Margin="0,0,0,6"/>
+                                            <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}"
+                                                       Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                            <TextBlock Text="Sync diagnostics (last pull)" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
+                                            <TextBlock Text="{Binding SyncDiagnosticsText}" Style="{StaticResource TextCaption}"
+                                                       TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6"/>
+                                            <TextBlock Text="{Binding AutoSyncStatusText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="0" VerticalAlignment="Stretch">
                             <DockPanel LastChildFill="True">
                                 <StackPanel DockPanel.Dock="Top">
                                     <TextBlock Text="Central connection" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
@@ -99,40 +134,8 @@
                                 </Border>
                             </DockPanel>
                         </Border>
-
-                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="0" VerticalAlignment="Stretch">
-                            <DockPanel LastChildFill="True">
-                                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <TextBlock Text="Sync" Style="{StaticResource TextSectionTitle}"/>
-                                        <TextBlock Text="Push local bills and pull master data from central."
-                                                   Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                                                Command="{Binding RefreshStatusCommand}" MinWidth="100"/>
-                                        <Button Content="Run sync" Style="{StaticResource PrimaryButton}"
-                                                Command="{Binding RunSyncOnceCommand}" MinWidth="100"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Stretch" MinHeight="160">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding PendingOutboxText}" Style="{StaticResource TextBody}" Margin="0,0,0,6"/>
-                                            <TextBlock Text="{Binding CursorText}" Style="{StaticResource TextCaption}" Margin="0,0,0,6"/>
-                                            <TextBlock Text="{Binding LastErrorText, StringFormat=Last error: {0}}"
-                                                       Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                            <TextBlock Text="Sync diagnostics (last pull)" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
-                                            <TextBlock Text="{Binding SyncDiagnosticsText}" Style="{StaticResource TextCaption}"
-                                                       TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6"/>
-                                            <TextBlock Text="{Binding AutoSyncStatusText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                    </ScrollViewer>
-                                </Border>
-                            </DockPanel>
-                        </Border>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Receipt &amp; printing">
@@ -241,8 +244,10 @@
                                 <StackPanel Margin="0,0,0,12">
                                     <RadioButton Content="Thermal receipt (80mm)" GroupName="PrintFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsThermalReceiptFormat, Mode=TwoWay}"/>
-                                    <RadioButton Content="A4 tax invoice" GroupName="PrintFormat" Margin="0,0,0,6"
+                                    <RadioButton Content="A4 retail invoice" GroupName="PrintFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsA4ReceiptFormat, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 commercial invoice" GroupName="PrintFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsA4CommercialReceiptFormat, Mode=TwoWay}"/>
                                     <RadioButton Content="A5 tax invoice" GroupName="PrintFormat" Margin="0,0,0,0"
                                                  IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
                                 </StackPanel>
@@ -648,8 +653,12 @@
                                              Width="100" HorizontalAlignment="Left"/>
                                 </StackPanel>
 
-                                <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}"
-                                        HorizontalAlignment="Left" Command="{Binding SaveReceiptSettingsCommand}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Preview sample invoice" Style="{StaticResource OutlineButton}"
+                                            Command="{Binding PreviewReceiptSettingsCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding SaveReceiptSettingsCommand}"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -715,6 +724,12 @@
                                 <CheckBox Content="Allow duplicate bill print (F11 / Duplicate / Ledger)"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,12"/>
+                                <TextBlock Text="Duplicate product entry" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <CheckBox Content="Show confirmation when the same product is added again"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingConfirmDuplicateProductAdd}" Margin="0,0,0,4"/>
+                                <TextBlock Text="When off, scanning or entering the same SKU immediately increases its quantity without showing a popup."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <CheckBox Content="Allow cash payout of credit note remaining balance (Payment dialog)"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,12"/>

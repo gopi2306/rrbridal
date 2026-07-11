@@ -60,7 +60,7 @@ public partial class SalesmanViewModel : ObservableObject
     {
         try
         {
-            StatusMessage = "Loading salesmen…";
+            StatusMessage = "Loading salesman records…";
             var rows = await _salesmanService.ListAsync(SearchText);
             Salesmen.Clear();
             foreach (var row in rows)

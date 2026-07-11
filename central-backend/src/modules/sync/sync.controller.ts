@@ -28,12 +28,18 @@ export class SyncController {
     required: false,
     description: 'Last promotion scheme _id from pull; pass 0 for first sync',
   })
+  @ApiQuery({
+    name: 'sinceAdjustmentCursor',
+    required: false,
+    description: 'Last inventory adjustment _id from pull; pass 0 to bootstrap last 90d window',
+  })
   @ApiQuery({ name: 'limit', required: false })
   async pull(
     @Query('storeId') storeId: string,
     @Query('sinceCursor') sinceCursor?: string,
     @Query('sinceTransferCursor') sinceTransferCursor?: string,
     @Query('sincePromotionCursor') sincePromotionCursor?: string,
+    @Query('sinceAdjustmentCursor') sinceAdjustmentCursor?: string,
     @Query('limit') limit?: string,
   ) {
     const parsedLimit = limit ? Math.max(1, Math.min(1000, Number(limit))) : 200;
@@ -43,6 +49,7 @@ export class SyncController {
       parsedLimit,
       sinceTransferCursor ?? '0',
       sincePromotionCursor ?? '0',
+      sinceAdjustmentCursor ?? '0',
     );
   }
 
