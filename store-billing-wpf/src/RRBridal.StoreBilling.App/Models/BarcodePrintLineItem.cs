@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Products;
@@ -21,6 +22,11 @@ public partial class BarcodePrintLineItem : ObservableObject
     public string BatchNo { get; set; } = "—";
     public string PkdDate { get; set; } = "—";
     public string ExpDate { get; set; } = "—";
+    public string? ShortName { get; set; }
+    public string? Alias { get; set; }
+
+    public string ItemName => (Item ?? "").Trim();
+    public string SizeNote => string.IsNullOrWhiteSpace(Alias) ? "" : Alias.Trim();
 
     public decimal LabelPrice => StorePrice > 0 ? StorePrice : SellingPrice > 0 ? SellingPrice : Mrp;
 
@@ -35,6 +41,8 @@ public partial class BarcodePrintLineItem : ObservableObject
             LineNo = lineNo,
             Code = p.Sku,
             Item = p.Name,
+            ShortName = p.ShortName,
+            Alias = p.Alias,
             CostPrice = p.CostPrice ?? 0m,
             Mrp = p.Mrp ?? 0m,
             SellingPrice = p.SellingPrice ?? 0m,

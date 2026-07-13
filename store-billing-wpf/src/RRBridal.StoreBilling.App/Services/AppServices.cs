@@ -12,6 +12,7 @@ using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Notifications;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
+using RRBridal.StoreBilling.App.Services.BarcodePrinting;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.WhatsApp;
@@ -45,6 +46,8 @@ public sealed class AppServices
     public required ReceiptConfigStore ReceiptConfig { get; init; }
     public required ReceiptLogoCache ReceiptLogoCache { get; init; }
     public required ReceiptConfigSyncService ReceiptConfigSync { get; init; }
+    public required BarcodeLabelDesignStore BarcodeLabelDesign { get; init; }
+    public required BarcodeLabelDesignSyncService BarcodeLabelDesignSync { get; init; }
     public required StoreContext StoreContext { get; init; }
     public required BillNumberGenerator BillNumberGenerator { get; init; }
     public required BillingOutboxPublisher BillingOutbox { get; init; }
@@ -130,8 +133,22 @@ public sealed class AppServices
             storeContext,
             authSession,
             http);
+        var barcodeLabelDesign = new BarcodeLabelDesignStore();
+        var barcodeLabelDesignClient = new BarcodeLabelDesignClient(http);
+        var barcodeLabelDesignSync = new BarcodeLabelDesignSyncService(
+            barcodeLabelDesignClient,
+            barcodeLabelDesign,
+            authSession);
 
-        var syncEngine = new SyncEngine(localDb, http, storeContext, masterData, receiptConfigSync, storeAuditLog, inventoryAdjustments);
+        var syncEngine = new SyncEngine(
+            localDb,
+            http,
+            storeContext,
+            masterData,
+            receiptConfigSync,
+            barcodeLabelDesignSync,
+            storeAuditLog,
+            inventoryAdjustments);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
@@ -180,6 +197,8 @@ public sealed class AppServices
             ReceiptConfig = receiptConfig,
             ReceiptLogoCache = receiptLogoCache,
             ReceiptConfigSync = receiptConfigSync,
+            BarcodeLabelDesign = barcodeLabelDesign,
+            BarcodeLabelDesignSync = barcodeLabelDesignSync,
             StoreContext = storeContext,
             BillNumberGenerator = billNumberGenerator,
             BillingOutbox = billingOutbox,

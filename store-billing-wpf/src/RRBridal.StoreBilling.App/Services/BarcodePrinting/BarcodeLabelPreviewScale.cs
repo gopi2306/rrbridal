@@ -15,4 +15,11 @@ public static class BarcodeLabelPreviewScale
     public static double RowWidthPx => LabelWidthPx * 2 + GapBetweenStickersPx;
 
     public static double DotsToPx(double dots) => dots * PixelsPerDot;
+
+    public static double LabelWidthPxFor(BarcodeLabelDesignConfig design) => design.WidthDots * PixelsPerDot;
+
+    public static double LabelHeightPxFor(BarcodeLabelDesignConfig design) => design.HeightDots * PixelsPerDot;
+
+    public static double RowWidthPxFor(BarcodeLabelDesignConfig design) =>
+        LabelWidthPxFor(design) * Math.Max(1, design.LabelsPerRow) + GapBetweenStickersPx;
 }

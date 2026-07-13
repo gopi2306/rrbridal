@@ -13,7 +13,8 @@ public partial class BarcodeLabelPrintPreviewWindow
 {
     private readonly IReadOnlyList<BarcodePrintLineItem> _lines;
     private readonly string _companyName;
-    private readonly BarcodePrintService _printService = new();
+    private readonly BarcodeLabelDesignConfig _design;
+    private readonly BarcodePrintService _printService;
     private readonly IReadOnlyList<BarcodeLabelLayout> _layouts;
 
     public bool PrintSucceeded { get; private set; }
@@ -22,12 +23,15 @@ public partial class BarcodeLabelPrintPreviewWindow
 
     public BarcodeLabelPrintPreviewWindow(
         IReadOnlyList<BarcodePrintLineItem> lines,
-        string companyName)
+        string companyName,
+        BarcodeLabelDesignStore designStore)
     {
         InitializeComponent();
         _lines = lines;
         _companyName = companyName;
-        _layouts = BarcodeLabelLayout.FromLines(lines, companyName);
+        _design = designStore.ResolveDesign();
+        _printService = new BarcodePrintService(designStore);
+        _layouts = BarcodeLabelLayout.FromLines(lines, companyName, _design);
 
         BuildPreviewCards();
         LoadPrinters();
@@ -102,7 +106,7 @@ public partial class BarcodeLabelPrintPreviewWindow
     {
         var printer = PrinterCombo.SelectedItem as string;
         var language = BarcodePrinterPreferences.ResolveLanguage(printer);
-        var payload = BarcodeLabelCommandBuilder.BuildBatch(_lines, _companyName, language);
+        var payload = BarcodeLabelCommandBuilder.BuildBatch(_lines, _companyName, language, _design);
         var ext = language == BarcodePrinterLanguage.Tspl ? "tspl" : "epl";
         var dlg = new SaveFileDialog
         {
@@ -129,7 +133,7 @@ public partial class BarcodeLabelPrintPreviewWindow
         var lang = printer != null
             ? BarcodePrinterPreferences.LanguageHint(BarcodePrinterPreferences.ResolveLanguage(printer))
             : BarcodePrinterPreferences.LanguageHint(BarcodePrinterLanguage.Tspl);
-        SummaryText.Text = $"{_layouts.Count} SKU(s) · {total} label(s) · {BarcodePrinterPreferences.RecommendedModelName} ({lang})";
+        SummaryText.Text = $"{_layouts.Count} SKU(s) · {total} label(s) · {_design.Name} ({lang})";
     }
 
     private void Print_OnClick(object sender, RoutedEventArgs e)
@@ -164,6 +168,6 @@ public partial class BarcodeLabelPrintPreviewWindow
             return;
         }
 
-        Title = $"Barcode labels printed — {BarcodePrinterPreferences.RecommendedModelName}";
+        Title = $"Barcode labels printed — {_design.Name}";
     }
 }

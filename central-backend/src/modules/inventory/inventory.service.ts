@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
+import { applyObjectIdRefFilter, coerceObjectIdString } from '../../common/object-id.util';
+import { roundMoney } from '../../common/money.util';
 import { enrichProductDocuments } from '../../common/product-line-enrichment';
 import { Location, LocationDocument } from '../locations/schemas/location.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
@@ -47,6 +49,10 @@ export type WarehouseStoreGridRow = {
 export type FilteredInventoryParams = {
   storeCode?: string;
   search?: string;
+  departmentId?: string;
+  categoryId?: string;
+  subCategoryId?: string;
+  supplierId?: string;
   minQty?: number;
   maxQty?: number;
   minAgeDays?: number;
@@ -55,6 +61,18 @@ export type FilteredInventoryParams = {
   toDate?: string;
   page?: number;
   limit?: number;
+};
+
+export type FilteredInventorySummary = {
+  inventoryKind: 'warehouse' | 'store';
+  storeCode?: string;
+  filteredSkuCount: number;
+  warehouseQty: number;
+  inTransitQty: number;
+  storeQty: number;
+  supplierCount: number;
+  sellingAmount: number;
+  costAmount: number;
 };
 
 export type FilteredInventoryRow = {
@@ -164,6 +182,81 @@ export class InventoryService {
       page,
       limit,
       totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
+  }
+
+  async getFilteredInventorySummary(
+    params: Omit<FilteredInventoryParams, 'page' | 'limit'>,
+  ): Promise<FilteredInventorySummary> {
+    this.validateRange(params.minQty, params.maxQty, 'quantity');
+    this.validateRange(params.minAgeDays, params.maxAgeDays, 'stock age');
+    this.validateDateRange(params.fromDate, params.toDate);
+
+    const storeCode = params.storeCode?.trim().toLowerCase();
+    const ranked = storeCode
+      ? await this.resolveFilteredStoreInventory(storeCode, params)
+      : await this.resolveFilteredWarehouseInventory(params);
+
+    const productBySku = await this.fetchFilteredEnrichedProductMap(
+      ranked.map((row) => row.sku),
+      params,
+    );
+    const matchingRows = ranked.filter((row) => {
+      const product = productBySku.get(row.sku);
+      if (!product) return false;
+      return this.productMatchesSearch(product, params.search);
+    });
+
+    const balanceMap =
+      !storeCode && matchingRows.length > 0
+        ? await this.aggregateBalancesForSkus(matchingRows.map((row) => row.sku))
+        : new Map<string, BalanceBucket>();
+
+    let warehouseQty = 0;
+    let inTransitQty = 0;
+    let storeQty = 0;
+    let sellingAmount = 0;
+    let costAmount = 0;
+    const supplierIds = new Set<string>();
+
+    for (const row of matchingRows) {
+      const product = productBySku.get(row.sku);
+      if (!product) continue;
+
+      const sellingPrice = typeof product.sellingPrice === 'number' ? product.sellingPrice : 0;
+      const costPrice = typeof product.costPrice === 'number' ? product.costPrice : 0;
+
+      if (storeCode) {
+        storeQty += row.qty;
+        sellingAmount += row.qty * sellingPrice;
+        costAmount += row.qty * costPrice;
+        const supplierId = this.extractSupplierId(product);
+        if (supplierId) supplierIds.add(supplierId);
+      } else {
+        warehouseQty += row.qty;
+        inTransitQty += row.inTransitQty ?? 0;
+        costAmount += row.qty * costPrice;
+        const bucket = balanceMap.get(row.sku);
+        const rowStoreQty = bucket ? this.sumStoreQty(bucket.storeById) : 0;
+        storeQty += rowStoreQty;
+        sellingAmount += rowStoreQty * sellingPrice;
+        if (rowStoreQty > 0) {
+          const supplierId = this.extractSupplierId(product);
+          if (supplierId) supplierIds.add(supplierId);
+        }
+      }
+    }
+
+    return {
+      inventoryKind: storeCode ? 'store' : 'warehouse',
+      ...(storeCode ? { storeCode } : {}),
+      filteredSkuCount: matchingRows.length,
+      warehouseQty: roundMoney(warehouseQty),
+      inTransitQty: roundMoney(inTransitQty),
+      storeQty: roundMoney(storeQty),
+      supplierCount: supplierIds.size,
+      sellingAmount: roundMoney(sellingAmount),
+      costAmount: roundMoney(costAmount),
     };
   }
 
@@ -556,7 +649,7 @@ export class InventoryService {
 
     const oldestInwardBySku = await this.getWarehouseOldestInwardDateBySku(ranked.map((row) => row.sku));
     ranked = this.applyAgeAndDateFilters(ranked, oldestInwardBySku, params);
-    return await this.applyProductSearchAndSort(ranked, params.search);
+    return await this.applyProductFiltersAndSort(ranked, params);
   }
 
   private async resolveFilteredStoreInventory(
@@ -574,7 +667,7 @@ export class InventoryService {
       storeCode,
     );
     ranked = this.applyAgeAndDateFilters(ranked, oldestInwardBySku, params);
-    return await this.applyProductSearchAndSort(ranked, params.search);
+    return await this.applyProductFiltersAndSort(ranked, params);
   }
 
   private applyAgeAndDateFilters(
@@ -601,18 +694,49 @@ export class InventoryService {
       });
   }
 
-  private async applyProductSearchAndSort(
+  private async applyProductFiltersAndSort(
     ranked: RankedInventoryItem[],
-    search?: string,
+    params: Pick<
+      FilteredInventoryParams,
+      'search' | 'departmentId' | 'categoryId' | 'subCategoryId' | 'supplierId'
+    >,
   ): Promise<RankedInventoryItem[]> {
     if (ranked.length === 0) return [];
-    const productBySku = await this.fetchEnrichedProductMap(ranked.map((row) => row.sku));
+    const productBySku = await this.fetchFilteredEnrichedProductMap(ranked.map((row) => row.sku), params);
     const filtered = ranked.filter((row) => {
       const product = productBySku.get(row.sku);
       if (!product) return false;
-      return this.productMatchesSearch(product, search);
+      return this.productMatchesSearch(product, params.search);
     });
     return filtered.sort((a, b) => b.qty - a.qty || a.sku.localeCompare(b.sku));
+  }
+
+  private async fetchFilteredEnrichedProductMap(
+    skus: string[],
+    params: Pick<
+      FilteredInventoryParams,
+      'departmentId' | 'categoryId' | 'subCategoryId' | 'supplierId'
+    >,
+  ): Promise<Map<string, Record<string, unknown>>> {
+    const uniqueSkus = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    const result = new Map<string, Record<string, unknown>>();
+    if (uniqueSkus.length === 0) return result;
+
+    const filter: FilterQuery<ProductDocument> = { sku: { $in: uniqueSkus } };
+    applyObjectIdRefFilter(filter, 'departmentId', params.departmentId);
+    applyObjectIdRefFilter(filter, 'categoryId', params.categoryId);
+    applyObjectIdRefFilter(filter, 'subCategoryId', params.subCategoryId);
+    applyObjectIdRefFilter(filter, 'supplierNameId', params.supplierId);
+
+    const rawProducts = await this.productModel.find(filter).lean();
+    const enriched = await enrichProductDocuments(
+      this.productModel,
+      rawProducts as Array<Record<string, unknown>>,
+    );
+    for (const product of enriched) {
+      if (typeof product.sku === 'string') result.set(product.sku, product);
+    }
+    return result;
   }
 
   private async fetchEnrichedProductMap(skus: string[]): Promise<Map<string, Record<string, unknown>>> {
@@ -829,6 +953,10 @@ export class InventoryService {
         ? (isoDateOnly.test(trimmed) ? `${trimmed}T00:00:00.000Z` : trimmed)
         : (isoDateOnly.test(trimmed) ? `${trimmed}T23:59:59.999Z` : trimmed);
     return this.toValidDate(normalized);
+  }
+
+  private extractSupplierId(product: Record<string, unknown>): string | undefined {
+    return coerceObjectIdString(product.supplierNameId);
   }
 
   private productMatchesSearch(product: Record<string, unknown>, search?: string): boolean {

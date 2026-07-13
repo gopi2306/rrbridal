@@ -7,24 +7,31 @@ public static class EplBarcodeLabelBuilder
 {
     public const int MaxFieldLength = 30;
 
-    public static string BuildBatch(IEnumerable<BarcodePrintLineItem> lines, string companyName)
+    public static string BuildBatch(
+        IEnumerable<BarcodePrintLineItem> lines,
+        string companyName,
+        BarcodeLabelDesignConfig design)
+    {
+        var models = BarcodeLabelLayoutEngine.BuildRenderModels(lines, companyName, design);
+        return BuildBatch(models, design);
+    }
+
+    public static string BuildBatch(IEnumerable<BarcodeLabelRenderModel> models, BarcodeLabelDesignConfig design)
     {
         var sb = new StringBuilder();
-        var company = BarcodeLabelTextLayout.TruncateCompany(companyName);
-
-        foreach (var layout in BarcodeLabelLayout.FromLines(lines, companyName))
+        foreach (var model in models)
         {
-            var remaining = layout.CopyCount;
+            var remaining = model.CopyCount;
             while (remaining > 0)
             {
-                if (remaining >= BarcodeLabelDimensions.LabelsPerRow)
+                if (remaining >= design.LabelsPerRow)
                 {
-                    AppendDoubleRowEpl(sb, layout, company);
-                    remaining -= BarcodeLabelDimensions.LabelsPerRow;
+                    AppendDoubleRowEpl(sb, model, design);
+                    remaining -= design.LabelsPerRow;
                 }
                 else
                 {
-                    AppendSingleCupEpl(sb, layout, company);
+                    AppendSingleCupEpl(sb, model, design);
                     remaining--;
                 }
             }
@@ -33,38 +40,43 @@ public static class EplBarcodeLabelBuilder
         return sb.ToString();
     }
 
-    private static void AppendDoubleRowEpl(StringBuilder sb, BarcodeLabelLayout layout, string company)
+    private static void AppendDoubleRowEpl(StringBuilder sb, BarcodeLabelRenderModel model, BarcodeLabelDesignConfig design)
     {
         sb.AppendLine("N");
-        sb.AppendLine($"q{BarcodeLabelDimensions.WidthDots * BarcodeLabelDimensions.LabelsPerRow}");
+        sb.AppendLine($"q{design.WidthDots * design.LabelsPerRow}");
         sb.AppendLine("Q260,24");
-        AppendStickerEpl(sb, layout, company, 0);
-        AppendStickerEpl(sb, layout, company, BarcodeLabelDimensions.WidthDots);
+        AppendStickerEpl(sb, model, 0);
+        AppendStickerEpl(sb, model, design.WidthDots);
         sb.AppendLine("P1");
     }
 
-    private static void AppendSingleCupEpl(StringBuilder sb, BarcodeLabelLayout layout, string company)
+    private static void AppendSingleCupEpl(StringBuilder sb, BarcodeLabelRenderModel model, BarcodeLabelDesignConfig design)
     {
         sb.AppendLine("N");
-        sb.AppendLine($"q{BarcodeLabelDimensions.WidthDots}");
+        sb.AppendLine($"q{design.WidthDots}");
         sb.AppendLine("Q260,24");
-        AppendStickerEpl(sb, layout, company, 0);
+        AppendStickerEpl(sb, model, 0);
         sb.AppendLine("P1");
     }
 
-    private static void AppendStickerEpl(StringBuilder sb, BarcodeLabelLayout layout, string company, int xOffset)
+    private static void AppendStickerEpl(StringBuilder sb, BarcodeLabelRenderModel model, int xOffset)
     {
-        var item = EscapeEpl(BarcodeLabelTextLayout.TruncateItemSingleLine(layout.ItemName));
-        var barcode = EscapeEpl(BarcodeLabelTextLayout.TruncateBarcode(layout.BarcodeValue));
-        var price = layout.PriceText;
+        foreach (var line in model.TextLines)
+        {
+            var weight = line.Bold ? 1 : 0;
+            sb.AppendLine(
+                $"A{line.XDots + xOffset},{line.YDots},0,{line.FontDots},{weight},{weight},N,\"{EscapeEpl(line.Text)}\"");
+        }
 
-        sb.AppendLine($"A{4 + xOffset},6,0,2,1,1,N,\"{EscapeEpl(company)}\"");
-        sb.AppendLine($"A{4 + xOffset},22,0,2,1,1,N,\"{item}\"");
-        sb.AppendLine($"B{4 + xOffset},42,0,1,2,2,50,B,\"{barcode}\"");
-        sb.AppendLine($"A{4 + xOffset},98,0,1,1,1,N,\"{barcode}\"");
-        sb.AppendLine($"A{198 + xOffset},22,0,1,1,1,N,\"PRICE :\"");
-        sb.AppendLine($"A{178 + xOffset},42,0,3,1,1,N,\"{EscapeEpl(price)}\"");
-        sb.AppendLine($"A{168 + xOffset},72,0,1,1,1,N,\"(incl tax)\"");
+        if (model.Barcode != null)
+        {
+            var barcode = model.Barcode;
+            sb.AppendLine(
+                $"B{barcode.XDots + xOffset},{barcode.YDots},0,1,2,2,{barcode.HeightDots},B,\"{EscapeEpl(barcode.Value)}\"");
+            var humanWeight = barcode.Bold ? 1 : 0;
+            sb.AppendLine(
+                $"A{barcode.XDots + xOffset},{barcode.HumanTextYDots},0,{barcode.FontDots},{humanWeight},{humanWeight},N,\"{EscapeEpl(barcode.HumanText)}\"");
+        }
     }
 
     private static string EscapeEpl(string value) =>

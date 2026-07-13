@@ -49,9 +49,53 @@ Behavior:
 - Skips warehouse stock checks (GRN already posted stock to warehouse).
 - Auto-advances: `draft` → `in_transit` → `awaiting_intake` (ledger movements same as manual dispatch + receive).
 - Sets `goodsReceiptId` on the transfer for traceability.
-- Store POS completes intake via existing sync (`StockTransferReceived` → `completed`).
+- Creates a row in **`grn_auto_transfer_histories`** for audit and duplicate prevention.
+- Store POS completes intake via existing sync (`StockTransferReceived` → `completed`); history status updates to `completed`.
 
-Rejected if GRN is not `posted`, has no valid lines, or `toStoreId` is unknown.
+Rejected if GRN is not `posted`, has no valid lines, `toStoreId` is unknown, or auto transfer already exists for that GRN (see below).
+
+### GRN auto-transfer history (`grn_auto_transfer_histories`)
+
+Each successful `from-grn` call records:
+
+| Field | Description |
+|-------|-------------|
+| `goodsReceiptId` | Source GRN |
+| `stockTransferId` | Linked transfer |
+| `transferNo`, `grnLabel`, `toStoreId` | Denormalized for errors/UI |
+| `status` | `awaiting_intake`, `completed`, or `cancelled` |
+| `completedAt` / `cancelledAt` | Set when the linked transfer reaches that state |
+
+**Duplicate restriction (one active auto transfer per GRN):**
+
+| Existing history status | New `from-grn` for same GRN |
+|-------------------------|----------------------------|
+| `awaiting_intake` | **400** — already in progress |
+| `completed` | **400** — already completed |
+| `cancelled` | Allowed — new attempt creates a new history row |
+| No row | Allowed |
+
+Example error when already completed:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Auto transfer already completed for GRN GRN-000032. Transfer TR-1042 was sent to store store-001.",
+  "error": "Bad Request"
+}
+```
+
+Example error when still awaiting store intake:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Auto transfer already in progress for GRN GRN-000032. Transfer TR-1042 is awaiting store intake at store-001.",
+  "error": "Bad Request"
+}
+```
+
+A partial unique index on `goodsReceiptId` (for `awaiting_intake` and `completed` rows) prevents concurrent duplicate inserts.
 
 ## Data model (collection `stock_transfers`)
 

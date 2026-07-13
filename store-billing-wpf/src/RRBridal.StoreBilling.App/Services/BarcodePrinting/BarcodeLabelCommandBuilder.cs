@@ -7,16 +7,18 @@ public static class BarcodeLabelCommandBuilder
     public static string BuildBatch(
         IEnumerable<BarcodePrintLineItem> lines,
         string companyName,
-        BarcodePrinterLanguage language)
+        BarcodePrinterLanguage language,
+        BarcodeLabelDesignConfig design)
     {
         return language == BarcodePrinterLanguage.Tspl
-            ? TsplBarcodeLabelBuilder.BuildBatch(lines, companyName)
-            : EplBarcodeLabelBuilder.BuildBatch(lines, companyName);
+            ? TsplBarcodeLabelBuilder.BuildBatch(lines, companyName, design)
+            : EplBarcodeLabelBuilder.BuildBatch(lines, companyName, design);
     }
 
     public static string BuildBatch(
         IEnumerable<BarcodePrintLineItem> lines,
         string companyName,
-        string printerQueueName) =>
-        BuildBatch(lines, companyName, BarcodePrinterPreferences.ResolveLanguage(printerQueueName));
+        string printerQueueName,
+        BarcodeLabelDesignConfig design) =>
+        BuildBatch(lines, companyName, BarcodePrinterPreferences.ResolveLanguage(printerQueueName), design);
 }

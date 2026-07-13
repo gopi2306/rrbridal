@@ -61,6 +61,7 @@ import { InventoryAdjustmentsModule } from '../inventory-adjustments/inventory-a
 import { BillsModule } from '../bills/bills.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { ReportsModule } from '../reports/reports.module';
+import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-label-design.module';
 
 
 @Module({
@@ -131,6 +132,7 @@ import { ReportsModule } from '../reports/reports.module';
     BillsModule,
     WhatsAppModule,
     ReportsModule,
+    BarcodeLabelDesignsModule,
   ],
   controllers: [AppController],
 })

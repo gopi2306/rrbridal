@@ -1,6 +1,8 @@
 # Store billing — barcode label printing (WPF)
 
-The store billing WPF app includes a **Barcodes** tab for printing shelf labels on **TVS LP 46 NEO** (203 DPI, TSPL) using RAW commands via the Windows printer queue.
+The store billing WPF app includes a **Barcodes** tab for printing shelf labels on thermal printers (TSPL/EPL) using RAW commands via the Windows printer queue.
+
+Label layout is driven by the **company-wide active barcode label design** synced from central (`GET /api/barcode-label-designs/active`). See [barcode-label-designs.md](./barcode-label-designs.md).
 
 ## Workflow
 
@@ -28,11 +30,18 @@ The store billing WPF app includes a **Barcodes** tab for printing shelf labels 
 
 ## Label content
 
-- Company name from synced receipt config (`StoreName` / company profile).
-- Product description, Code128 barcode (UPC/EAN when synced, else SKU), human-readable code.
-- Store price (or selling price / MRP fallback), 2 decimal places, with “(include all tax)” footer.
+Layout depends on the synced design (`retail_stacked` or `brand_price`). Typical fields:
 
-Implementation: `TsplBarcodeLabelBuilder.cs` (TVS LP 46 NEO). Legacy EPL remains for queues named like `LP346` only.
+- Product name (item or short name)
+- Design / SKU line (`D.No:` prefix when enabled)
+- Selling price (`Price ₹:` prefix when enabled)
+- Size / note from product `alias`
+- Code128 barcode (UPC/EAN when synced, else SKU)
+- Optional batch / expiry / brand text
+
+Company name comes from synced receipt config for `brand_price` layouts.
+
+Implementation: `BarcodeLabelLayoutEngine` → `TsplBarcodeLabelBuilder` / `EplBarcodeLabelBuilder`.
 
 ## 2 cups per row (2-up media)
 
@@ -48,5 +57,6 @@ If your stickers are a different width, adjust `BarcodeLabelDimensions.LabelWidt
 
 ## Related
 
+- [barcode-label-designs.md](./barcode-label-designs.md) — central label design master + WPF sync
 - [money-precision.md](./money-precision.md) — grid amounts display at 2 dp
 - [sync-protocol.md](./sync-protocol.md) — product cache sync

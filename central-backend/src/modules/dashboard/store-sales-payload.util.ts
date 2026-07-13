@@ -250,26 +250,44 @@ export function buildStoreSalePayloadTimeFilter(
   storeId: string,
   range: ResolvedDateRange,
 ): Record<string, unknown> {
-  const fromIso = range.from.toISOString();
-  const toIso = range.to.toISOString();
-  return {
-    storeId,
-    $or: [
-      { 'payload.createdAtUtc': { $gte: fromIso, $lte: toIso } },
-      {
-        $and: [
-          {
-            $or: [
-              { 'payload.createdAtUtc': { $exists: false } },
-              { 'payload.createdAtUtc': null },
-              { 'payload.createdAtUtc': '' },
-            ],
-          },
-          { createdAt: { $gte: range.from, $lte: range.to } },
-        ],
-      },
-    ],
-  };
+  return buildSalesPayloadTimeFilter({ storeIds: [storeId], range });
+}
+
+/** Multi-store (or all-store) invoice/return filter by business period. */
+export function buildSalesPayloadTimeFilter(params: {
+  storeIds?: readonly string[];
+  range: ResolvedDateRange;
+}): Record<string, unknown> {
+  const fromIso = params.range.from.toISOString();
+  const toIso = params.range.to.toISOString();
+  const timeOr: Record<string, unknown>[] = [
+    { 'payload.createdAtUtc': { $gte: fromIso, $lte: toIso } },
+    {
+      $and: [
+        {
+          $or: [
+            { 'payload.createdAtUtc': { $exists: false } },
+            { 'payload.createdAtUtc': null },
+            { 'payload.createdAtUtc': '' },
+          ],
+        },
+        { createdAt: { $gte: params.range.from, $lte: params.range.to } },
+      ],
+    },
+  ];
+
+  const filter: Record<string, unknown> = { $or: timeOr };
+
+  const storeIds = params.storeIds
+    ?.map((id) => id.trim().toLowerCase())
+    .filter((id) => id.length > 0);
+  if (storeIds && storeIds.length === 1) {
+    filter.storeId = storeIds[0];
+  } else if (storeIds && storeIds.length > 1) {
+    filter.storeId = { $in: storeIds };
+  }
+
+  return filter;
 }
 
 /** Filter daily expenses by IST business date on payload. */

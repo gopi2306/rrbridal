@@ -4,6 +4,13 @@ namespace RRBridal.StoreBilling.App.Services.BarcodePrinting;
 
 public sealed class BarcodePrintService
 {
+    private readonly BarcodeLabelDesignStore _designStore;
+
+    public BarcodePrintService(BarcodeLabelDesignStore designStore)
+    {
+        _designStore = designStore;
+    }
+
     public (bool Ok, string Message) PrintLabels(
         IEnumerable<BarcodePrintLineItem> lines,
         string companyName,
@@ -16,8 +23,9 @@ public sealed class BarcodePrintService
         if (BarcodePrinterFilter.IsVirtualOrPdfQueue(printerQueueName))
             return (false, $"Cannot print labels to a PDF or virtual queue. Select your {BarcodePrinterPreferences.RecommendedModelName} queue.");
 
+        var design = _designStore.ResolveDesign();
         var language = BarcodePrinterPreferences.ResolveLanguage(printerQueueName);
-        var payload = BarcodeLabelCommandBuilder.BuildBatch(printable, companyName, language);
+        var payload = BarcodeLabelCommandBuilder.BuildBatch(printable, companyName, language, design);
         if (string.IsNullOrWhiteSpace(payload))
             return (false, "No label data to print.");
 
@@ -26,6 +34,6 @@ public sealed class BarcodePrintService
 
         var labelCount = printable.Sum(l => (int)Math.Ceiling(l.PrintQty));
         var langHint = BarcodePrinterPreferences.LanguageHint(language);
-        return (true, $"Sent {labelCount} label(s) to {printerQueueName} ({langHint}).");
+        return (true, $"Sent {labelCount} label(s) to {printerQueueName} ({langHint}, {design.Name}).");
     }
 }

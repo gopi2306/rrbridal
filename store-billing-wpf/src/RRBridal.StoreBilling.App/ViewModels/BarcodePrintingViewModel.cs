@@ -91,7 +91,7 @@ public partial class BarcodePrintingViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(company))
             company = _services.ShellBranding.Current.CompanyTitle;
 
-        var preview = new BarcodeLabelPrintPreviewWindow(printable, company ?? "RR Bridal")
+        var preview = new BarcodeLabelPrintPreviewWindow(printable, company ?? "RR Bridal", _services.BarcodeLabelDesign)
         {
             Owner = Application.Current.MainWindow,
         };

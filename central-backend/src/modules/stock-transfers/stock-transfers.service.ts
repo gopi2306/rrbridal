@@ -13,6 +13,7 @@ import { CreateFromGrnDto } from './dto/create-from-grn.dto';
 import { CreateFromPurchaseIntentDto } from './dto/create-from-purchase-intent.dto';
 import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 import { FilterStockTransferDto } from './dto/filter-stock-transfer.dto';
+import { GrnAutoTransferHistoryService } from './grn-auto-transfer-history.service';
 import { ReceiveStockTransferDto } from './dto/receive-stock-transfer.dto';
 import { StockTransferLineDto } from './dto/stock-transfer-line.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
@@ -44,6 +45,7 @@ export class StockTransfersService {
     private readonly inventoryService: InventoryService,
     private readonly storesService: StoresService,
     private readonly locationsService: LocationsService,
+    private readonly grnAutoTransferHistoryService: GrnAutoTransferHistoryService,
   ) {}
 
   private async nextTransferNo() {
@@ -387,9 +389,12 @@ export class StockTransfersService {
     const storeExists = await this.storesService.existsByCode(toStoreId);
     if (!storeExists) throw new BadRequestException(`Unknown toStoreId '${toStoreId}'`);
 
+    const grnLabel = grn.grnNumber?.trim() || grn.receiptNo?.trim() || grnId;
+    const blocking = await this.grnAutoTransferHistoryService.findBlockingByGrnId(grnId);
+    this.grnAutoTransferHistoryService.assertNotBlocked(blocking, grnLabel);
+
     const fromLocationId = await this.resolveWarehouseLocationId(dto.locationId);
     const transferNo = await this.nextTransferNo();
-    const grnLabel = grn.grnNumber?.trim() || grn.receiptNo?.trim() || grnId;
     const remarks = dto.remarks?.trim() || `Auto transfer from ${grnLabel}`;
 
     const created = await this.model.create({
@@ -410,6 +415,18 @@ export class StockTransfersService {
     const receivedBy = dto.receivedBy?.trim();
     if (receivedBy) created.receivedBy = receivedBy;
     await this.transitionStatus(created, 'awaiting_intake', { allowStoreIntake: true });
+
+    await this.grnAutoTransferHistoryService.createRecord({
+      goodsReceiptId: grnId,
+      stockTransferId: String(created._id),
+      transferNo: created.transferNo,
+      grnLabel,
+      toStoreId,
+      status: 'awaiting_intake',
+      ...(fromLocationId ? { fromLocationId } : {}),
+      ...(receivedBy ? { receivedBy } : {}),
+      ...(remarks ? { remarks } : {}),
+    });
 
     return await enrichDocWithLineProducts(this.productModel, created.toObject() as unknown as Record<string, unknown>);
   }
@@ -721,6 +738,16 @@ export class StockTransfersService {
     await this.applyTransferLedger(from, to, doc, options);
     doc.status = to;
     await doc.save();
+
+    if (doc.goodsReceiptId) {
+      const transferId = String(doc._id);
+      if (to === 'completed') {
+        await this.grnAutoTransferHistoryService.markCompleted(transferId);
+      } else if (to === 'cancelled') {
+        await this.grnAutoTransferHistoryService.markCancelled(transferId);
+      }
+    }
+
     return doc;
   }
 

@@ -193,6 +193,8 @@ public sealed class ProductCatalogService
         var name = ReadString(d, "itemName")
             ?? ReadString(d, "shortName")
             ?? sku;
+        var shortName = ReadString(d, "shortName");
+        var alias = ReadString(d, "alias");
 
         var hsnSac = HsnSacResolver.Resolve(d, hsnLookup);
 
@@ -202,6 +204,8 @@ public sealed class ProductCatalogService
             Sku = sku,
             UpcEanCode = ReadString(d, "upcEanCode"),
             Name = name,
+            ShortName = shortName,
+            Alias = alias,
             CostPrice = ReadDecimalBson(d, "costPrice"),
             MarginPercent = ReadDecimalBson(d, "marginPercent"),
             Mrp = ReadDecimalBson(d, "mrp"),

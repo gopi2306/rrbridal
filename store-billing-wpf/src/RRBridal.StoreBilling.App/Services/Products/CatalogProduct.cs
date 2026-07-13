@@ -6,6 +6,8 @@ public sealed class CatalogProduct
     public required string Sku { get; init; }
     public string? UpcEanCode { get; init; }
     public required string Name { get; init; }
+    public string? ShortName { get; init; }
+    public string? Alias { get; init; }
     public decimal? CostPrice { get; init; }
     public decimal? MarginPercent { get; init; }
     public decimal? Mrp { get; init; }

@@ -17,6 +17,31 @@ export class InventoryFilteredQueryDto {
   @IsOptional()
   search?: string;
 
+  @ApiProperty({ required: false, description: 'Filter by department ObjectId' })
+  @IsString()
+  @IsOptional()
+  departmentId?: string;
+
+  @ApiProperty({ required: false, description: 'Filter by category ObjectId' })
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
+  @ApiProperty({ required: false, description: 'Filter by sub category ObjectId' })
+  @IsString()
+  @IsOptional()
+  subCategoryId?: string;
+
+  @ApiProperty({ required: false, description: 'Filter by supplier ObjectId' })
+  @IsString()
+  @IsOptional()
+  supplierId?: string;
+
+  @ApiProperty({ required: false, description: 'Alias for supplierId / supplierNameId product ref' })
+  @IsString()
+  @IsOptional()
+  supplierNameId?: string;
+
   @ApiProperty({ required: false, minimum: 0, description: 'Inclusive minimum stock quantity' })
   @Type(() => Number)
   @IsNumber()

@@ -20,6 +20,7 @@ using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Salesmen;
 using RRBridal.StoreBilling.App.Services.Inventory;
+using RRBridal.StoreBilling.App.Services.BarcodePrinting;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -35,6 +36,7 @@ public sealed class SyncEngine : ISyncEngine
     private readonly StoreContext _storeContext;
     private readonly MasterDataService _masterData;
     private readonly ReceiptConfigSyncService? _receiptConfigSync;
+    private readonly BarcodeLabelDesignSyncService? _barcodeLabelDesignSync;
     private readonly IMongoDatabase _localDb;
     private readonly StoreAuditLogService? _auditLog;
     private Dictionary<string, string>? _hsnLookup;
@@ -45,6 +47,7 @@ public sealed class SyncEngine : ISyncEngine
         StoreContext storeContext,
         MasterDataService masterData,
         ReceiptConfigSyncService? receiptConfigSync = null,
+        BarcodeLabelDesignSyncService? barcodeLabelDesignSync = null,
         StoreAuditLogService? auditLog = null,
         InventoryAdjustmentService? inventoryAdjustments = null)
     {
@@ -59,6 +62,7 @@ public sealed class SyncEngine : ISyncEngine
         _storeContext = storeContext;
         _masterData = masterData;
         _receiptConfigSync = receiptConfigSync;
+        _barcodeLabelDesignSync = barcodeLabelDesignSync;
         _localDb = localDb;
         _auditLog = auditLog;
     }
@@ -91,10 +95,11 @@ public sealed class SyncEngine : ISyncEngine
         try { await SyncSalesmenAsync(ct); } catch { /* salesman sync is best-effort */ }
         if (_receiptConfigSync != null)
         {
-            if (_receiptConfigSync != null)
-            {
-                try { await _receiptConfigSync.SyncReceiptFromCentralOnStoreSyncAsync(ct); } catch { /* company master save is best-effort */ }
-            }
+            try { await _receiptConfigSync.SyncReceiptFromCentralOnStoreSyncAsync(ct); } catch { /* company master save is best-effort */ }
+        }
+        if (_barcodeLabelDesignSync != null)
+        {
+            try { await _barcodeLabelDesignSync.SyncFromCentralOnStoreSyncAsync(ct); } catch { /* barcode label design sync is best-effort */ }
         }
     }
 
