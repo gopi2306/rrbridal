@@ -24,7 +24,9 @@ public static class BillThermalMapper
             foreach (BsonDocument line in linesVal.AsBsonArray.OfType<BsonDocument>())
             {
                 var amount = ReadDecimal(line, "amount");
-                var disc = ReadDecimal(line, "discountAmount") + ReadDecimal(line, "cashDiscountAmount");
+                var itemDisc = ReadDecimal(line, "discountAmount");
+                var cashDisc = ReadDecimal(line, "cashDiscountAmount");
+                var schemeDisc = ReadDecimal(line, "schemeDiscountAmount");
                 lines.Add(new InvoiceLineSnap
                 {
                     LineNo = line.GetValue("lineNo", 0).ToInt32(),
@@ -36,7 +38,10 @@ public static class BillThermalMapper
                     Mrp = ReadDecimal(line, "mrp"),
                     Amount = amount,
                     AlterationAmount = ReadDecimal(line, "alterationAmount"),
-                    LineDiscount = disc,
+                    LineDiscount = itemDisc + cashDisc,
+                    ItemDiscountAmount = itemDisc,
+                    CashDiscountAmount = cashDisc,
+                    SchemeDiscountAmount = schemeDisc,
                     TaxableAmount = ReadDecimal(line, "revisedAmount"),
                     TaxAmount = ReadDecimal(line, "revisedTaxAmount"),
                     LineInclusiveAmount = ReadDecimal(line, "revisedInclusiveAmount"),

@@ -19,11 +19,18 @@ public sealed class InvoiceLineSnap
     public decimal Amount { get; init; }
     public decimal AlterationAmount { get; init; }
     public decimal LineDiscount { get; init; }
+    public decimal ItemDiscountAmount { get; init; }
+    public decimal CashDiscountAmount { get; init; }
+    public decimal SchemeDiscountAmount { get; init; }
     public decimal TaxableAmount { get; init; }
     public decimal TaxAmount { get; init; }
 
     /// <summary>Tax-inclusive line total after discounts (matches payable per line).</summary>
     public decimal LineInclusiveAmount { get; init; }
+
+    /// <summary>Original tax-inclusive line total before discounts (qty × rate).</summary>
+    public decimal OriginalInclusiveBase =>
+        Amount > 0 ? Amount : LineInclusiveAmount > 0 ? LineInclusiveAmount : TaxableAmount + TaxAmount;
 
     /// <summary>Amount column on pre-printed stationery (inclusive line total, not taxable).</summary>
     public decimal PrePrintedLineAmount()
@@ -34,6 +41,27 @@ public sealed class InvoiceLineSnap
         if (inclusive > 0)
             return inclusive;
         return Amount;
+    }
+
+    public decimal CashDiscountPercent() => DiscountPercent(CashDiscountAmount);
+
+    public decimal ItemDiscountPercent() => DiscountPercent(ItemDiscountAmount);
+
+    public decimal SchemeDiscountPercent() => DiscountPercent(SchemeDiscountAmount);
+
+    public decimal NetUnitRate()
+    {
+        if (Qty <= 0)
+            return 0m;
+        return Math.Round(PrePrintedLineAmount() / Qty, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private decimal DiscountPercent(decimal discountAmount)
+    {
+        var baseAmount = OriginalInclusiveBase;
+        if (baseAmount <= 0 || discountAmount <= 0)
+            return 0m;
+        return Math.Round(discountAmount / baseAmount * 100m, 2, MidpointRounding.AwayFromZero);
     }
 }
 
@@ -117,6 +145,9 @@ public sealed class ThermalInvoiceInput
     public bool DoorDelivery { get; init; }
 
     public string DeliveryDate { get; init; } = "";
+
+    /// <summary>Optional order reference for Bilal A4 pre-printed ORDER NO field.</summary>
+    public string OrderNo { get; init; } = "";
 }
 
 /// <summary>Plain-text thermal receipt (fixed-width, dashed rules).</summary>

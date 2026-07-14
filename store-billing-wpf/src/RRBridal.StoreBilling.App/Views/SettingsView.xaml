@@ -246,11 +246,206 @@
                                                  IsChecked="{Binding IsThermalReceiptFormat, Mode=TwoWay}"/>
                                     <RadioButton Content="A4 retail invoice" GroupName="PrintFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsA4ReceiptFormat, Mode=TwoWay}"/>
+                                    <CheckBox Content="Use pre-printed A4 paper — Bilal Textiles (values only)" Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding A4PrePrintedEnabled}"
+                                              Visibility="{Binding IsA4ReceiptFormat, Converter={StaticResource BoolToVis}}"
+                                              Margin="16,0,0,6"/>
+                                    <TextBlock Text="Pre-printed A4: load Bilal stationery; app prints customer, bill no, date, line items, and total on the form only."
+                                               Visibility="{Binding IsA4ReceiptFormat, Converter={StaticResource BoolToVis}}"
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="16,0,0,12"/>
                                     <RadioButton Content="A4 commercial invoice" GroupName="PrintFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsA4CommercialReceiptFormat, Mode=TwoWay}"/>
                                     <RadioButton Content="A5 tax invoice" GroupName="PrintFormat" Margin="0,0,0,0"
                                                  IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
                                 </StackPanel>
+                                <Border Visibility="{Binding IsA4PrePrintedSettingsVisible, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,0,16" Padding="16" Background="{StaticResource BrushRowAlt}"
+                                        BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8">
+                                    <StackPanel>
+                                        <TextBlock Text="A4 pre-printed alignment — Bilal Textiles (mm)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource TextCaption}" Margin="0,0,0,12"
+                                                   Text="Prints billing address, bill no, date, 11-column lines, and total on pre-printed Bilal A4 paper."/>
+                                        <ScrollViewer MaxHeight="480" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="Global" Margin="0,0,0,4"/>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Offset X" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                                    <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.OffsetXMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Offset Y" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                                    <TextBox Grid.Row="0" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.OffsetYMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Table offset Y" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.TableOffsetYMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,4"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Lines per page" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.MaxLineRows, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Body font pt" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.BodyFontPt, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Total font pt" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.TotalFontPt, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </Grid>
+
+                                                <TextBlock FontWeight="SemiBold" Text="Header — Billing / Bill No / Date / Order No" Margin="0,0,0,4"/>
+                                                <TextBlock TextWrapping="Wrap" Style="{StaticResource TextCaption}" Margin="0,0,0,8"
+                                                           Text="Bill no, date, and order no stack vertically in the right meta box (values after each label)."/>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="84"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Field" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Top" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="Width" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Billing" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.BillToTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.BillToLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.BillToWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Bill No" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.InvNoTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.InvNoLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.InvNoWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Date" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.DateTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.DateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.DateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Order No" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.OrderNoTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.OrderNoLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.OrderNoWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Meta row height" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.MetaRowHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </Grid>
+
+                                                <TextBlock FontWeight="SemiBold" Text="Table — first row top / row height" Margin="0,0,0,4"/>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="Table top" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.TableTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Column="2" Text="Row height" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.LineRowHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </Grid>
+
+                                                <TextBlock FontWeight="SemiBold" Text="Table columns (left / width mm)" Margin="0,0,0,4"/>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="100"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Column" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Left" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Width" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="SR" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColSrLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColSrWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Particular" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColParticularLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColParticularWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="HSN" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColHsnLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColHsnWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="PCS" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColPcsLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColPcsWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Meter" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColMeterLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColMeterWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Basic rate" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="6" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColBasicRateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="6" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColBasicRateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="CD %" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="7" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColCdPercentLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="7" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColCdPercentWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Less %" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="8" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColLessPercentLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="8" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColLessPercentWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="9" Grid.Column="0" Text="TD %" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="9" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColTdPercentLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="9" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColTdPercentWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Net rate" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="10" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColNetRateLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,4"/>
+                                                    <TextBox Grid.Row="10" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColNetRateWidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                                    <TextBlock Grid.Row="11" Grid.Column="0" Text="Amount" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="11" Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColAmountLeftMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                                    <TextBox Grid.Row="11" Grid.Column="2" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.ColAmountWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </Grid>
+
+                                                <TextBlock FontWeight="SemiBold" Text="Footer total" Margin="0,0,0,4"/>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="84"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="Top" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.TotalAmountTopMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                                    <TextBlock Grid.Column="2" Text="Left" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Grid.Column="3" Style="{StaticResource SettingsNumericInput}" Text="{Binding A4Layout.TotalAmountLeftMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </Grid>
+
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="Font family" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <ComboBox Grid.Column="1" Style="{StaticResource RoundedComboBox}"
+                                                              ItemsSource="{Binding A4FontFamilyOptions}"
+                                                              SelectedItem="{Binding A4Layout.PrintFontFamily, Mode=TwoWay}"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Reset to defaults" Style="{StaticResource OutlineButton}"
+                                                    Command="{Binding ResetA4PrePrintedLayoutToDefaultsCommand}" Margin="0,0,8,0"/>
+                                            <Button Content="Preview test layout" Style="{StaticResource OutlineButton}"
+                                                    Command="{Binding PreviewA4PrePrintedAlignmentCommand}" Margin="0,0,8,0"/>
+                                            <Button Content="Preview duplicate layout" Style="{StaticResource OutlineButton}"
+                                                    Command="{Binding PreviewA4PrePrintedDuplicateAlignmentCommand}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
                                 <CheckBox Content="Use pre-printed A5 paper (values only)" Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding A5PrePrintedEnabled}"
                                           Visibility="{Binding IsA5ReceiptFormat, Converter={StaticResource BoolToVis}}"

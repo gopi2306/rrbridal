@@ -25,6 +25,7 @@ public static class InvoicePrintFlow
 
             var printSettings = services.ReceiptConfig.Current.Print;
             var printFormat = printSettings.PrintFormat;
+            var isA4PrePrinted = printFormat == InvoicePrintFormat.A4 && printSettings.A4PrePrintedEnabled;
             var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && printSettings.A5PrePrintedEnabled;
             var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
             var dualPrint = isOfficeFormat && printSettings.AlsoPrintThermalFirst;
@@ -42,7 +43,12 @@ public static class InvoicePrintFlow
             {
                 var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
                 thermalDoc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
-                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted, printSettings.A5PrePrintedLayout);
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA4PrePrinted, isA5PrePrinted,
+                    printSettings.A4PrePrintedLayout, printSettings.A5PrePrintedLayout);
+            }
+            else if (isA4PrePrinted)
+            {
+                doc = A4PrePrintedInvoiceDocumentBuilder.Create(input, printSettings.A4PrePrintedLayout);
             }
             else if (isA5PrePrinted)
             {
@@ -50,7 +56,8 @@ public static class InvoicePrintFlow
             }
             else if (isOfficeFormat)
             {
-                doc = BuildInvoiceDocument(input, assets, printFormat, isA5PrePrinted, printSettings.A5PrePrintedLayout);
+                doc = BuildInvoiceDocument(input, assets, printFormat, isA4PrePrinted, isA5PrePrinted,
+                    printSettings.A4PrePrintedLayout, printSettings.A5PrePrintedLayout);
             }
             else
             {
@@ -60,7 +67,9 @@ public static class InvoicePrintFlow
 
             var isA5 = printFormat == InvoicePrintFormat.A5;
             var isTaxInvoice = isOfficeFormat;
-            var title = isA5PrePrinted
+            var title = isA4PrePrinted
+                ? "A4 pre-printed preview"
+                : isA5PrePrinted
                 ? "A5 pre-printed preview"
                 : printFormat == InvoicePrintFormat.A4Commercial
                     ? "A4 commercial invoice preview"
@@ -96,9 +105,14 @@ public static class InvoicePrintFlow
         ThermalInvoiceInput input,
         ThermalReceiptAssets assets,
         InvoicePrintFormat printFormat,
+        bool isA4PrePrinted,
         bool isA5PrePrinted,
+        A4PrePrintedLayoutSettings? a4Layout,
         A5PrePrintedLayoutSettings? a5Layout)
     {
+        if (isA4PrePrinted)
+            return A4PrePrintedInvoiceDocumentBuilder.Create(input, a4Layout);
+
         if (isA5PrePrinted)
             return A5PrePrintedInvoiceDocumentBuilder.Create(input, a5Layout);
 

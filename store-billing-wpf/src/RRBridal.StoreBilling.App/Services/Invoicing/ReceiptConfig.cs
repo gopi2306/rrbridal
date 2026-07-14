@@ -87,11 +87,17 @@ public sealed class ReceiptPrintSettings
 
     public string? CentralPrinterModel { get; set; }
 
+    /// <summary>When A4 format: print data values only on Bilal Textiles pre-printed stationery.</summary>
+    public bool A4PrePrintedEnabled { get; set; }
+
     /// <summary>When A5 format: print data values only on pre-printed stationery.</summary>
     public bool A5PrePrintedEnabled { get; set; }
 
     /// <summary>When PrintFormat is A4, A4Commercial, or A5: also print 80mm thermal receipt before the invoice.</summary>
     public bool AlsoPrintThermalFirst { get; set; }
+
+    /// <summary>mm alignment and font for A4 Bilal pre-printed value-only mode.</summary>
+    public A4PrePrintedLayoutSettings A4PrePrintedLayout { get; set; } = A4PrePrintedLayoutSettings.CreateDefault();
 
     /// <summary>mm alignment and font for A5 pre-printed value-only mode.</summary>
     public A5PrePrintedLayoutSettings A5PrePrintedLayout { get; set; } = A5PrePrintedLayoutSettings.CreateDefault();

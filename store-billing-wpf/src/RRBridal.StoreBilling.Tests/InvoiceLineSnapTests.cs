@@ -42,4 +42,40 @@ public sealed class InvoiceLineSnapTests
 
         Assert.Equal(1500m, line.PrePrintedLineAmount());
     }
+
+    [Fact]
+    public void CashDiscountPercent_ComputesFromOriginalInclusive()
+    {
+        var line = new InvoiceLineSnap
+        {
+            Amount = 1000m,
+            CashDiscountAmount = 50m,
+        };
+
+        Assert.Equal(5m, line.CashDiscountPercent());
+    }
+
+    [Fact]
+    public void NetUnitRate_DividesInclusiveByQty()
+    {
+        var line = new InvoiceLineSnap
+        {
+            Qty = 4m,
+            LineInclusiveAmount = 396m,
+        };
+
+        Assert.Equal(99m, line.NetUnitRate());
+    }
+
+    [Fact]
+    public void SchemeDiscountPercent_ComputesFromOriginalInclusive()
+    {
+        var line = new InvoiceLineSnap
+        {
+            Amount = 2000m,
+            SchemeDiscountAmount = 100m,
+        };
+
+        Assert.Equal(5m, line.SchemeDiscountPercent());
+    }
 }

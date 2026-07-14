@@ -66,6 +66,8 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private InvoicePrintFormat _receiptPrintFormat = InvoicePrintFormat.Thermal;
 
+    [ObservableProperty] private bool _a4PrePrintedEnabled;
+
     [ObservableProperty] private bool _a5PrePrintedEnabled;
 
     [ObservableProperty] private bool _alsoPrintThermalFirst;
@@ -115,7 +117,18 @@ public partial class SettingsViewModel : ObservableObject
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
+    public A4PrePrintedLayoutSettingsViewModel A4Layout { get; } = new();
+
     public A5PrePrintedLayoutSettingsViewModel A5Layout { get; } = new();
+
+    public IReadOnlyList<string> A4FontFamilyOptions { get; } =
+    [
+        "Arial",
+        "Calibri",
+        "Times New Roman",
+        "Courier New",
+        "Segoe UI",
+    ];
 
     public IReadOnlyList<string> A5FontFamilyOptions { get; } =
     [
@@ -125,6 +138,9 @@ public partial class SettingsViewModel : ObservableObject
         "Courier New",
         "Segoe UI",
     ];
+
+    public bool IsA4PrePrintedSettingsVisible =>
+        IsA4ReceiptFormat && A4PrePrintedEnabled;
 
     public bool IsA5PrePrintedSettingsVisible =>
         IsA5ReceiptFormat && A5PrePrintedEnabled;
@@ -179,8 +195,12 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
+        OnPropertyChanged(nameof(IsA4PrePrintedSettingsVisible));
         OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
     }
+
+    partial void OnA4PrePrintedEnabledChanged(bool value) =>
+        OnPropertyChanged(nameof(IsA4PrePrintedSettingsVisible));
 
     partial void OnA5PrePrintedEnabledChanged(bool value) =>
         OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
@@ -248,8 +268,10 @@ public partial class SettingsViewModel : ObservableObject
         ApplyPrinterFieldsFromConfig(c.Print);
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
         ReceiptPrintFormat = c.Print.PrintFormat;
+        A4PrePrintedEnabled = c.Print.A4PrePrintedEnabled;
         A5PrePrintedEnabled = c.Print.A5PrePrintedEnabled;
         AlsoPrintThermalFirst = c.Print.AlsoPrintThermalFirst;
+        A4Layout.ApplyFrom(c.Print.A4PrePrintedLayout ?? A4PrePrintedLayoutSettings.CreateDefault());
         A5Layout.ApplyFrom(c.Print.A5PrePrintedLayout ?? A5PrePrintedLayoutSettings.CreateDefault());
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
@@ -355,9 +377,11 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptCharWidth = w;
         c.Print.ReceiptCharWidth = w;
         c.Print.PrintFormat = ReceiptPrintFormat;
+        c.Print.A4PrePrintedEnabled = A4PrePrintedEnabled;
         c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
         c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial
             && AlsoPrintThermalFirst;
+        c.Print.A4PrePrintedLayout = A4Layout.ToSettings();
         c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
@@ -371,6 +395,7 @@ public partial class SettingsViewModel : ObservableObject
             Metadata = new BsonDocument
             {
                 { "printFormat", ReceiptPrintFormat.ToString() },
+                { "a4PrePrintedEnabled", A4PrePrintedEnabled },
                 { "a5PrePrintedEnabled", A5PrePrintedEnabled },
                 { "thermalPrinter", SelectedThermalPrinterFullName ?? "" },
                 { "officePrinter", SelectedOfficePrinterFullName ?? "" },
@@ -385,6 +410,13 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnSelectedOfficePrinterFullNameChanged(string? value) => UpdatePrinterWarning();
 
     [RelayCommand]
+    public void ResetA4PrePrintedLayoutToDefaults()
+    {
+        A4Layout.ApplyFrom(A4PrePrintedLayoutSettings.CreateDefault());
+        LastActionText = "A4 pre-printed alignment reset to defaults (save to persist).";
+    }
+
+    [RelayCommand]
     public void ResetA5PrePrintedLayoutToDefaults()
     {
         A5Layout.ApplyFrom(A5PrePrintedLayoutSettings.CreateDefault());
@@ -394,6 +426,14 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task PreviewReceiptSettingsAsync() =>
         await ShowReceiptSettingsPreviewAsync(isDuplicate: false);
+
+    [RelayCommand]
+    public void PreviewA4PrePrintedAlignment() =>
+        _ = ShowReceiptSettingsPreviewAsync(isDuplicate: false);
+
+    [RelayCommand]
+    public void PreviewA4PrePrintedDuplicateAlignment() =>
+        _ = ShowReceiptSettingsPreviewAsync(isDuplicate: true);
 
     [RelayCommand]
     public void PreviewA5PrePrintedAlignment() =>
@@ -410,10 +450,12 @@ public partial class SettingsViewModel : ObservableObject
             var store = BuildStoreProfileFromUi();
             var input = CreateSampleInvoiceInput(store, isDuplicate);
             var printFormat = ReceiptPrintFormat;
+            var isA4PrePrinted = printFormat == InvoicePrintFormat.A4 && A4PrePrintedEnabled;
             var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && A5PrePrintedEnabled;
             var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
             var dualPrint = isOfficeFormat && AlsoPrintThermalFirst;
-            var layout = A5Layout.ToSettings();
+            var a4Layout = A4Layout.ToSettings();
+            var a5Layout = A5Layout.ToSettings();
             var previewConfig = new ReceiptConfigDocument
             {
                 Store = store,
@@ -433,15 +475,19 @@ public partial class SettingsViewModel : ObservableObject
             {
                 var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
                 thermalDoc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
-                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA5PrePrinted, layout);
+                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA4PrePrinted, isA5PrePrinted, a4Layout, a5Layout);
+            }
+            else if (isA4PrePrinted)
+            {
+                doc = A4PrePrintedInvoiceDocumentBuilder.Create(input, a4Layout);
             }
             else if (isA5PrePrinted)
             {
-                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, layout);
+                doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, a5Layout);
             }
             else if (isOfficeFormat)
             {
-                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA5PrePrinted, layout);
+                doc = BuildSettingsPreviewInvoiceDocument(input, assets, printFormat, isA4PrePrinted, isA5PrePrinted, a4Layout, a5Layout);
             }
             else
             {
@@ -451,7 +497,9 @@ public partial class SettingsViewModel : ObservableObject
 
             var isA5 = printFormat == InvoicePrintFormat.A5;
             var isTaxInvoice = isOfficeFormat;
-            var title = isA5PrePrinted
+            var title = isA4PrePrinted
+                ? isDuplicate ? "A4 pre-printed duplicate layout" : "A4 pre-printed test layout"
+                : isA5PrePrinted
                 ? isDuplicate ? "A5 pre-printed duplicate layout" : "A5 pre-printed test layout"
                 : printFormat == InvoicePrintFormat.A4Commercial
                     ? "A4 commercial invoice preview"
@@ -489,9 +537,14 @@ public partial class SettingsViewModel : ObservableObject
         ThermalInvoiceInput input,
         ThermalReceiptAssets assets,
         InvoicePrintFormat printFormat,
+        bool isA4PrePrinted,
         bool isA5PrePrinted,
+        A4PrePrintedLayoutSettings? a4Layout,
         A5PrePrintedLayoutSettings? a5Layout)
     {
+        if (isA4PrePrinted)
+            return A4PrePrintedInvoiceDocumentBuilder.Create(input, a4Layout);
+
         if (isA5PrePrinted)
             return A5PrePrintedInvoiceDocumentBuilder.Create(input, a5Layout);
 
@@ -540,6 +593,7 @@ public partial class SettingsViewModel : ObservableObject
             CharWidth = ReceiptCharWidth,
             BillNo = "1916",
             BillDate = DateTime.Now.ToString("dd-MMM-yy").ToUpperInvariant(),
+            OrderNo = "ORD-1024",
             UserName = "MUBEEN",
             Time = DateTime.Now.ToString("HH:mm"),
             Counter = "01",

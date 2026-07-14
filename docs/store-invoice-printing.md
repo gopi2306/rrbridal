@@ -8,11 +8,12 @@ The WPF store billing app supports four bill print layouts, chosen in **Settings
 |--------|----------|--------|
 | **Thermal receipt (80mm)** | POS thermal printer (default) | ~80 mm roll |
 | **A4 retail invoice** | Office laser/inkjet — branded layout | A4 (210 × 297 mm) |
+| **A4 pre-printed (Bilal)** | Bilal Textiles wholesale stationery — values only | A4 (210 × 297 mm) |
 | **A4 commercial invoice** | Office laser/inkjet — plain GST/commercial layout | A4 (210 × 297 mm) |
 | **A5 retail invoice** | Office laser/inkjet (compact) | A5 (148 × 210 mm) |
 | **A5 pre-printed (values only)** | Pre-printed PAKEEZA-style stationery | A5 (148 × 210 mm) |
 
-Setting is stored locally in `%LocalAppData%\RRBridal\StoreBilling\receipt_config.json` under `print.printFormat` (`Thermal`, `A4`, `A4Commercial`, or `A5`), `print.a5PrePrintedEnabled`, `print.a5PrePrintedLayout` (mm alignment + font), and `print.alsoPrintThermalFirst`. It is **not** synced from central in v1.
+Setting is stored locally in `%LocalAppData%\RRBridal\StoreBilling\receipt_config.json` under `print.printFormat` (`Thermal`, `A4`, `A4Commercial`, or `A5`), `print.a4PrePrintedEnabled`, `print.a4PrePrintedLayout`, `print.a5PrePrintedEnabled`, `print.a5PrePrintedLayout` (mm alignment + font), and `print.alsoPrintThermalFirst`. It is **not** synced from central in v1.
 
 A4 and A5 (full template) share the same **branded retail invoice** layout: dark green patterned background, cream arched panel, centered store header, customer meta fields, 4-column line table (Description, Qty, Rate, Amount), optional **DISC %** / **DISCOUNT** footer rows (manual item + cash discounts only), terms footer, and signature line. A5 scales proportionally (~70.5% of A4 width).
 
@@ -28,6 +29,8 @@ A4 retail format remains single-page regardless of line count.
 
 **A4 commercial invoice:** Plain white A4 with bordered grid sections (seller, consignee/buyer, invoice meta, line table, amount in words, declaration, signatory). Line table columns: SI No, Description, HSN/SAC, Qty, Rate, per (NOS), Disc. %, Amount. The line table expands vertically to fill the page between the meta section and footer blocks. Bill-level discount appears as **Less : DISCOUNT**; totals show whole-bill qty and payable. Multi-page when more than **15 lines** (header/meta repeated; totals on last page only). No CGST/SGST/IGST columns in v1.
 
+**A4 pre-printed mode (Bilal Textiles):** When **A4 retail invoice** is selected and **Use pre-printed A4 paper — Bilal Textiles (values only)** is checked, the app prints **only bill data** on Bilal wholesale stationery (logo, borders, column headers, terms, and signatures are already on the paper). Tune mm alignment in **Settings → A4 pre-printed alignment (mm)**; use **Preview test layout** then **Save receipt settings**, then verify on physical Bilal paper via F10.
+
 **A5 pre-printed mode:** When **A5 tax invoice** is selected and **Use pre-printed A5 paper (values only)** is checked, the app prints **only bill data** (no background, labels, borders, or headers) at mm positions aligned to pre-printed form lines. Font family, body/total point sizes, and **BILL TO** max length are configurable in Settings (default font **Arial**, default **15** chars + `...` if longer). Tune alignment in **Settings → A5 pre-printed alignment (mm)**; use **Preview test layout** then **Save receipt settings**, then verify on physical PAKEEZA paper via F10.
 
 **Stitching** checkbox and **D/D delivery date** appear on full A4/A5 and pre-printed A5 when stitching is selected and a date is entered.
@@ -37,12 +40,12 @@ A4 retail format remains single-page regardless of line count.
 1. Open **Settings & sync** from the app.
 2. Under **Print format**, choose:
    - **Thermal receipt (80mm)** — existing monospace receipt; **Receipt width (characters)** applies (typically 48).
-   - **A4 retail invoice** — full branded layout on A4.
+   - **A4 retail invoice** — full branded layout on A4, or enable **Use pre-printed A4 paper — Bilal Textiles (values only)** for Bilal wholesale stationery.
    - **A4 commercial invoice** — plain bordered GST/commercial layout on A4.
    - **A5 retail invoice** — full branded layout on A5, or enable **Use pre-printed A5 paper (values only)** for branded stationery.
-3. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, **Lines per page** (multi-page chunk size), Total Qty alignment (page 1 only), **Continued** label text and column position, font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
+3. When pre-printed A4 (Bilal) is enabled, expand **A4 pre-printed alignment (mm)** to adjust billing box, bill no, date, 11-column table positions, footer total, lines per page, and font. When pre-printed A5 is enabled, expand **A5 pre-printed alignment (mm)** to adjust field positions, **Lines per page** (multi-page chunk size), Total Qty alignment (page 1 only), **Continued** label text and column position, font family, and bill-to truncation. Use **Reset to defaults** or **Preview test layout** as needed.
 4. When **A4**, **A4 commercial**, or **A5** is selected, optionally enable **Also print thermal receipt first (80mm)** to print the 80mm thermal receipt first, then the office invoice (two print jobs to separate printers).
-5. Set **Thermal receipt printer (80mm)** and **A4 / A5 invoice printer** (load matching paper in each tray). Pre-printed A5 uses the office invoice printer.
+5. Set **Thermal receipt printer (80mm)** and **A4 / A5 invoice printer** (load matching paper in each tray). Pre-printed A4 (Bilal) and A5 use the office invoice printer.
 6. Click **Save receipt settings**.
 
 Store name, address, contact, logo, and terms come from receipt settings (synced from central company master) and apply to full A4/A5 only—not pre-printed overlay mode.
@@ -69,6 +72,32 @@ Store name, address, contact, logo, and terms come from receipt settings (synced
 | Amount in words | INR … Only |
 | Declaration | Standard declaration + terms/policy lines |
 | Signatory | for {store name} / Authorised Signatory |
+
+## Pre-printed A4 (Bilal) — fields printed
+
+| Form area | Data printed |
+|-----------|--------------|
+| Billing address box | Customer name + phone (multiline) |
+| BILL NO value | Bill number |
+| DATE value | Bill date |
+| ORDER NO value | Order reference (`orderNo` on bill when set; blank otherwise) |
+| Table rows | SR, PARTICULAR, HSN, PCS, METER (blank v1), BASIC RATE, CD %, LESS %, TD %, NET RATE, AMOUNT |
+| Amount footer row | Payable total (last page) |
+| Continued (multi-page) | Configurable label (default **Continued**) in Particular column |
+
+| Column | Bill data source |
+|--------|------------------|
+| SR | Line number |
+| PARTICULAR | Description |
+| HSN | HSN code |
+| PCS | Qty |
+| METER | Blank (v1) |
+| BASIC RATE | Rate |
+| CD % | Cash discount % per line |
+| LESS % | Item discount % per line |
+| TD % | Scheme discount % per line |
+| NET RATE | Revised inclusive amount ÷ qty |
+| AMOUNT | Line inclusive total |
 
 ## Pre-printed A5 — fields printed
 
@@ -117,6 +146,7 @@ Flags and delivery date reset when starting a new bill after post/print.
 - Thermal: [`ThermalInvoiceTextBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/ThermalInvoiceTextBuilder.cs) + [`BillPrintService.CreateReceiptDocument`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/BillPrintService.cs)
 - A4 / A5 full: [`A4InvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A4InvoiceDocumentBuilder.cs) (A5-only pagination via [`InvoiceLinePagination`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/InvoiceLinePagination.cs))
 - A4 commercial: [`CommercialA4InvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/CommercialA4InvoiceDocumentBuilder.cs) + [`IndianAmountInWords`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/IndianAmountInWords.cs) + [`GstStateCodeResolver`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/GstStateCodeResolver.cs)
+- A4 pre-printed (Bilal): [`A4PrePrintedInvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A4PrePrintedInvoiceDocumentBuilder.cs) + [`A4PrePrintedLayoutSettings`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A4PrePrintedLayoutSettings.cs)
 - A5 pre-printed: [`A5PrePrintedInvoiceDocumentBuilder`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceDocumentBuilder.cs) + [`A5PrePrintedLayoutSettings`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedLayoutSettings.cs) (persisted) + [`A5PrePrintedInvoiceLayout`](../store-billing-wpf/src/RRBridal.StoreBilling.App/Services/Invoicing/A5PrePrintedInvoiceLayout.cs) (runtime resolver)
 
 ## Test checklist
