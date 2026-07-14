@@ -74,6 +74,10 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'Colour', index: true })
   colourId?: Types.ObjectId;
 
+  @ApiProperty({ required: false, description: 'Colour type master (1 Color / 2 Color / 3 Color)' })
+  @Prop({ type: Types.ObjectId, ref: 'ColourType', index: true })
+  colourTypeId?: Types.ObjectId;
+
   // ── Tax Information ──
 
   @ApiProperty({ required: false })

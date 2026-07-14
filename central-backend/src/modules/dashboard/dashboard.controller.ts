@@ -18,6 +18,7 @@ import { StoreDayCloseReportService } from './store-day-close-report.service';
 import { StoreSalesDashboardService } from './store-sales-dashboard.service';
 import { StoreVendorSalesDashboardService } from './store-vendor-sales-dashboard.service';
 import { StoreVendorsSalesReportService } from './store-vendors-sales-report.service';
+import { StoreBillMarginService } from './store-bill-margin.service';
 import { StoreOnlineSalesDashboardService } from './store-online-sales-dashboard.service';
 import { StoreSalesmenDashboardService } from './store-salesmen-dashboard.service';
 import { WarehouseDashboardService } from './warehouse-dashboard.service';
@@ -25,11 +26,13 @@ import type { StoreSalesDashboardOptions } from './store-sales-dashboard.types';
 import type { StoreVendorSalesDashboardOptions } from './store-vendor-sales-dashboard.types';
 import type { StoreVendorsSalesDashboardOptions } from './store-vendors-sales-dashboard.types';
 import type { StoreVendorsSalesReportOptions } from './store-vendors-sales-report.types';
+import type { StoreBillMarginOptions } from './store-bill-margin.types';
 import type { StoreDashboardOptions } from './store-dashboard.types';
 import type { StoreOnlineSalesDashboardOptions } from './store-online-sales-dashboard.types';
 import type { StoreSalesmanDashboardOptions, StoreSalesmenDashboardOptions } from './store-salesmen-dashboard.types';
 import type { WarehouseDashboardOptions } from './warehouse-dashboard.types';
 import { businessTodayParts } from './store-sales-payload.util';
+import { StoreBillMarginQueryDto } from './dto/store-bill-margin-query.dto';
 
 @ApiTags('dashboard')
 @Controller('dashboard')
@@ -41,6 +44,7 @@ export class DashboardController {
     private readonly storeSalesDashboardService: StoreSalesDashboardService,
     private readonly storeVendorSalesDashboardService: StoreVendorSalesDashboardService,
     private readonly storeVendorsSalesReportService: StoreVendorsSalesReportService,
+    private readonly storeBillMarginService: StoreBillMarginService,
     private readonly storeDayCloseDashboardService: StoreDayCloseDashboardService,
     private readonly storeDayCloseReportService: StoreDayCloseReportService,
     private readonly storeOnlineSalesDashboardService: StoreOnlineSalesDashboardService,
@@ -124,6 +128,21 @@ export class DashboardController {
       options.to = query.to;
     }
     return await this.storeSalesDashboardService.getStoreSalesDashboard(options);
+  }
+
+  @Get('store/sales/bill-margin')
+  async getStoreBillMargin(@Query() query: StoreBillMarginQueryDto) {
+    return await this.storeBillMarginService.getBillMargin(this.toBillMarginOptions(query));
+  }
+
+  @Get('store/sales/bill-margin/export')
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportStoreBillMargin(@Query() query: StoreBillMarginQueryDto, @Res() res: Response) {
+    const result = await this.storeBillMarginService.buildExport(this.toBillMarginOptions(query));
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(result.buffer);
   }
 
   @Get('store/online-sales')
@@ -314,6 +333,32 @@ export class DashboardController {
     }
     if (query.to !== undefined && query.to !== '') {
       options.to = query.to;
+    }
+    return options;
+  }
+
+  private toBillMarginOptions(query: StoreBillMarginQueryDto): StoreBillMarginOptions {
+    const cal = businessTodayParts();
+    const options: StoreBillMarginOptions = {
+      period: query.period ?? 'today',
+      year: query.year ?? cal.year,
+      month: query.month ?? cal.month,
+      limit: query.limit ?? 5000,
+    };
+    if (query.storeId !== undefined && query.storeId !== '') {
+      options.storeId = query.storeId;
+    }
+    if (query.from !== undefined && query.from !== '') {
+      options.from = query.from;
+    }
+    if (query.to !== undefined && query.to !== '') {
+      options.to = query.to;
+    }
+    if (query.salesmanId !== undefined && query.salesmanId !== '') {
+      options.salesmanId = query.salesmanId;
+    }
+    if (query.posCounter !== undefined && query.posCounter !== '') {
+      options.posCounter = query.posCounter;
     }
     return options;
   }

@@ -33,6 +33,7 @@ export interface ParsedProductImportRow {
   manufacturerName?: string;
   brandName?: string;
   colourName?: string;
+  colourTypeName?: string;
   productStatusName?: string;
   hsnName?: string;
   gstUomName?: string;

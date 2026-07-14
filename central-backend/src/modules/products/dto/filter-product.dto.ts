@@ -96,6 +96,11 @@ export class FilterProductDto {
   @IsOptional()
   colourId?: string;
 
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  colourTypeId?: string;
+
   // ── Tax Filters ──
 
   @ApiProperty({ required: false })

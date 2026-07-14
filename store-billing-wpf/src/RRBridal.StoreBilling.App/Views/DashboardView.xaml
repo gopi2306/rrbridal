@@ -787,6 +787,140 @@
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <TabItem Header="Bill margin">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,8,0,16">
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Bill-wise margin (ex GST)" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,8">
+                                    <TextBlock Text="Invoice no" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding FilterInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,4,8">
+                                    <TextBlock Text="Salesman" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding SalesmanFilterOptions}"
+                                              SelectedItem="{Binding SelectedSalesmanFilter}"
+                                              DisplayMemberPath="Label"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,0,8"
+                                            Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                    <TextBlock Text="Business date" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterBusinessDate}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                                    <CheckBox Content="Use date range" IsChecked="{Binding FilterUseDateRange}" Margin="0,18,0,4"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="4,0,0,0"
+                                            Visibility="{Binding FilterUseDateRange, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="From / To" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateFrom}" Width="130" Margin="0,0,8,0"/>
+                                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateTo}" Width="130"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                <Button Content="Export Excel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                        Command="{Binding DownloadBillMarginExcelCommand}"/>
+                                <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="100"
+                                        Command="{Binding LoadBillMarginCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <UniformGrid Margin="0,0,0,8"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="2"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="3"
+                                 ui:UniformGridColumnsBehavior.WideColumns="6">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginBillCountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Cost (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginTotalCostSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Selling (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginTotalSellingSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Discount (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginTotalDiscountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Margin amt (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginTotalMarginSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Margin %" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding BillMarginTotalMarginPercentSummary}" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock Text="{Binding BillMarginTotalsSummary}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding BillMarginStatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
+
+                    <Border Style="{StaticResource CardBorder}" Padding="8">
+                        <DataGrid ItemsSource="{Binding BillMarginRows}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  HeadersVisibility="Column"
+                                  MinHeight="280"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
+                                <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
+                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120"/>
+                                <DataGridTextColumn Header="Salesman" Binding="{Binding SalesmanDisplay}" Width="130"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55"/>
+                                <DataGridTextColumn Header="Cost (ex GST)" Binding="{Binding CostPriceFormatted}" Width="100"/>
+                                <DataGridTextColumn Header="Selling (ex GST)" Binding="{Binding SellingPriceFormatted}" Width="110"/>
+                                <DataGridTextColumn Header="Discount (ex GST)" Binding="{Binding DiscountFormatted}" Width="110"/>
+                                <DataGridTextColumn Header="Margin %" Binding="{Binding MarginPercentFormatted}" Width="80"/>
+                                <DataGridTextColumn Header="Margin amt (ex GST)" Binding="{Binding MarginAmountFormatted}" Width="120"/>
+                                <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedDisplay}" Width="70"/>
+                                <DataGridTextColumn Header="Return no" Binding="{Binding ReturnNo}" Width="100"/>
+                                <DataGridTextColumn Header="Adjusted" Binding="{Binding AdjustmentDisplay}" Width="80"/>
+                                <DataGridTextColumn Header="Adjustment no" Binding="{Binding AdjustmentNo}" Width="110"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>

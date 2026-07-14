@@ -8,6 +8,7 @@ import { Brand, BrandDocument } from '../../brands/schemas/brand.schema';
 import { Category, CategoryDocument } from '../../categories/schemas/category.schema';
 import { CategoriesService } from '../../categories/categories.service';
 import { Colour, ColourDocument } from '../../colours/schemas/colour.schema';
+import { ColourType, ColourTypeDocument } from '../../colour-types/schemas/colour-type.schema';
 import { Department, DepartmentDocument } from '../../departments/schemas/department.schema';
 import { GstUom, GstUomDocument } from '../../gst-uoms/schemas/gst-uom.schema';
 import { HsnCode, HsnCodeDocument } from '../../hsn-codes/schemas/hsn-code.schema';
@@ -44,6 +45,7 @@ export class MasterLookupService {
     @InjectModel(Manufacturer.name) private readonly manufacturerModel: Model<ManufacturerDocument>,
     @InjectModel(Brand.name) private readonly brandModel: Model<BrandDocument>,
     @InjectModel(Colour.name) private readonly colourModel: Model<ColourDocument>,
+    @InjectModel(ColourType.name) private readonly colourTypeModel: Model<ColourTypeDocument>,
     @InjectModel(ProductStatus.name) private readonly productStatusModel: Model<ProductStatusDocument>,
     @InjectModel(HsnCode.name) private readonly hsnCodeModel: Model<HsnCodeDocument>,
     @InjectModel(GstUom.name) private readonly gstUomModel: Model<GstUomDocument>,
@@ -388,6 +390,13 @@ export class MasterLookupService {
       ),
       brandId: await this.resolveCodeMaster('Brand', this.brandModel, 'brand-', row.brandName, createMissing),
       colourId: await this.resolveCodeMaster('Colour', this.colourModel, 'clr-', row.colourName, createMissing),
+      colourTypeId: await this.resolveCodeMaster(
+        'ColourType',
+        this.colourTypeModel,
+        'ct-',
+        row.colourTypeName,
+        createMissing,
+      ),
       productStatusId: await this.resolveCodeMaster(
         'ProductStatus',
         this.productStatusModel,

@@ -9,10 +9,10 @@ export type GrnAutoTransferHistoryDocument = HydratedDocument<GrnAutoTransferHis
 @Schema({ timestamps: true, collection: 'grn_auto_transfer_histories' })
 export class GrnAutoTransferHistory {
   @ApiProperty({ description: 'Source posted goods receipt' })
-  @Prop({ type: Types.ObjectId, ref: 'GoodsReceipt', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: 'GoodsReceipt', required: true })
   goodsReceiptId!: Types.ObjectId;
 
-  @ApiProperty({ description: 'Linked stock transfer document' })
+  @ApiProperty({ description: 'Linked stock transfer dobcument' })
   @Prop({ type: Types.ObjectId, ref: 'StockTransfer', required: true, index: true })
   stockTransferId!: Types.ObjectId;
 

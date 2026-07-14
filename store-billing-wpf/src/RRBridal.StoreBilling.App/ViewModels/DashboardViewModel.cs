@@ -55,6 +55,7 @@ public partial class DashboardViewModel : ObservableObject
     private readonly ShellBrandingService _shellBranding;
     private readonly SalesmanSalesAggregationService _salesmanAggregation;
     private readonly StockSalesAggregationService _stockSalesAggregation;
+    private readonly BillMarginAggregationService _billMarginAggregation;
     private bool _suppressFilterRefresh;
 
     [ObservableProperty] private string _storeIdDisplay = "";
@@ -202,6 +203,17 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _billListStatusMessage = "";
     [ObservableProperty] private string _billListTotalsSummary = "";
 
+    public ObservableCollection<BillMarginRow> BillMarginRows { get; } = new();
+
+    [ObservableProperty] private string _billMarginStatusMessage = "";
+    [ObservableProperty] private string _billMarginTotalsSummary = "";
+    [ObservableProperty] private string _billMarginBillCountSummary = "—";
+    [ObservableProperty] private string _billMarginTotalCostSummary = "—";
+    [ObservableProperty] private string _billMarginTotalSellingSummary = "—";
+    [ObservableProperty] private string _billMarginTotalDiscountSummary = "—";
+    [ObservableProperty] private string _billMarginTotalMarginSummary = "—";
+    [ObservableProperty] private string _billMarginTotalMarginPercentSummary = "—";
+
     [ObservableProperty] private StockSalesViewMode _stockSalesViewMode = StockSalesViewMode.BrandWise;
 
     [ObservableProperty] private string _filterStockProductSearch = "";
@@ -261,6 +273,7 @@ public partial class DashboardViewModel : ObservableObject
         _shellBranding = services.ShellBranding;
         _salesmanAggregation = new SalesmanSalesAggregationService(services.LocalDb);
         _stockSalesAggregation = new StockSalesAggregationService(services.LocalDb);
+        _billMarginAggregation = new BillMarginAggregationService(services.LocalDb);
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
         SelectedPosCounterFilter = PosCounterFilterOptions[0];
         SalesmanFilterOptions.Add(SalesmanFilterOption.All);
@@ -321,6 +334,7 @@ public partial class DashboardViewModel : ObservableObject
 
             await LoadDayCloseAsync(storeId, posFilter);
             await LoadSalesmanSummaryAsync();
+            await LoadBillMargin();
         }
         catch (Exception ex)
         {
@@ -364,6 +378,7 @@ public partial class DashboardViewModel : ObservableObject
             _suppressFilterRefresh = false;
             _ = LoadSalesmanBillsAsync();
             _ = LoadBillList();
+            _ = LoadBillMargin();
             return;
         }
 
@@ -384,6 +399,7 @@ public partial class DashboardViewModel : ObservableObject
         }
 
         _ = LoadBillList();
+        _ = LoadBillMargin();
     }
 
     [RelayCommand]
@@ -879,6 +895,90 @@ public partial class DashboardViewModel : ObservableObject
         catch (Exception ex)
         {
             MessageBox.Show("Export failed: " + ex.Message, "All bills", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadBillMargin()
+    {
+        BillMarginStatusMessage = "Loading bill margin…";
+        try
+        {
+            var query = new BillMarginQuery
+            {
+                InvoiceNo = string.IsNullOrWhiteSpace(FilterInvoiceNo) ? null : FilterInvoiceNo.Trim(),
+                BusinessDate = FilterUseDateRange ? null : FilterBusinessDate,
+                UseDateRange = FilterUseDateRange,
+                DateFrom = FilterUseDateRange ? FilterDateFrom : null,
+                DateTo = FilterUseDateRange ? FilterDateTo : null,
+                PosCounterFilter = SelectedPosCounterFilter?.PosCounter,
+                SalesmanGroupKey = string.IsNullOrWhiteSpace(FilterSalesmanGroupKey) ? null : FilterSalesmanGroupKey,
+                SalesmanCode = string.IsNullOrWhiteSpace(FilterSalesmanCode) ? null : FilterSalesmanCode,
+            };
+
+            var snap = await _billMarginAggregation.LoadAsync(_storeContext.StoreId, query);
+
+            BillMarginRows.Clear();
+            foreach (var row in snap.Rows)
+                BillMarginRows.Add(row);
+
+            BillMarginBillCountSummary = snap.Rows.Count.ToString(InCulture);
+            BillMarginTotalCostSummary = MoneyMath.FormatRupee(snap.TotalCost);
+            BillMarginTotalSellingSummary = MoneyMath.FormatRupee(snap.TotalSelling);
+            BillMarginTotalDiscountSummary = MoneyMath.FormatRupee(snap.TotalDiscount);
+            BillMarginTotalMarginSummary = MoneyMath.FormatRupee(snap.TotalMargin);
+            BillMarginTotalMarginPercentSummary =
+                snap.TotalMarginPercent.ToString("N2", InCulture) + "%";
+
+            BillMarginTotalsSummary =
+                $"{snap.Rows.Count} bill(s) · Cost {MoneyMath.FormatRupee(snap.TotalCost)} · " +
+                $"Selling {MoneyMath.FormatRupee(snap.TotalSelling)} · Discount {MoneyMath.FormatRupee(snap.TotalDiscount)} · " +
+                $"Margin {MoneyMath.FormatRupee(snap.TotalMargin)} ({snap.TotalMarginPercent:N2}%)";
+
+            var dateLabel = FilterUseDateRange
+                ? $"{FilterDateFrom:dd-MMM-yyyy} – {FilterDateTo:dd-MMM-yyyy}"
+                : FilterBusinessDate.ToString("dd-MMM-yyyy", InCulture);
+            var trunc = snap.WasTruncated ? $" (showing first {snap.Rows.Count} of {snap.TotalMatched})" : "";
+            BillMarginStatusMessage = $"Updated {DateTime.Now:T} · {dateLabel} · amounts ex GST{trunc}";
+        }
+        catch (Exception ex)
+        {
+            BillMarginStatusMessage = "Could not load bill margin: " + ex.Message;
+            BillMarginTotalsSummary = "";
+            BillMarginBillCountSummary = "—";
+            BillMarginTotalCostSummary = "—";
+            BillMarginTotalSellingSummary = "—";
+            BillMarginTotalDiscountSummary = "—";
+            BillMarginTotalMarginSummary = "—";
+            BillMarginTotalMarginPercentSummary = "—";
+        }
+    }
+
+    [RelayCommand]
+    private void DownloadBillMarginExcel()
+    {
+        if (BillMarginRows.Count == 0)
+        {
+            MessageBox.Show("No rows to export. Run Search first.", "Bill margin", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "Excel workbook (*.xlsx)|*.xlsx",
+            FileName = $"bill-margin-{DateTime.Now:yyyyMMdd-HHmm}.xlsx",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            BillMarginExcelExporter.ExportToFile(dlg.FileName, BillMarginRows.ToList());
+            BillMarginStatusMessage = $"Exported {BillMarginRows.Count} row(s) to {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Export failed: " + ex.Message, "Bill margin", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

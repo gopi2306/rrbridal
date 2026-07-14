@@ -7,6 +7,7 @@ import { Brand, BrandSchema } from '../brands/schemas/brand.schema';
 import { CategoriesModule } from '../categories/categories.module';
 import { Category, CategorySchema } from '../categories/schemas/category.schema';
 import { Colour, ColourSchema } from '../colours/schemas/colour.schema';
+import { ColourType, ColourTypeSchema } from '../colour-types/schemas/colour-type.schema';
 import { Department, DepartmentSchema } from '../departments/schemas/department.schema';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 import { GstUom, GstUomSchema } from '../gst-uoms/schemas/gst-uom.schema';
@@ -50,6 +51,7 @@ import { ProductsService } from './products.service';
       { name: Manufacturer.name, schema: ManufacturerSchema },
       { name: Brand.name, schema: BrandSchema },
       { name: Colour.name, schema: ColourSchema },
+      { name: ColourType.name, schema: ColourTypeSchema },
       { name: ProductStatus.name, schema: ProductStatusSchema },
       { name: HsnCode.name, schema: HsnCodeSchema },
       { name: GstUom.name, schema: GstUomSchema },

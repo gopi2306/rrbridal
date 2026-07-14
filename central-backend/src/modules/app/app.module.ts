@@ -29,6 +29,7 @@ import { WeightUnitsModule } from '../weight-units/weight-units.module';
 import { OfferGroupsModule } from '../offer-groups/offer-groups.module';
 import { ProductStatusesModule } from '../product-statuses/product-statuses.module';
 import { ColoursModule } from '../colours/colours.module';
+import { ColourTypesModule } from '../colour-types/colour-types.module';
 import { HsnCodesModule } from '../hsn-codes/hsn-codes.module';
 import { GstUomsModule } from '../gst-uoms/gst-uoms.module';
 import { UomSubsModule } from '../uom-subs/uom-subs.module';
@@ -99,6 +100,7 @@ import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-labe
     OfferGroupsModule,
     ProductStatusesModule,
     ColoursModule,
+    ColourTypesModule,
     HsnCodesModule,
     GstUomsModule,
     UomSubsModule,

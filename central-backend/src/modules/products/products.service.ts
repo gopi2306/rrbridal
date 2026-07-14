@@ -315,6 +315,7 @@ export class ProductsService {
       'offerGroupId',
       'productStatusId',
       'colourId',
+      'colourTypeId',
       'hsnCodeId',
       'gstUomId',
       'uomSubId',

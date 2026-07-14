@@ -80,6 +80,7 @@ export const PRODUCT_REF_OBJECT_ID_FIELDS = [
   'offerGroupId',
   'productStatusId',
   'colourId',
+  'colourTypeId',
   'hsnCodeId',
   'gstUomId',
   'uomSubId',

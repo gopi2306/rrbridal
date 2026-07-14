@@ -99,6 +99,11 @@ export class CreateProductDto {
   @IsOptional()
   colourId?: string;
 
+  @ApiProperty({ required: false, description: 'Colour type master id (1/2/3 Color)' })
+  @IsString()
+  @IsOptional()
+  colourTypeId?: string;
+
   // ── Tax Information ──
 
   @ApiProperty({ required: false })
