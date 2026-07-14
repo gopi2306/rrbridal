@@ -84,6 +84,13 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
     [ObservableProperty] private bool _billingAlterationGstIncluded;
     [ObservableProperty] private BillingLineItemDetailLevel _billingLineItemDetailLevel = BillingLineItemDetailLevel.Full;
+    [ObservableProperty] private bool _billingEnableCreditBilling = true;
+    [ObservableProperty] private bool _billingCreditRequireCreditCustomer = true;
+    [ObservableProperty] private string _billingCreditMinAdvancePercentText = "0";
+    [ObservableProperty] private string _billingCreditMinAdvanceAmountText = "0";
+    [ObservableProperty] private bool _billingCreditAllowZeroAdvance = true;
+    [ObservableProperty] private bool _billingCreditAllowPartialCollection = true;
+    [ObservableProperty] private string _billingCreditMaxBalancePerBillText = "0";
 
     [ObservableProperty] private bool _razorpayPosEnabled;
     [ObservableProperty] private string _razorpayPosUsername = "";
@@ -804,11 +811,21 @@ public partial class SettingsViewModel : ObservableObject
         BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
         BillingAlterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
         BillingLineItemDetailLevel = _services.PosBillingSettings.Current.LineItemDetailLevel;
+        BillingEnableCreditBilling = _services.PosBillingSettings.Current.EnableCreditBilling;
+        BillingCreditRequireCreditCustomer = _services.PosBillingSettings.Current.CreditBillingRequireCreditCustomer;
+        BillingCreditMinAdvancePercentText = _services.PosBillingSettings.Current.CreditBillingMinimumAdvancePercent.ToString("0.##");
+        BillingCreditMinAdvanceAmountText = _services.PosBillingSettings.Current.CreditBillingMinimumAdvanceAmount.ToString("0.##");
+        BillingCreditAllowZeroAdvance = _services.PosBillingSettings.Current.CreditBillingAllowZeroAdvance;
+        BillingCreditAllowPartialCollection = _services.PosBillingSettings.Current.CreditBillingAllowPartialCollection;
+        BillingCreditMaxBalancePerBillText = _services.PosBillingSettings.Current.CreditBillingMaxBalancePerBill.ToString("0.##");
     }
 
     [RelayCommand]
     public async Task SaveBillingSettingsAsync()
     {
+        decimal.TryParse(BillingCreditMinAdvancePercentText, out var minPct);
+        decimal.TryParse(BillingCreditMinAdvanceAmountText, out var minAmt);
+        decimal.TryParse(BillingCreditMaxBalancePerBillText, out var maxBal);
         _services.PosBillingSettings.Update(s =>
         {
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
@@ -817,6 +834,13 @@ public partial class SettingsViewModel : ObservableObject
             s.AllowMultipleReturnsPerBill = BillingAllowMultipleReturnsPerBill;
             s.AlterationGstIncluded = BillingAlterationGstIncluded;
             s.LineItemDetailLevel = BillingLineItemDetailLevel;
+            s.EnableCreditBilling = BillingEnableCreditBilling;
+            s.CreditBillingRequireCreditCustomer = BillingCreditRequireCreditCustomer;
+            s.CreditBillingMinimumAdvancePercent = Math.Max(0m, minPct);
+            s.CreditBillingMinimumAdvanceAmount = Math.Max(0m, minAmt);
+            s.CreditBillingAllowZeroAdvance = BillingCreditAllowZeroAdvance;
+            s.CreditBillingAllowPartialCollection = BillingCreditAllowPartialCollection;
+            s.CreditBillingMaxBalancePerBill = Math.Max(0m, maxBal);
         });
         await _services.PosBillingSettings.SaveAsync();
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
@@ -835,6 +859,13 @@ public partial class SettingsViewModel : ObservableObject
                 { "allowMultipleReturnsPerBill", BillingAllowMultipleReturnsPerBill },
                 { "alterationGstIncluded", BillingAlterationGstIncluded },
                 { "lineItemDetailLevel", BillingLineItemDetailLevel.ToString() },
+                { "enableCreditBilling", BillingEnableCreditBilling },
+                { "creditBillingRequireCreditCustomer", BillingCreditRequireCreditCustomer },
+                { "creditBillingMinimumAdvancePercent", (double)Math.Max(0m, minPct) },
+                { "creditBillingMinimumAdvanceAmount", (double)Math.Max(0m, minAmt) },
+                { "creditBillingAllowZeroAdvance", BillingCreditAllowZeroAdvance },
+                { "creditBillingAllowPartialCollection", BillingCreditAllowPartialCollection },
+                { "creditBillingMaxBalancePerBill", (double)Math.Max(0m, maxBal) },
             },
         });
         LastActionText = "Billing settings saved.";

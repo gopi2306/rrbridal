@@ -933,6 +933,30 @@
                                           IsChecked="{Binding BillingAllowMultipleReturnsPerBill}" Margin="0,0,0,4"/>
                                 <TextBlock Text="When on, items fully returned in a prior transaction cannot be selected again; remaining quantity can be returned in a new transaction."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <TextBlock Text="Credit billing (pay later)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Allow advance at post with remaining balance collected later. Conditions apply in Payment dialog and Credit Bills page."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <CheckBox Content="Enable bill on credit"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingEnableCreditBilling}" Margin="0,0,0,8"/>
+                                <CheckBox Content="Require credit customer flag"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingCreditRequireCreditCustomer}" Margin="0,0,0,8"/>
+                                <CheckBox Content="Allow zero advance (full amount on credit)"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingCreditAllowZeroAdvance}" Margin="0,0,0,8"/>
+                                <CheckBox Content="Allow partial collection after post"
+                                          Style="{StaticResource ThemedCheckBox}"
+                                          IsChecked="{Binding BillingCreditAllowPartialCollection}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Minimum advance %" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}"
+                                         Text="{Binding BillingCreditMinAdvancePercentText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Minimum advance amount (₹)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}"
+                                         Text="{Binding BillingCreditMinAdvanceAmountText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Max balance per bill (₹, 0 = no limit)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}"
+                                         Text="{Binding BillingCreditMaxBalancePerBillText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
                                 <TextBlock Text="Alteration amount" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                 <CheckBox Content="Alteration amount is GST inclusive"
                                           Style="{StaticResource ThemedCheckBox}"

@@ -158,6 +158,64 @@ public sealed class BillingOutboxPublisher
         return EnqueueAsync("InvoiceCodPaymentReceived", payload, hash, ct);
     }
 
+    public Task<string> PublishInvoiceCreditPaymentReceivedAsync(
+        BsonDocument billDoc,
+        BsonDocument receiptDoc,
+        CancellationToken ct = default)
+    {
+        var payload = new BsonDocument
+        {
+            { "billNo", billDoc.GetValue("billNo", "").AsString },
+            { "storeId", billDoc.GetValue("storeId", "").AsString },
+            { "customerName", billDoc.GetValue("customerName", "").AsString },
+            { "customerPhone", billDoc.GetValue("customerPhone", "").AsString },
+            { "creditBilling", billDoc.GetValue("creditBilling", new BsonDocument()).DeepClone() },
+            { "payments", billDoc.GetValue("payments", new BsonArray()).DeepClone() },
+            { "paymentMode", billDoc.GetValue("paymentMode", "").AsString },
+            { "payable", billDoc.GetValue("payable", 0) },
+            { "receipt", receiptDoc.DeepClone() },
+        };
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("InvoiceCreditPaymentReceived", payload, hash, ct);
+    }
+
+    public Task<string> PublishQuotationUpsertedAsync(BsonDocument quotationDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)quotationDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("QuotationUpserted", payload, hash, ct);
+    }
+
+    public Task<string> PublishQuotationConvertedAsync(
+        string quotationNo,
+        string billNo,
+        BsonDocument? quotationSnapshot = null,
+        CancellationToken ct = default)
+    {
+        var payload = quotationSnapshot != null
+            ? (BsonDocument)quotationSnapshot.DeepClone()
+            : new BsonDocument();
+        payload["quotationNo"] = quotationNo.Trim();
+        payload["convertedBillNo"] = billNo.Trim();
+        payload["status"] = "converted";
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("QuotationConverted", payload, hash, ct);
+    }
+
+    public Task<string> PublishQuotationCancelledAsync(
+        string quotationNo,
+        BsonDocument? quotationSnapshot = null,
+        CancellationToken ct = default)
+    {
+        var payload = quotationSnapshot != null
+            ? (BsonDocument)quotationSnapshot.DeepClone()
+            : new BsonDocument();
+        payload["quotationNo"] = quotationNo.Trim();
+        payload["status"] = "cancelled";
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("QuotationCancelled", payload, hash, ct);
+    }
+
     public Task<string> PublishInventoryAdjustmentCreatedAsync(
         string adjustmentNo,
         string reason,

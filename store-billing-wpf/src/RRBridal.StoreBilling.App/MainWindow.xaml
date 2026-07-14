@@ -164,8 +164,17 @@
             <Grid Visibility="{Binding IsOnlineSalesPage, Converter={StaticResource BoolToVis}}">
                 <views:OnlineSalesView DataContext="{Binding OnlineSales}"/>
             </Grid>
+            <Grid Visibility="{Binding IsQuotationPage, Converter={StaticResource BoolToVis}}">
+                <views:QuotationView DataContext="{Binding Quotation}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsQuotationManagementPage, Converter={StaticResource BoolToVis}}">
+                <views:QuotationManagementView DataContext="{Binding QuotationManagement}"/>
+            </Grid>
+            <Grid Visibility="{Binding IsCreditBillsPage, Converter={StaticResource BoolToVis}}">
+                <views:CreditBillsView DataContext="{Binding CreditBills}"/>
+            </Grid>
             <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
-                <views:CustomerRegistrationView DataContext="{Binding CustomersRegistration}"/>
+                <views:CustomersView DataContext="{Binding Customers}"/>
             </Grid>
             <Grid Visibility="{Binding IsSalesmenPage, Converter={StaticResource BoolToVis}}">
                 <views:SalesmanView DataContext="{Binding Salesmen}"/>
@@ -259,6 +268,12 @@
                         <controls:NavDrawerItem Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
+                        <controls:NavDrawerItem Label="Quotation" Page="{x:Static vm:ShellPage.Quotation}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Quotation}}"/>
+                        <controls:NavDrawerItem Label="Quotations" Page="{x:Static vm:ShellPage.QuotationManagement}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.QuotationManagement}}"/>
                         <controls:NavDrawerItem Label="Barcodes" Page="{x:Static vm:ShellPage.Barcodes}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
@@ -274,6 +289,10 @@
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
+                        <controls:NavDrawerItem Label="Credit Bills" Page="{x:Static vm:ShellPage.CreditBills}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowCreditBillsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.CreditBills}}"/>
                         <controls:NavDrawerItem Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>

@@ -386,8 +386,18 @@ export function classifyPaymentProvider(provider: string): PaymentModeBucket {
   if (p === 'cash') return 'Cash';
   if (p === 'pinelabs' || p.includes('pine') || p === 'card') return 'Card';
   if (p === 'razorpay' || p.includes('razor') || p === 'upi') return 'UPI';
-  if (p === 'creditnote' || p.includes('credit')) return 'Credit';
+  if (p === 'creditnote' || p === 'credit_note') return 'Credit';
   return 'Other';
+}
+
+/** Pay-later credit billing with an outstanding balance (not return credit notes). */
+export function isCreditBillingOpen(payload: Record<string, unknown>): boolean {
+  const cb = payload.creditBilling;
+  if (!cb || typeof cb !== 'object') return false;
+  const row = cb as Record<string, unknown>;
+  const status = (readString(row.status) ?? '').toLowerCase();
+  const balanceDue = readNumber(row.balanceDue);
+  return (status === 'pending' || status === 'partial') && balanceDue > 0.009;
 }
 
 export function normalizePaymentMode(provider: string): string {
@@ -454,6 +464,7 @@ function addPaymentToTotals(totals: PaymentTotals, mode: PaymentModeBucket, amou
 }
 
 function resolveSparsePaymentMode(payload: Record<string, unknown>): PaymentModeBucket {
+  if (isCreditBillingOpen(payload)) return 'Other';
   const mode = classifyPaymentProvider(readString(payload.paymentMode) ?? '');
   return mode === 'Other' ? 'Cash' : mode;
 }
@@ -496,14 +507,14 @@ export function parsePaymentTotals(payload: Record<string, unknown>): PaymentTot
     } else if (targetTotal > 0) {
       addMissingCreditApplied(totals, creditApplied);
       const remaining = roundMoney(targetTotal - sumPaymentTotals(totals));
-      if (remaining > 0) {
+      if (remaining > 0 && !isCreditBillingOpen(payload)) {
         addPaymentToTotals(totals, resolveSparsePaymentMode(payload), remaining);
       }
     }
   } else {
     addMissingCreditApplied(totals, creditApplied);
     const gap = roundMoney(targetTotal - sumPaymentTotals(totals));
-    if (gap > 0.01) {
+    if (gap > 0.01 && !isCreditBillingOpen(payload)) {
       addPaymentToTotals(totals, resolveSparsePaymentMode(payload), gap);
     }
   }

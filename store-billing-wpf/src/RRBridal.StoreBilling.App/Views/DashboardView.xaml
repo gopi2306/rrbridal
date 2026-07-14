@@ -75,6 +75,16 @@
                                             Command="{Binding OpenOnlineSalesPageCommand}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
+                            <Border Style="{StaticResource MetricCard}" Margin="4,0" BorderBrush="{StaticResource BrushAccent}">
+                                <StackPanel>
+                                    <TextBlock Text="Pending credit bills" Style="{StaticResource TextCaption}"/>
+                                    <TextBlock Text="{Binding CreditPendingBalanceSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CreditPendingCountSummary, StringFormat={}{0} open}" FontSize="12"
+                                               Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                    <Button Content="Credit bills" Style="{StaticResource OutlineButton}" Margin="0,8,0,0" Padding="8,4"
+                                            Command="{Binding OpenCreditBillsPageCommand}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="4,0">
                                 <StackPanel>
                                     <TextBlock Text="Pending outbox" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
@@ -109,6 +119,28 @@
                                     <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="130"/>
                                     <DataGridTextColumn Header="Posted (UTC)" Binding="{Binding CreatedAtDisplay}" Width="*"/>
                                     <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="110"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <TextBlock Text="Pending credit bills" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{StaticResource BrushText}"/>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="8">
+                            <DataGrid ItemsSource="{Binding PendingCreditBills}"
+                                      Style="{StaticResource ThemedDataGrid}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      HeadersVisibility="Column"
+                                      MaxHeight="220"
+                                      MouseDoubleClick="PendingCreditBills_OnMouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="130"/>
+                                    <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                                    <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="110"/>
+                                    <DataGridTextColumn Header="Payable" Binding="{Binding TotalPayable, StringFormat=₹ {0:N2}}" Width="90"/>
+                                    <DataGridTextColumn Header="Advance" Binding="{Binding AdvancePaid, StringFormat=₹ {0:N2}}" Width="90"/>
+                                    <DataGridTextColumn Header="Balance" Binding="{Binding BalanceDue, StringFormat=₹ {0:N2}}" Width="90"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>

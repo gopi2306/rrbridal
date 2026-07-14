@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Views;
@@ -23,9 +24,17 @@ public partial class ShellViewModel : ObservableObject
 
     public OnlineSalesViewModel OnlineSales { get; }
 
+    public QuotationViewModel Quotation { get; }
+
+    public QuotationManagementViewModel QuotationManagement { get; }
+
+    public CreditBillsViewModel CreditBills { get; }
+
     public LedgerViewModel Ledger { get; }
 
     public CustomerRegistrationViewModel CustomersRegistration { get; }
+
+    public CustomersViewModel Customers { get; }
 
     public SalesmanViewModel Salesmen { get; }
 
@@ -94,6 +103,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool ShowOnlineSalesNav => IsPrimaryCounter;
 
+    public bool ShowCreditBillsNav => IsPrimaryCounter;
+
     public bool ShowLedgerNav => IsPrimaryCounter;
 
     public bool ShowSettingsNav => IsPrimaryCounter;
@@ -117,7 +128,11 @@ public partial class ShellViewModel : ObservableObject
     {
         _services = services;
         Billing = new BillingViewModel(services);
-        Billing.NavigateToCustomerRegistration = () => CurrentPage = ShellPage.Customers;
+        Billing.NavigateToCustomerRegistration = () =>
+        {
+            CurrentPage = ShellPage.Customers;
+            Customers.StartNewRegistration();
+        };
         Billing.NavigateToSalesmen = () => CurrentPage = ShellPage.Salesmen;
         Billing.PostBillCanExecuteChanged += () => PostBillCommand.NotifyCanExecuteChanged();
         Dashboard = new DashboardViewModel(services);
@@ -134,9 +149,22 @@ public partial class ShellViewModel : ObservableObject
             _ = AdjustmentBill.LoadBillByNoAsync(billNo ?? "");
         };
         Dashboard.NavigateToOnlineSales = () => CurrentPage = ShellPage.OnlineSales;
+        Dashboard.NavigateToCreditBills = () => CurrentPage = ShellPage.CreditBills;
         Analytics = new AnalyticsViewModel(services);
         OnlineSales = new OnlineSalesViewModel(services);
+        Quotation = new QuotationViewModel(services);
+        Quotation.Editor.NavigateToCustomerRegistration = () =>
+        {
+            CurrentPage = ShellPage.Customers;
+            Customers.StartNewRegistration();
+        };
+        Quotation.Editor.NavigateToSalesmen = () => CurrentPage = ShellPage.Salesmen;
+        QuotationManagement = new QuotationManagementViewModel(services);
+        QuotationManagement.OpenQuotation = quotationNo => _ = OpenQuotationAsync(quotationNo);
+        QuotationManagement.ConvertQuotationToBilling = quotationNo => _ = ConvertQuotationToBillingAsync(quotationNo);
+        CreditBills = new CreditBillsViewModel(services);
         Ledger = new LedgerViewModel(services);
+        Customers = new CustomersViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         CustomersRegistration = new CustomerRegistrationViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
         Salesmen = new SalesmanViewModel(services);
         SaleReturn = new SaleReturnViewModel(services);
@@ -161,7 +189,8 @@ public partial class ShellViewModel : ObservableObject
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
-        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.OnlineSales or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
+        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.OnlineSales or ShellPage.CreditBills
+            or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
 
     private void OnBrandingChanged()
     {
@@ -193,6 +222,9 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
+        OnPropertyChanged(nameof(IsQuotationPage));
+        OnPropertyChanged(nameof(IsQuotationManagementPage));
+        OnPropertyChanged(nameof(IsCreditBillsPage));
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsSalesmenPage));
         OnPropertyChanged(nameof(IsLedgerPage));
@@ -207,6 +239,39 @@ public partial class ShellViewModel : ObservableObject
     }
 
     private void NotifyPageVisibility() => EnsurePageVisibilityFresh();
+
+    private async Task OpenQuotationAsync(string quotationNo)
+    {
+        var doc = await _services.Quotations.GetByQuotationNoAsync(quotationNo);
+        if (doc == null)
+        {
+            MessageBox.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        Quotation.LoadDocument(doc);
+        CurrentPage = ShellPage.Quotation;
+    }
+
+    private async Task ConvertQuotationToBillingAsync(string quotationNo)
+    {
+        var doc = await _services.Quotations.GetByQuotationNoAsync(quotationNo);
+        if (doc == null)
+        {
+            MessageBox.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var status = doc.GetValue("status", "").AsString;
+        if (!string.Equals(status, QuotationService.StatusOpen, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("Only open quotations can be converted.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        Billing.LoadFromQuotationDocument(doc);
+        CurrentPage = ShellPage.Billing;
+    }
 
     public async Task RefreshNotificationCountAsync()
     {
@@ -227,6 +292,12 @@ public partial class ShellViewModel : ObservableObject
     public bool IsAnalyticsPage => CurrentPage == ShellPage.Analytics;
 
     public bool IsOnlineSalesPage => CurrentPage == ShellPage.OnlineSales;
+
+    public bool IsQuotationPage => CurrentPage == ShellPage.Quotation;
+
+    public bool IsQuotationManagementPage => CurrentPage == ShellPage.QuotationManagement;
+
+    public bool IsCreditBillsPage => CurrentPage == ShellPage.CreditBills;
 
     public bool IsCustomersPage => CurrentPage == ShellPage.Customers;
 
@@ -283,6 +354,9 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
+        OnPropertyChanged(nameof(IsQuotationPage));
+        OnPropertyChanged(nameof(IsQuotationManagementPage));
+        OnPropertyChanged(nameof(IsCreditBillsPage));
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsSalesmenPage));
         OnPropertyChanged(nameof(IsLedgerPage));
@@ -304,8 +378,14 @@ public partial class ShellViewModel : ObservableObject
             _ = Analytics.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.OnlineSales)
             _ = OnlineSales.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.QuotationManagement)
+            _ = QuotationManagement.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.CreditBills)
+            _ = CreditBills.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.Customers)
+            _ = Customers.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Salesmen)
             _ = Salesmen.RefreshCommand.ExecuteAsync(null);
 
@@ -354,6 +434,9 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Dashboard => "Dashboard",
         ShellPage.Analytics => "Analytics",
         ShellPage.OnlineSales => "Online Sales",
+        ShellPage.Quotation => "Quotation",
+        ShellPage.QuotationManagement => "Quotations",
+        ShellPage.CreditBills => "Credit Bills",
         ShellPage.Customers => "Customers",
         ShellPage.Salesmen => "Salesman",
         ShellPage.Ledger => "Ledger",
@@ -373,7 +456,7 @@ public partial class ShellViewModel : ObservableObject
     {
         if (CurrentPage != ShellPage.Customers)
             return;
-        await CustomersRegistration.SaveCommand.ExecuteAsync(null);
+        await Customers.SaveCommand.ExecuteAsync(null);
     }
 
     [RelayCommand]
@@ -381,7 +464,7 @@ public partial class ShellViewModel : ObservableObject
     {
         if (CurrentPage != ShellPage.Customers)
             return;
-        CustomersRegistration.CancelCommand.Execute(null);
+        Customers.NewCustomerCommand.Execute(null);
     }
 
     [RelayCommand]

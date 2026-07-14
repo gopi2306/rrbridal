@@ -73,6 +73,14 @@ export class SyncService {
           await this.storeSalesSyncService.applyCashMovementCreated(meta, ev.payload);
         } else if (ev.type === 'InvoiceCodPaymentReceived') {
           await this.storeSalesSyncService.applyInvoiceCodPaymentReceived(meta, ev.payload);
+        } else if (ev.type === 'InvoiceCreditPaymentReceived') {
+          await this.storeSalesSyncService.applyInvoiceCreditPaymentReceived(meta, ev.payload);
+        } else if (ev.type === 'QuotationUpserted') {
+          await this.storeSalesSyncService.applyQuotationUpserted(meta, ev.payload);
+        } else if (ev.type === 'QuotationConverted') {
+          await this.storeSalesSyncService.applyQuotationConverted(meta, ev.payload);
+        } else if (ev.type === 'QuotationCancelled') {
+          await this.storeSalesSyncService.applyQuotationCancelled(meta, ev.payload);
         } else if (ev.type === 'InventoryAdjustmentCreated') {
           await this.inventoryAdjustmentsService.applyFromSync(meta, ev.payload);
         }

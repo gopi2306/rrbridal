@@ -18,4 +18,10 @@ public partial class DashboardView
         if (DataContext is DashboardViewModel vm)
             _ = vm.SearchInventoryCommand.ExecuteAsync(null);
     }
+
+    private void PendingCreditBills_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm)
+            vm.OpenCreditBillsPageCommand.Execute(null);
+    }
 }

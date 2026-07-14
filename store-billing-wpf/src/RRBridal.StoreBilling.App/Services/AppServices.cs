@@ -68,6 +68,8 @@ public sealed class AppServices
     public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
     public required OnlineCodBillService OnlineCodBills { get; init; }
+    public required QuotationService Quotations { get; init; }
+    public required CreditBillService CreditBills { get; init; }
     public required WhatsAppBillService WhatsAppBills { get; init; }
     public required WhatsAppLocalPreferencesStore WhatsAppPreferences { get; init; }
     public required WhatsAppSettingsClient WhatsAppClient { get; init; }
@@ -160,6 +162,8 @@ public sealed class AppServices
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var onlineCodBills = new OnlineCodBillService(localDb, billingOutbox);
+        var quotations = new QuotationService(localDb, storeContext, billNumberGenerator, billingOutbox);
+        var creditBills = new CreditBillService(localDb, billingOutbox, billNumberGenerator);
         var whatsappPrefs = new WhatsAppLocalPreferencesStore();
         var whatsappClient = new WhatsAppSettingsClient(http);
         var syncSchedule = new SyncScheduleOptions();
@@ -219,6 +223,8 @@ public sealed class AppServices
             DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
             OnlineCodBills = onlineCodBills,
+            Quotations = quotations,
+            CreditBills = creditBills,
             WhatsAppBills = whatsappBills,
             WhatsAppPreferences = whatsappPrefs,
             WhatsAppClient = whatsappClient,

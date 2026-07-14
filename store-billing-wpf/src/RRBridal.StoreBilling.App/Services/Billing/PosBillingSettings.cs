@@ -18,4 +18,25 @@ public sealed class PosBillingSettingsDocument
 
     /// <summary>When true, a bill may have multiple partial return transactions; fully returned lines are disabled.</summary>
     public bool AllowMultipleReturnsPerBill { get; set; }
+
+    /// <summary>Master switch for Bill on credit (pay-later) option.</summary>
+    public bool EnableCreditBilling { get; set; } = true;
+
+    /// <summary>When true, only customers marked isCreditCustomer can use Bill on credit.</summary>
+    public bool CreditBillingRequireCreditCustomer { get; set; } = true;
+
+    /// <summary>Minimum advance percent of payable at post (0 = no percent minimum).</summary>
+    public decimal CreditBillingMinimumAdvancePercent { get; set; }
+
+    /// <summary>Minimum advance amount in ₹ at post (0 = no amount minimum).</summary>
+    public decimal CreditBillingMinimumAdvanceAmount { get; set; }
+
+    /// <summary>When true, full payable may be put on credit with zero advance.</summary>
+    public bool CreditBillingAllowZeroAdvance { get; set; } = true;
+
+    /// <summary>When true, later collection may be partial; when false, only full balance settlement.</summary>
+    public bool CreditBillingAllowPartialCollection { get; set; } = true;
+
+    /// <summary>Max balance due per bill (0 = no limit).</summary>
+    public decimal CreditBillingMaxBalancePerBill { get; set; }
 }

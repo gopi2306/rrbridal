@@ -73,6 +73,39 @@ public static class StoreIndexEnsurer
                 new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
             cancellationToken: ct);
 
+        var quotations = db.GetCollection<MongoDB.Bson.BsonDocument>("store_quotations");
+        await quotations.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("quotationNo"),
+                new CreateIndexOptions { Name = "storeId_quotationNo", Unique = true }),
+            cancellationToken: ct);
+        await quotations.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Descending("updatedAtUtc"),
+                new CreateIndexOptions { Name = "storeId_quotation_updatedAtUtc" }),
+            cancellationToken: ct);
+
+        var paymentReceipts = db.GetCollection<MongoDB.Bson.BsonDocument>("store_payment_receipts");
+        await paymentReceipts.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("receiptNo"),
+                new CreateIndexOptions { Name = "storeId_receiptNo", Unique = true }),
+            cancellationToken: ct);
+        await paymentReceipts.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("billNo")
+                    .Descending("createdAtUtc"),
+                new CreateIndexOptions { Name = "storeId_billNo_createdAtUtc" }),
+            cancellationToken: ct);
+
         var cnCashouts = db.GetCollection<MongoDB.Bson.BsonDocument>("store_credit_note_cashouts");
         await cnCashouts.Indexes.CreateOneAsync(
             new CreateIndexModel<MongoDB.Bson.BsonDocument>(

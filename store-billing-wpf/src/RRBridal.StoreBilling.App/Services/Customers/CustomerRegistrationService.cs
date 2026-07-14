@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -83,6 +84,7 @@ public sealed class CustomerRegistrationService
             State = string.IsNullOrWhiteSpace(p.State) ? null : p.State.Trim(),
             Pincode = string.IsNullOrWhiteSpace(p.Pincode) ? null : p.Pincode.Trim(),
             IsActive = true,
+            IsCreditCustomer = p.IsCreditCustomer,
         };
 
         try
@@ -146,6 +148,122 @@ public sealed class CustomerRegistrationService
         };
     }
 
+    public async Task<CustomerRegistrationResult> UpdateAsync(
+        string localMongoId,
+        CustomerRegistrationPayload p,
+        CancellationToken ct = default)
+    {
+        if (!ObjectId.TryParse(localMongoId, out var oid))
+            throw new InvalidOperationException("Invalid customer id.");
+
+        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
+        var existing = await coll.Find(Builders<BsonDocument>.Filter.Eq("_id", oid)).FirstOrDefaultAsync(ct);
+        if (existing == null)
+            throw new InvalidOperationException("Customer not found.");
+
+        var phoneCombined = CombinePhone(p.Telephone, p.Mobile);
+        var (addressLine1, addressLine2) = BuildCentralAddress(p);
+        var now = DateTime.UtcNow.ToString("O");
+
+        var update = Builders<BsonDocument>.Update
+            .Set("name", p.CustomerName.Trim())
+            .Set("telephone", p.Telephone.Trim())
+            .Set("mobile", p.Mobile.Trim())
+            .Set("phone", phoneCombined)
+            .Set("email", p.Email.Trim())
+            .Set("gstin", p.Gstin.Trim())
+            .Set("doorNo", p.DoorNo.Trim())
+            .Set("street", p.Street.Trim())
+            .Set("fullAddress", p.FullAddress.Trim())
+            .Set("place", p.Place.Trim())
+            .Set("city", p.City.Trim())
+            .Set("pincode", p.Pincode.Trim())
+            .Set("state", p.State.Trim())
+            .Set("landmark", p.Landmark.Trim())
+            .Set("isCreditCustomer", p.IsCreditCustomer)
+            .Set("updatedAtUtc", now);
+
+        await coll.UpdateOneAsync(Builders<BsonDocument>.Filter.Eq("_id", oid), update, cancellationToken: ct);
+
+        var customerCode = existing.GetValue("customerCode", p.CustomerCode).AsString;
+        var centralId = existing.GetValue("centralCustomerId", BsonNull.Value);
+        var syncStatus = existing.GetValue("centralSyncStatus", "pending").AsString;
+        string? syncWarning = null;
+
+        if (!centralId.IsBsonNull && !string.IsNullOrWhiteSpace(centralId.AsString))
+        {
+            var body = new CentralUpdateCustomerBody
+            {
+                Name = p.CustomerName.Trim(),
+                Phone = string.IsNullOrWhiteSpace(phoneCombined) ? null : phoneCombined,
+                Email = string.IsNullOrWhiteSpace(p.Email) ? null : p.Email.Trim(),
+                Gstin = string.IsNullOrWhiteSpace(p.Gstin) ? null : p.Gstin.Trim(),
+                AddressLine1 = string.IsNullOrWhiteSpace(addressLine1) ? null : addressLine1,
+                AddressLine2 = string.IsNullOrWhiteSpace(addressLine2) ? null : addressLine2,
+                City = string.IsNullOrWhiteSpace(p.City) ? null : p.City.Trim(),
+                State = string.IsNullOrWhiteSpace(p.State) ? null : p.State.Trim(),
+                Pincode = string.IsNullOrWhiteSpace(p.Pincode) ? null : p.Pincode.Trim(),
+                IsCreditCustomer = p.IsCreditCustomer,
+            };
+
+            try
+            {
+                using var response = await _centralApi.PatchAsJsonAsync(
+                    $"/api/customers/{centralId.AsString}",
+                    body,
+                    JsonCamel,
+                    ct);
+                if (response.IsSuccessStatusCode)
+                {
+                    syncStatus = "synced";
+                    await coll.UpdateOneAsync(
+                        Builders<BsonDocument>.Filter.Eq("_id", oid),
+                        Builders<BsonDocument>.Update
+                            .Set("centralSyncStatus", "synced")
+                            .Unset("lastCentralError"),
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    var raw = await response.Content.ReadAsStringAsync(ct);
+                    syncStatus = "failed";
+                    syncWarning = $"Saved locally. Central sync failed: HTTP {(int)response.StatusCode}";
+                    await coll.UpdateOneAsync(
+                        Builders<BsonDocument>.Filter.Eq("_id", oid),
+                        Builders<BsonDocument>.Update
+                            .Set("centralSyncStatus", "failed")
+                            .Set("lastCentralError", Truncate(raw, 500)),
+                        cancellationToken: ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                syncStatus = "failed";
+                syncWarning = "Saved locally. Central sync failed: " + ex.Message;
+                await coll.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.Eq("_id", oid),
+                    Builders<BsonDocument>.Update
+                        .Set("centralSyncStatus", "failed")
+                        .Set("lastCentralError", ex.Message),
+                    cancellationToken: ct);
+            }
+        }
+
+        return new CustomerRegistrationResult
+        {
+            LocalMongoId = localMongoId,
+            CentralCustomerId = centralId.IsBsonNull ? null : centralId.AsString,
+            CentralSyncStatus = syncStatus,
+            CentralSyncWarning = syncWarning,
+            CustomerName = p.CustomerName.Trim(),
+            CustomerPhone = phoneCombined,
+            DoorNo = p.DoorNo.Trim(),
+            Street = p.Street.Trim(),
+            FullAddress = p.FullAddress.Trim(),
+            BillingCustomerCode = customerCode,
+        };
+    }
+
     private sealed class CentralCreateCustomerBody
     {
         public string? CustomerCode { get; init; }
@@ -159,6 +277,21 @@ public sealed class CustomerRegistrationService
         public string? State { get; init; }
         public string? Pincode { get; init; }
         public bool IsActive { get; init; }
+        public bool IsCreditCustomer { get; init; }
+    }
+
+    private sealed class CentralUpdateCustomerBody
+    {
+        public required string Name { get; init; }
+        public string? Phone { get; init; }
+        public string? Email { get; init; }
+        public string? Gstin { get; init; }
+        public string? AddressLine1 { get; init; }
+        public string? AddressLine2 { get; init; }
+        public string? City { get; init; }
+        public string? State { get; init; }
+        public string? Pincode { get; init; }
+        public bool IsCreditCustomer { get; init; }
     }
 
     private static string CombinePhone(string tel, string mobile)
@@ -223,6 +356,33 @@ public sealed class CustomerRegistrationService
         }
 
         return null;
+    }
+
+    public async Task<bool> IsCreditCustomerAsync(string? customerCode, string? customerPhone, CancellationToken ct = default)
+    {
+        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
+        var filters = new List<FilterDefinition<BsonDocument>>();
+        var code = (customerCode ?? "").Trim();
+        var phone = (customerPhone ?? "").Trim();
+        if (!string.IsNullOrEmpty(code))
+            filters.Add(Builders<BsonDocument>.Filter.Eq("customerCode", code));
+        if (!string.IsNullOrEmpty(phone))
+        {
+            filters.Add(Builders<BsonDocument>.Filter.Eq("phone", phone));
+            filters.Add(Builders<BsonDocument>.Filter.Eq("mobile", phone));
+        }
+
+        if (filters.Count == 0)
+            return false;
+
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", _storeContext.StoreId),
+            Builders<BsonDocument>.Filter.Or(filters));
+
+        var doc = await coll.Find(filter).FirstOrDefaultAsync(ct);
+        if (doc == null)
+            return false;
+        return doc.Contains("isCreditCustomer") && doc["isCreditCustomer"].ToBoolean();
     }
 
     private static string Truncate(string s, int max)

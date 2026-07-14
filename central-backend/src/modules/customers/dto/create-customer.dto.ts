@@ -56,5 +56,10 @@ export class CreateCustomerDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ required: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  isCreditCustomer?: boolean;
 }
 

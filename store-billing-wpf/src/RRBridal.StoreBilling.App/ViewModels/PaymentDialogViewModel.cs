@@ -21,6 +21,7 @@ public enum PaymentMode
     CreditNote,
     Split,
     OnlineCod,
+    Credit,
 }
 
 public enum PaymentStatus
@@ -40,6 +41,9 @@ public sealed class PaymentOutcome
     public decimal? ChangeReturned { get; init; }
     public decimal CreditNoteCashOutAmount { get; init; }
     public string? CreditNoteCashOutNo { get; init; }
+    public bool IsCreditBilling { get; init; }
+    public decimal CreditAdvanceAmount { get; init; }
+    public decimal CreditBalanceDue { get; init; }
 }
 
 public sealed class PaymentLegResult
@@ -138,7 +142,12 @@ public partial class PaymentDialogViewModel : ObservableObject
         bool skipPaymentOutbox = false,
         bool allowCreditNoteRemainingCashout = false,
         string? posCounter = null,
-        RazorpayPosSettingsStore? razorpayPosSettings = null)
+        RazorpayPosSettingsStore? razorpayPosSettings = null,
+        bool allowCreditBilling = false,
+        decimal creditBillingMinAdvancePercent = 0,
+        decimal creditBillingMinAdvanceAmount = 0,
+        bool creditBillingAllowZeroAdvance = true,
+        decimal creditBillingMaxBalancePerBill = 0)
     {
         _router = router;
         _creditNotes = creditNotes;
@@ -150,10 +159,16 @@ public partial class PaymentDialogViewModel : ObservableObject
         _skipPaymentOutbox = skipPaymentOutbox;
         _allowCreditNoteRemainingCashout = allowCreditNoteRemainingCashout;
         _posCounter = posCounter?.Trim() ?? "";
+        _allowCreditBilling = allowCreditBilling;
+        _creditBillingMinAdvancePercent = creditBillingMinAdvancePercent;
+        _creditBillingMinAdvanceAmount = creditBillingMinAdvanceAmount;
+        _creditBillingAllowZeroAdvance = creditBillingAllowZeroAdvance;
+        _creditBillingMaxBalancePerBill = creditBillingMaxBalancePerBill;
         InvoicePayableAmount = payableAmount;
         PayableFormatted = MoneyMath.FormatPayable(payableAmount);
         AmountReceived = payableAmount;
         CreditNoteAmount = payableAmount;
+        CreditAdvanceAmount = ComputeDefaultAdvance(payableAmount);
 
         HasBillingCreditReserved = billingReservedCreditAmount > 0
             && !string.IsNullOrEmpty(_billingReservedCreditNoteNo);
@@ -168,10 +183,117 @@ public partial class PaymentDialogViewModel : ObservableObject
         ReloadPosConfiguration();
         UpdateCollectibleAmounts();
         ApplyPaymentCreditToPaymentInputs();
+        UpdateCreditBillingDisplays();
     }
 
     private readonly string _customerCode;
     private readonly string _customerPhone;
+    private readonly bool _allowCreditBilling;
+    private readonly decimal _creditBillingMinAdvancePercent;
+    private readonly decimal _creditBillingMinAdvanceAmount;
+    private readonly bool _creditBillingAllowZeroAdvance;
+    private readonly decimal _creditBillingMaxBalancePerBill;
+
+    public bool ShowCreditBillingOption => _allowCreditBilling;
+
+    [ObservableProperty] private decimal _creditAdvanceAmount;
+    [ObservableProperty] private string _creditAdvanceAmountText = "";
+    [ObservableProperty] private string _creditBalanceDueFormatted = "₹ 0.00";
+    [ObservableProperty] private string _creditBillingHint = "";
+    [ObservableProperty] private PaymentMode _creditAdvanceMode = PaymentMode.Cash;
+
+    partial void OnCreditAdvanceAmountChanged(decimal value)
+    {
+        UpdateCreditBillingDisplays();
+        if (!_suppressCreditAdvanceTextSync)
+            CreditAdvanceAmountText = value == 0 ? "" : MoneyMath.FormatEditableAmount(value);
+    }
+
+    partial void OnCreditAdvanceAmountTextChanged(string value)
+    {
+        if (_suppressCreditAdvanceTextSync)
+            return;
+        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amt)
+            || decimal.TryParse(value, NumberStyles.Number, InCulture, out amt))
+        {
+            CreditAdvanceAmount = MoneyMath.RoundDisplayAmount(Math.Max(0m, amt));
+        }
+        else if (string.IsNullOrWhiteSpace(value))
+        {
+            CreditAdvanceAmount = 0;
+        }
+    }
+
+    private bool _suppressCreditAdvanceTextSync;
+
+    private decimal ComputeDefaultAdvance(decimal payable)
+    {
+        var fromPercent = payable * (_creditBillingMinAdvancePercent / 100m);
+        var min = Math.Max(fromPercent, _creditBillingMinAdvanceAmount);
+        return MoneyMath.RoundDisplayAmount(Math.Min(payable, Math.Max(0m, min)));
+    }
+
+    private void UpdateCreditBillingDisplays()
+    {
+        var balance = Math.Max(0m, MoneyMath.RoundDisplayAmount(InvoicePayableAmount - CreditAdvanceAmount));
+        CreditBalanceDueFormatted = MoneyMath.FormatRupee(balance);
+        var parts = new List<string>();
+        if (_creditBillingMinAdvancePercent > 0 || _creditBillingMinAdvanceAmount > 0)
+        {
+            var min = ComputeDefaultAdvance(InvoicePayableAmount);
+            parts.Add($"Minimum advance: {MoneyMath.FormatRupee(min)}");
+        }
+        if (!_creditBillingAllowZeroAdvance)
+            parts.Add("Zero advance not allowed");
+        if (_creditBillingMaxBalancePerBill > 0)
+            parts.Add($"Max balance: {MoneyMath.FormatRupee(_creditBillingMaxBalancePerBill)}");
+        CreditBillingHint = string.Join(" · ", parts);
+    }
+
+    private bool ValidateCreditBilling(out string error)
+    {
+        error = "";
+        if (!_allowCreditBilling)
+        {
+            error = "Credit billing is disabled.";
+            return false;
+        }
+
+        var advance = MoneyMath.RoundDisplayAmount(CreditAdvanceAmount);
+        if (advance < 0 || advance > InvoicePayableAmount)
+        {
+            error = "Advance must be between 0 and payable.";
+            return false;
+        }
+
+        if (advance <= 0 && !_creditBillingAllowZeroAdvance)
+        {
+            error = "Advance is required for credit billing.";
+            return false;
+        }
+
+        var min = ComputeDefaultAdvance(InvoicePayableAmount);
+        if (advance + 0.009m < min)
+        {
+            error = $"Advance must be at least {MoneyMath.FormatRupee(min)}.";
+            return false;
+        }
+
+        var balance = MoneyMath.RoundDisplayAmount(InvoicePayableAmount - advance);
+        if (_creditBillingMaxBalancePerBill > 0 && balance > _creditBillingMaxBalancePerBill + 0.009m)
+        {
+            error = $"Balance due cannot exceed {MoneyMath.FormatRupee(_creditBillingMaxBalancePerBill)}.";
+            return false;
+        }
+
+        if (balance <= 0.009m)
+        {
+            error = "Use Cash/Card/UPI for full payment. Credit billing requires a remaining balance.";
+            return false;
+        }
+
+        return true;
+    }
 
     public async Task InitializeAsync()
     {
@@ -860,6 +982,102 @@ public partial class PaymentDialogViewModel : ObservableObject
                         });
                     }
                     break;
+
+                case PaymentMode.Credit:
+                {
+                    if (!ValidateCreditBilling(out var creditErr))
+                    {
+                        ErrorMessage = creditErr;
+                        Status = PaymentStatus.Failed;
+                        return;
+                    }
+
+                    var advance = MoneyMath.RoundDisplayAmount(CreditAdvanceAmount);
+                    if (advance > 0)
+                    {
+                        var advanceMode = CreditAdvanceMode is PaymentMode.Card or PaymentMode.Upi
+                            ? CreditAdvanceMode
+                            : PaymentMode.Cash;
+
+                        if (advanceMode == PaymentMode.Cash)
+                        {
+                            var cashResult = await _router.PayAndRecordAsync(
+                                PaymentProviderKind.Cash,
+                                new PaymentRequest(_invoiceNo, advance, "INR"),
+                                CancellationToken.None,
+                                enqueueOutbox: !_skipPaymentOutbox);
+                            legs.Add(new PaymentLegResult
+                            {
+                                Provider = PaymentProviderKind.Cash,
+                                Amount = advance,
+                                Reference = cashResult.ProviderReference,
+                                Status = cashResult.Status,
+                            });
+                        }
+                        else if (advanceMode == PaymentMode.Card)
+                        {
+                            if (IsRazorpayPosConfigured)
+                            {
+                                if (!await ExecuteRazorpayPosPaymentAsync(
+                                        RazorpayPosPayMode.Card,
+                                        PaymentProviderKind.PineLabs,
+                                        advance,
+                                        legs))
+                                {
+                                    Status = PaymentStatus.Failed;
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                var cardResult = await _router.PayAndRecordAsync(
+                                    PaymentProviderKind.PineLabs,
+                                    new PaymentRequest(_invoiceNo, advance, "INR", ManualRecord: true),
+                                    CancellationToken.None,
+                                    enqueueOutbox: !_skipPaymentOutbox);
+                                legs.Add(new PaymentLegResult
+                                {
+                                    Provider = PaymentProviderKind.PineLabs,
+                                    Amount = advance,
+                                    Reference = cardResult.ProviderReference,
+                                    Status = cardResult.Status,
+                                });
+                            }
+                        }
+                        else
+                        {
+                            if (IsRazorpayPosConfigured)
+                            {
+                                if (!await ExecuteRazorpayPosPaymentAsync(
+                                        RazorpayPosPayMode.Upi,
+                                        PaymentProviderKind.Razorpay,
+                                        advance,
+                                        legs))
+                                {
+                                    Status = PaymentStatus.Failed;
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                var upiResult = await _router.PayAndRecordAsync(
+                                    PaymentProviderKind.Razorpay,
+                                    new PaymentRequest(_invoiceNo, advance, "INR", ManualRecord: true),
+                                    CancellationToken.None,
+                                    enqueueOutbox: !_skipPaymentOutbox);
+                                legs.Add(new PaymentLegResult
+                                {
+                                    Provider = PaymentProviderKind.Razorpay,
+                                    Amount = advance,
+                                    Reference = upiResult.ProviderReference,
+                                    Status = upiResult.Status,
+                                });
+                            }
+                        }
+                    }
+
+                    break;
+                }
             }
 
             if (CreditNoteCashOutAmount > 0)
@@ -888,6 +1106,13 @@ public partial class PaymentDialogViewModel : ObservableObject
                 ChangeReturned = changeReturned,
                 CreditNoteCashOutAmount = CreditNoteCashOutAmount,
                 CreditNoteCashOutNo = CreditNoteCashOutAmount > 0 ? _selectedPaymentCreditNoteNo : null,
+                IsCreditBilling = SelectedMode == PaymentMode.Credit,
+                CreditAdvanceAmount = SelectedMode == PaymentMode.Credit
+                    ? MoneyMath.RoundDisplayAmount(CreditAdvanceAmount)
+                    : 0,
+                CreditBalanceDue = SelectedMode == PaymentMode.Credit
+                    ? MoneyMath.RoundDisplayAmount(InvoicePayableAmount - CreditAdvanceAmount)
+                    : 0,
             };
             Status = PaymentStatus.Success;
             CloseDialog?.Invoke(true);

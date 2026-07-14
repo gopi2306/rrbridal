@@ -8,6 +8,8 @@ import { StoreAdjustment, StoreAdjustmentDocument } from './schemas/store-adjust
 import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schemas/store-credit-note-cashout.schema';
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from './schemas/store-invoice.schema';
+import { StorePaymentReceipt, StorePaymentReceiptDocument } from './schemas/store-payment-receipt.schema';
+import { StoreQuotation, StoreQuotationDocument } from './schemas/store-quotation.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
 import { StoreSalesInventoryService } from './store-sales-inventory.service';
 
@@ -30,6 +32,9 @@ export class StoreSalesSyncService {
     private readonly creditNoteCashoutModel: Model<StoreCreditNoteCashoutDocument>,
     @InjectModel(StoreDayClose.name) private readonly dayCloseModel: Model<StoreDayCloseDocument>,
     @InjectModel(StoreCashMovement.name) private readonly cashMovementModel: Model<StoreCashMovementDocument>,
+    @InjectModel(StoreQuotation.name) private readonly quotationModel: Model<StoreQuotationDocument>,
+    @InjectModel(StorePaymentReceipt.name)
+    private readonly paymentReceiptModel: Model<StorePaymentReceiptDocument>,
     private readonly storeSalesInventoryService: StoreSalesInventoryService,
   ) {}
 
@@ -514,6 +519,193 @@ export class StoreSalesSyncService {
       payments: payload.payments ?? currentPayload.payments,
       paymentMode: payload.paymentMode ?? currentPayload.paymentMode,
       codPaymentEventIds: [...appliedEventIds, meta.eventId],
+    };
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: billNo },
+      { $set: { payload: mergedPayload } },
+    );
+  }
+
+  async applyQuotationUpserted(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const existingByEvent = await this.quotationModel.findOne({ sourceEventId: meta.eventId }).lean();
+    if (existingByEvent) return;
+
+    const quotationNo = this.requireString(payload, 'quotationNo');
+    const status = this.optionalString(payload, 'status') ?? 'open';
+
+    const duplicate = await this.quotationModel
+      .findOne({ storeId: meta.storeId, quotationNo })
+      .lean();
+    if (duplicate) {
+      await this.quotationModel.updateOne(
+        { storeId: meta.storeId, quotationNo },
+        {
+          $set: {
+            status,
+            posCounter: this.optionalString(payload, 'posCounter'),
+            payload,
+          },
+        },
+      );
+      return;
+    }
+
+    try {
+      await this.quotationModel.create({
+        storeId: meta.storeId,
+        quotationNo,
+        sourceEventId: meta.eventId,
+        deviceId: meta.deviceId,
+        posCounter: this.optionalString(payload, 'posCounter'),
+        status,
+        payload,
+      });
+    } catch (err: unknown) {
+      const dup =
+        err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
+      if (dup) {
+        const again = await this.quotationModel.findOne({ sourceEventId: meta.eventId }).lean();
+        if (again) return;
+        await this.quotationModel.updateOne(
+          { storeId: meta.storeId, quotationNo },
+          {
+            $set: {
+              status,
+              posCounter: this.optionalString(payload, 'posCounter'),
+              payload,
+            },
+          },
+        );
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async applyQuotationConverted(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const quotationNo = this.requireString(payload, 'quotationNo');
+    const convertedBillNo =
+      this.optionalString(payload, 'convertedBillNo') ?? this.optionalString(payload, 'billNo');
+    if (!convertedBillNo) throw new BadRequestException('convertedBillNo or billNo is required');
+
+    const existing = await this.quotationModel.findOne({ storeId: meta.storeId, quotationNo });
+    if (!existing) {
+      await this.applyQuotationUpserted(meta, {
+        ...payload,
+        quotationNo,
+        status: 'converted',
+        convertedBillNo,
+      });
+      return;
+    }
+
+    const appliedEventIds = Array.isArray(existing.payload?.convertedEventIds)
+      ? (existing.payload.convertedEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedEventIds.includes(meta.eventId)) return;
+
+    const mergedPayload: Record<string, unknown> = {
+      ...(existing.payload ?? {}),
+      ...payload,
+      quotationNo,
+      status: 'converted',
+      convertedBillNo,
+      convertedEventIds: [...appliedEventIds, meta.eventId],
+    };
+
+    existing.status = 'converted';
+    existing.convertedBillNo = convertedBillNo;
+    existing.payload = mergedPayload;
+    await existing.save();
+  }
+
+  async applyQuotationCancelled(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const quotationNo = this.requireString(payload, 'quotationNo');
+
+    const existing = await this.quotationModel.findOne({ storeId: meta.storeId, quotationNo });
+    if (!existing) {
+      await this.applyQuotationUpserted(meta, { ...payload, quotationNo, status: 'cancelled' });
+      return;
+    }
+
+    const appliedEventIds = Array.isArray(existing.payload?.cancelledEventIds)
+      ? (existing.payload.cancelledEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedEventIds.includes(meta.eventId)) return;
+
+    const mergedPayload: Record<string, unknown> = {
+      ...(existing.payload ?? {}),
+      ...payload,
+      quotationNo,
+      status: 'cancelled',
+      cancelledEventIds: [...appliedEventIds, meta.eventId],
+    };
+
+    existing.status = 'cancelled';
+    existing.payload = mergedPayload;
+    await existing.save();
+  }
+
+  async applyInvoiceCreditPaymentReceived(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const billNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!billNo) throw new BadRequestException('billNo is required');
+
+    const invoice = await this.invoiceModel
+      .findOne({ storeId: meta.storeId, invoiceNo: billNo })
+      .lean();
+    if (!invoice) {
+      throw new BadRequestException(
+        `Invoice '${billNo}' not found for store '${meta.storeId}'`,
+      );
+    }
+
+    const currentPayload = (invoice.payload ?? {}) as Record<string, unknown>;
+    const appliedEventIds = Array.isArray(currentPayload.creditPaymentEventIds)
+      ? (currentPayload.creditPaymentEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedEventIds.includes(meta.eventId)) return;
+
+    const receipt = payload.receipt;
+    if (receipt && typeof receipt === 'object') {
+      const receiptRow = receipt as Record<string, unknown>;
+      const receiptNo = this.optionalString(receiptRow, 'receiptNo');
+      if (receiptNo) {
+        const existingReceipt = await this.paymentReceiptModel
+          .findOne({ sourceEventId: meta.eventId })
+          .lean();
+        if (!existingReceipt) {
+          try {
+            await this.paymentReceiptModel.create({
+              storeId: meta.storeId,
+              receiptNo,
+              billNo,
+              sourceEventId: meta.eventId,
+              deviceId: meta.deviceId,
+              payload: receiptRow,
+            });
+          } catch (err: unknown) {
+            const dup =
+              err &&
+              typeof err === 'object' &&
+              'code' in err &&
+              (err as { code?: number }).code === 11000;
+            if (!dup) throw err;
+          }
+        }
+      }
+    }
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      creditBilling: payload.creditBilling ?? currentPayload.creditBilling,
+      payments: payload.payments ?? currentPayload.payments,
+      paymentMode: payload.paymentMode ?? currentPayload.paymentMode,
+      creditPaymentEventIds: [...appliedEventIds, meta.eventId],
     };
 
     await this.invoiceModel.updateOne(

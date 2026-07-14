@@ -49,6 +49,10 @@ export class Customer {
   @ApiProperty({ required: false, default: true })
   @Prop({ default: true, index: true })
   isActive!: boolean;
+
+  @ApiProperty({ required: false, default: false })
+  @Prop({ default: false, index: true })
+  isCreditCustomer!: boolean;
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);

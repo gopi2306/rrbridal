@@ -80,7 +80,13 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _codBalanceTillSummary = "—";
 
+    [ObservableProperty] private string _creditPendingBalanceSummary = "—";
+
+    [ObservableProperty] private string _creditPendingCountSummary = "—";
+
     public Action? NavigateToOnlineSales { get; set; }
+
+    public Action? NavigateToCreditBills { get; set; }
 
     [ObservableProperty] private string _statusMessage = "";
 
@@ -164,6 +170,8 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _inventoryPagerLabel = "";
 
     public ObservableCollection<DashboardRecentBill> RecentBills { get; } = new();
+
+    public ObservableCollection<CreditBillSearchRow> PendingCreditBills { get; } = new();
 
     public ObservableCollection<DayCloseInvoiceRow> DayInvoices { get; } = new();
 
@@ -324,6 +332,14 @@ public partial class DashboardViewModel : ObservableObject
 
             var codBal = await _services.OnlineCodBills.GetPendingBalanceAsync(storeId);
             CodBalanceTillSummary = MoneyMath.FormatRupee(codBal.BalanceTill);
+
+            var creditBal = await _services.CreditBills.GetPendingBalanceAsync(storeId);
+            CreditPendingBalanceSummary = MoneyMath.FormatRupee(creditBal.BalanceTill);
+            CreditPendingCountSummary = creditBal.PendingCount.ToString(InCulture);
+
+            PendingCreditBills.Clear();
+            foreach (var row in await _services.CreditBills.GetPendingListAsync(storeId, limit: 20))
+                PendingCreditBills.Add(row);
 
             RecentBills.Clear();
             foreach (var r in snap.RecentBills)
@@ -512,6 +528,9 @@ public partial class DashboardViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenOnlineSalesPage() => NavigateToOnlineSales?.Invoke();
+
+    [RelayCommand]
+    private void OpenCreditBillsPage() => NavigateToCreditBills?.Invoke();
 
     [RelayCommand]
     private async Task ApproveStockException(string? billNo)

@@ -187,6 +187,10 @@
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Split Payment"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Split}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                            <RadioButton Style="{StaticResource ModeRadio}" Content="Bill on credit"
+                                         IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Credit}"
+                                         IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"
+                                         Visibility="{Binding ShowCreditBillingOption, Converter={StaticResource BoolToVis}}"/>
                         </WrapPanel>
                     </StackPanel>
                 </Border>
@@ -398,6 +402,50 @@
                         <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Text="Reference (required if credit note amount &gt; 0)"
                                    FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
                     </Grid>
+                </StackPanel>
+
+                <!-- Bill on credit panel -->
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedMode}" Value="{x:Static vm:PaymentMode.Credit}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Bill on credit — collect advance now, balance later"
+                               FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding CreditBillingHint}" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
+                               TextWrapping="Wrap" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Advance now (₹)" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding CreditAdvanceAmountText, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Balance on credit" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding CreditBalanceDueFormatted}" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{StaticResource BrushAccent}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="Advance payment mode" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,12,0,8"/>
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="Cash" Margin="0,0,16,0"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}"/>
+                        <RadioButton Content="Card" Margin="0,0,16,0"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Card}"/>
+                        <RadioButton Content="UPI"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Upi}"/>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>

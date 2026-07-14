@@ -38,6 +38,12 @@ public sealed class BillNumberGenerator
     public Task<string> NextCashMovementAsync(CancellationToken ct = default) =>
         NextAsync("cashMovementNo", "CMV-", ct);
 
+    public Task<string> NextQuotationAsync(CancellationToken ct = default) =>
+        NextAsync("quotationNo", "QUOT-", ct);
+
+    public Task<string> NextPaymentReceiptAsync(CancellationToken ct = default) =>
+        NextAsync("paymentReceiptNo", "RCPT-", ct);
+
     public async Task<string> NextAsync(string counterKind, string prefix, CancellationToken ct = default)
     {
         var counterKey = $"{counterKind}:{_store.StoreId}:{_store.DeviceId}";

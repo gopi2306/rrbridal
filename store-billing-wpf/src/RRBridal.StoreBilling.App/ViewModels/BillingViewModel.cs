@@ -169,6 +169,7 @@ public partial class BillingViewModel : ObservableObject
     private bool _isComputingTotals;
     private bool _alterationGstIncluded;
     private string? _activeHoldNo;
+    private string? _sourceQuotationNo;
     private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     private enum ManualDiscountEditSource { None, ItemPercent, CashAmount }
@@ -285,6 +286,7 @@ public partial class BillingViewModel : ObservableObject
     private void AssignNewBillIdentity()
     {
         _activeHoldNo = null;
+        _sourceQuotationNo = null;
         HoldNo = "";
         DraftLabel = "DRAFT";
         BillDateDisplay = DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
@@ -1735,6 +1737,13 @@ public partial class BillingViewModel : ObservableObject
         else if (totals.Payable > 0)
         {
             _services.PosBillingSettings.Load();
+            var settings = _services.PosBillingSettings.Current;
+            var allowCreditBilling = settings.EnableCreditBilling;
+            if (allowCreditBilling && settings.CreditBillingRequireCreditCustomer)
+            {
+                allowCreditBilling = await _customerRegistration.IsCreditCustomerAsync(CustomerCode, CustomerPhone);
+            }
+
             var paymentVm = new PaymentDialogViewModel(
                 _services.PaymentRouter,
                 _services.CustomerCreditNotes,
@@ -1746,9 +1755,14 @@ public partial class BillingViewModel : ObservableObject
                 _selectedCreditNoteNo,
                 totals.AppliedCredit,
                 skipPaymentOutbox: true,
-                allowCreditNoteRemainingCashout: _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout,
+                allowCreditNoteRemainingCashout: settings.AllowCreditNoteRemainingCashout,
                 posCounter: _services.StoreContext.PosCounter,
-                razorpayPosSettings: _services.RazorpayPosSettings);
+                razorpayPosSettings: _services.RazorpayPosSettings,
+                allowCreditBilling: allowCreditBilling,
+                creditBillingMinAdvancePercent: settings.CreditBillingMinimumAdvancePercent,
+                creditBillingMinAdvanceAmount: settings.CreditBillingMinimumAdvanceAmount,
+                creditBillingAllowZeroAdvance: settings.CreditBillingAllowZeroAdvance,
+                creditBillingMaxBalancePerBill: settings.CreditBillingMaxBalancePerBill);
             await paymentVm.InitializeAsync();
             var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
             var paymentResult = paymentDlg.ShowDialog();
@@ -1881,12 +1895,44 @@ public partial class BillingViewModel : ObservableObject
                     { "amount", (double)totals.Payable },
                 };
             }
+            else if (paymentOutcome.IsCreditBilling)
+            {
+                doc["salesChannel"] = "store";
+                doc["paymentMode"] = PaymentMode.Credit.ToString();
+                var advance = paymentOutcome.CreditAdvanceAmount;
+                var balance = paymentOutcome.CreditBalanceDue;
+                var isCreditCustomer = await _customerRegistration.IsCreditCustomerAsync(CustomerCode, CustomerPhone);
+                var creditPayments = new BsonArray();
+                if (advance > 0)
+                {
+                    creditPayments.Add(new BsonDocument
+                    {
+                        { "kind", "advance" },
+                        { "receivedAtUtc", DateTime.UtcNow.ToString("O") },
+                        { "amount", (double)advance },
+                        { "mode", paymentOutcome.Legs.FirstOrDefault()?.Provider.ToString() ?? "Cash" },
+                        { "reference", paymentOutcome.Legs.FirstOrDefault()?.Reference ?? "" },
+                        { "receivedBy", _services.UserSession?.LoggedInUser.Name ?? "" },
+                        { "receiptNo", "" },
+                    });
+                }
+
+                doc["creditBilling"] = CreditBillDocumentReader.BuildCreditBillingDocument(
+                    totals.Payable,
+                    advance,
+                    advance,
+                    isCreditCustomer,
+                    creditPayments);
+            }
             else
             {
                 doc["salesChannel"] = "store";
             }
 
             AppendSalesmanFields(doc);
+
+            if (!string.IsNullOrWhiteSpace(_sourceQuotationNo))
+                doc["sourceQuotationNo"] = _sourceQuotationNo;
 
             var postWarnings = new List<string>();
             var postedBillNo = BillNo;
@@ -1923,6 +1969,20 @@ public partial class BillingViewModel : ObservableObject
 
                 _activeHoldNo = null;
                 HoldNo = "";
+            }
+
+            if (!string.IsNullOrEmpty(_sourceQuotationNo))
+            {
+                try
+                {
+                    await _services.Quotations.MarkConvertedAsync(_sourceQuotationNo, postedBillNo);
+                }
+                catch (Exception ex)
+                {
+                    postWarnings.Add($"Could not mark quotation converted: {ex.Message}");
+                }
+
+                _sourceQuotationNo = null;
             }
 
             try
@@ -2234,47 +2294,82 @@ public partial class BillingViewModel : ObservableObject
         HoldNo = _activeHoldNo;
         DraftLabel = "HELD";
         BillNo = "—";
-        BillDateDisplay = doc.GetValue("billDate", BillDateDisplay).AsString;
-        CustomerCode = doc.GetValue("customerCode", "").AsString;
-        CustomerName = doc.GetValue("customerName", "").AsString;
-        CustomerPhone = doc.GetValue("customerPhone", "").AsString;
+        var header = BillingPayloadBuilder.ReadHeader(doc);
+        BillDateDisplay = string.IsNullOrWhiteSpace(header.BillDate) ? BillDateDisplay : header.BillDate;
+        CustomerCode = header.CustomerCode;
+        CustomerName = header.CustomerName;
+        CustomerPhone = header.CustomerPhone;
         ApplySalesmanFromDocument(doc);
-        HoldBills = doc.GetValue("holdBills", false).AsBoolean;
-        DoorDelivery = doc.GetValue("doorDelivery", false).AsBoolean;
-        Stitching = doc.GetValue("stitching", false).AsBoolean;
-        DeliveryDate = ParseDeliveryDate(doc.GetValue("deliveryDate", "").AsString);
-        PrintInvoice = doc.GetValue("printInvoice", true).AsBoolean;
-        IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
-        ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble();
-        CashDiscAmountText = MoneyMath.FormatEditableAmount((decimal)doc.GetValue("cashDiscAmount", 0).ToDouble());
-        _alterationGstIncluded = doc.GetValue("alterationGstIncluded", false).AsBoolean;
+        HoldBills = header.HoldBills;
+        DoorDelivery = header.DoorDelivery;
+        Stitching = header.Stitching;
+        DeliveryDate = BillingPayloadBuilder.ParseDeliveryDate(header.DeliveryDateRaw);
+        PrintInvoice = header.PrintInvoice;
+        IsInterState = header.IsInterState;
+        ItemDiscountPercent = header.ItemDiscountPercent;
+        CashDiscAmountText = MoneyMath.FormatEditableAmount(header.CashDiscAmount);
+        _alterationGstIncluded = header.AlterationGstIncluded;
 
-        if (doc.TryGetValue("lines", out var linesVal) && linesVal.IsBsonArray)
-        {
-            foreach (BsonDocument lineBson in linesVal.AsBsonArray.OfType<BsonDocument>())
-            {
-                var line = new BillingLineItem
-                {
-                    LineNo = lineBson.GetValue("lineNo", 0).ToInt32(),
-                    CentralProductId = lineBson.GetValue("centralProductId", "").AsString,
-                    ProductCode = lineBson.GetValue("sku", "").AsString,
-                    Description = lineBson.GetValue("description", "").AsString,
-                    HsnCode = lineBson.GetValue("hsn", "").AsString,
-                    Qty = (decimal)lineBson.GetValue("qty", 0).ToDouble(),
-                    Rate = (decimal)lineBson.GetValue("rate", 0).ToDouble(),
-                    Mrp = (decimal)lineBson.GetValue("mrp", 0).ToDouble(),
-                    TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
-                    IsIgst = IsInterState,
-                    AlterationAmount = (decimal)lineBson.GetValue("alterationAmount", 0).ToDouble(),
-                };
-                Lines.Add(line);
-            }
-        }
+        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(doc, IsInterState))
+            Lines.Add(line);
 
         EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
     }
+
+    /// <summary>Loads a saved quotation into the billing editor for convert-to-billing.</summary>
+    public void LoadFromQuotationDocument(BsonDocument doc) =>
+        LoadQuotationDocumentCore(doc, markAsConvertSource: true);
+
+    /// <summary>Loads a quotation for editing on the Quotation page (does not mark convert source).</summary>
+    public void LoadQuotationForEdit(BsonDocument doc) =>
+        LoadQuotationDocumentCore(doc, markAsConvertSource: false);
+
+    private void LoadQuotationDocumentCore(BsonDocument doc, bool markAsConvertSource)
+    {
+        ClearForNewBill();
+        _sourceQuotationNo = markAsConvertSource ? doc.GetValue("quotationNo", "").AsString : null;
+        _activeHoldNo = null;
+        HoldNo = "";
+        DraftLabel = markAsConvertSource ? "QUOT" : "QUOT";
+        BillNo = "—";
+        var header = BillingPayloadBuilder.ReadHeader(doc);
+        BillDateDisplay = markAsConvertSource
+            ? DateTime.Today.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture)
+            : (string.IsNullOrWhiteSpace(header.BillDate)
+                ? BillDateDisplay
+                : header.BillDate);
+        CustomerCode = header.CustomerCode;
+        CustomerName = header.CustomerName;
+        CustomerPhone = header.CustomerPhone;
+        ApplySalesmanFromDocument(doc);
+        HoldBills = header.HoldBills;
+        DoorDelivery = header.DoorDelivery;
+        OnlineCodOrder = false;
+        Stitching = header.Stitching;
+        DeliveryDate = BillingPayloadBuilder.ParseDeliveryDate(header.DeliveryDateRaw);
+        PrintInvoice = header.PrintInvoice;
+        IsInterState = header.IsInterState;
+        ItemDiscountPercent = header.ItemDiscountPercent;
+        CashDiscAmountText = MoneyMath.FormatEditableAmount(header.CashDiscAmount);
+        _alterationGstIncluded = header.AlterationGstIncluded;
+
+        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(doc, IsInterState))
+            Lines.Add(line);
+
+        EnsureEntryRow();
+        RecalculateTotals();
+        NotifyPostBillCanExecute();
+        if (markAsConvertSource)
+            _ = RefreshCustomerCreditAsync();
+    }
+
+    public BsonDocument ExportPayloadDocument() => BuildBillPayloadCore();
+
+    public string? SourceQuotationNo => _sourceQuotationNo;
+
+    public string? ActiveEditQuotationNo { get; set; }
 
     private BsonArray BuildAppliedSchemesBsonArray()
     {
@@ -2366,62 +2461,14 @@ public partial class BillingViewModel : ObservableObject
         return payload;
     }
 
-    private BsonArray BuildLinesBsonArray()
-    {
-        var linesArr = new BsonArray();
-        foreach (var line in Lines.Where(l => l.Amount > 0))
-        {
-            linesArr.Add(new BsonDocument
-            {
-                { "lineNo", line.LineNo },
-                { "centralProductId", line.CentralProductId ?? "" },
-                { "sku", line.ProductCode },
-                { "description", line.Description },
-                { "hsn", line.HsnCode ?? "" },
-                { "qty", (double)line.Qty },
-                { "rate", (double)line.Rate },
-                { "amount", (double)line.Amount },
-                { "alterationAmount", (double)line.AlterationAmount },
-                { "discountAmount", (double)line.DiscountAmount },
-                { "cashDiscountAmount", (double)line.CashDiscountAmount },
-                { "schemeDiscountAmount", (double)line.SchemeDiscountAmount },
-                { "originalTaxAmount", (double)line.OriginalTaxAmount },
-                { "revisedAmount", (double)line.RevisedAmount },
-                { "revisedInclusiveAmount", (double)line.RevisedInclusiveAmount },
-                { "revisedTaxAmount", (double)line.RevisedTaxAmount },
-                { "mrp", (double)line.Mrp },
-                { "costPrice", (double)line.CostPrice },
-                { "marginPercent", (double)line.MarginPercent },
-                { "taxPercent", (double)line.TaxPercent },
-                { "cgstPercent", (double)line.CgstPercent },
-                { "sgstPercent", (double)line.SgstPercent },
-                { "igstPercent", (double)line.IgstPercent },
-                { "cgstAmount", (double)line.CgstAmount },
-                { "sgstAmount", (double)line.SgstAmount },
-                { "igstAmount", (double)line.IgstAmount },
-                { "taxAmount", (double)line.TaxAmount },
-            });
-        }
-
-        return linesArr;
-    }
+    private BsonArray BuildLinesBsonArray() =>
+        BillingPayloadBuilder.BuildLinesBsonArray(Lines);
 
     private string FormatDeliveryDate() =>
-        DeliveryDate?.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant() ?? "";
+        BillingPayloadBuilder.FormatDeliveryDate(DeliveryDate);
 
-    private static DateTime? ParseDeliveryDate(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        return DateTime.TryParseExact(
-            value.Trim(),
-            "dd-MMM-yyyy",
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out var dt)
-            ? dt
-            : null;
-    }
+    private static DateTime? ParseDeliveryDate(string? value) =>
+        BillingPayloadBuilder.ParseDeliveryDate(value);
 
     [RelayCommand]
     private static void CloseApp()

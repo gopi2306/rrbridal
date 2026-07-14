@@ -1,0 +1,79 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.QuotationManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,0,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Quotations" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="Filter by quotation no, customer name, or mobile. Open to edit, or convert an open quotation to billing."
+                       Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+            <WrapPanel>
+                <StackPanel Width="200" Margin="0,0,8,8">
+                    <TextBlock Text="Quotation no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                             Text="{Binding SearchQuotationNo, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Width="200" Margin="0,0,8,8">
+                    <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                             Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Width="160" Margin="0,0,8,8">
+                    <TextBlock Text="Mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                             Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="100" VerticalAlignment="Bottom"
+                        Margin="0,0,8,8" Command="{Binding SearchCommand}"/>
+                <Button Content="Refresh" Style="{StaticResource OutlineButton}" Width="90" VerticalAlignment="Bottom"
+                        Margin="0,0,0,8" Command="{Binding RefreshCommand}"/>
+            </WrapPanel>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+            <DataGrid ItemsSource="{Binding Results}"
+                      SelectedItem="{Binding SelectedQuotation}"
+                      Style="{StaticResource ThemedDataGrid}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Quotation no" Binding="{Binding QuotationNo}" Width="160"/>
+                    <DataGridTextColumn Header="Date" Binding="{Binding QuotationDate}" Width="100"/>
+                    <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
+                    <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="110"/>
+                    <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                    <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="70"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}"
+                       HorizontalAlignment="Center" Margin="0,0,0,10"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Open" Style="{StaticResource OutlineButton}" MinWidth="100" Margin="0,0,8,0"
+                        Command="{Binding OpenSelectedCommand}"/>
+                <Button Content="Convert to billing" Style="{StaticResource PrimaryButton}" MinWidth="160" Margin="0,0,8,0"
+                        Command="{Binding ConvertToBillingCommand}"/>
+                <Button Content="Cancel quotation" Style="{StaticResource OutlineButton}" MinWidth="140"
+                        Command="{Binding CancelSelectedCommand}"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>
