@@ -207,6 +207,16 @@ public partial class PaymentDialogViewModel : ObservableObject
         UpdateCreditBillingDisplays();
         if (!_suppressCreditAdvanceTextSync)
             CreditAdvanceAmountText = value == 0 ? "" : MoneyMath.FormatEditableAmount(value);
+        if (SelectedMode == PaymentMode.Credit)
+            ApplyCreditAdvancePaymentInputs();
+    }
+
+    partial void OnCreditAdvanceModeChanged(PaymentMode value)
+    {
+        ErrorMessage = "";
+        Status = PaymentStatus.Idle;
+        if (SelectedMode == PaymentMode.Credit)
+            ApplyCreditAdvancePaymentInputs();
     }
 
     partial void OnCreditAdvanceAmountTextChanged(string value)
@@ -292,7 +302,97 @@ public partial class PaymentDialogViewModel : ObservableObject
             return false;
         }
 
+        if (advance > 0 && !ValidateCreditAdvancePayment(out error))
+            return false;
+
         return true;
+    }
+
+    private decimal GetPaymentTargetAmount() =>
+        SelectedMode == PaymentMode.Credit ? CreditAdvanceAmount : CollectibleAmount;
+
+    private void ApplyCreditAdvancePaymentInputs()
+    {
+        switch (CreditAdvanceMode)
+        {
+            case PaymentMode.Cash:
+                AmountReceived = CreditAdvanceAmount;
+                UpdateCashChange();
+                break;
+
+            case PaymentMode.CreditNote:
+                CreditNoteAmount = CreditAdvanceAmount;
+                break;
+
+            case PaymentMode.Split:
+                if (PaymentCreditAmount > 0)
+                {
+                    SplitCreditNoteAmount = Math.Min(PaymentCreditAmount, CreditAdvanceAmount);
+                    if (!string.IsNullOrEmpty(_selectedPaymentCreditNoteNo))
+                        SplitCreditNoteReference = _selectedPaymentCreditNoteNo;
+                }
+                CapAndRecalcSplit(nameof(SplitCashAmount));
+                break;
+        }
+    }
+
+    private bool ValidateCreditAdvancePayment(out string error)
+    {
+        error = "";
+        var advance = MoneyMath.RoundDisplayAmount(CreditAdvanceAmount);
+        if (advance <= 0)
+            return true;
+
+        switch (CreditAdvanceMode)
+        {
+            case PaymentMode.Cash:
+                if (AmountReceived < advance)
+                {
+                    error = "Amount received must cover the advance.";
+                    return false;
+                }
+                return true;
+
+            case PaymentMode.CreditNote:
+                var cnRef = (CreditNoteReference ?? "").Trim();
+                if (string.IsNullOrEmpty(cnRef))
+                {
+                    error = "Select a customer credit note or enter a reference for the advance.";
+                    return false;
+                }
+                if (CreditNoteAmount <= 0 || CreditNoteAmount > advance + 0.009m)
+                {
+                    error = "Credit note advance must be greater than zero and not exceed the advance amount.";
+                    return false;
+                }
+                if (Math.Abs(CreditNoteAmount - advance) > 0.009m)
+                {
+                    error = "Credit note amount must equal the advance amount.";
+                    return false;
+                }
+                return true;
+
+            case PaymentMode.Split:
+                if (!IsSplitBalanced)
+                {
+                    error = "Split amounts must exactly equal the advance amount.";
+                    return false;
+                }
+                if (SplitCreditNoteAmount > 0 && string.IsNullOrWhiteSpace(SplitCreditNoteReference))
+                {
+                    error = "Select a credit note or enter a reference for the credit note split amount.";
+                    return false;
+                }
+                return true;
+
+            case PaymentMode.Card:
+            case PaymentMode.Upi:
+                return true;
+
+            default:
+                error = "Select an advance payment mode.";
+                return false;
+        }
     }
 
     public async Task InitializeAsync()
@@ -448,7 +548,8 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     private void UpdateCashChange()
     {
-        var change = AmountReceived - CollectibleAmount;
+        var target = GetPaymentTargetAmount();
+        var change = AmountReceived - target;
         ChangeDueFormatted = change >= 0 ? MoneyMath.FormatRupee(change) : "-" + MoneyMath.FormatRupee(Math.Abs(change));
         IsCashShortfall = change < 0;
     }
@@ -482,7 +583,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         ErrorMessage = "";
         Status = PaymentStatus.Idle;
 
-        if (value == PaymentMode.Split)
+        if (value == PaymentMode.Split || (value == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Split))
         {
             SplitCashAmount = 0;
             SplitCardAmount = 0;
@@ -490,6 +591,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         }
 
         ApplyPaymentCreditToPaymentInputs();
+        if (value == PaymentMode.Credit)
+            ApplyCreditAdvancePaymentInputs();
     }
 
     partial void OnAmountReceivedChanged(decimal value) => UpdateCashChange();
@@ -514,8 +617,9 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     private void RecalcSplitBalance()
     {
-        var allocatedCashLike = SplitCashAmount + SplitCardAmount + SplitUpiAmount;
-        var remainingRaw = CollectibleAmount - allocatedCashLike;
+        var target = GetPaymentTargetAmount();
+        var allocatedCashLike = SplitCashAmount + SplitCardAmount + SplitUpiAmount + SplitCreditNoteAmount;
+        var remainingRaw = target - allocatedCashLike;
         var remainingDisplay = Math.Max(0m, remainingRaw);
         SplitRemainingFormatted = MoneyMath.FormatRupee(remainingDisplay);
         IsSplitBalanced = remainingRaw == 0
@@ -534,17 +638,20 @@ public partial class PaymentDialogViewModel : ObservableObject
         {
             _isCappingSplit = true;
 
-            if (SelectedMode == PaymentMode.Split)
+            if (SelectedMode == PaymentMode.Split || (SelectedMode == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Split))
             {
-                if (HasPaymentCreditSelected && SplitCreditNoteAmount != PaymentCreditAmount)
+                if (HasPaymentCreditSelected && SelectedMode == PaymentMode.Split && SplitCreditNoteAmount != PaymentCreditAmount)
                     SplitCreditNoteAmount = PaymentCreditAmount;
 
-                var maxCollect = Math.Max(0m, CollectibleAmount);
-                var other =
-                    editedProperty == nameof(SplitCashAmount) ? SplitCardAmount + SplitUpiAmount :
-                    editedProperty == nameof(SplitCardAmount) ? SplitCashAmount + SplitUpiAmount :
-                    editedProperty == nameof(SplitUpiAmount) ? SplitCashAmount + SplitCardAmount :
-                    SplitCashAmount + SplitCardAmount + SplitUpiAmount;
+                var maxCollect = Math.Max(0m, GetPaymentTargetAmount());
+                var other = editedProperty switch
+                {
+                    nameof(SplitCashAmount) => SplitCardAmount + SplitUpiAmount + SplitCreditNoteAmount,
+                    nameof(SplitCardAmount) => SplitCashAmount + SplitUpiAmount + SplitCreditNoteAmount,
+                    nameof(SplitUpiAmount) => SplitCashAmount + SplitCardAmount + SplitCreditNoteAmount,
+                    nameof(SplitCreditNoteAmount) => SplitCashAmount + SplitCardAmount + SplitUpiAmount,
+                    _ => SplitCashAmount + SplitCardAmount + SplitUpiAmount + SplitCreditNoteAmount,
+                };
 
                 var maxForEdited = Math.Max(0m, maxCollect - other);
 
@@ -554,6 +661,8 @@ public partial class PaymentDialogViewModel : ObservableObject
                     SplitCardAmount = maxForEdited;
                 else if (editedProperty == nameof(SplitUpiAmount) && SplitUpiAmount > maxForEdited)
                     SplitUpiAmount = maxForEdited;
+                else if (editedProperty == nameof(SplitCreditNoteAmount) && SplitCreditNoteAmount > maxForEdited)
+                    SplitCreditNoteAmount = maxForEdited;
             }
         }
         finally
@@ -762,6 +871,161 @@ public partial class PaymentDialogViewModel : ObservableObject
         return true;
     }
 
+    private async Task<bool> ProcessSplitLegsAsync(
+        List<(PaymentProviderKind Provider, decimal Amount, string? Reference, RazorpayPosPayMode? PosMode)> splitEntries,
+        List<PaymentLegResult> legs)
+    {
+        foreach (var (provider, amount, reference, posMode) in splitEntries)
+        {
+            PaymentResult splitResult;
+            if (posMode.HasValue)
+            {
+                if (IsRazorpayPosConfigured)
+                {
+                    DeviceStatusText = posMode == RazorpayPosPayMode.Upi
+                        ? "Waiting for UPI on Razorpay device..."
+                        : "Waiting for card on Razorpay device...";
+                    splitResult = await _router.PayAndRecordAsync(
+                        PaymentProviderKind.Razorpay,
+                        new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value),
+                        CancellationToken.None,
+                        enqueueOutbox: !_skipPaymentOutbox);
+                }
+                else
+                {
+                    DeviceStatusText = "Recorded manually (POS not configured)";
+                    splitResult = await _router.PayAndRecordAsync(
+                        provider,
+                        new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value, ManualRecord: true),
+                        CancellationToken.None,
+                        enqueueOutbox: !_skipPaymentOutbox);
+                }
+            }
+            else
+            {
+                splitResult = await _router.PayAndRecordAsync(
+                    provider,
+                    new PaymentRequest(_invoiceNo, amount, "INR", reference),
+                    CancellationToken.None,
+                    enqueueOutbox: !_skipPaymentOutbox);
+            }
+
+            if (splitResult.Status != "Success" && splitResult.Status != "Pending")
+            {
+                ErrorMessage = posMode.HasValue && IsRazorpayPosConfigured
+                    ? FormatPosErrorMessage($"{provider} leg failed: {splitResult.Status}")
+                    : $"{provider} leg failed: {splitResult.Status}";
+                DeviceStatusText = "Failed";
+                return false;
+            }
+
+            legs.Add(new PaymentLegResult
+            {
+                Provider = provider,
+                Amount = amount,
+                Reference = splitResult.ProviderReference,
+                Status = splitResult.Status,
+            });
+        }
+
+        return true;
+    }
+
+    private async Task<bool> ProcessCreditAdvancePaymentAsync(decimal advance, List<PaymentLegResult> legs)
+    {
+        switch (CreditAdvanceMode)
+        {
+            case PaymentMode.Cash:
+            {
+                var cashResult = await _router.PayAndRecordAsync(
+                    PaymentProviderKind.Cash,
+                    new PaymentRequest(_invoiceNo, advance, "INR"),
+                    CancellationToken.None,
+                    enqueueOutbox: !_skipPaymentOutbox);
+                legs.Add(new PaymentLegResult
+                {
+                    Provider = PaymentProviderKind.Cash,
+                    Amount = advance,
+                    Reference = cashResult.ProviderReference,
+                    Status = cashResult.Status,
+                });
+                return true;
+            }
+
+            case PaymentMode.Card:
+                if (IsRazorpayPosConfigured)
+                    return await ExecuteRazorpayPosPaymentAsync(
+                        RazorpayPosPayMode.Card,
+                        PaymentProviderKind.PineLabs,
+                        advance,
+                        legs);
+
+                return await ExecuteManualCardOrUpiPaymentAsync(
+                    PaymentProviderKind.PineLabs,
+                    advance,
+                    legs);
+
+            case PaymentMode.Upi:
+                if (IsRazorpayPosConfigured)
+                    return await ExecuteRazorpayPosPaymentAsync(
+                        RazorpayPosPayMode.Upi,
+                        PaymentProviderKind.Razorpay,
+                        advance,
+                        legs);
+
+                return await ExecuteManualCardOrUpiPaymentAsync(
+                    PaymentProviderKind.Razorpay,
+                    advance,
+                    legs);
+
+            case PaymentMode.CreditNote:
+            {
+                var cnRef = (CreditNoteReference ?? "").Trim();
+                if (!await ValidateAndConsumeCreditAsync(cnRef, advance))
+                    return false;
+
+                var cnResult = await _router.PayAndRecordAsync(
+                    PaymentProviderKind.CreditNote,
+                    new PaymentRequest(_invoiceNo, advance, "INR", cnRef),
+                    CancellationToken.None,
+                    enqueueOutbox: !_skipPaymentOutbox);
+                legs.Add(new PaymentLegResult
+                {
+                    Provider = PaymentProviderKind.CreditNote,
+                    Amount = advance,
+                    Reference = cnResult.ProviderReference,
+                    Status = cnResult.Status,
+                });
+                return true;
+            }
+
+            case PaymentMode.Split:
+            {
+                if (SplitCreditNoteAmount > 0)
+                {
+                    if (!await ValidateAndConsumeCreditAsync(SplitCreditNoteReference.Trim(), SplitCreditNoteAmount))
+                        return false;
+                }
+
+                var splitEntries = new List<(PaymentProviderKind Provider, decimal Amount, string? Reference, RazorpayPosPayMode? PosMode)>();
+                if (SplitCashAmount > 0)
+                    splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null, null));
+                if (SplitCardAmount > 0)
+                    splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null, RazorpayPosPayMode.Card));
+                if (SplitUpiAmount > 0)
+                    splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null, RazorpayPosPayMode.Upi));
+                if (SplitCreditNoteAmount > 0)
+                    splitEntries.Add((PaymentProviderKind.CreditNote, SplitCreditNoteAmount, SplitCreditNoteReference.Trim(), null));
+
+                return await ProcessSplitLegsAsync(splitEntries, legs);
+            }
+
+            default:
+                ErrorMessage = "Select an advance payment mode.";
+                return false;
+        }
+    }
+
     [RelayCommand]
     private async Task ConfirmPayment()
     {
@@ -929,57 +1193,10 @@ public partial class PaymentDialogViewModel : ObservableObject
                     if (SplitCreditNoteAmount > 0)
                         splitEntries.Add((PaymentProviderKind.CreditNote, SplitCreditNoteAmount, SplitCreditNoteReference.Trim(), null));
 
-                    foreach (var (provider, amount, reference, posMode) in splitEntries)
+                    if (!await ProcessSplitLegsAsync(splitEntries, legs))
                     {
-                        PaymentResult splitResult;
-                        if (posMode.HasValue)
-                        {
-                            if (IsRazorpayPosConfigured)
-                            {
-                                DeviceStatusText = posMode == RazorpayPosPayMode.Upi
-                                    ? "Waiting for UPI on Razorpay device..."
-                                    : "Waiting for card on Razorpay device...";
-                                splitResult = await _router.PayAndRecordAsync(
-                                    PaymentProviderKind.Razorpay,
-                                    new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value),
-                                    CancellationToken.None,
-                                    enqueueOutbox: !_skipPaymentOutbox);
-                            }
-                            else
-                            {
-                                DeviceStatusText = "Recorded manually (POS not configured)";
-                                splitResult = await _router.PayAndRecordAsync(
-                                    provider,
-                                    new PaymentRequest(_invoiceNo, amount, "INR", reference, posMode.Value, ManualRecord: true),
-                                    CancellationToken.None,
-                                    enqueueOutbox: !_skipPaymentOutbox);
-                            }
-                        }
-                        else
-                        {
-                            splitResult = await _router.PayAndRecordAsync(
-                                provider,
-                                new PaymentRequest(_invoiceNo, amount, "INR", reference),
-                                CancellationToken.None,
-                                enqueueOutbox: !_skipPaymentOutbox);
-                        }
-
-                        if (splitResult.Status != "Success" && splitResult.Status != "Pending")
-                        {
-                            ErrorMessage = posMode.HasValue && IsRazorpayPosConfigured
-                                ? FormatPosErrorMessage($"{provider} leg failed: {splitResult.Status}")
-                                : $"{provider} leg failed: {splitResult.Status}";
-                            Status = PaymentStatus.Failed;
-                            return;
-                        }
-
-                        legs.Add(new PaymentLegResult
-                        {
-                            Provider = provider,
-                            Amount = amount,
-                            Reference = splitResult.ProviderReference,
-                            Status = splitResult.Status,
-                        });
+                        Status = PaymentStatus.Failed;
+                        return;
                     }
                     break;
 
@@ -995,84 +1212,10 @@ public partial class PaymentDialogViewModel : ObservableObject
                     var advance = MoneyMath.RoundDisplayAmount(CreditAdvanceAmount);
                     if (advance > 0)
                     {
-                        var advanceMode = CreditAdvanceMode is PaymentMode.Card or PaymentMode.Upi
-                            ? CreditAdvanceMode
-                            : PaymentMode.Cash;
-
-                        if (advanceMode == PaymentMode.Cash)
+                        if (!await ProcessCreditAdvancePaymentAsync(advance, legs))
                         {
-                            var cashResult = await _router.PayAndRecordAsync(
-                                PaymentProviderKind.Cash,
-                                new PaymentRequest(_invoiceNo, advance, "INR"),
-                                CancellationToken.None,
-                                enqueueOutbox: !_skipPaymentOutbox);
-                            legs.Add(new PaymentLegResult
-                            {
-                                Provider = PaymentProviderKind.Cash,
-                                Amount = advance,
-                                Reference = cashResult.ProviderReference,
-                                Status = cashResult.Status,
-                            });
-                        }
-                        else if (advanceMode == PaymentMode.Card)
-                        {
-                            if (IsRazorpayPosConfigured)
-                            {
-                                if (!await ExecuteRazorpayPosPaymentAsync(
-                                        RazorpayPosPayMode.Card,
-                                        PaymentProviderKind.PineLabs,
-                                        advance,
-                                        legs))
-                                {
-                                    Status = PaymentStatus.Failed;
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                var cardResult = await _router.PayAndRecordAsync(
-                                    PaymentProviderKind.PineLabs,
-                                    new PaymentRequest(_invoiceNo, advance, "INR", ManualRecord: true),
-                                    CancellationToken.None,
-                                    enqueueOutbox: !_skipPaymentOutbox);
-                                legs.Add(new PaymentLegResult
-                                {
-                                    Provider = PaymentProviderKind.PineLabs,
-                                    Amount = advance,
-                                    Reference = cardResult.ProviderReference,
-                                    Status = cardResult.Status,
-                                });
-                            }
-                        }
-                        else
-                        {
-                            if (IsRazorpayPosConfigured)
-                            {
-                                if (!await ExecuteRazorpayPosPaymentAsync(
-                                        RazorpayPosPayMode.Upi,
-                                        PaymentProviderKind.Razorpay,
-                                        advance,
-                                        legs))
-                                {
-                                    Status = PaymentStatus.Failed;
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                var upiResult = await _router.PayAndRecordAsync(
-                                    PaymentProviderKind.Razorpay,
-                                    new PaymentRequest(_invoiceNo, advance, "INR", ManualRecord: true),
-                                    CancellationToken.None,
-                                    enqueueOutbox: !_skipPaymentOutbox);
-                                legs.Add(new PaymentLegResult
-                                {
-                                    Provider = PaymentProviderKind.Razorpay,
-                                    Amount = advance,
-                                    Reference = upiResult.ProviderReference,
-                                    Status = upiResult.Status,
-                                });
-                            }
+                            Status = PaymentStatus.Failed;
+                            return;
                         }
                     }
 
@@ -1095,6 +1238,11 @@ public partial class PaymentDialogViewModel : ObservableObject
             {
                 cashReceived = AmountReceived;
                 changeReturned = Math.Max(0m, AmountReceived - CollectibleAmount);
+            }
+            else if (SelectedMode == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Cash && CreditAdvanceAmount > 0)
+            {
+                cashReceived = AmountReceived;
+                changeReturned = Math.Max(0m, AmountReceived - CreditAdvanceAmount);
             }
 
             Outcome = new PaymentOutcome

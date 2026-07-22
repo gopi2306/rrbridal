@@ -25,6 +25,7 @@ public partial class App : Application
     {
         _reloginRequested = true;
         Services.PeriodicSync.Stop();
+        Services.MongoHealth.Stop();
         var email = Services.UserSession?.LoggedInUser.Email;
         Services.UserSession = null;
         if (!string.IsNullOrWhiteSpace(email))
@@ -77,6 +78,17 @@ public partial class App : Application
     {
         try
         {
+            // ZeroTier / parent-Mongo gate: STORE_MONGO_REQUIRE_READY=true (default).
+            // Set STORE_MONGO_REQUIRE_READY=false to skip and allow start without Mongo up.
+            if (Services.StoreMongoOptions.RequireReady)
+            {
+                if (!await Services.MongoHealth.WaitUntilReadyAsync().ConfigureAwait(true))
+                {
+                    Shutdown();
+                    return;
+                }
+            }
+
             string syncWarning = "";
             try
             {
@@ -107,6 +119,7 @@ public partial class App : Application
             {
                 if (!await TryShowLoginAsync(syncWarning).ConfigureAwait(true))
                 {
+                    Services.MongoHealth.Stop();
                     Shutdown();
                     return;
                 }
@@ -133,12 +146,14 @@ public partial class App : Application
                     continue;
                 }
 
+                Services.MongoHealth.Stop();
                 Shutdown();
                 return;
             }
         }
         catch (Exception ex)
         {
+            Services.MongoHealth.Stop();
             MessageBox.Show(
                 $"Could not start billing: {ex.Message}",
                 "RR Bridal Billing",
@@ -177,6 +192,7 @@ public partial class App : Application
             mainWindow.Closed += (_, _) =>
             {
                 Services.PeriodicSync.Stop();
+                Services.MongoHealth.Stop();
                 if (!_reloginRequested)
                     _ = ReleaseCurrentUserSessionAsync();
                 if (ReferenceEquals(MainWindow, mainWindow))
@@ -187,6 +203,7 @@ public partial class App : Application
             mainWindow.Activate();
             mainWindow.Focus();
             Services.PeriodicSync.Start();
+            Services.MongoHealth.Start();
         });
 
         await closed.Task.ConfigureAwait(true);

@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Param, Post, Query, Res, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Res, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -30,6 +30,38 @@ function mimeForFilename(filename: string): string | undefined {
 
 function ensureDir(dir: string) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+}
+
+function parseColourIdsInput(raw: unknown): string[] | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (Array.isArray(raw)) {
+    const values = raw.flatMap((value) =>
+      typeof value === 'string' ? value.split(/[,;|]/) : [],
+    );
+    return values.map((value) => value.trim()).filter((value) => value.length > 0);
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0);
+        }
+      } catch {
+        // fall through to delimiter split
+      }
+    }
+    return trimmed
+      .split(/[,;|]/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+  }
+  return undefined;
 }
 
 function generalDiskStorage(subfolder: string) {
@@ -215,6 +247,15 @@ export class MediaController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
+        description: {
+          type: 'string',
+          description: 'Optional description for this product image',
+        },
+        colourIds: {
+          type: 'string',
+          description:
+            'Optional colour ids for this image (comma-separated or JSON array string)',
+        },
       },
     },
   })
@@ -232,12 +273,30 @@ export class MediaController {
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  async uploadProductImage(@Param('productId') productId: string, @UploadedFile() file?: Express.Multer.File) {
+  async uploadProductImage(
+    @Param('productId') productId: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('description') description?: string,
+    @Body('colourIds') colourIdsRaw?: string | string[],
+  ) {
     if (!file) throw new BadRequestException('file is required');
     await this.productsService.findById(productId);
     const url = mediaFilePublicPath('products', file.filename);
-    await this.productsService.appendMediaUrl(productId, url);
-    return { ok: true, filename: file.filename, url };
+    const trimmedDescription = typeof description === 'string' ? description.trim() : '';
+    const colourIds = parseColourIdsInput(colourIdsRaw);
+    await this.productsService.appendMediaItem(
+      productId,
+      url,
+      trimmedDescription.length > 0 ? trimmedDescription : undefined,
+      colourIds,
+    );
+    return {
+      ok: true,
+      filename: file.filename,
+      url,
+      description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
+      colourIds,
+    };
   }
 
   @Get('products/:productId/image')

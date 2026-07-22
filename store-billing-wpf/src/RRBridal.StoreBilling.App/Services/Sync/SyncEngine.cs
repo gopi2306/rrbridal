@@ -26,6 +26,9 @@ namespace RRBridal.StoreBilling.App.Services.Sync;
 
 public sealed class SyncEngine : ISyncEngine
 {
+    private const int PullPageLimit = 200;
+    private const int MaxProductResyncPages = 1000;
+
     private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly IMongoCollection<BsonDocument> _syncState;
     private readonly IMongoCollection<BsonDocument> _products;
@@ -82,6 +85,38 @@ public sealed class SyncEngine : ISyncEngine
         return new SyncStatus(pending, cursor, lastError, transferCursor, diagnostics);
     }
 
+    public async Task ResetProductCursorAsync(CancellationToken ct)
+    {
+        var state = await _syncState.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync(ct);
+        var next = state != null ? (BsonDocument)state.DeepClone() : new BsonDocument();
+        next.Remove("_id");
+        next["cursor"] = "0";
+        next["updatedAt"] = DateTime.UtcNow.ToString("O");
+        next["lastError"] = "";
+        await _syncState.ReplaceOneAsync(
+            FilterDefinition<BsonDocument>.Empty,
+            next,
+            new ReplaceOptions { IsUpsert = true },
+            ct);
+    }
+
+    public async Task<int> ResyncAllProductsAsync(CancellationToken ct)
+    {
+        await ResetProductCursorAsync(ct);
+        _hsnLookup = null;
+
+        var totalProducts = 0;
+        for (var page = 0; page < MaxProductResyncPages; page++)
+        {
+            var productCount = await PullUpdatesAsync(ct, PullPageLimit);
+            totalProducts += productCount;
+            if (productCount < PullPageLimit)
+                break;
+        }
+
+        return totalProducts;
+    }
+
     public async Task RunOnceAsync(CancellationToken ct)
     {
         try { await _masterData.SyncAllMastersAsync(ct); } catch { /* master sync is best-effort */ }
@@ -108,7 +143,7 @@ public sealed class SyncEngine : ISyncEngine
         var pending = await _outbox
             .Find(new BsonDocument("status", "pending"))
             .Sort(new BsonDocument("createdAt", 1))
-            .Limit(200)
+            .Limit(PullPageLimit)
             .ToListAsync(ct);
 
         if (pending.Count == 0) return;
@@ -146,7 +181,7 @@ public sealed class SyncEngine : ISyncEngine
         }
     }
 
-    private async Task PullUpdatesAsync(CancellationToken ct)
+    private async Task<int> PullUpdatesAsync(CancellationToken ct, int limit = PullPageLimit)
     {
         _hsnLookup ??= await HsnSacResolver.LoadLookupAsync(_localDb, ct);
 
@@ -158,7 +193,7 @@ public sealed class SyncEngine : ISyncEngine
 
         var storeId = _storeContext.StoreId;
         var url =
-            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&sincePromotionCursor={Uri.EscapeDataString(promotionCursor)}&sinceAdjustmentCursor={Uri.EscapeDataString(adjustmentCursor)}&limit=200";
+            $"/api/sync/pull?storeId={Uri.EscapeDataString(storeId)}&sinceCursor={Uri.EscapeDataString(cursor)}&sinceTransferCursor={Uri.EscapeDataString(transferCursor)}&sincePromotionCursor={Uri.EscapeDataString(promotionCursor)}&sinceAdjustmentCursor={Uri.EscapeDataString(adjustmentCursor)}&limit={limit}";
 
         var res = await _centralApi.GetAsync(url, ct);
         res.EnsureSuccessStatusCode();
@@ -271,6 +306,7 @@ public sealed class SyncEngine : ISyncEngine
             nextState["lastError"] = string.Join("; ", pullWarnings.Distinct());
 
         await _syncState.ReplaceOneAsync(FilterDefinition<BsonDocument>.Empty, nextState, new ReplaceOptions { IsUpsert = true }, ct);
+        return pullCounts.TryGetValue("ProductUpserted", out var productCount) ? productCount : 0;
     }
 
     /// <summary>
@@ -366,6 +402,14 @@ public sealed class SyncEngine : ISyncEngine
         doc["centralProductId"] = id;
         doc["lastSyncedAt"] = DateTime.UtcNow.ToString("O");
 
+        // WPF uses storePrice as its local store rate. Preserve a positive central
+        // storePrice; otherwise copy central sellingPrice. Central often stores
+        // unset storePrice as 0, which must fall back to sellingPrice.
+        if (!HasPositivePrice(doc, "storePrice") && HasPositivePrice(doc, "sellingPrice"))
+        {
+            doc["storePrice"] = doc["sellingPrice"];
+        }
+
         var rawSku = doc.TryGetValue("sku", out var sk) && sk.BsonType == BsonType.String ? sk.AsString.Trim() : "";
         var mergedExtraFromDupes = 0.0;
         if (!string.IsNullOrEmpty(rawSku))
@@ -419,33 +463,20 @@ public sealed class SyncEngine : ISyncEngine
 
     /// <summary>
     /// Same-sku rows that are not the canonical central product (e.g. transfer stubs) merged into stock and removed.
+    /// Runs even when only one stub exists so priced ProductUpserted does not leave a separate blank-price row.
     /// </summary>
     private async Task<double> CollectAndDeleteOtherSkuDocumentsAsync(string sku, string centralProductId, CancellationToken ct)
     {
         var sameSku = await _products.Find(Builders<BsonDocument>.Filter.Eq("sku", sku)).ToListAsync(ct);
-        if (sameSku.Count <= 1) return 0;
+        var merge = LocalProductSkuMergeHelper.CollectOtherSkuDocuments(sameSku, centralProductId);
+        if (merge.IdsToDelete.Count == 0)
+            return merge.ExtraStock;
 
-        var extra = 0.0;
-        var toDelete = new List<ObjectId>();
-        foreach (var row in sameSku)
-        {
-            var cp = row.GetValue("centralProductId", BsonNull.Value);
-            var cpStr = cp.IsBsonNull ? null : cp.AsString;
-            if (cpStr == centralProductId) continue;
+        await _products.DeleteManyAsync(
+            Builders<BsonDocument>.Filter.In("_id", merge.IdsToDelete),
+            cancellationToken: ct);
 
-            extra += ReadStockQty(row);
-            if (row.TryGetValue("_id", out var oid) && oid.IsObjectId)
-                toDelete.Add(oid.AsObjectId);
-        }
-
-        if (toDelete.Count > 0)
-        {
-            await _products.DeleteManyAsync(
-                Builders<BsonDocument>.Filter.In("_id", toDelete),
-                cancellationToken: ct);
-        }
-
-        return extra;
+        return merge.ExtraStock;
     }
 
     private static double ReadStockQty(BsonDocument doc)
@@ -459,6 +490,12 @@ public sealed class SyncEngine : ISyncEngine
             BsonType.Decimal128 => (double)v.AsDecimal,
             _ => 0,
         };
+    }
+
+    private static bool HasPositivePrice(BsonDocument doc, string key)
+    {
+        if (!doc.TryGetValue(key, out var v) || v.IsBsonNull) return false;
+        return ToDouble(v) > 0;
     }
 
     private async Task ApplyStockTransferAsync(

@@ -23,6 +23,8 @@ export type SalesReturnReportRow = {
   billTime: string;
   returnTime: string;
   sku: string;
+  isLegacy?: boolean;
+  originalBillDate?: string;
 };
 
 export type SalesReturnReportTotals = {

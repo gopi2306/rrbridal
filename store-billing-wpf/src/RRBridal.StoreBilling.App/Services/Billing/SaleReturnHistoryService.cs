@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
@@ -28,7 +29,8 @@ public sealed class SaleReturnHistoryService
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("originalBillNo", billNo.Trim()),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"));
+            Builders<BsonDocument>.Filter.Eq("status", "posted"),
+            Builders<BsonDocument>.Filter.Ne("isLegacy", true));
 
         return await _returns.Find(filter).FirstOrDefaultAsync(ct);
     }
@@ -44,9 +46,40 @@ public sealed class SaleReturnHistoryService
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("originalBillNo", billNo.Trim()),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"));
+            Builders<BsonDocument>.Filter.Eq("status", "posted"),
+            Builders<BsonDocument>.Filter.Ne("isLegacy", true));
 
         return await _returns.Find(filter).ToListAsync(ct);
+    }
+
+    public static bool IsLegacyReturn(BsonDocument doc) =>
+        doc.Contains("isLegacy") && doc["isLegacy"].IsBoolean && doc["isLegacy"].AsBoolean;
+
+    public async Task<int> CountLegacyReturnsForReferenceAsync(
+        string storeId,
+        string referenceBillNo,
+        string? customerPhoneNorm,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(referenceBillNo))
+            return 0;
+
+        var filters = new List<FilterDefinition<BsonDocument>>
+        {
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+            Builders<BsonDocument>.Filter.Eq("originalBillNo", referenceBillNo.Trim()),
+            Builders<BsonDocument>.Filter.Eq("status", "posted"),
+            Builders<BsonDocument>.Filter.Eq("isLegacy", true),
+        };
+
+        if (!string.IsNullOrWhiteSpace(customerPhoneNorm))
+        {
+            filters.Add(Builders<BsonDocument>.Filter.Regex(
+                "customerPhone",
+                new BsonRegularExpression($"^{Regex.Escape(customerPhoneNorm.Trim())}", "i")));
+        }
+
+        return (int)await _returns.CountDocumentsAsync(Builders<BsonDocument>.Filter.And(filters), cancellationToken: ct);
     }
 
     public async Task<Dictionary<int, decimal>> GetPreviouslyReturnedQtyByLineAsync(

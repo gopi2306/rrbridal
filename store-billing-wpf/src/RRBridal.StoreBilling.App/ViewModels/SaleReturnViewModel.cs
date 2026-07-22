@@ -17,6 +17,7 @@ using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Invoicing;
+using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Views;
@@ -29,11 +30,25 @@ public enum ReturnMode
     CashRefund,
 }
 
+public enum SaleReturnSourceMode
+{
+    SystemBill,
+    PreSystemInvoice,
+}
+
 public partial class SaleReturnViewModel : ObservableObject
 {
     private static readonly CultureInfo InCulture = CultureInfo.GetCultureInfo("en-IN");
 
     private readonly AppServices _services;
+    private readonly CustomerLookupService _customerLookup;
+    private readonly CustomerRegistrationService _customerRegistration;
+    private readonly CustomerCodeGenerator _customerCodeGenerator;
+
+    private bool _suppressLegacyPhoneAutoSearch;
+    private bool _legacyPhoneCaptureInProgress;
+    private bool _legacyPhoneWasComplete;
+    private string _lastCommittedLegacyPhoneNorm = "";
 
     [ObservableProperty] private string _originalBillNo = "";
     [ObservableProperty] private string _searchCustomerName = "";
@@ -43,6 +58,12 @@ public partial class SaleReturnViewModel : ObservableObject
     [ObservableProperty] private bool _billLoaded;
     [ObservableProperty] private string _reason = "";
     [ObservableProperty] private ReturnMode _returnMode = ReturnMode.CreditNote;
+    [ObservableProperty] private SaleReturnSourceMode _sourceMode = SaleReturnSourceMode.SystemBill;
+    [ObservableProperty] private DateTime? _originalBillDate;
+    [ObservableProperty] private string _legacyCustomerName = "";
+    [ObservableProperty] private string _legacyCustomerPhone = "";
+    [ObservableProperty] private string _legacyCustomerCode = "";
+    [ObservableProperty] private string _preSystemProductSearch = "";
 
     [ObservableProperty] private string _returnNo = "";
     [ObservableProperty] private bool _isInterState;
@@ -75,9 +96,28 @@ public partial class SaleReturnViewModel : ObservableObject
 
     public ObservableCollection<SaleReturnLineItem> ReturnLines { get; } = new();
     public ObservableCollection<SaleExchangeLineItem> ExchangeLines { get; } = new();
+    public ObservableCollection<LegacyReturnLineItem> LegacyReturnLines { get; } = new();
     public ObservableCollection<BillSearchRow> SearchResults { get; } = new();
 
-    public bool ShowSearchResults => SearchResults.Count > 0 && !BillLoaded;
+    public bool ShowSearchResults => IsSystemBillMode && SearchResults.Count > 0 && !BillLoaded;
+
+    public bool IsSystemBillMode => SourceMode == SaleReturnSourceMode.SystemBill;
+
+    public bool IsPreSystemMode => SourceMode == SaleReturnSourceMode.PreSystemInvoice;
+
+    public bool ShowSystemBillSearch => IsSystemBillMode;
+
+    public bool ShowPreSystemFields => IsPreSystemMode;
+
+    public bool ShowSystemReturnLineColumns => IsSystemBillMode;
+
+    public bool ShowExchangeSection => IsSystemBillMode && BillLoaded;
+
+    public bool ShowLegacyReturnLines => IsPreSystemMode && BillLoaded;
+
+    public bool HasLegacyReturnLines => LegacyReturnLines.Count > 0;
+
+    public bool ShowLegacyEmptyHint => ShowLegacyReturnLines && !HasLegacyReturnLines;
 
     private BsonDocument? _originalBillDoc;
 
@@ -86,7 +126,26 @@ public partial class SaleReturnViewModel : ObservableObject
     public SaleReturnViewModel(AppServices services)
     {
         _services = services;
+        _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
+        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
         _ = AssignReturnNoAsync();
+        LegacyReturnLines.CollectionChanged += (_, e) =>
+        {
+            if (e.OldItems != null)
+            {
+                foreach (LegacyReturnLineItem line in e.OldItems)
+                    line.PropertyChanged -= OnLegacyLinePropertyChanged;
+            }
+
+            if (e.NewItems != null)
+            {
+                foreach (LegacyReturnLineItem line in e.NewItems)
+                    line.PropertyChanged += OnLegacyLinePropertyChanged;
+            }
+
+            RecalculateTotals();
+        };
         ExchangeLines.CollectionChanged += (_, e) =>
         {
             if (e.OldItems != null)
@@ -110,9 +169,345 @@ public partial class SaleReturnViewModel : ObservableObject
         ReturnNo = await _services.BillNumberGenerator.NextReturnAsync();
     }
 
+    partial void OnSourceModeChanged(SaleReturnSourceMode value)
+    {
+        _ = ClearForm();
+        StatusMessage = value == SaleReturnSourceMode.PreSystemInvoice
+            ? "Enter pre-system invoice details, search customer by name/mobile, then Start return."
+            : "Search by bill no, customer name, or mobile.";
+        OnPropertyChanged(nameof(IsSystemBillMode));
+        OnPropertyChanged(nameof(IsPreSystemMode));
+        OnPropertyChanged(nameof(ShowSystemBillSearch));
+        OnPropertyChanged(nameof(ShowPreSystemFields));
+        OnPropertyChanged(nameof(ShowSystemReturnLineColumns));
+        OnPropertyChanged(nameof(ShowExchangeSection));
+        NotifySearchResultsChanged();
+    }
+
+    [RelayCommand]
+    private void StartPreSystemReturn()
+    {
+        if (string.IsNullOrWhiteSpace(OriginalBillNo))
+        {
+            MessageBox.Show("Enter the reference invoice / bill number.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (OriginalBillDate == null)
+        {
+            MessageBox.Show("Select the original invoice date.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(LegacyCustomerName))
+        {
+            MessageBox.Show("Enter customer name.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!IsValidLegacyCustomerPhone(LegacyCustomerPhone))
+        {
+            MessageBox.Show("Enter a valid 10-digit customer mobile (required for credit note).", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        foreach (var line in ReturnLines)
+            line.PropertyChanged -= OnReturnLinePropertyChanged;
+        foreach (var line in LegacyReturnLines)
+            line.PropertyChanged -= OnLegacyLinePropertyChanged;
+        ReturnLines.Clear();
+        LegacyReturnLines.Clear();
+        ExchangeLines.Clear();
+        _originalBillDoc = null;
+        BillLoaded = true;
+        IsInterState = false;
+        StatusMessage = $"Pre-system return started for invoice {OriginalBillNo.Trim()}. Add products below (SKU / barcode search).";
+        OnPropertyChanged(nameof(ShowLegacyReturnLines));
+        OnPropertyChanged(nameof(ShowLegacyEmptyHint));
+        OnPropertyChanged(nameof(HasLegacyReturnLines));
+        NotifySearchResultsChanged();
+        RecalculateTotals();
+    }
+
+    private static bool IsValidLegacyCustomerPhone(string? phone)
+    {
+        var norm = PhoneMatchHelper.NormalizePhone(phone);
+        return !string.IsNullOrEmpty(norm) && norm.Length >= 10;
+    }
+
+    partial void OnLegacyCustomerPhoneChanged(string value)
+    {
+        var norm = PhoneMatchHelper.NormalizePhone(value);
+        if (norm != _lastCommittedLegacyPhoneNorm)
+            _lastCommittedLegacyPhoneNorm = "";
+
+        var isComplete = PhoneMatchHelper.IsPhoneLikeQuery((value ?? "").Trim());
+        if (isComplete && !_legacyPhoneWasComplete)
+            _ = HandleLegacyPhoneCommittedAsync();
+
+        _legacyPhoneWasComplete = isComplete;
+    }
+
+    [RelayCommand]
+    private Task SearchLegacyCustomer()
+    {
+        var name = (LegacyCustomerName ?? "").Trim();
+        var phone = (LegacyCustomerPhone ?? "").Trim();
+        if (!string.IsNullOrEmpty(name) && string.IsNullOrEmpty(phone))
+            return SearchLegacyCustomerByNameAsync();
+        return SearchLegacyCustomerCoreAsync(phoneSearchOnly: false);
+    }
+
+    public async Task SearchLegacyCustomerByNameAsync()
+    {
+        if (_suppressLegacyPhoneAutoSearch)
+            return;
+
+        var query = (LegacyCustomerName ?? "").Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            MessageBox.Show("Enter a customer name to search.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var results = await _customerLookup.SearchAsync(query);
+        if (!PhoneMatchHelper.IsPhoneLikeQuery(query))
+        {
+            var exactName = results
+                .Where(r => string.Equals((r.Name ?? "").Trim(), query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (exactName.Count == 1)
+            {
+                ApplyLegacyCustomerMatch(exactName[0]);
+                return;
+            }
+        }
+
+        await ShowLegacyCustomerSearchDialogAsync(query);
+    }
+
+    public async Task HandleLegacyPhoneCommittedAsync()
+    {
+        if (_suppressLegacyPhoneAutoSearch || _legacyPhoneCaptureInProgress)
+            return;
+
+        var phone = (LegacyCustomerPhone ?? "").Trim();
+        if (!PhoneMatchHelper.IsPhoneLikeQuery(phone))
+            return;
+
+        var norm = PhoneMatchHelper.NormalizePhone(phone);
+        if (!string.IsNullOrEmpty(norm) && norm == _lastCommittedLegacyPhoneNorm)
+            return;
+
+        if (IsLegacyCustomerAlreadyLoaded(phone))
+        {
+            _lastCommittedLegacyPhoneNorm = norm;
+            return;
+        }
+
+        _legacyPhoneCaptureInProgress = true;
+        try
+        {
+            var results = await _customerLookup.SearchAsync(phone);
+            var exact = results.Where(r => PhoneMatchHelper.PhoneMatches(r.Phone, phone)).ToList();
+
+            if (exact.Count > 0)
+            {
+                ApplyLegacyCustomerMatch(exact[0]);
+                _lastCommittedLegacyPhoneNorm = norm;
+                return;
+            }
+
+            await OpenLegacyCustomerQuickCaptureAsync(phone, LegacyCustomerName.Trim(), isNewCustomer: true);
+            _lastCommittedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(LegacyCustomerPhone);
+        }
+        finally
+        {
+            _legacyPhoneCaptureInProgress = false;
+        }
+    }
+
+    private bool IsLegacyCustomerAlreadyLoaded(string phone) =>
+        !string.IsNullOrWhiteSpace(LegacyCustomerName)
+        && PhoneMatchHelper.PhoneMatches(LegacyCustomerPhone, phone);
+
+    private async Task SearchLegacyCustomerCoreAsync(bool phoneSearchOnly)
+    {
+        if (_suppressLegacyPhoneAutoSearch)
+            return;
+
+        var query = (LegacyCustomerPhone ?? "").Trim();
+        if (!phoneSearchOnly)
+        {
+            if (string.IsNullOrEmpty(query))
+                query = (LegacyCustomerName ?? "").Trim();
+            if (string.IsNullOrEmpty(query))
+                query = LegacyCustomerCode.Trim();
+        }
+
+        if (string.IsNullOrEmpty(query))
+        {
+            if (!phoneSearchOnly)
+            {
+                MessageBox.Show("Enter customer mobile, name, or code to search.", "Pre-system Return",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            return;
+        }
+
+        var results = await _customerLookup.SearchAsync(query);
+        if (PhoneMatchHelper.IsPhoneLikeQuery(query))
+        {
+            var exact = results.Where(r => PhoneMatchHelper.PhoneMatches(r.Phone, query)).ToList();
+            if (exact.Count == 1)
+            {
+                ApplyLegacyCustomerMatch(exact[0]);
+                return;
+            }
+        }
+
+        await ShowLegacyCustomerSearchDialogAsync(query);
+    }
+
+    private async Task ShowLegacyCustomerSearchDialogAsync(string query)
+    {
+        while (true)
+        {
+            var dlg = new CustomerSearchDialog(query, _customerLookup)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            var result = dlg.ShowDialog();
+
+            if (result == true && dlg.SelectedCustomer != null)
+            {
+                ApplyLegacyCustomerMatch(dlg.SelectedCustomer);
+                return;
+            }
+
+            if (!dlg.WantsNewRegistration)
+                return;
+
+            var initialPhone = PhoneMatchHelper.IsPhoneLikeQuery(query) ? query : "";
+            var initialName = PhoneMatchHelper.IsPhoneLikeQuery(query) ? "" : query;
+            var saved = await OpenLegacyCustomerQuickCaptureAsync(initialPhone, initialName, isNewCustomer: true);
+            if (saved)
+                return;
+
+            query = initialPhone.Length > 0 ? initialPhone : initialName;
+        }
+    }
+
+    private async Task<bool> OpenLegacyCustomerQuickCaptureAsync(string initialPhone, string initialName, bool isNewCustomer)
+    {
+        while (true)
+        {
+            var dlg = new CustomerQuickCaptureDialog(
+                initialPhone,
+                initialName,
+                existingMatch: null,
+                isNewCustomer: isNewCustomer,
+                exactMatchCount: 0)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            _suppressLegacyPhoneAutoSearch = true;
+            var dialogResult = dlg.ShowDialog();
+            _suppressLegacyPhoneAutoSearch = false;
+
+            if (dialogResult != true || !dlg.Saved)
+                return false;
+
+            if (dlg.WantsAdvancedSearch)
+            {
+                await ShowLegacyCustomerSearchDialogAsync(
+                    !string.IsNullOrWhiteSpace(dlg.MobileNo) ? dlg.MobileNo.Trim() : dlg.CustomerName.Trim());
+                return true;
+            }
+
+            var name = dlg.CustomerName.Trim();
+            var mobile = dlg.MobileNo.Trim();
+
+            var code = await _customerCodeGenerator.NextAsync();
+            var reg = await _customerRegistration.RegisterAsync(new CustomerRegistrationPayload
+            {
+                CustomerCode = code,
+                CustomerName = name,
+                Mobile = mobile,
+            });
+
+            ApplyLegacyCustomerRegistration(reg);
+
+            if (!string.IsNullOrWhiteSpace(reg.CentralSyncWarning))
+            {
+                MessageBox.Show(reg.CentralSyncWarning, "Pre-system Return",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            return true;
+        }
+    }
+
+    private void ApplyLegacyCustomerMatch(CustomerMatch match)
+    {
+        _suppressLegacyPhoneAutoSearch = true;
+        try
+        {
+            LegacyCustomerCode = !string.IsNullOrWhiteSpace(match.Code) ? match.Code : match.Id;
+            LegacyCustomerName = match.Name;
+            LegacyCustomerPhone = match.Phone;
+        }
+        finally
+        {
+            _suppressLegacyPhoneAutoSearch = false;
+        }
+
+        _lastCommittedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(match.Phone);
+        _legacyPhoneWasComplete = PhoneMatchHelper.IsPhoneLikeQuery(LegacyCustomerPhone);
+        StatusMessage = $"Customer loaded: {LegacyCustomerName.Trim()}. Enter invoice details and press Start return.";
+    }
+
+    private void ApplyLegacyCustomerRegistration(CustomerRegistrationResult result)
+    {
+        _suppressLegacyPhoneAutoSearch = true;
+        try
+        {
+            LegacyCustomerCode = result.BillingCustomerCode;
+            LegacyCustomerName = result.CustomerName;
+            LegacyCustomerPhone = result.CustomerPhone;
+        }
+        finally
+        {
+            _suppressLegacyPhoneAutoSearch = false;
+        }
+
+        _lastCommittedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(result.CustomerPhone);
+        _legacyPhoneWasComplete = PhoneMatchHelper.IsPhoneLikeQuery(LegacyCustomerPhone);
+        StatusMessage = $"New customer saved: {result.CustomerName.Trim()}. Enter invoice details and press Start return.";
+    }
+
+    [RelayCommand]
+    private void RemoveLegacyLine(LegacyReturnLineItem? line)
+    {
+        if (line != null)
+            LegacyReturnLines.Remove(line);
+        OnPropertyChanged(nameof(HasLegacyReturnLines));
+        OnPropertyChanged(nameof(ShowLegacyEmptyHint));
+        RecalculateTotals();
+    }
+
     [RelayCommand]
     private async Task SearchBills()
     {
+        if (IsPreSystemMode)
+            return;
+
         if (!HasSearchCriteria())
         {
             MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Sale Return",
@@ -448,8 +843,29 @@ public partial class SaleReturnViewModel : ObservableObject
         }
     }
 
+    private void OnLegacyLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(LegacyReturnLineItem.Qty)
+            or nameof(LegacyReturnLineItem.GrossReturnAmount)
+            or nameof(LegacyReturnLineItem.TaxableReturnAmount)
+            or nameof(LegacyReturnLineItem.LineReturnTotal)
+            or nameof(LegacyReturnLineItem.CgstAmount)
+            or nameof(LegacyReturnLineItem.SgstAmount)
+            or nameof(LegacyReturnLineItem.IgstAmount)
+            or nameof(LegacyReturnLineItem.TaxAmount))
+        {
+            RecalculateTotals();
+        }
+    }
+
     private void RecalculateTotals()
     {
+        if (IsPreSystemMode)
+        {
+            RecalculatePreSystemTotals();
+            return;
+        }
+
         var selected = ReturnLines.Where(l => l.IsSelected && l.ReturnQty > 0).ToList();
         var grossSub = selected.Sum(l => l.GrossReturnAmount);
         var taxableSub = selected.Sum(l => l.TaxableReturnAmount);
@@ -482,9 +898,42 @@ public partial class SaleReturnViewModel : ObservableObject
         FooterAmountFormatted = hasExchange ? AmountToCollectFormatted : ReturnTotalFormatted;
     }
 
+    private void RecalculatePreSystemTotals()
+    {
+        var lines = LegacyReturnLines.Where(l => l.Qty > 0).ToList();
+        var grossSub = lines.Sum(l => l.GrossReturnAmount);
+        var taxableSub = lines.Sum(l => l.TaxableReturnAmount);
+        var cgst = lines.Sum(l => l.CgstAmount);
+        var sgst = lines.Sum(l => l.SgstAmount);
+        var igst = lines.Sum(l => l.IgstAmount);
+        var taxTotal = cgst + sgst + igst;
+        var total = lines.Sum(l => l.LineReturnTotal);
+
+        GrossSubTotalFormatted = MoneyMath.FormatRupee(grossSub);
+        ReturnDiscountFormatted = MoneyMath.FormatRupee(0m);
+        TaxableSubTotalFormatted = MoneyMath.FormatRupee(taxableSub);
+        TaxTotalFormatted = MoneyMath.FormatRupee(taxTotal);
+        CgstTotalFormatted = MoneyMath.FormatRupee(cgst);
+        SgstTotalFormatted = MoneyMath.FormatRupee(sgst);
+        IgstTotalFormatted = MoneyMath.FormatRupee(igst);
+        ReturnTotalFormatted = MoneyMath.FormatRupee(total);
+        ReplacementTotalFormatted = MoneyMath.FormatRupee(0m);
+        AmountToCollectFormatted = MoneyMath.FormatPayable(0m);
+        CreditBalanceFormatted = MoneyMath.FormatRupee(total);
+        HasExchangeLines = false;
+        FooterLabel = "Return Total";
+        FooterAmountFormatted = ReturnTotalFormatted;
+    }
+
     public async Task AddExchangeProductFromSearchAsync(string query)
     {
         var q = (query ?? "").Trim();
+        if (IsPreSystemMode)
+        {
+            await AddPreSystemProductFromSearchAsync(q);
+            return;
+        }
+
         if (!BillLoaded)
         {
             MessageBox.Show("Load the original bill before adding an exchange product.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -523,6 +972,80 @@ public partial class SaleReturnViewModel : ObservableObject
         if (dlg.ShowDialog() == true && dlg.SelectedProduct != null)
             AddExchangeLineFromCatalog(dlg.SelectedProduct);
     }
+
+    public async Task AddPreSystemProductFromSearchAsync(string query)
+    {
+        if (!BillLoaded)
+        {
+            MessageBox.Show("Enter invoice details and press Start return before adding products.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var q = (query ?? "").Trim();
+        if (q.Length < 1)
+        {
+            var picker = new ProductSearchDialog("", _services) { Owner = Application.Current.MainWindow };
+            if (picker.ShowDialog() == true && picker.SelectedProduct != null)
+                AddLegacyLineFromCatalog(picker.SelectedProduct);
+            return;
+        }
+
+        var items = await _services.ProductCatalog.SearchAsync(q);
+        if (items.Count == 1)
+        {
+            AddLegacyLineFromCatalog(items[0]);
+            return;
+        }
+
+        var existing = await _services.ProductCatalog.FindBySkuOrBarcodeAsync(q);
+        if (existing != null)
+        {
+            AddLegacyLineFromCatalog(existing);
+            return;
+        }
+
+        var dlg = new ProductSearchDialog(q, _services) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() == true && dlg.SelectedProduct != null)
+            AddLegacyLineFromCatalog(dlg.SelectedProduct);
+    }
+
+    private void AddLegacyLineFromCatalog(CatalogProduct product)
+    {
+        var existing = LegacyReturnLines.FirstOrDefault(l =>
+            string.Equals(l.ProductCode, product.Sku, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            existing.Qty += 1;
+            RecalculateTotals();
+            return;
+        }
+
+        LegacyReturnLines.Add(new LegacyReturnLineItem
+        {
+            LineNo = LegacyReturnLines.Count + 1,
+            CentralProductId = product.CentralId,
+            ProductCode = product.Sku,
+            Description = product.Name,
+            Qty = 1,
+            Rate = product.SuggestedRate,
+            TaxPercent = product.SuggestedTaxPercent,
+            IsIgst = IsInterState,
+        });
+        OnPropertyChanged(nameof(HasLegacyReturnLines));
+        OnPropertyChanged(nameof(ShowLegacyEmptyHint));
+        RecalculateTotals();
+    }
+
+    [RelayCommand]
+    private async Task AddPreSystemProductAsync()
+    {
+        await AddPreSystemProductFromSearchAsync(PreSystemProductSearch);
+        PreSystemProductSearch = "";
+    }
+
+    [RelayCommand]
+    private Task BrowsePreSystemProductAsync() => AddPreSystemProductFromSearchAsync("");
 
     private void AddExchangeLineFromCatalog(CatalogProduct product)
     {
@@ -569,6 +1092,12 @@ public partial class SaleReturnViewModel : ObservableObject
     [RelayCommand]
     private async Task PostReturn()
     {
+        if (IsPreSystemMode)
+        {
+            await PostPreSystemReturnAsync();
+            return;
+        }
+
         var selected = ReturnLines.Where(l => l.IsSelected && l.ReturnQty > 0).ToList();
         if (selected.Count == 0)
         {
@@ -961,6 +1490,277 @@ public partial class SaleReturnViewModel : ObservableObject
         }
     }
 
+    private async Task PostPreSystemReturnAsync()
+    {
+        var lines = LegacyReturnLines.Where(l => l.Qty > 0).ToList();
+        if (lines.Count == 0)
+        {
+            MessageBox.Show("Add at least one product with quantity.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(OriginalBillNo) || OriginalBillDate == null)
+        {
+            MessageBox.Show("Enter reference invoice number and date.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!IsValidLegacyCustomerPhone(LegacyCustomerPhone))
+        {
+            MessageBox.Show("Enter a valid 10-digit customer mobile.", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var storeId = _services.StoreContext.StoreId;
+        var phoneNorm = PhoneMatchHelper.NormalizePhone(LegacyCustomerPhone);
+        var priorLegacy = await _services.SaleReturnHistory.CountLegacyReturnsForReferenceAsync(
+            storeId, OriginalBillNo.Trim(), phoneNorm);
+        if (priorLegacy > 0)
+        {
+            var warn = MessageBox.Show(
+                $"There are already {priorLegacy} pre-system return(s) for invoice {OriginalBillNo.Trim()}.\n\nContinue anyway?",
+                "Pre-system Return",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (warn != MessageBoxResult.Yes)
+                return;
+        }
+
+        var dayGuard = new DaySessionGuard(_services.DaySessions);
+        var dayBlock = await dayGuard.ValidatePostingTodayAsync(storeId, _services.StoreContext.PosCounter);
+        if (dayBlock != null)
+        {
+            MessageBox.Show(dayBlock, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var sub = lines.Sum(l => l.TaxableReturnAmount);
+        var cgst = lines.Sum(l => l.CgstAmount);
+        var sgst = lines.Sum(l => l.SgstAmount);
+        var igst = lines.Sum(l => l.IgstAmount);
+        var total = lines.Sum(l => l.LineReturnTotal);
+        var creditBalance = total;
+
+        decimal cashRefunded = 0m;
+        if (ReturnMode == ReturnMode.CashRefund && creditBalance > 0)
+        {
+            var confirm = MessageBox.Show(
+                $"Cash refund {MoneyMath.FormatRupee(creditBalance)} to customer?",
+                "Pre-system Return — Cash Refund",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+            cashRefunded = creditBalance;
+        }
+
+        try
+        {
+            var deviceId = _services.StoreContext.DeviceId;
+            var posCounter = _services.StoreContext.PosCounter;
+            var createdAt = DateTime.UtcNow.ToString("O");
+            var eventId = Guid.NewGuid().ToString();
+            var billDateIso = OriginalBillDate.Value.ToString("yyyy-MM-dd");
+            var billDateDisplay = OriginalBillDate.Value.ToString("dd-MMM-yyyy", InCulture);
+
+            var linesArr = BuildReturnLinesBsonArrayFromLegacy(lines);
+
+            var refundPaymentsArr = new BsonArray();
+            if (cashRefunded > 0)
+            {
+                refundPaymentsArr.Add(new BsonDocument
+                {
+                    { "provider", "Cash" },
+                    { "amount", (double)cashRefunded },
+                    { "reference", ReturnNo },
+                    { "status", "posted" },
+                });
+            }
+
+            var customerName = LegacyCustomerName.Trim();
+            var customerPhone = LegacyCustomerPhone.Trim();
+            var customerCode = LegacyCustomerCode.Trim();
+
+            var returnDoc = new BsonDocument
+            {
+                { "returnNo", ReturnNo },
+                { "originalBillNo", OriginalBillNo.Trim() },
+                { "originalBillDate", billDateIso },
+                { "isLegacy", true },
+                { "source", "pre_system" },
+                { "storeId", storeId },
+                { "deviceId", deviceId },
+                { "posCounter", posCounter },
+                { "customerCode", customerCode },
+                { "customerName", customerName },
+                { "customerPhone", customerPhone },
+                { "transactionType", "return" },
+                { "returnMode", ReturnMode == ReturnMode.CreditNote ? "credit_note" : "cash_refund" },
+                { "reason", Reason },
+                { "isInterState", IsInterState },
+                { "lines", linesArr },
+                { "returnLines", linesArr },
+                { "exchangeLines", new BsonArray() },
+                { "subTotal", (double)sub },
+                { "returnDiscount", 0 },
+                { "cgstTotal", (double)cgst },
+                { "sgstTotal", (double)sgst },
+                { "igstTotal", (double)igst },
+                { "returnTotal", (double)total },
+                { "replacementTotal", 0 },
+                { "amountCollected", 0 },
+                { "creditBalance", (double)creditBalance },
+                { "cashRefunded", (double)cashRefunded },
+                { "payments", new BsonArray() },
+                { "refundPayments", refundPaymentsArr },
+                { "status", "posted" },
+                { "createdAtUtc", createdAt },
+            };
+
+            var returnsColl = _services.LocalDb.GetCollection<BsonDocument>("store_sale_returns");
+            await returnsColl.InsertOneAsync(returnDoc);
+
+            var payload = (BsonDocument)returnDoc.DeepClone();
+            payload.Remove("_id");
+            payload["createdAtUtc"] = createdAt;
+
+            var hash = JsonSerializer.Serialize(new
+            {
+                returnNo = ReturnNo,
+                originalBillNo = OriginalBillNo.Trim(),
+                originalBillDate = billDateIso,
+                isLegacy = true,
+                returnMode = ReturnMode == ReturnMode.CreditNote ? "credit_note" : "cash_refund",
+                lines = lines.Select(l => new { sku = l.ProductCode, returnQty = l.Qty, rate = l.Rate }),
+                total,
+                creditBalance,
+                cashRefunded,
+            });
+
+            var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
+            await outbox.InsertOneAsync(new BsonDocument
+            {
+                { "eventId", eventId },
+                { "storeId", storeId },
+                { "deviceId", deviceId },
+                { "type", "SaleReturnCreated" },
+                { "createdAt", createdAt },
+                { "payload", payload },
+                { "hash", hash },
+                { "status", "pending" },
+            });
+
+            var stockFailed = new List<string>();
+            var stockOk = 0;
+            foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductCode)))
+            {
+                if (await _services.ProductCatalog.IncrementStockBySkuAsync(line.ProductCode, line.Qty, line.Description))
+                    stockOk++;
+                else
+                    stockFailed.Add(line.ProductCode);
+            }
+
+            string? createdCreditNoteNo = null;
+            var creditNoteWarning = "";
+            if (ReturnMode == ReturnMode.CreditNote && creditBalance > 0)
+            {
+                createdCreditNoteNo = await _services.CustomerCreditNotes.CreateFromReturnAsync(
+                    ReturnNo,
+                    OriginalBillNo.Trim(),
+                    customerCode,
+                    customerName,
+                    customerPhone,
+                    creditBalance,
+                    storeId,
+                    isLegacy: true,
+                    originalBillDate: billDateIso);
+
+                if (!string.IsNullOrEmpty(createdCreditNoteNo))
+                {
+                    await returnsColl.UpdateOneAsync(
+                        Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
+                        Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                }
+                else
+                {
+                    creditNoteWarning = "\n\nCredit could not be created: check customer mobile is valid.";
+                }
+            }
+
+            var grossAmount = lines.Sum(l => l.GrossReturnAmount);
+            await SaleReturnPrintFlow.ShowLegacyAsync(
+                _services,
+                lines,
+                ReturnNo,
+                OriginalBillNo.Trim(),
+                billDateDisplay,
+                ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash",
+                grossAmount,
+                total,
+                cgst,
+                sgst,
+                igst,
+                IsInterState,
+                createdCreditNoteNo,
+                cashRefunded);
+
+            var modeText = ReturnMode == ReturnMode.CreditNote ? "Credit Note" : "Cash Refund";
+            var successBody = $"Pre-system return {ReturnNo} posted. Mode: {modeText}.";
+            if (!string.IsNullOrEmpty(createdCreditNoteNo))
+                successBody += $"\n\n{createdCreditNoteNo} created for customer (₹ {creditBalance:N2} redeemable on billing).";
+            successBody += creditNoteWarning;
+            if (stockOk > 0)
+                successBody += $"\n\nReturned stock updated for {stockOk} item(s).";
+            if (stockFailed.Count > 0)
+                successBody += $"\n\nWarning: could not update local stock for: {string.Join(", ", stockFailed)}.";
+
+            MessageBox.Show(successBody, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            var postedBillNo = OriginalBillNo.Trim();
+            if (OnPostedSuccessfully != null)
+                await OnPostedSuccessfully(postedBillNo);
+            else
+                await ClearForm();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not post pre-system return: {ex.Message}", "Pre-system Return",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static BsonArray BuildReturnLinesBsonArrayFromLegacy(IReadOnlyList<LegacyReturnLineItem> lines)
+    {
+        var linesArr = new BsonArray();
+        foreach (var l in lines)
+        {
+            linesArr.Add(new BsonDocument
+            {
+                { "lineNo", l.LineNo },
+                { "sku", l.ProductCode },
+                { "description", l.Description },
+                { "returnQty", (double)l.Qty },
+                { "rate", (double)l.Rate },
+                { "grossAmount", (double)l.GrossReturnAmount },
+                { "discountAmount", 0 },
+                { "cashDiscountAmount", 0 },
+                { "amount", (double)l.TaxableReturnAmount },
+                { "revisedInclusiveAmount", (double)l.LineReturnTotal },
+                { "lineTotal", (double)l.LineReturnTotal },
+                { "taxPercent", (double)l.TaxPercent },
+                { "cgstAmt", (double)l.CgstAmount },
+                { "sgstAmt", (double)l.SgstAmount },
+                { "igstAmt", (double)l.IgstAmount },
+                { "taxAmt", (double)l.TaxAmount },
+            });
+        }
+
+        return linesArr;
+    }
+
     [RelayCommand]
     private async Task ClearForm()
     {
@@ -968,18 +1768,33 @@ public partial class SaleReturnViewModel : ObservableObject
             line.PropertyChanged -= OnReturnLinePropertyChanged;
         foreach (var line in ExchangeLines)
             line.PropertyChanged -= OnExchangeLinePropertyChanged;
+        foreach (var line in LegacyReturnLines)
+            line.PropertyChanged -= OnLegacyLinePropertyChanged;
 
         OriginalBillNo = "";
+        OriginalBillDate = null;
+        LegacyCustomerName = "";
+        LegacyCustomerPhone = "";
+        LegacyCustomerCode = "";
+        PreSystemProductSearch = "";
+        _lastCommittedLegacyPhoneNorm = "";
+        _legacyPhoneWasComplete = false;
+        SearchCustomerName = "";
+        SearchCustomerPhone = "";
         Reason = "";
         ReturnMode = ReturnMode.CreditNote;
         IsInterState = false;
         ReturnLines.Clear();
         ExchangeLines.Clear();
+        LegacyReturnLines.Clear();
         BillLoaded = false;
         ShowPriorReturnQty = false;
         _originalBillDoc = null;
         SearchResults.Clear();
         NotifySearchResultsChanged();
+        StatusMessage = SourceMode == SaleReturnSourceMode.PreSystemInvoice
+            ? "Enter pre-system invoice details, search customer by name/mobile, then Start return."
+            : "Search by bill no, customer name, or mobile.";
         await AssignReturnNoAsync();
         RecalculateTotals();
     }

@@ -60,6 +60,10 @@ public sealed class ThermalSaleReturnInput
     public decimal CashRefunded { get; init; }
 
     public bool IsDuplicateCopy { get; init; }
+
+    public bool IsLegacy { get; init; }
+
+    public string? OriginalBillDateDisplay { get; init; }
 }
 
 /// <summary>Plain-text thermal sales return / credit note receipt.</summary>
@@ -94,11 +98,15 @@ public static class ThermalSaleReturnTextBuilder
         sb.AppendLine(Center($"{input.ReturnDate} {input.ReturnTime}", w));
         sb.AppendLine();
         AddCenter("SALES RETURN");
+        if (input.IsLegacy)
+            AddCenter("(Pre-system invoice)");
         AddRule();
 
         sb.AppendLine(LabeledRow("SR #:", input.ReturnNo, "User:", input.UserName, w));
         sb.AppendLine(LabeledRow("Counter:", input.Counter, "Date:", input.ReturnDate, w));
         sb.AppendLine(LabeledRow("Bill:", input.OriginalBillNo, "Mode:", input.ReturnModeLabel, w));
+        if (input.IsLegacy && !string.IsNullOrWhiteSpace(input.OriginalBillDateDisplay))
+            sb.AppendLine(LabeledRow("Inv date:", input.OriginalBillDateDisplay, "", "", w));
         if (!string.IsNullOrWhiteSpace(input.CreditNoteNo))
             sb.AppendLine(LabeledRow("Credit Note:", input.CreditNoteNo, "", "", w));
 

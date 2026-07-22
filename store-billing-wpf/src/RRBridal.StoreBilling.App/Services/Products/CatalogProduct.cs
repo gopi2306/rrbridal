@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+
 namespace RRBridal.StoreBilling.App.Services.Products;
 
 public sealed class CatalogProduct
@@ -18,6 +21,12 @@ public sealed class CatalogProduct
     public string? HsnSac { get; init; }
 
     public decimal StockQty { get; init; }
+
+    public IReadOnlyList<ProductMediaItem> MediaItems { get; init; } = System.Array.Empty<ProductMediaItem>();
+
+    /// <summary>First non-empty image description, if any.</summary>
+    public string? PrimaryImageDescription =>
+        MediaItems.Select(m => m.Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
 
     public decimal SuggestedRate => SellingPrice ?? StorePrice ?? Mrp ?? 0m;
 

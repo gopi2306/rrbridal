@@ -72,6 +72,8 @@ public partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private string _daySessionStatusChip = "Day: …";
 
+    [ObservableProperty] private string _mongoHealthStatusChip = "Mongo: …";
+
     [ObservableProperty] private bool _isNavDrawerOpen;
 
     [ObservableProperty] private string _currentPageLabel = "Billing";
@@ -159,9 +161,15 @@ public partial class ShellViewModel : ObservableObject
             Customers.StartNewRegistration();
         };
         Quotation.Editor.NavigateToSalesmen = () => CurrentPage = ShellPage.Salesmen;
+        Quotation.NavigateToQuotationList = () => CurrentPage = ShellPage.QuotationManagement;
         QuotationManagement = new QuotationManagementViewModel(services);
         QuotationManagement.OpenQuotation = quotationNo => _ = OpenQuotationAsync(quotationNo);
         QuotationManagement.ConvertQuotationToBilling = quotationNo => _ = ConvertQuotationToBillingAsync(quotationNo);
+        QuotationManagement.CreateQuotation = () =>
+        {
+            Quotation.StartNew();
+            CurrentPage = ShellPage.Quotation;
+        };
         CreditBills = new CreditBillsViewModel(services);
         Ledger = new LedgerViewModel(services);
         Customers = new CustomersViewModel(services, Billing, () => CurrentPage = ShellPage.Billing);
@@ -180,12 +188,19 @@ public partial class ShellViewModel : ObservableObject
 
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
+        _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
+        MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
         if (!IsPrimaryCounter && IsRestrictedPage(CurrentPage))
             CurrentPage = ShellPage.Billing;
 
         _ = RefreshBrandingAsync();
         _ = RefreshNotificationCountAsync();
         _ = RefreshDaySessionStatusAsync();
+    }
+
+    private void OnMongoHealthStatusChanged()
+    {
+        MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>
@@ -507,10 +522,65 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void ClearForNewBill()
     {
-        if (!EnsureBillingPage())
-            return;
-        Billing.ClearForNewBillCommand.Execute(null);
-        RequestBillingSearchFocus();
+        switch (CurrentPage)
+        {
+            case ShellPage.Billing:
+                Billing.ClearForNewBillCommand.Execute(null);
+                RequestBillingSearchFocus();
+                break;
+            case ShellPage.Quotation:
+                Quotation.StartNew();
+                break;
+            case ShellPage.Customers:
+                Customers.StartNewRegistration();
+                break;
+            case ShellPage.Salesmen:
+                Salesmen.NewSalesmanCommand.Execute(null);
+                break;
+            case ShellPage.SaleReturn:
+                _ = SaleReturn.ClearFormCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.BillLookup:
+                _ = BillLookup.ResetForNewAsync();
+                break;
+            case ShellPage.Adjustments:
+                _ = AdjustmentBill.ClearFormCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.Barcodes:
+                BarcodePrinting.ClearScreenCommand.Execute(null);
+                break;
+            case ShellPage.DailyExpenses:
+                DailyExpenses.ClearEntryForm();
+                break;
+            case ShellPage.QuotationManagement:
+                QuotationManagement.ClearFilters();
+                _ = QuotationManagement.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.CreditBills:
+                CreditBills.ClearFilters();
+                _ = CreditBills.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.Dashboard:
+                _ = Dashboard.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.Analytics:
+                _ = Analytics.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.OnlineSales:
+                _ = OnlineSales.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.Ledger:
+                _ = Ledger.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.DayClose:
+                _ = DayClose.RefreshCommand.ExecuteAsync(null);
+                break;
+            case ShellPage.DuplicateBill:
+                _ = DuplicatePrint.OnPageOpenedAsync();
+                break;
+            default:
+                break;
+        }
     }
 
     private bool CanRunPostBill() => IsBillingPage && Billing.IsCustomerReadyForPost;

@@ -438,13 +438,206 @@
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="Advance payment mode" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,12,0,8"/>
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="Cash" Margin="0,0,16,0"
-                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}"/>
-                        <RadioButton Content="Card" Margin="0,0,16,0"
-                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Card}"/>
-                        <RadioButton Content="UPI"
-                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Upi}"/>
+                    <WrapPanel Margin="0,0,0,12">
+                        <RadioButton Style="{StaticResource ModeRadio}" Content="Cash"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        <RadioButton Style="{StaticResource ModeRadio}" Content="{Binding CardModeLabel}"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Card}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        <RadioButton Style="{StaticResource ModeRadio}" Content="{Binding UpiModeLabel}"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Upi}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        <RadioButton Style="{StaticResource ModeRadio}" Content="Credit Note"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CreditNote}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        <RadioButton Style="{StaticResource ModeRadio}" Content="Split Payment"
+                                     IsChecked="{Binding CreditAdvanceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Split}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                    </WrapPanel>
+
+                    <!-- Cash advance -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CreditAdvanceMode}" Value="{x:Static vm:PaymentMode.Cash}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Amount received (advance)" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding AmountReceived, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Change due" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                            <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="10,8">
+                                <TextBlock Text="{Binding ChangeDueFormatted}" FontSize="16" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#FF2E7D32"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCashShortfall}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource BrushNegative}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Card advance -->
+                    <StackPanel Margin="0,0,0,4">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CreditAdvanceMode}" Value="{x:Static vm:PaymentMode.Card}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="{Binding CardPaymentTitle}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding CardPaymentHelpText}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="10,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Status:" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding DeviceStatusText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- UPI advance -->
+                    <StackPanel Margin="0,0,0,4">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CreditAdvanceMode}" Value="{x:Static vm:PaymentMode.Upi}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="{Binding UpiPaymentTitle}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding UpiPaymentHelpText}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="10,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Status:" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding DeviceStatusText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Credit note advance -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CreditAdvanceMode}" Value="{x:Static vm:PaymentMode.CreditNote}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="140"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding CreditNoteMaxFormatted}" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Credit note no. / reference" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Amount" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
+                        <TextBox Grid.Row="2" Grid.Column="0" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
+                                 Text="{Binding CreditNoteReference, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource RoundedTextBox}" FontWeight="SemiBold"
+                                 Text="{Binding CreditNoteAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                 IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                    </Grid>
+
+                    <!-- Split advance -->
+                    <StackPanel Margin="0,0,0,4">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CreditAdvanceMode}" Value="{x:Static vm:PaymentMode.Split}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="Remaining:" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding SplitRemainingFormatted}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource BrushNegative}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSplitBalanced}" Value="True">
+                                                <Setter Property="Foreground" Value="#FF2E7D32"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Cash" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                     Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Card" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                     Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="UPI" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                     Text="{Binding SplitUpiAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Credit Note" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,8,8"
+                                     Text="{Binding SplitCreditNoteAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
+                                        <Setter Property="IsEnabled" Value="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                            <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                     ToolTip="Reference when credit note amount is used"
+                                     Text="{Binding SplitCreditNoteReference, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
+                        </Grid>
                     </StackPanel>
                 </StackPanel>
             </Grid>

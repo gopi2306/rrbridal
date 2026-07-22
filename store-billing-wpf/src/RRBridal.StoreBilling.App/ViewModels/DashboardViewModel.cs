@@ -72,11 +72,9 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private string _billsWeekSummary = "—";
 
-    [ObservableProperty] private string _pendingOutboxSummary = "—";
-
-    [ObservableProperty] private string _syncSummary = "—";
-
     [ObservableProperty] private string _productCacheSummary = "—";
+
+    [ObservableProperty] private string _totalAvailableQtySummary = "—";
 
     [ObservableProperty] private string _codBalanceTillSummary = "—";
 
@@ -324,11 +322,8 @@ public partial class DashboardViewModel : ObservableObject
                 ? $"Store-wide today: {st} bills · {MoneyMath.FormatRupee(snap.StoreWideBillsTodayRevenue ?? 0)}"
                 : "";
             BillsWeekSummary = $"{snap.BillsLast7DaysCount} bills · {MoneyMath.FormatRupee(snap.BillsLast7DaysRevenue)}";
-            PendingOutboxSummary = snap.PendingOutboxCount.ToString(InCulture);
-            SyncSummary = string.IsNullOrWhiteSpace(snap.SyncUpdatedAt)
-                ? $"Cursor {snap.SyncCursor}"
-                : $"Cursor {snap.SyncCursor} · last pull {snap.SyncUpdatedAt}";
             ProductCacheSummary = snap.ProductCacheCount.ToString(InCulture);
+            TotalAvailableQtySummary = snap.TotalAvailableQty.ToString("N2", InCulture);
 
             var codBal = await _services.OnlineCodBills.GetPendingBalanceAsync(storeId);
             CodBalanceTillSummary = MoneyMath.FormatRupee(codBal.BalanceTill);

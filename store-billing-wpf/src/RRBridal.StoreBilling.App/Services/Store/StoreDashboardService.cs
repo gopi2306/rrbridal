@@ -50,8 +50,6 @@ public sealed class StoreDashboardService
         CancellationToken ct = default)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
-        var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
-        var syncColl = _db.GetCollection<BsonDocument>("sync_state");
         var productsColl = _db.GetCollection<BsonDocument>("local_products_cache");
 
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
@@ -105,32 +103,26 @@ public sealed class StoreDashboardService
             })
             .ToList();
 
-        var pendingOutbox = (int)await outboxColl.CountDocumentsAsync(
-            Builders<BsonDocument>.Filter.Eq("status", "pending"),
-            cancellationToken: ct);
-
-        var syncDoc = await syncColl.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync(ct);
-        var cursor = "0";
-        string? syncAt = null;
-        if (syncDoc != null)
-        {
-            if (syncDoc.TryGetValue("cursor", out var c) && c.IsString)
-                cursor = c.AsString;
-            if (syncDoc.TryGetValue("updatedAt", out var u))
-                syncAt = u.IsString ? u.AsString : u.ToString();
-        }
-
         long productCount;
+        decimal totalAvailableQty;
         try
         {
             var activeFilter = Builders<BsonDocument>.Filter.Or(
                 Builders<BsonDocument>.Filter.Eq("isActive", true),
                 Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("isActive")));
-            productCount = await productsColl.CountDocumentsAsync(activeFilter, cancellationToken: ct);
+            var products = await productsColl.Find(activeFilter)
+                .Project(Builders<BsonDocument>.Projection.Include("stockQty"))
+                .ToListAsync(ct);
+            productCount = products.Count;
+            totalAvailableQty = products.Sum(product => ReadDecimal(product, "stockQty"));
         }
         catch
         {
-            productCount = await productsColl.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: ct);
+            var products = await productsColl.Find(FilterDefinition<BsonDocument>.Empty)
+                .Project(Builders<BsonDocument>.Projection.Include("stockQty"))
+                .ToListAsync(ct);
+            productCount = products.Count;
+            totalAvailableQty = products.Sum(product => ReadDecimal(product, "stockQty"));
         }
 
         return new StoreDashboardSnapshot
@@ -143,10 +135,8 @@ public sealed class StoreDashboardService
             BillsLast7DaysRevenue = revenueWeek,
             StoreWideBillsTodayCount = storeBillsToday,
             StoreWideBillsTodayRevenue = storeRevenueToday,
-            PendingOutboxCount = pendingOutbox,
-            SyncCursor = cursor,
-            SyncUpdatedAt = syncAt,
             ProductCacheCount = productCount,
+            TotalAvailableQty = totalAvailableQty,
             RecentBills = recent,
         };
     }

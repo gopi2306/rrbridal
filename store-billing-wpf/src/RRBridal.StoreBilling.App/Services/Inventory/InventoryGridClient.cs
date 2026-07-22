@@ -99,7 +99,7 @@ public sealed class InventoryGridClient
             Product = ReadString(d, "itemName") ?? ReadString(d, "shortName") ?? sku,
             StoreQty = ReadDecimalBson(d, "stockQty") ?? 0m,
             Mrp = ReadDecimalBson(d, "mrp"),
-            StorePrice = ReadDecimalBson(d, "storePrice") ?? ReadDecimalBson(d, "sellingPrice"),
+            StorePrice = ReadPositiveDecimalBson(d, "storePrice") ?? ReadPositiveDecimalBson(d, "sellingPrice"),
         };
     }
 
@@ -122,5 +122,11 @@ public sealed class InventoryGridClient
             { IsDecimal128: true } => (decimal)v.AsDecimal128,
             _ => null,
         };
+    }
+
+    private static decimal? ReadPositiveDecimalBson(BsonDocument d, string key)
+    {
+        var value = ReadDecimalBson(d, key);
+        return value is > 0 ? value : null;
     }
 }

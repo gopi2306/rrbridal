@@ -1,8 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument, Types } from 'mongoose';
+import { ProductMediaItem, ProductMediaItemSchema } from './product-media-item.schema';
 
 export type ProductDocument = HydratedDocument<Product>;
+export type { ProductMediaItem };
 
 @Schema({ timestamps: true })
 export class Product {
@@ -70,9 +72,13 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'ProductStatus', index: true })
   productStatusId?: Types.ObjectId;
 
-  @ApiProperty({ required: false })
-  @Prop({ type: Types.ObjectId, ref: 'Colour', index: true })
-  colourId?: Types.ObjectId;
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Colour master ids (supports 1–3 colours for multi-colour products)',
+  })
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Colour' }], default: [], index: true })
+  colourIds?: Types.ObjectId[];
 
   @ApiProperty({ required: false, description: 'Colour type master (1 Color / 2 Color / 3 Color)' })
   @Prop({ type: Types.ObjectId, ref: 'ColourType', index: true })
@@ -222,10 +228,20 @@ export class Product {
 
   @ApiProperty({
     required: false,
-    type: [String],
-    description: 'Public URLs of product images/files (from /api/media/upload or /api/media/files/...)',
+    type: [ProductMediaItem],
+    description: 'Product images/files with optional per-image descriptions',
   })
-  @Prop({ type: [String], default: [] })
+  @Prop({ type: [ProductMediaItemSchema], default: [] })
+  mediaItems?: ProductMediaItem[];
+
+  /** @deprecated Prefer mediaItems. Kept for reading legacy documents. */
+  @ApiProperty({
+    required: false,
+    type: [String],
+    deprecated: true,
+    description: 'Deprecated — use mediaItems. Legacy public URLs only.',
+  })
+  @Prop({ type: [String], default: undefined })
   mediaUrls?: string[];
 
   // ── Status ──
@@ -236,3 +252,6 @@ export class Product {
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
+
+/** Supports product sync pull ordered by (updatedAt, _id). */
+ProductSchema.index({ updatedAt: 1, _id: 1 });

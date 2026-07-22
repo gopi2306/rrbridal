@@ -53,7 +53,8 @@ public sealed class CustomerCreditNoteService
         var doc = await _notes.Find(
             Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-                Builders<BsonDocument>.Filter.Eq("originalBillNo", originalBillNo.Trim())))
+                Builders<BsonDocument>.Filter.Eq("originalBillNo", originalBillNo.Trim()),
+                Builders<BsonDocument>.Filter.Ne("isLegacy", true)))
             .FirstOrDefaultAsync(ct);
         return doc == null ? null : Map(doc);
     }
@@ -66,6 +67,8 @@ public sealed class CustomerCreditNoteService
         string customerPhone,
         decimal creditBalance,
         string storeId,
+        bool isLegacy = false,
+        string? originalBillDate = null,
         CancellationToken ct = default)
     {
         if (creditBalance <= 0 || string.IsNullOrWhiteSpace(returnNo))
@@ -76,7 +79,7 @@ public sealed class CustomerCreditNoteService
             return null;
 
         var billNo = originalBillNo?.Trim() ?? "";
-        if (!string.IsNullOrEmpty(billNo))
+        if (!isLegacy && !string.IsNullOrEmpty(billNo))
         {
             var existingForBill = await FindByOriginalBillAsync(storeId, billNo, ct);
             if (existingForBill != null)
@@ -112,6 +115,14 @@ public sealed class CustomerCreditNoteService
             { "storeId", storeId?.Trim() ?? "" },
             { "createdAtUtc", DateTime.UtcNow.ToString("O") },
         };
+
+        if (isLegacy)
+        {
+            doc["isLegacy"] = true;
+            doc["source"] = "pre_system";
+            if (!string.IsNullOrWhiteSpace(originalBillDate))
+                doc["originalBillDate"] = originalBillDate.Trim();
+        }
 
         await _notes.InsertOneAsync(doc, cancellationToken: ct);
         if (_outbox != null)

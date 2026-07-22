@@ -23,10 +23,33 @@ public partial class QuotationManagementViewModel : ObservableObject
 
     public Action<string>? OpenQuotation { get; set; }
     public Action<string>? ConvertQuotationToBilling { get; set; }
+    public Action? CreateQuotation { get; set; }
 
     public QuotationManagementViewModel(AppServices services)
     {
         _services = services;
+    }
+
+    [RelayCommand]
+    private void NewQuotation() => CreateQuotation?.Invoke();
+
+    public void ClearFilters()
+    {
+        SearchQuotationNo = "";
+        SearchCustomerName = "";
+        SearchCustomerPhone = "";
+        SelectedQuotation = null;
+        StatusMessage = "Search quotations by quotation no, customer name, or mobile.";
+    }
+
+    [RelayCommand]
+    private async Task Refresh() => await Search();
+
+    [RelayCommand]
+    private async Task ClearFiltersAndSearch()
+    {
+        ClearFilters();
+        await Search();
     }
 
     [RelayCommand]
@@ -52,9 +75,6 @@ public partial class QuotationManagementViewModel : ObservableObject
             StatusMessage = "Search failed: " + ex.Message;
         }
     }
-
-    [RelayCommand]
-    private async Task Refresh() => await Search();
 
     partial void OnSelectedQuotationChanged(QuotationSearchRow? value)
     {

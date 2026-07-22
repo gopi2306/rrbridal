@@ -11,6 +11,13 @@ public enum InvoicePrintFormat
     A4Commercial,
 }
 
+/// <summary>Print format for credit bill invoices and balance-collection receipts only.</summary>
+public enum CreditPrintFormat
+{
+    Thermal,
+    A4,
+}
+
 public sealed class ReceiptConfigDocument
 {
     public StoreProfile Store { get; set; } = new();
@@ -82,6 +89,9 @@ public sealed class ReceiptPrintSettings
     public int ReceiptCharWidth { get; set; } = 48;
 
     public InvoicePrintFormat PrintFormat { get; set; } = InvoicePrintFormat.Thermal;
+
+    /// <summary>A4 or thermal for Bill on credit and Credit Bills balance receipts.</summary>
+    public CreditPrintFormat CreditPrintFormat { get; set; } = CreditPrintFormat.Thermal;
 
     public string? CentralPrinterHint { get; set; }
 

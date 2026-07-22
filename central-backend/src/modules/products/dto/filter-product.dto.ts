@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsInt,
   IsOptional,
@@ -91,10 +92,23 @@ export class FilterProductDto {
   @IsOptional()
   productStatusId?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    description: 'Match products that include this colour id',
+  })
   @IsString()
   @IsOptional()
   colourId?: string;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Match products that include any of these colour ids',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  colourIds?: string[];
 
   @ApiProperty({ required: false })
   @IsString()

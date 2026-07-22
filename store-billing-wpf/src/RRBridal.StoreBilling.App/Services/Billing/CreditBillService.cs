@@ -38,6 +38,15 @@ public enum CreditReceivedPaymentMode
     Cash,
     UPI,
     Card,
+    CreditNote,
+    Split,
+}
+
+public sealed class CreditPaymentLeg
+{
+    public CreditReceivedPaymentMode Mode { get; init; }
+    public decimal Amount { get; init; }
+    public string Reference { get; init; } = "";
 }
 
 public sealed class CreditPaymentResult
@@ -158,6 +167,7 @@ public sealed class CreditBillService
         string transactionNo,
         string receivedBy,
         bool allowPartial,
+        IReadOnlyList<CreditPaymentLeg>? splitLegs = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(billNo) || amount <= 0)
@@ -180,7 +190,16 @@ public sealed class CreditBillService
             return new CreditPaymentResult { Success = false, Error = "Partial collection is disabled. Enter the full balance." };
 
         var receiptNo = await _billNumbers.NextPaymentReceiptAsync(ct);
-        var (provider, modeLabel) = MapPaymentMode(paymentMode);
+        var legs = BuildPaymentLegs(paymentMode, payAmount, transactionNo, splitLegs);
+        if (legs.Count == 0)
+            return new CreditPaymentResult { Success = false, Error = "Invalid payment details." };
+
+        var modeLabel = paymentMode == CreditReceivedPaymentMode.Split
+            ? "Split"
+            : legs[0].ModeLabel;
+        var reference = paymentMode == CreditReceivedPaymentMode.Split
+            ? string.Join(", ", legs.Select(l => string.IsNullOrWhiteSpace(l.Reference) ? l.ModeLabel : $"{l.ModeLabel}:{l.Reference}"))
+            : transactionNo?.Trim() ?? "";
         var receivedAt = DateTime.UtcNow.ToString("O");
         var totalPayable = CreditBillDocumentReader.ReadTotalPayable(doc);
         var previousPaid = CreditBillDocumentReader.ReadAmountPaid(doc);
@@ -195,10 +214,19 @@ public sealed class CreditBillService
             { "receivedAtUtc", receivedAt },
             { "amount", (double)payAmount },
             { "mode", modeLabel },
-            { "reference", transactionNo?.Trim() ?? "" },
+            { "reference", reference },
             { "receivedBy", receivedBy?.Trim() ?? "" },
             { "receiptNo", receiptNo },
         };
+        if (paymentMode == CreditReceivedPaymentMode.Split)
+        {
+            paymentEntry["legs"] = new BsonArray(legs.Select(l => new BsonDocument
+            {
+                { "mode", l.ModeLabel },
+                { "amount", (double)l.Amount },
+                { "reference", l.Reference },
+            }));
+        }
 
         var creditBilling = CreditBillDocumentReader.BuildCreditBillingDocument(
             totalPayable,
@@ -224,13 +252,16 @@ public sealed class CreditBillService
         var newTop = new BsonArray();
         foreach (var p in topPayments)
             newTop.Add(p.DeepClone());
-        newTop.Add(new BsonDocument
+        foreach (var leg in legs)
         {
-            { "provider", provider.ToString() },
-            { "amount", (double)payAmount },
-            { "reference", transactionNo?.Trim() ?? "" },
-            { "status", "posted" },
-        });
+            newTop.Add(new BsonDocument
+            {
+                { "provider", leg.Provider.ToString() },
+                { "amount", (double)leg.Amount },
+                { "reference", leg.Reference },
+                { "status", "posted" },
+            });
+        }
 
         var paymentModeLabel = newBalance <= 0.009m
             ? modeLabel
@@ -260,7 +291,7 @@ public sealed class CreditBillService
             { "customerPhone", doc.GetValue("customerPhone", "").AsString },
             { "amount", (double)payAmount },
             { "mode", modeLabel },
-            { "reference", transactionNo?.Trim() ?? "" },
+            { "reference", reference },
             { "balanceDue", (double)newBalance },
             { "totalPayable", (double)totalPayable },
             { "amountPaid", (double)newPaid },
@@ -283,6 +314,33 @@ public sealed class CreditBillService
             AmountPaid = payAmount,
             BalanceDue = newBalance,
         };
+    }
+
+    public async Task<BsonDocument?> GetPostedBillAsync(
+        string storeId,
+        string billNo,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(billNo))
+            return null;
+
+        return await _bills.Find(Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+            Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
+            Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<BsonDocument?> GetPaymentReceiptAsync(
+        string storeId,
+        string receiptNo,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(receiptNo))
+            return null;
+
+        return await _receipts.Find(Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+            Builders<BsonDocument>.Filter.Eq("receiptNo", receiptNo.Trim()))).FirstOrDefaultAsync(ct);
     }
 
     private async Task<List<BsonDocument>> FindCreditBillsAsync(string storeId, CancellationToken ct)
@@ -316,11 +374,50 @@ public sealed class CreditBillService
         };
     }
 
+    private sealed record ResolvedCreditPaymentLeg(
+        PaymentProviderKind Provider,
+        string ModeLabel,
+        decimal Amount,
+        string Reference);
+
+    private static List<ResolvedCreditPaymentLeg> BuildPaymentLegs(
+        CreditReceivedPaymentMode paymentMode,
+        decimal payAmount,
+        string transactionNo,
+        IReadOnlyList<CreditPaymentLeg>? splitLegs)
+    {
+        if (paymentMode == CreditReceivedPaymentMode.Split)
+        {
+            if (splitLegs == null || splitLegs.Count == 0)
+                return new List<ResolvedCreditPaymentLeg>();
+
+            var total = MoneyMath.RoundDisplayAmount(splitLegs.Sum(l => l.Amount));
+            if (total != payAmount)
+                return new List<ResolvedCreditPaymentLeg>();
+
+            return splitLegs
+                .Where(l => l.Amount > 0)
+                .Select(l =>
+                {
+                    var (provider, modeLabel) = MapPaymentMode(l.Mode);
+                    return new ResolvedCreditPaymentLeg(provider, modeLabel, l.Amount, l.Reference?.Trim() ?? "");
+                })
+                .ToList();
+        }
+
+        var (singleProvider, singleMode) = MapPaymentMode(paymentMode);
+        return new List<ResolvedCreditPaymentLeg>
+        {
+            new(singleProvider, singleMode, payAmount, transactionNo?.Trim() ?? ""),
+        };
+    }
+
     private static (PaymentProviderKind Provider, string ModeLabel) MapPaymentMode(CreditReceivedPaymentMode mode) =>
         mode switch
         {
             CreditReceivedPaymentMode.Card => (PaymentProviderKind.PineLabs, "Card"),
             CreditReceivedPaymentMode.UPI => (PaymentProviderKind.Razorpay, "UPI"),
+            CreditReceivedPaymentMode.CreditNote => (PaymentProviderKind.CreditNote, "Credit Note"),
             _ => (PaymentProviderKind.Cash, "Cash"),
         };
 }

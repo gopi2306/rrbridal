@@ -30,6 +30,8 @@ public sealed class AppServices
     public Action? FocusBarcodeSkuEntry { get; set; }
 
     public required IMongoDatabase LocalDb { get; init; }
+    public required StoreMongoOptions StoreMongoOptions { get; init; }
+    public required MongoHealthMonitor MongoHealth { get; init; }
     public required HttpClient CentralApi { get; init; }
     public required ISyncEngine SyncEngine { get; init; }
     public required IPaymentRouter PaymentRouter { get; init; }
@@ -80,13 +82,19 @@ public sealed class AppServices
     public static AppServices CreateDefault()
     {
         var storeContext = new StoreContext();
-        var localMongoUri = Environment.GetEnvironmentVariable("STORE_MONGO_URI") ?? "mongodb://localhost:27017/rr_bridal_store";
+        var storeMongoOptions = new StoreMongoOptions();
         var centralApiBase = Environment.GetEnvironmentVariable("CENTRAL_API_BASE") ?? "http://localhost:3000";
-        var mongoSettings = MongoClientSettings.FromConnectionString(localMongoUri);
-        mongoSettings.ConnectTimeout = TimeSpan.FromSeconds(5);
-        mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+        var mongoSettings = MongoClientSettings.FromConnectionString(storeMongoOptions.ConnectionUri);
+        mongoSettings.ConnectTimeout = storeMongoOptions.ConnectTimeout;
+        mongoSettings.ServerSelectionTimeout = storeMongoOptions.ServerSelectionTimeout;
+        if (storeMongoOptions.SocketTimeout.HasValue)
+            mongoSettings.SocketTimeout = storeMongoOptions.SocketTimeout.Value;
+        mongoSettings.RetryReads = true;
+        mongoSettings.RetryWrites = true;
         var mongoClient = new MongoClient(mongoSettings);
-        var localDb = mongoClient.GetDatabase(new MongoUrl(localMongoUri).DatabaseName ?? "rr_bridal_store");
+        var localDb = mongoClient.GetDatabase(
+            new MongoUrl(storeMongoOptions.ConnectionUri).DatabaseName ?? "rr_bridal_store");
+        var mongoHealth = new MongoHealthMonitor(localDb, storeMongoOptions);
 
         var authSession = new CentralAuthSession();
         authSession.LoadFromDisk();
@@ -112,9 +120,9 @@ public sealed class AppServices
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var storeAuditLog = new StoreAuditLogService(localDb, storeContext);
+        var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var productCatalog = new ProductCatalogService(localDb, http, storeAuditLog);
         var inventoryGrid = new InventoryGridClient(localDb);
-        var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
         var inventoryAdjustments = new InventoryAdjustmentService(localDb, productCatalog, billingOutbox, storeContext);
         var receiptConfig = new ReceiptConfigStore();
         var receiptLogoCache = new ReceiptLogoCache(http);
@@ -186,6 +194,8 @@ public sealed class AppServices
         servicesRef = new AppServices
         {
             LocalDb = localDb,
+            StoreMongoOptions = storeMongoOptions,
+            MongoHealth = mongoHealth,
             CentralApi = http,
             SyncEngine = syncEngine,
             PaymentRouter = paymentRouter,

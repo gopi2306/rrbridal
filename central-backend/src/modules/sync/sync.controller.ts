@@ -16,7 +16,12 @@ export class SyncController {
 
   @Get('pull')
   @ApiQuery({ name: 'storeId', required: true })
-  @ApiQuery({ name: 'sinceCursor', required: false, description: 'Last cursor received; pass 0 for first sync' })
+  @ApiQuery({
+    name: 'sinceCursor',
+    required: false,
+    description:
+      'Product sync cursor. Prefer `{updatedAtIso}|{objectId}` from the previous pull. Pass 0 for first sync. A legacy bare product ObjectId triggers a one-time full product catch-up.',
+  })
   @ApiQuery({
     name: 'sinceTransferCursor',
     required: false,

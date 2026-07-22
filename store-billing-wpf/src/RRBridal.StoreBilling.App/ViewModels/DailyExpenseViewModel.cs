@@ -174,6 +174,13 @@ public partial class DailyExpenseViewModel : ObservableObject
 
     partial void OnSelectedDateChanged(DateTime value) => _ = RefreshCommand.ExecuteAsync(null);
 
+    public void ClearEntryForm()
+    {
+        Description = "";
+        AmountText = "";
+        StatusMessage = "Enter a new expense.";
+    }
+
     private static decimal ReadDecimal(BsonDocument doc, string field)
     {
         if (!doc.TryGetValue(field, out var val) || val.IsBsonNull) return 0m;

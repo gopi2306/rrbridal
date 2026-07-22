@@ -52,6 +52,12 @@ export class StoreCreditNote {
   originalBillNo?: string;
 
   @Prop()
+  originalBillDate?: string;
+
+  @Prop({ default: false })
+  isLegacy?: boolean;
+
+  @Prop()
   customerCode?: string;
 
   @Prop()

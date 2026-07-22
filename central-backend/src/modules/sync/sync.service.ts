@@ -11,6 +11,12 @@ import { StockTransfersService } from '../stock-transfers/stock-transfers.servic
 import { StoreSalesSyncService } from '../store-sales/store-sales-sync.service';
 import { PromotionSchemesService } from '../promotion-schemes/promotion-schemes.service';
 import { InventoryAdjustmentsService } from '../inventory-adjustments/inventory-adjustments.service';
+import {
+  buildProductDeltaFilter,
+  encodeProductSyncCursor,
+  encodeProductSyncCursorFromProduct,
+  parseProductSyncCursor,
+} from './product-sync-cursor';
 
 @Injectable()
 export class SyncService {
@@ -121,12 +127,10 @@ export class SyncService {
     sincePromotionCursor = '0',
     sinceAdjustmentCursor = '0',
   ) {
-    // Upgrade: for now, sync pull delivers ProductUpserted deltas from central products.
-    // Cursor is an ObjectId string corresponding to the last product _id sent.
-    const cursorFilter =
-      sinceCursor && sinceCursor !== '0' && Types.ObjectId.isValid(sinceCursor)
-        ? { _id: { $gt: new Types.ObjectId(sinceCursor) } }
-        : {};
+    // Product deltas use compound cursor `{updatedAtIso}|{objectId}` so price/master
+    // edits re-sync. Legacy bare ObjectId triggers a one-time full product catch-up.
+    const productCursorParsed = parseProductSyncCursor(sinceCursor);
+    const cursorFilter = buildProductDeltaFilter(productCursorParsed);
 
     const products = await this.productsService.listDeltas(cursorFilter, limit);
     const transfers = await this.stockTransfersService.listAwaitingIntakeForStore(storeId, limit);
@@ -151,7 +155,16 @@ export class SyncService {
       limit,
     );
     const last = products.length > 0 ? products[products.length - 1] : undefined;
-    const cursor = last?._id ? String(last._id) : sinceCursor ?? '0';
+    let cursor = sinceCursor ?? '0';
+    if (products.length > 0) {
+      cursor = encodeProductSyncCursorFromProduct(
+        last as { _id?: unknown; updatedAt?: unknown },
+        sinceCursor ?? '0',
+      );
+    } else if (productCursorParsed.kind === 'full-catchup') {
+      // Upgrade away from legacy bare ObjectId even when the catalog is empty.
+      cursor = encodeProductSyncCursor(new Date(0), new Types.ObjectId('000000000000000000000000'));
+    }
 
     const productUpdates = products.map((p) => ({
       type: 'ProductUpserted',

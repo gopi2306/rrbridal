@@ -194,7 +194,7 @@ export class ProductImportService {
     if (refs.subCategoryId) dto.subCategoryId = refs.subCategoryId;
     if (refs.manufacturerNameId) dto.manufacturerNameId = refs.manufacturerNameId;
     if (refs.brandId) dto.brandId = refs.brandId;
-    if (refs.colourId) dto.colourId = refs.colourId;
+    if (refs.colourIds?.length) dto.colourIds = refs.colourIds;
     if (refs.colourTypeId) dto.colourTypeId = refs.colourTypeId;
     if (refs.productStatusId) dto.productStatusId = refs.productStatusId;
     if (refs.hsnCodeId) dto.hsnCodeId = refs.hsnCodeId;

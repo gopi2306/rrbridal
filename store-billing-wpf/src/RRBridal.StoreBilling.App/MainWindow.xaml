@@ -79,6 +79,12 @@
 
                     <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
                         <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
+                                ToolTip="{Binding MongoHealthStatusChip}">
+                            <TextBlock Text="{Binding MongoHealthStatusChip}" Style="{StaticResource TextCaption}"
+                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"
+                                       VerticalAlignment="Center" Margin="8,4"/>
+                        </Border>
+                        <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
                                 ToolTip="Business day status — click to open Day Close">
                             <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
                                     Command="{Binding NavigateDayCloseCommand}">
@@ -268,9 +274,6 @@
                         <controls:NavDrawerItem Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
-                        <controls:NavDrawerItem Label="Quotation" Page="{x:Static vm:ShellPage.Quotation}"
-                                                NavigateCommand="{Binding NavigateCommand}"
-                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Quotation}}"/>
                         <controls:NavDrawerItem Label="Quotations" Page="{x:Static vm:ShellPage.QuotationManagement}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.QuotationManagement}}"/>

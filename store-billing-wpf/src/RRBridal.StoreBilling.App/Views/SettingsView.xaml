@@ -75,6 +75,9 @@
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                                         <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
                                                 Command="{Binding RefreshStatusCommand}" MinWidth="100"/>
+                                        <Button Content="Re-sync products" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                                Command="{Binding ForceProductResyncCommand}" MinWidth="120"
+                                                ToolTip="Reset product cursor and pull the full central catalog again (fills missing prices on stock stubs)."/>
                                         <Button Content="Run sync" Style="{StaticResource PrimaryButton}"
                                                 Command="{Binding RunSyncOnceCommand}" MinWidth="100"/>
                                     </StackPanel>
@@ -91,6 +94,8 @@
                                             <TextBlock Text="{Binding SyncDiagnosticsText}" Style="{StaticResource TextCaption}"
                                                        TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6"/>
                                             <TextBlock Text="{Binding AutoSyncStatusText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding MongoHealthStatusText}" Style="{StaticResource TextCaption}"
+                                                       TextWrapping="Wrap" Margin="0,8,0,0"/>
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Border>
@@ -257,6 +262,16 @@
                                                  IsChecked="{Binding IsA4CommercialReceiptFormat, Mode=TwoWay}"/>
                                     <RadioButton Content="A5 tax invoice" GroupName="PrintFormat" Margin="0,0,0,0"
                                                  IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
+                                </StackPanel>
+
+                                <TextBlock Text="Credit bill receipt format" Style="{StaticResource TextLabel}" Margin="0,8,0,8"/>
+                                <TextBlock Text="Applies to Bill on credit invoices and Credit Bills balance receipts (separate from normal invoice format)."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <StackPanel Margin="0,0,0,12">
+                                    <RadioButton Content="Thermal (80mm)" GroupName="CreditPrintFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsCreditThermalPrintFormat, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 credit template" GroupName="CreditPrintFormat" Margin="0,0,0,0"
+                                                 IsChecked="{Binding IsCreditA4PrintFormat, Mode=TwoWay}"/>
                                 </StackPanel>
                                 <Border Visibility="{Binding IsA4PrePrintedSettingsVisible, Converter={StaticResource BoolToVis}}"
                                         Margin="0,0,0,16" Padding="16" Background="{StaticResource BrushRowAlt}"
@@ -851,6 +866,8 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Preview sample invoice" Style="{StaticResource OutlineButton}"
                                             Command="{Binding PreviewReceiptSettingsCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="Preview credit receipt" Style="{StaticResource OutlineButton}"
+                                            Command="{Binding PreviewCreditReceiptSettingsCommand}" Margin="0,0,8,0"/>
                                     <Button Content="Save receipt settings" Style="{StaticResource PrimaryButton}"
                                             Command="{Binding SaveReceiptSettingsCommand}"/>
                                 </StackPanel>

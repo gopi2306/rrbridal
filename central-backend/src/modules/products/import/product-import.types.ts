@@ -76,3 +76,31 @@ export interface ParsedProductImportRow {
   itemDiscountAllowed?: boolean;
   isWeighable?: boolean;
 }
+
+/** Master ObjectId refs resolved from one import row. */
+export interface ResolvedProductImportRefs {
+  supplierNameId?: string | undefined;
+  departmentId?: string | undefined;
+  categoryId?: string | undefined;
+  subCategoryId?: string | undefined;
+  manufacturerNameId?: string | undefined;
+  brandId?: string | undefined;
+  colourIds?: string[] | undefined;
+  colourTypeId?: string | undefined;
+  productStatusId?: string | undefined;
+  hsnCodeId?: string | undefined;
+  gstUomId?: string | undefined;
+  uomSubId?: string | undefined;
+  weightAndSizeId?: string | undefined;
+  weightPerGmOrMlId?: string | undefined;
+  offerGroupId?: string | undefined;
+  skuTypeId?: string | undefined;
+  skuOrderGroupId?: string | undefined;
+  indentTypeId?: string | undefined;
+  batchExpiryDetailId?: string | undefined;
+  itemPrepStatusId?: string | undefined;
+  packedConfirmationId?: string | undefined;
+  poQtyPolicyId?: string | undefined;
+  sellById?: string | undefined;
+  batchSelectionId?: string | undefined;
+}

@@ -4,6 +4,16 @@ import { formatLegacyReportDate, readPopulatedName } from './purchase-return-rep
 
 export { formatLegacyReportDate, readPopulatedName };
 
+function readPopulatedNames(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => readPopulatedName(entry))
+      .filter((name) => name.length > 0)
+      .join(', ');
+  }
+  return readPopulatedName(value);
+}
+
 const BUSINESS_TZ_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 export function formatLegacyDateTime(value: unknown, fallback?: Date): string {
@@ -142,6 +152,6 @@ export function productCategoryFields(product: Record<string, unknown> | undefin
     weightPerGmOrMl: readPopulatedName(product.weightPerGmOrMlId),
     offerGroup: readPopulatedName(product.offerGroupId),
     statusCategory: statusName || statusCode,
-    colour: readPopulatedName(product.colourId),
+    colour: readPopulatedNames(product.colourIds ?? product.colourId),
   };
 }

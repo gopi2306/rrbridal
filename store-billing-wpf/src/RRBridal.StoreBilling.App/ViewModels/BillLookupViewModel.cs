@@ -94,6 +94,22 @@ public partial class BillLookupViewModel : ObservableObject
     [RelayCommand]
     private void BackToView() => ActiveMode = BillLookupMode.View;
 
+    public async Task ResetForNewAsync()
+    {
+        BillNoInput = "";
+        SearchCustomerName = "";
+        SearchCustomerPhone = "";
+        StatusMessage = "Search by bill no, customer name, or mobile.";
+        ActiveMode = BillLookupMode.View;
+        SelectedSearchBill = null;
+        Detail.Clear();
+        OriginalDetail.Clear();
+        SearchResults.Clear();
+        OnPropertyChanged(nameof(ShowSearchResults));
+        await Return.ClearFormCommand.ExecuteAsync(null);
+        await Adjustment.ClearFormCommand.ExecuteAsync(null);
+    }
+
     [RelayCommand]
     private async Task SearchBills()
     {

@@ -21,13 +21,9 @@ public sealed class StoreDashboardSnapshot
 
     public decimal BillsLast7DaysRevenue { get; init; }
 
-    public int PendingOutboxCount { get; init; }
-
-    public string SyncCursor { get; init; } = "—";
-
-    public string? SyncUpdatedAt { get; init; }
-
     public long ProductCacheCount { get; init; }
+
+    public decimal TotalAvailableQty { get; init; }
 
     public IReadOnlyList<DashboardRecentBill> RecentBills { get; init; } = Array.Empty<DashboardRecentBill>();
 }

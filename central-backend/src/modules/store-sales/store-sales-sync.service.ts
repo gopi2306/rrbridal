@@ -203,6 +203,8 @@ export class StoreSalesSyncService {
         totalApplied: 0,
         returnNo: this.optionalString(payload, 'returnNo'),
         originalBillNo: this.optionalString(payload, 'originalBillNo'),
+        originalBillDate: this.optionalString(payload, 'originalBillDate'),
+        isLegacy: payload.isLegacy === true,
         customerCode: this.optionalString(payload, 'customerCode'),
         customerPhone: this.optionalString(payload, 'customerPhone'),
         customerName: this.optionalString(payload, 'customerName'),

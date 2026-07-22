@@ -48,6 +48,11 @@ public partial class CustomersViewModel : ObservableObject
     [ObservableProperty] private string _landmark = "";
     [ObservableProperty] private bool _isCreditCustomer;
     [ObservableProperty] private string _syncStatus = "";
+    [ObservableProperty] private string _resultsCountSummary = "0 customers";
+    [ObservableProperty] private string _detailPanelTitle = "Customer details";
+
+    public bool ShowDetailForm => IsNewCustomer || SelectedCustomer != null;
+    public bool ShowDetailPlaceholder => !ShowDetailForm;
 
     public ObservableCollection<CustomerListRow> Results { get; } = new();
 
@@ -69,10 +74,18 @@ public partial class CustomersViewModel : ObservableObject
         IsDetailReadOnly = false;
         SelectedCustomer = null;
         ClearDetailForm();
-        DetailSourceLabel = "New customer";
-        StatusMessage = "Enter customer details and save.";
+        DetailSourceLabel = "Register a new customer for billing and credit eligibility.";
+        DetailPanelTitle = "New customer";
+        StatusMessage = "Enter customer details and save (F4).";
+        NotifyDetailVisibility();
         SaveCommand.NotifyCanExecuteChanged();
         UseInBillingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyDetailVisibility()
+    {
+        OnPropertyChanged(nameof(ShowDetailForm));
+        OnPropertyChanged(nameof(ShowDetailPlaceholder));
     }
 
     [RelayCommand]
@@ -100,8 +113,11 @@ public partial class CustomersViewModel : ObservableObject
             StatusMessage = rows.Count == 0
                 ? "No customers found."
                 : $"{rows.Count} customer(s) found.";
+            ResultsCountSummary = rows.Count == 0 ? "No matches" : $"{rows.Count} customer(s)";
             if (!IsNewCustomer)
                 SelectedCustomer = Results.Count > 0 ? Results[0] : null;
+            else
+                NotifyDetailVisibility();
         }
         catch (Exception ex)
         {
@@ -116,7 +132,10 @@ public partial class CustomersViewModel : ObservableObject
         _ = LoadSelectedDetailAsync(value);
         UseInBillingCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
+        NotifyDetailVisibility();
     }
+
+    partial void OnIsNewCustomerChanged(bool value) => NotifyDetailVisibility();
 
     private async Task LoadSelectedDetailAsync(CustomerListRow? row)
     {
@@ -124,10 +143,13 @@ public partial class CustomersViewModel : ObservableObject
         {
             ClearDetailForm();
             DetailSourceLabel = "";
+            DetailPanelTitle = "Customer details";
             IsDetailReadOnly = true;
-            StatusMessage = "Select a customer from the list.";
+            StatusMessage = "Select a customer from the list or click New customer.";
             return;
         }
+
+        DetailPanelTitle = row.Name;
 
         if (row.Source == "Central" || string.IsNullOrWhiteSpace(row.LocalMongoId))
         {
@@ -148,7 +170,8 @@ public partial class CustomersViewModel : ObservableObject
         }
 
         LoadDetailFromDocument(doc);
-        DetailSourceLabel = "Local customer";
+        DetailPanelTitle = CustomerName;
+        DetailSourceLabel = "Local customer — edits sync to central when linked.";
         IsDetailReadOnly = false;
         StatusMessage = $"Viewing {CustomerName}.";
     }

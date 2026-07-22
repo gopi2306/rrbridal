@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
+             xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
              Background="{StaticResource BrushBackground}">
@@ -14,7 +15,15 @@
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TextSectionTitle}" Text="Sale Return" Margin="0,0,0,12"/>
-                        <Grid Margin="0,0,0,8">
+                        <TextBlock Text="Return source" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <RadioButton Content="System bill" GroupName="ReturnSourceMode" Margin="0,0,16,0"
+                                         IsChecked="{Binding SourceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=SystemBill}"/>
+                            <RadioButton Content="Pre-system invoice" GroupName="ReturnSourceMode"
+                                         IsChecked="{Binding SourceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=PreSystemInvoice}"/>
+                        </StackPanel>
+
+                        <Grid Margin="0,0,0,8" Visibility="{Binding ShowSystemBillSearch, Converter={StaticResource BoolToVis}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -43,6 +52,49 @@
                             <Button Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
                                     VerticalAlignment="Bottom" Width="100" Padding="14,8"
                                     Command="{Binding SearchBillsCommand}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8" Visibility="{Binding ShowPreSystemFields, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Reference invoice no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                                         Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Original invoice date" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <DatePicker Margin="0,4,0,0" SelectedDate="{Binding OriginalBillDate}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox x:Name="LegacyCustomerNameBox" Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                                         Text="{Binding LegacyCustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                         KeyDown="LegacyCustomerNameBox_OnKeyDown"
+                                         ToolTip="Enter name and press Enter, or use Find customer"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Margin="0,0,8,0">
+                                <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBox x:Name="LegacyCustomerPhoneBox" Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                                         MaxLength="10"
+                                         Text="{Binding LegacyCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
+                                         KeyDown="LegacyCustomerPhoneBox_OnKeyDown"
+                                         LostFocus="LegacyCustomerPhoneBox_OnLostFocus"
+                                         ToolTip="10-digit mobile — searches on Enter or when you leave the field"/>
+                            </StackPanel>
+                            <Button Grid.Column="4" Content="Find customer" Style="{StaticResource OutlineButton}"
+                                    VerticalAlignment="Bottom" Width="110" Padding="14,8" Margin="0,0,8,0"
+                                    Command="{Binding SearchLegacyCustomerCommand}"
+                                    ToolTip="Search by name or mobile; create new if not found"/>
+                            <Button Grid.Column="5" Content="Start return" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom" Width="110" Padding="14,8"
+                                    Command="{Binding StartPreSystemReturnCommand}"/>
                         </Grid>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="12"
                                    Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
@@ -83,14 +135,44 @@
                 <Border Style="{StaticResource CardBorder}" Margin="0"
                         Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
                     <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="15" Text="Return Items" Margin="0,0,0,10"/>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="Return Items"/>
+                            <StackPanel Margin="0,8,0,0"
+                                        Visibility="{Binding ShowLegacyReturnLines, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Search catalog SKU or barcode, then Add product. Lines appear in the table below."
+                                           Foreground="{StaticResource BrushTextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Style="{StaticResource RoundedTextBox}"
+                                             Margin="0,0,8,0"
+                                             Text="{Binding PreSystemProductSearch, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="SKU, barcode, or product name"/>
+                                    <Button Grid.Column="1" Content="Add product" Style="{StaticResource PrimaryButton}"
+                                            Padding="14,8" Margin="0,0,8,0"
+                                            Command="{Binding AddPreSystemProductCommand}"/>
+                                    <Button Grid.Column="2" Content="Browse…" Style="{StaticResource OutlineButton}"
+                                            Padding="14,8"
+                                            Command="{Binding BrowsePreSystemProductCommand}"
+                                            ToolTip="Open product search (or press F3)"/>
+                                </Grid>
+                                <TextBlock Text="No products added yet."
+                                           Foreground="{StaticResource BrushTextMuted}" FontSize="12"
+                                           Margin="0,10,0,0"
+                                           Visibility="{Binding ShowLegacyEmptyHint, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                        </StackPanel>
                         <DataGrid ItemsSource="{Binding ReturnLines}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   RowHeight="36"
                                   BorderThickness="1"
-                                  BorderBrush="{StaticResource BrushBorder}">
+                                  BorderBrush="{StaticResource BrushBorder}"
+                                  Visibility="{Binding ShowSystemReturnLineColumns, Converter={StaticResource BoolToVis}}">
                             <DataGrid.Columns>
                                 <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="55">
                                     <DataGridCheckBoxColumn.ElementStyle>
@@ -117,11 +199,42 @@
                                 <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="90"/>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <DataGrid ItemsSource="{Binding LegacyReturnLines}"
+                                  Style="{StaticResource ThemedDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  RowHeight="36"
+                                  MinHeight="120"
+                                  BorderThickness="1"
+                                  BorderBrush="{StaticResource BrushBorder}"
+                                  Visibility="{Binding ShowLegacyReturnLines, Converter={StaticResource BoolToVis}}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="S.No" Binding="{Binding LineNo}" IsReadOnly="True" Width="50"/>
+                                <DataGridTextColumn Header="Product" Binding="{Binding ProductCode}" IsReadOnly="True" Width="110"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
+                                <DataGridTextColumn Header="Return Qty" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Taxable amt" Binding="{Binding TaxableReturnAmount, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTextColumn Header="Tax %" Binding="{Binding TaxPercent}" IsReadOnly="True" Width="60"/>
+                                <DataGridTextColumn Header="Tax Amt" Binding="{Binding TaxAmount, StringFormat=N2}" IsReadOnly="True" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding LineReturnTotal, StringFormat=N2}" IsReadOnly="True" Width="90"/>
+                                <DataGridTemplateColumn Header="" Width="48">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource IconDeleteButton}"
+                                                    HorizontalAlignment="Center"
+                                                    Command="{Binding DataContext.RemoveLegacyLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </DockPanel>
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Margin="0,12,0,0"
-                        Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
+                        Visibility="{Binding ShowExchangeSection, Converter={StaticResource BoolToVis}}">
                     <DockPanel LastChildFill="True">
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                             <TextBlock FontWeight="SemiBold" FontSize="15" Text="New Exchange Items"/>

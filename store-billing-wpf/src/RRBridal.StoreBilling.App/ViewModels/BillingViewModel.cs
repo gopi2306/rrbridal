@@ -1636,6 +1636,21 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
+        if (_services.StoreMongoOptions.RequireReady && !_services.MongoHealth.IsOnline)
+        {
+            var stillOffline = !await _services.MongoHealth.PingAsync().ConfigureAwait(true);
+            if (stillOffline)
+            {
+                MessageBox.Show(
+                    _services.MongoHealth.OfflineUserMessage +
+                    "\n\nBill posting is blocked until store MongoDB is reachable.",
+                    "RR Bridal Billing — MongoDB offline",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         if (!Lines.Any(l => l.Amount > 0))
         {
             MessageBox.Show(
@@ -2060,7 +2075,11 @@ public partial class BillingViewModel : ObservableObject
             }
 
             if (printInput != null)
+            {
                 await ShowInvoicePrintDialogAsync(paymentOutcome, printInvoiceEnabled: true, prebuiltInput: printInput, clearBillingAfterPrint: false);
+                if (paymentOutcome.IsCreditBilling)
+                    await ShowCreditReceiptPrintAsync(postedBillNo, paymentOutcome);
+            }
         }
         catch (Exception ex)
         {
@@ -2085,6 +2104,33 @@ public partial class BillingViewModel : ObservableObject
             FocusEntryProductCodeAfterAdd();
     }
 
+    private async Task ShowCreditReceiptPrintAsync(string billNo, PaymentOutcome paymentOutcome)
+    {
+        try
+        {
+            var storeId = _services.StoreContext.StoreId;
+            var bill = await _services.CreditBills.GetPostedBillAsync(storeId, billNo);
+            if (bill == null)
+                return;
+
+            var config = _services.ReceiptConfig.Current;
+            var charWidth = config.Print.ReceiptCharWidth is >= 32 and <= 56
+                ? config.Print.ReceiptCharWidth
+                : 48;
+            var receivedBy = _services.UserSession?.LoggedInUser.Name ?? "";
+            var creditInput = CreditReceiptMapper.FromPostedBill(bill, config.Store, charWidth, receivedBy);
+            await CreditReceiptPrintFlow.ShowAsync(_services, creditInput);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Bill was saved, but credit receipt print failed:\n{ex.Message}",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     [RelayCommand]
     private static void ShowHelp()
     {
@@ -2102,7 +2148,7 @@ public partial class BillingViewModel : ObservableObject
             "• F9 — post bill (saves to local store_bills in Mongo).\n" +
             "• F10 — invoice preview / print (thermal format).\n" +
             "• F11 — duplicate bill (reprint posted invoice).\n" +
-            "• Multi-counter: same STORE_ID + STORE_MONGO_URI on LAN; unique DEVICE_ID and POS_COUNTER per till (see deploy/env.counter-*.example).\n" +
+            "• Multi-counter / ZeroTier parent-Mongo: same STORE_ID + STORE_MONGO_URI on parent ZeroTier IP; unique DEVICE_ID and POS_COUNTER per till (see deploy/env.counter-*.example and deploy/ZEROTIER_PARENT_MONGO.md).\n" +
             "• Set STORE_ID, DEVICE_ID, POS_COUNTER and STORE_MONGO_URI in .env.\n" +
             "• F12 — exit.",
             "RR Bridal Billing",

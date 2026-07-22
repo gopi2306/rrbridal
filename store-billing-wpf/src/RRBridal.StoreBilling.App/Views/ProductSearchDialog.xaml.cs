@@ -34,8 +34,9 @@ public partial class ProductSearchDialog
 
         ResultsGridView.Columns.Clear();
         ResultsGridView.Columns.Add(TextColumn("SKU", "Sku", 110));
-        ResultsGridView.Columns.Add(TextColumn("Name", "Name", level >= BillingLineItemDetailLevel.Standard ? 200 : 260));
+        ResultsGridView.Columns.Add(TextColumn("Name", "Name", level >= BillingLineItemDetailLevel.Standard ? 180 : 220));
         ResultsGridView.Columns.Add(TextColumn("Rate", "SuggestedRate", 80, "₹ {0:N2}"));
+        ResultsGridView.Columns.Add(TextColumn("Image note", "PrimaryImageDescription", 140));
 
         if (level >= BillingLineItemDetailLevel.Standard)
         {

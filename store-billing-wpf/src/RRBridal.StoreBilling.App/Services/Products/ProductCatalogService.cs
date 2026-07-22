@@ -210,11 +210,47 @@ public sealed class ProductCatalogService
             MarginPercent = ReadDecimalBson(d, "marginPercent"),
             Mrp = ReadDecimalBson(d, "mrp"),
             SellingPrice = ReadDecimalBson(d, "sellingPrice"),
-            StorePrice = ReadDecimalBson(d, "storePrice"),
+            StorePrice = ReadPositiveDecimalBson(d, "storePrice") ?? ReadPositiveDecimalBson(d, "sellingPrice"),
             GstPercent = ReadDecimalBson(d, "gstPercent"),
             HsnSac = string.IsNullOrEmpty(hsnSac) ? null : hsnSac,
             StockQty = ReadDecimalBson(d, "stockQty") ?? 0m,
+            MediaItems = ReadMediaItems(d),
         };
+    }
+
+    private static IReadOnlyList<ProductMediaItem> ReadMediaItems(BsonDocument d)
+    {
+        if (d.TryGetValue("mediaItems", out var itemsVal) && itemsVal.IsBsonArray && itemsVal.AsBsonArray.Count > 0)
+        {
+            var list = new List<ProductMediaItem>();
+            foreach (var el in itemsVal.AsBsonArray)
+            {
+                if (!el.IsBsonDocument) continue;
+                var doc = el.AsBsonDocument;
+                var url = ReadString(doc, "url");
+                if (string.IsNullOrWhiteSpace(url)) continue;
+                list.Add(new ProductMediaItem
+                {
+                    Url = url,
+                    Description = ReadString(doc, "description"),
+                });
+            }
+            if (list.Count > 0) return list;
+        }
+
+        if (d.TryGetValue("mediaUrls", out var urlsVal) && urlsVal.IsBsonArray)
+        {
+            var list = new List<ProductMediaItem>();
+            foreach (var el in urlsVal.AsBsonArray)
+            {
+                var url = el.IsString ? el.AsString : el.IsBsonNull ? null : el.ToString();
+                if (string.IsNullOrWhiteSpace(url)) continue;
+                list.Add(new ProductMediaItem { Url = url! });
+            }
+            return list;
+        }
+
+        return Array.Empty<ProductMediaItem>();
     }
 
     private static string? ReadString(BsonDocument d, string key)
@@ -236,6 +272,12 @@ public sealed class ProductCatalogService
             { IsDecimal128: true } => (decimal)v.AsDecimal128,
             _ => null,
         };
+    }
+
+    private static decimal? ReadPositiveDecimalBson(BsonDocument d, string key)
+    {
+        var value = ReadDecimalBson(d, key);
+        return value is > 0 ? value : null;
     }
 
     public async Task DecrementStockAsync(

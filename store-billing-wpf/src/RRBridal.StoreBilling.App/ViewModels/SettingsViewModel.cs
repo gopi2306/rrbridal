@@ -34,6 +34,7 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _syncDiagnosticsText = "";
     [ObservableProperty] private string _autoSyncStatusText = "";
+    [ObservableProperty] private string _mongoHealthStatusText = "";
     [ObservableProperty] private string _lastActionText = "";
 
     [ObservableProperty] private string _receiptStoreName = "";
@@ -65,6 +66,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _receiptCharWidth = 48;
 
     [ObservableProperty] private InvoicePrintFormat _receiptPrintFormat = InvoicePrintFormat.Thermal;
+
+    [ObservableProperty] private CreditPrintFormat _creditPrintFormat = CreditPrintFormat.Thermal;
 
     [ObservableProperty] private bool _a4PrePrintedEnabled;
 
@@ -192,6 +195,26 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool IsCreditThermalPrintFormat
+    {
+        get => CreditPrintFormat == CreditPrintFormat.Thermal;
+        set
+        {
+            if (value)
+                CreditPrintFormat = CreditPrintFormat.Thermal;
+        }
+    }
+
+    public bool IsCreditA4PrintFormat
+    {
+        get => CreditPrintFormat == CreditPrintFormat.A4;
+        set
+        {
+            if (value)
+                CreditPrintFormat = CreditPrintFormat.A4;
+        }
+    }
+
     public bool IsOfficeInvoiceFormat =>
         ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
 
@@ -204,6 +227,12 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         OnPropertyChanged(nameof(IsA4PrePrintedSettingsVisible));
         OnPropertyChanged(nameof(IsA5PrePrintedSettingsVisible));
+    }
+
+    partial void OnCreditPrintFormatChanged(CreditPrintFormat value)
+    {
+        OnPropertyChanged(nameof(IsCreditThermalPrintFormat));
+        OnPropertyChanged(nameof(IsCreditA4PrintFormat));
     }
 
     partial void OnA4PrePrintedEnabledChanged(bool value) =>
@@ -219,7 +248,9 @@ public partial class SettingsViewModel : ObservableObject
             ? "Central auth: not logged in"
             : "Central auth: token loaded";
         _services.PeriodicSync.StatusChanged += OnPeriodicSyncStatusChanged;
+        _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
         UpdateAutoSyncStatusText();
+        UpdateMongoHealthStatusText();
         _ = RefreshStatusAsync();
     }
 
@@ -227,6 +258,11 @@ public partial class SettingsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AutoSyncStatusText));
         UpdateAutoSyncStatusText();
+    }
+
+    private void OnMongoHealthStatusChanged()
+    {
+        UpdateMongoHealthStatusText();
     }
 
     private void UpdateAutoSyncStatusText()
@@ -237,6 +273,14 @@ public partial class SettingsViewModel : ObservableObject
         {
             AutoSyncStatusText += Environment.NewLine + _services.PeriodicSync.LastRunMessage;
         }
+    }
+
+    private void UpdateMongoHealthStatusText()
+    {
+        var health = _services.MongoHealth;
+        MongoHealthStatusText = health.StatusDescription;
+        if (!string.IsNullOrWhiteSpace(health.LastError) && health.State != MongoHealthState.Connected)
+            MongoHealthStatusText += Environment.NewLine + health.LastError;
     }
 
     public Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
@@ -275,6 +319,7 @@ public partial class SettingsViewModel : ObservableObject
         ApplyPrinterFieldsFromConfig(c.Print);
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
         ReceiptPrintFormat = c.Print.PrintFormat;
+        CreditPrintFormat = c.Print.CreditPrintFormat;
         A4PrePrintedEnabled = c.Print.A4PrePrintedEnabled;
         A5PrePrintedEnabled = c.Print.A5PrePrintedEnabled;
         AlsoPrintThermalFirst = c.Print.AlsoPrintThermalFirst;
@@ -285,6 +330,8 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
+        OnPropertyChanged(nameof(IsCreditThermalPrintFormat));
+        OnPropertyChanged(nameof(IsCreditA4PrintFormat));
         ReceiptCentralSyncText = c.LastReceiptSettingsSyncUtc.HasValue
             ? $"Last synced: {s.StoreName} at {c.LastReceiptSettingsSyncUtc.Value.ToLocalTime():g}"
             : "(not synced from central yet)";
@@ -384,6 +431,7 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptCharWidth = w;
         c.Print.ReceiptCharWidth = w;
         c.Print.PrintFormat = ReceiptPrintFormat;
+        c.Print.CreditPrintFormat = CreditPrintFormat;
         c.Print.A4PrePrintedEnabled = A4PrePrintedEnabled;
         c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
         c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial
@@ -402,6 +450,7 @@ public partial class SettingsViewModel : ObservableObject
             Metadata = new BsonDocument
             {
                 { "printFormat", ReceiptPrintFormat.ToString() },
+                { "creditPrintFormat", CreditPrintFormat.ToString() },
                 { "a4PrePrintedEnabled", A4PrePrintedEnabled },
                 { "a5PrePrintedEnabled", A5PrePrintedEnabled },
                 { "thermalPrinter", SelectedThermalPrinterFullName ?? "" },
@@ -433,6 +482,28 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task PreviewReceiptSettingsAsync() =>
         await ShowReceiptSettingsPreviewAsync(isDuplicate: false);
+
+    [RelayCommand]
+    public async Task PreviewCreditReceiptSettingsAsync()
+    {
+        try
+        {
+            var c = _services.ReceiptConfig.Current;
+            c.Print.CreditPrintFormat = CreditPrintFormat;
+            c.Print.ReceiptCharWidth = ReceiptCharWidth is >= 32 and <= 56 ? ReceiptCharWidth : 48;
+            var sample = CreditReceiptMapper.CreateSample(
+                c.Store,
+                CreditPrintFormat,
+                c.Print.ReceiptCharWidth);
+            await CreditReceiptPrintFlow.ShowAsync(_services, sample);
+            LastActionText = $"Credit receipt preview ({CreditPrintFormat}).";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Credit receipt preview failed: {ex.Message}", "Settings",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     [RelayCommand]
     public void PreviewA4PrePrintedAlignment() =>
@@ -687,6 +758,8 @@ public partial class SettingsViewModel : ObservableObject
             : status.DiagnosticsSummary;
         LastActionText = "Status refreshed.";
         UpdateAutoSyncStatusText();
+        await _services.MongoHealth.PingAsync().ConfigureAwait(true);
+        UpdateMongoHealthStatusText();
     }
 
     [RelayCommand]
@@ -709,6 +782,40 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             LastActionText = $"Sync failed: {ex.Message}";
+        }
+
+        await RefreshStatusAsync();
+    }
+
+    [RelayCommand]
+    public async Task ForceProductResyncAsync()
+    {
+        try
+        {
+            LastActionText = "Re-syncing full product catalog…";
+            await _services.StoreSyncRunner.SyncLock.WaitAsync(CancellationToken.None);
+            int productCount;
+            try
+            {
+                productCount = await _services.SyncEngine.ResyncAllProductsAsync(CancellationToken.None);
+            }
+            finally
+            {
+                _services.StoreSyncRunner.SyncLock.Release();
+            }
+
+            if (productCount > 0)
+            {
+                _services.ReceiptConfig.Reload();
+                ApplyReceiptFieldsFromConfig();
+                _ = _services.ShellBranding.RefreshAsync();
+            }
+
+            LastActionText = $"Product re-sync complete. Updated {productCount:N0} product rows locally.";
+        }
+        catch (Exception ex)
+        {
+            LastActionText = $"Product re-sync failed: {ex.Message}";
         }
 
         await RefreshStatusAsync();

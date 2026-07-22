@@ -317,7 +317,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.upsert('Product', { sku: 'SKU-001' }, {
       ...lehengaBase,
       itemName: 'Bridal Red Lehenga', shortName: 'Red Lehenga',
-      brandId: this.refs['brand-001'], colourId: this.refs['clr-001'],
+      brandId: this.refs['brand-001'], colourIds: [this.refs['clr-001']],
       weightAndSizeId: this.refs['ws-002'],
       costPrice: 25000, mrp: 45000, sellingPrice: 42000, storePrice: 40000,
       minStock: 2, reorderLevel: 5,
@@ -326,7 +326,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.upsert('Product', { sku: 'SKU-002' }, {
       ...lehengaBase,
       itemName: 'Gold Bridal Lehenga', shortName: 'Gold Lehenga',
-      brandId: this.refs['brand-002'], colourId: this.refs['clr-002'],
+      brandId: this.refs['brand-002'], colourIds: [this.refs['clr-002']],
       weightAndSizeId: this.refs['ws-002'],
       costPrice: 30000, mrp: 55000, sellingPrice: 50000, storePrice: 48000,
       minStock: 2, reorderLevel: 4,
@@ -335,7 +335,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.upsert('Product', { sku: 'SKU-003' }, {
       ...lehengaBase,
       itemName: 'Maroon Reception Lehenga', shortName: 'Maroon Lehenga',
-      colourId: this.refs['clr-003'], weightAndSizeId: this.refs['ws-001'],
+      colourIds: [this.refs['clr-003']], weightAndSizeId: this.refs['ws-001'],
       costPrice: 18000, mrp: 32000, sellingPrice: 30000, storePrice: 28000,
       minStock: 3, reorderLevel: 6,
     });
@@ -343,7 +343,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.upsert('Product', { sku: 'SKU-004' }, {
       ...jewelleryBase,
       itemName: 'Kundan Bridal Necklace Set', shortName: 'Kundan Necklace',
-      colourId: this.refs['clr-002'], weightAndSizeId: this.refs['ws-001'],
+      colourIds: [this.refs['clr-002']], weightAndSizeId: this.refs['ws-001'],
       costPrice: 8000, mrp: 15000, sellingPrice: 14000, storePrice: 13000,
       minStock: 5, reorderLevel: 10,
     });
@@ -351,7 +351,7 @@ export class TestDataSeedService implements OnModuleInit {
     await this.upsert('Product', { sku: 'SKU-005' }, {
       ...jewelleryBase,
       itemName: 'Kundan Maang Tikka', shortName: 'Maang Tikka',
-      colourId: this.refs['clr-002'], weightAndSizeId: this.refs['ws-001'],
+      colourIds: [this.refs['clr-002']], weightAndSizeId: this.refs['ws-001'],
       costPrice: 3000, mrp: 6000, sellingPrice: 5500, storePrice: 5000,
       minStock: 8, reorderLevel: 15,
     });

@@ -13,6 +13,7 @@ public partial class InvoicePrintPreviewWindow : Window
     private readonly bool _dualPrint;
     private readonly bool _printInvoiceEnabled;
     private readonly bool _forceThermalPrinter;
+    private readonly BillPrinterKind? _printerKindOverride;
 
     public bool PrintSucceeded { get; private set; }
 
@@ -23,7 +24,8 @@ public partial class InvoicePrintPreviewWindow : Window
         bool printInvoiceEnabled,
         FlowDocument? thermalDocument = null,
         bool dualPrint = false,
-        bool forceThermalPrinter = false)
+        bool forceThermalPrinter = false,
+        BillPrinterKind? printerKindOverride = null)
     {
         InitializeComponent();
         _services = services;
@@ -32,6 +34,7 @@ public partial class InvoicePrintPreviewWindow : Window
         _dualPrint = dualPrint && thermalDocument != null;
         _printInvoiceEnabled = printInvoiceEnabled;
         _forceThermalPrinter = forceThermalPrinter;
+        _printerKindOverride = printerKindOverride;
         PreviewViewer.Document = document;
 
         if (_dualPrint)
@@ -62,10 +65,13 @@ public partial class InvoicePrintPreviewWindow : Window
         }
         else
         {
-            var kind = _forceThermalPrinter || print.PrintFormat == InvoicePrintFormat.Thermal
-                ? BillPrinterKind.Thermal
-                : BillPrinterKind.OfficeInvoice;
-            var jobName = _forceThermalPrinter ? "RR Bridal sales return" : "RR Bridal bill";
+            var kind = _printerKindOverride
+                ?? (_forceThermalPrinter || print.PrintFormat == InvoicePrintFormat.Thermal
+                    ? BillPrinterKind.Thermal
+                    : BillPrinterKind.OfficeInvoice);
+            var jobName = _forceThermalPrinter || kind == BillPrinterKind.Thermal
+                ? "RR Bridal receipt"
+                : "RR Bridal bill";
             if (!BillPrintService.PrintDocument(this, _document, print, jobName, kind))
                 return;
         }

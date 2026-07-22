@@ -50,6 +50,24 @@ public partial class CreditBillsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ClearFiltersAndSearch()
+    {
+        ClearFilters();
+        await LoadBalanceAsync();
+        await Search();
+    }
+
+    public void ClearFilters()
+    {
+        SearchBillNo = "";
+        SearchCustomerName = "";
+        SearchCustomerPhone = "";
+        SelectedStatusFilter = "all";
+        SelectedBill = null;
+        StatusMessage = "Search credit (pay-later) bills.";
+    }
+
+    [RelayCommand]
     private async Task Search()
     {
         StatusMessage = "Searching…";
@@ -87,12 +105,52 @@ public partial class CreditBillsViewModel : ObservableObject
         _services.PosBillingSettings.Load();
         var allowPartial = _services.PosBillingSettings.Current.CreditBillingAllowPartialCollection;
 
-        var dlg = new RecordCreditPaymentDialog(SelectedBill.BalanceDue, allowPartial)
+        var dlg = new RecordCreditPaymentDialog(
+            SelectedBill.BalanceDue,
+            allowPartial,
+            _services.StoreContext.StoreId,
+            SelectedBill.BillNo,
+            SelectedBill.CustomerPhone,
+            null,
+            _services.CustomerCreditNotes)
         {
             Owner = Application.Current.MainWindow,
         };
         if (dlg.ShowDialog() != true || !dlg.Confirmed)
             return;
+
+        if (dlg.SelectedPaymentMode == CreditReceivedPaymentMode.CreditNote)
+        {
+            var consumed = await _services.CustomerCreditNotes.ConsumeAsync(
+                dlg.TransactionNo,
+                SelectedBill.BillNo,
+                dlg.PaidAmount);
+            if (!consumed)
+            {
+                MessageBox.Show("Could not apply credit note. Check balance and try again.", "Credit bills",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        else if (dlg.SelectedPaymentMode == CreditReceivedPaymentMode.Split)
+        {
+            foreach (var leg in dlg.PaymentLegs)
+            {
+                if (leg.Mode != CreditReceivedPaymentMode.CreditNote || leg.Amount <= 0)
+                    continue;
+
+                var consumed = await _services.CustomerCreditNotes.ConsumeAsync(
+                    leg.Reference,
+                    SelectedBill.BillNo,
+                    leg.Amount);
+                if (!consumed)
+                {
+                    MessageBox.Show($"Could not apply credit note {leg.Reference}.", "Credit bills",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+        }
 
         var user = _services.UserSession?.LoggedInUser.Name ?? "Unknown";
         var result = await _services.CreditBills.RecordPaymentAsync(
@@ -102,31 +160,61 @@ public partial class CreditBillsViewModel : ObservableObject
             dlg.SelectedPaymentMode,
             dlg.TransactionNo,
             user,
-            allowPartial);
+            allowPartial,
+            dlg.PaymentLegs.Count > 0 ? dlg.PaymentLegs : null);
 
         if (!result.Success)
         {
-            MessageBox.Show(result.Error ?? "Could not record payment.", "Credit bills",
+            MessageBox.Show(result.Error ?? "Could not save receipt.", "Credit bills",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        StatusMessage = $"Payment recorded for {SelectedBill.BillNo}. Receipt {result.ReceiptNo}.";
+        StatusMessage = $"Receipt saved for {SelectedBill.BillNo}. Receipt no. {result.ReceiptNo}.";
         try
         {
-            await PaymentReceiptPrintFlow.ShowAsync(
-                _services,
-                new PaymentReceiptPrintInput
+            var storeId = _services.StoreContext.StoreId;
+            var bill = await _services.CreditBills.GetPostedBillAsync(storeId, SelectedBill.BillNo);
+            var receipt = string.IsNullOrWhiteSpace(result.ReceiptNo)
+                ? null
+                : await _services.CreditBills.GetPaymentReceiptAsync(storeId, result.ReceiptNo!);
+            var config = _services.ReceiptConfig.Current;
+            var charWidth = config.Print.ReceiptCharWidth is >= 32 and <= 56
+                ? config.Print.ReceiptCharWidth
+                : 48;
+
+            CreditReceiptPrintInput creditInput;
+            if (bill != null && receipt != null)
+            {
+                creditInput = CreditReceiptMapper.FromCollection(bill, receipt, config.Store, charWidth);
+            }
+            else
+            {
+                creditInput = new CreditReceiptPrintInput
                 {
-                    ReceiptNo = result.ReceiptNo ?? "",
+                    Kind = CreditReceiptKind.BalanceCollection,
+                    Store = config.Store,
+                    CharWidth = charWidth,
                     BillNo = SelectedBill.BillNo,
+                    BillDate = SelectedBill.BillDate,
+                    ReceiptNo = result.ReceiptNo,
                     CustomerName = SelectedBill.CustomerName,
                     CustomerPhone = SelectedBill.CustomerPhone,
-                    AmountPaid = result.AmountPaid,
+                    TotalPayable = SelectedBill.TotalPayable,
+                    AdvanceAtPost = SelectedBill.AdvancePaid,
+                    AmountPaidThisTime = result.AmountPaid,
+                    CumulativeAmountPaid = SelectedBill.AmountPaid + result.AmountPaid,
                     BalanceDue = result.BalanceDue,
+                    Status = result.BalanceDue <= 0.009m
+                        ? CreditBillDocumentReader.StatusSettled
+                        : CreditBillDocumentReader.StatusPartial,
                     PaymentMode = dlg.SelectedPaymentMode.ToString(),
                     Reference = dlg.TransactionNo,
-                });
+                    ReceivedBy = user,
+                };
+            }
+
+            await CreditReceiptPrintFlow.ShowAsync(_services, creditInput);
         }
         catch
         {

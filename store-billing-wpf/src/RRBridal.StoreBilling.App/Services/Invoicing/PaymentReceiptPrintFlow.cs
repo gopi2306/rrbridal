@@ -1,12 +1,9 @@
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
 using RRBridal.StoreBilling.App.Services;
-using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
+/// <summary>Legacy thin wrapper — prefer <see cref="CreditReceiptPrintFlow"/>.</summary>
 public sealed class PaymentReceiptPrintInput
 {
     public required string ReceiptNo { get; init; }
@@ -17,61 +14,46 @@ public sealed class PaymentReceiptPrintInput
     public decimal BalanceDue { get; init; }
     public string PaymentMode { get; init; } = "";
     public string Reference { get; init; } = "";
+    public decimal TotalPayable { get; init; }
+    public decimal CumulativeAmountPaid { get; init; }
+    public decimal AdvanceAtPost { get; init; }
+    public string Status { get; init; } = "";
+    public string ReceivedBy { get; init; } = "";
+    public string BillDate { get; init; } = "";
 }
 
 public static class PaymentReceiptPrintFlow
 {
     public static Task<bool> ShowAsync(AppServices services, PaymentReceiptPrintInput input)
     {
-        var doc = new FlowDocument
+        var config = services.ReceiptConfig.Current;
+        var charWidth = config.Print.ReceiptCharWidth is >= 32 and <= 56
+            ? config.Print.ReceiptCharWidth
+            : 48;
+
+        var creditInput = new CreditReceiptPrintInput
         {
-            FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-            FontSize = 12,
-            PagePadding = new Thickness(24),
+            Kind = CreditReceiptKind.BalanceCollection,
+            Store = config.Store,
+            CharWidth = charWidth,
+            BillNo = input.BillNo,
+            BillDate = input.BillDate,
+            ReceiptNo = input.ReceiptNo,
+            CustomerName = input.CustomerName,
+            CustomerPhone = input.CustomerPhone,
+            TotalPayable = input.TotalPayable,
+            AdvanceAtPost = input.AdvanceAtPost,
+            AmountPaidThisTime = input.AmountPaid,
+            CumulativeAmountPaid = input.CumulativeAmountPaid > 0
+                ? input.CumulativeAmountPaid
+                : input.AmountPaid,
+            BalanceDue = input.BalanceDue,
+            Status = input.Status,
+            PaymentMode = input.PaymentMode,
+            Reference = input.Reference,
+            ReceivedBy = input.ReceivedBy,
         };
 
-        doc.Blocks.Add(new Paragraph(new Run("PAYMENT RECEIPT")) { FontWeight = FontWeights.Bold, FontSize = 16 });
-        doc.Blocks.Add(new Paragraph(new Run($"Receipt: {input.ReceiptNo}")));
-        doc.Blocks.Add(new Paragraph(new Run($"Bill: {input.BillNo}")));
-        doc.Blocks.Add(new Paragraph(new Run($"Customer: {input.CustomerName}")));
-        if (!string.IsNullOrWhiteSpace(input.CustomerPhone))
-            doc.Blocks.Add(new Paragraph(new Run($"Mobile: {input.CustomerPhone}")));
-        doc.Blocks.Add(new Paragraph(new Run($"Paid: {MoneyMath.FormatRupee(input.AmountPaid)}")) { FontWeight = FontWeights.SemiBold });
-        doc.Blocks.Add(new Paragraph(new Run($"Mode: {input.PaymentMode}")));
-        if (!string.IsNullOrWhiteSpace(input.Reference))
-            doc.Blocks.Add(new Paragraph(new Run($"Reference: {input.Reference}")));
-        doc.Blocks.Add(new Paragraph(new Run($"Balance due: {MoneyMath.FormatRupee(input.BalanceDue)}")) { FontWeight = FontWeights.SemiBold });
-
-        var viewer = new FlowDocumentScrollViewer { Document = doc };
-        var win = new Window
-        {
-            Title = "Payment receipt",
-            Width = 420,
-            Height = 480,
-            Content = viewer,
-            Owner = Application.Current.MainWindow,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        };
-
-        var print = new Button { Content = "Print", Margin = new Thickness(8), Padding = new Thickness(12, 6, 12, 6) };
-        print.Click += (_, _) =>
-        {
-            var dlg = new PrintDialog();
-            if (dlg.ShowDialog() == true)
-                dlg.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, "Payment receipt");
-        };
-        var close = new Button { Content = "Close", Margin = new Thickness(8), Padding = new Thickness(12, 6, 12, 6) };
-        close.Click += (_, _) => win.Close();
-
-        var panel = new DockPanel();
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        buttons.Children.Add(print);
-        buttons.Children.Add(close);
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        panel.Children.Add(buttons);
-        panel.Children.Add(viewer);
-        win.Content = panel;
-        win.ShowDialog();
-        return Task.FromResult(true);
+        return CreditReceiptPrintFlow.ShowAsync(services, creditInput);
     }
 }

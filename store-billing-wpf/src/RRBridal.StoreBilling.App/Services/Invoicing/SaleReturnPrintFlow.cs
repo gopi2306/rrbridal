@@ -85,6 +85,79 @@ public static class SaleReturnPrintFlow
         }
     }
 
+    public static async Task<bool> ShowLegacyAsync(
+        AppServices services,
+        IReadOnlyList<LegacyReturnLineItem> returnLines,
+        string returnNo,
+        string originalBillNo,
+        string originalBillDateDisplay,
+        string returnModeLabel,
+        decimal grossAmount,
+        decimal returnTotal,
+        decimal cgstTotal,
+        decimal sgstTotal,
+        decimal igstTotal,
+        bool isInterState,
+        string? creditNoteNo = null,
+        decimal cashRefunded = 0m)
+    {
+        try
+        {
+            services.CentralAuthSession.ApplyTo(services.CentralApi);
+            var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
+            if (!profileOk)
+            {
+                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            var config = services.ReceiptConfig.Current;
+            var printSettings = config.Print;
+            var charWidth = printSettings.ReceiptCharWidth is >= 32 and <= 56 ? printSettings.ReceiptCharWidth : 48;
+            var localPosted = DateTime.Now;
+
+            var input = new ThermalSaleReturnInput
+            {
+                Store = config.Store,
+                CharWidth = charWidth,
+                ReturnNo = returnNo,
+                OriginalBillNo = originalBillNo,
+                UserName = services.UserSession?.LoggedInUser.Name ?? "",
+                Counter = services.StoreContext.PosCounter,
+                ReturnDate = localPosted.ToString("dd/MM/yy", CultureInfo.GetCultureInfo("en-IN")),
+                ReturnTime = localPosted.ToString("h:mmtt", CultureInfo.GetCultureInfo("en-IN")).ToUpperInvariant(),
+                ReturnModeLabel = returnModeLabel,
+                CreditNoteNo = creditNoteNo,
+                Lines = returnLines.Select(l => new SaleReturnLineSnap
+                {
+                    Description = string.IsNullOrWhiteSpace(l.Description) ? l.ProductCode : l.Description,
+                    Qty = l.Qty,
+                    Rate = l.Rate,
+                    Amount = l.LineReturnTotal,
+                }).ToList(),
+                TotalQty = returnLines.Sum(l => l.Qty),
+                ItemCount = returnLines.Count,
+                GrossAmount = grossAmount,
+                TaxTotal = cgstTotal + sgstTotal + igstTotal,
+                ReturnAmount = returnTotal,
+                IsInterState = isInterState,
+                CgstTotal = cgstTotal,
+                SgstTotal = sgstTotal,
+                IgstTotal = igstTotal,
+                CashRefunded = cashRefunded,
+                IsLegacy = true,
+                OriginalBillDateDisplay = originalBillDateDisplay,
+            };
+
+            return await ShowFromThermalInputAsync(services, input, returnNo, returnModeLabel);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
     public static async Task<bool> ShowFromReturnDocumentAsync(
         AppServices services,
         BsonDocument returnDoc,

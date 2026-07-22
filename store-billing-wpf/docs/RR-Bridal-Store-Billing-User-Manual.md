@@ -1,16 +1,18 @@
 # TruBilling — User Manual
 
 **Application:** TruBilling  
-**Version:** 1.0  
-**Last updated:** 19 June 2026
+**Version:** 2.0  
+**Last updated:** 16 July 2026
 
 ---
 
 ## About this manual
 
-This guide is for **cashiers**, **store managers**, and **support staff** who use the **TruBilling** desktop application at the retail counter. It explains how to perform everyday tasks: billing, returns, day close, printing, and sync.
+This guide is for **cashiers**, **store managers**, and **support staff** who use the **TruBilling** desktop application at the retail counter. It explains how to perform everyday tasks: billing, quotations, returns, day close, printing, and sync.
 
 For a technical feature reference (configuration, MongoDB collections, API sync details), see [RR-Bridal-Store-Billing-WPF-Feature-Guide.html](./RR-Bridal-Store-Billing-WPF-Feature-Guide.html).
+
+**PDF / Word copies:** This Markdown file is the source of truth. Printable companions: [`RR-Bridal-Store-Billing-User-Manual.html`](./RR-Bridal-Store-Billing-User-Manual.html) / `.pdf` (and matching `TruBilling-User-Manual.*` copies). Re-save `.docx` from the HTML in Microsoft Word if you need an updated Word file.
 
 ---
 
@@ -21,20 +23,24 @@ For a technical feature reference (configuration, MongoDB collections, API sync 
 3. [Main screen layout](#3-main-screen-layout)
 4. [Starting your day](#4-starting-your-day)
 5. [Billing (POS)](#5-billing-pos)
-6. [Customer registration](#6-customer-registration)
-7. [Sale returns and exchanges](#7-sale-returns-and-exchanges)
-8. [Bill adjustments](#8-bill-adjustments)
-9. [Duplicate print and WhatsApp](#9-duplicate-print-and-whatsapp)
-10. [Day close and cash management](#10-day-close-and-cash-management)
-11. [Daily expenses](#11-daily-expenses)
-12. [Dashboard and reports](#12-dashboard-and-reports)
-13. [Online COD orders](#13-online-cod-orders)
-14. [Barcode label printing](#14-barcode-label-printing)
-15. [Settings and sync](#15-settings-and-sync)
-16. [Keyboard shortcuts](#16-keyboard-shortcuts)
-17. [Primary vs secondary till](#17-primary-vs-secondary-till)
-18. [Troubleshooting](#18-troubleshooting)
-19. [Quick reference — daily checklist](#19-quick-reference--daily-checklist)
+6. [Quotations](#6-quotations)
+7. [Customer registration](#7-customer-registration)
+8. [Salesman registration](#8-salesman-registration)
+9. [Credit bills](#9-credit-bills)
+10. [Bill lookup](#10-bill-lookup)
+11. [Sale returns and exchanges](#11-sale-returns-and-exchanges)
+12. [Bill adjustments](#12-bill-adjustments)
+13. [Duplicate print and WhatsApp](#13-duplicate-print-and-whatsapp)
+14. [Day close and cash management](#14-day-close-and-cash-management)
+15. [Daily expenses](#15-daily-expenses)
+16. [Dashboard and reports](#16-dashboard-and-reports)
+17. [Online COD orders](#17-online-cod-orders)
+18. [Barcode label printing](#18-barcode-label-printing)
+19. [Settings and sync](#19-settings-and-sync)
+20. [Keyboard shortcuts](#20-keyboard-shortcuts)
+21. [Primary vs secondary till](#21-primary-vs-secondary-till)
+22. [Troubleshooting](#22-troubleshooting)
+23. [Quick reference — daily checklist](#23-quick-reference--daily-checklist)
 
 ---
 
@@ -48,8 +54,11 @@ For a technical feature reference (configuration, MongoDB collections, API sync 
 |------|-------|
 | Create and post sales bills | Billing |
 | Hold bills and resume later | Billing |
+| Create quotations and convert to bills | Quotations |
 | Register customers | Customers |
-| Register salesmen | Salesmen |
+| Register salesmen | Salesman |
+| Find a posted bill (view / return / adjust) | Bill Lookup |
+| Collect credit (pay-later) balances | Credit Bills (primary till) |
 | Process returns and exchanges | Returns |
 | Correct posted bills | Adjustments |
 | Reprint invoices | Duplicate |
@@ -104,7 +113,7 @@ To sign out, click the **logout icon** in the top-right header or choose **Logou
 | **Settings gear** | Opens Settings (primary till only) |
 | **Footer shortcuts** | Quick access to F1–F12 keys |
 
-Press **Escape** to close the navigation drawer.
+Press **Escape** to close the navigation drawer. **F2 New** clears or resets the **current** page (not only Billing).
 
 ---
 
@@ -119,7 +128,9 @@ Complete these steps **before** posting any bills.
 3. Log in with your central office credentials if not already logged in.
 4. Click **Run sync**.
 
-Sync downloads products, stock, promotion schemes, and user accounts. Without sync, product lookup and barcode scanning will not work.
+Sync downloads products, stock, promotion schemes, salesmen, users, and related masters. Without sync, product lookup and barcode scanning will not work.
+
+After a large catalog or price update in central, also click **Re-sync products** (see [Settings and sync](#19-settings-and-sync)).
 
 ### Step 2 — Open the business day
 
@@ -172,6 +183,13 @@ Use the **last row** of the line-items grid:
 
 You can also use the **global search box** in the header: enter a code and press **Enter**.
 
+**Product pick list columns:**
+
+- Always: SKU, Name, Rate, **Image note** (short description from central for the product image, when set)
+- With Standard/Full detail: GST %, MRP, Stock, and (Full) HSN
+
+If **Image note** is blank, central has no image description yet — billing still works normally.
+
 **Editing lines:**
 
 - Change quantity, rate, description, HSN, MRP, or tax % directly in the grid.
@@ -179,6 +197,8 @@ You can also use the **global search box** in the header: enter a code and press
 - Use **Tab** to move between cells.
 
 **Column display:** Managers can set Minimal, Standard, or Full columns in Settings → Other.
+
+**Store rate:** The rate used at the counter comes from the local catalog. If central has no store price (or it is zero), the app uses the central selling price after sync.
 
 ### 5.3 Discounts and totals
 
@@ -189,8 +209,9 @@ The **invoice preview panel** on the right shows live totals:
 - Round off
 - **Inter-state (IGST)** toggle for out-of-state customers
 - Customer credit notes (toggle to apply)
+- Credit / pay-later advance when credit billing is enabled by the manager
 
-The **Payable** amount is what the customer owes.
+The **Payable** amount is what the customer owes now.
 
 ### 5.4 Hold a bill (F8)
 
@@ -207,6 +228,7 @@ The bill is saved as a draft with a hold number. Stock is **not** deducted. To r
 
 - Customer name is filled in
 - Phone is a valid 10-digit number
+- Salesman is selected if required
 - At least one line has quantity × rate greater than zero
 - Business day is **open**
 - Your discount does not exceed your allowed limit
@@ -221,6 +243,7 @@ The bill is saved as a draft with a hold number. Stock is **not** deducted. To r
    - **UPI** (Razorpay)
    - **Credit note**
    - **Split** (multiple modes)
+   - **Credit / advance** when pay-later billing is enabled
 4. Confirm payment.
 
 After a successful post:
@@ -234,20 +257,33 @@ Press **F2** anytime to start a **new bill** (clears the current draft).
 
 ### 5.6 Print without posting (F10)
 
-Press **F10** to preview or print the current draft **without** saving it as a posted bill. Useful for quotations or customer review.
+Press **F10** to preview or print the current draft **without** saving it as a posted bill. Useful for customer review before post.
 
 Press **F1** on the Billing screen for an in-app quick reference.
 
 ---
 
-## 6. Customer registration
+## 6. Quotations
+
+Use quotations when the customer wants a formal quote before buying.
+
+1. Go to **Quotations** in the menu.
+2. Click **Create** (or use **F2** on this page) to open the quotation editor.
+3. Enter customer and products similar to Billing.
+4. **Save** the quotation (it is not a posted bill and does not deduct stock).
+5. Later, from the quotations list: **Open** to edit, **Cancel** unused quotes, or **Convert to bill** for an open quotation — this loads lines into Billing for payment and post.
+
+---
+
+## 7. Customer registration
 
 Use when a new customer needs a full profile before billing.
 
 1. Go to **Customers** (navigation menu).
 2. Enter **Customer name** and **Mobile no.** (required).
-3. Click **Save customer** or press **F4**.
-4. A success dialog appears — choose to apply the customer to the current bill or register another.
+3. Optionally mark **Credit customer** if the store allows pay-later for that customer.
+4. Click **Save customer** or press **F4**.
+5. A success dialog appears — choose to apply the customer to the current bill or register another.
 
 Press **Escape** to cancel and return to Billing.
 
@@ -255,9 +291,48 @@ Customer codes are generated automatically. Data syncs to the central system.
 
 ---
 
-## 7. Sale returns and exchanges
+## 8. Salesman registration
 
-1. Go to **Returns**.
+Salesmen appear in the Billing salesman dropdown.
+
+1. Go to **Salesman** in the menu.
+2. Enter salesman details and save.
+3. Return to Billing and select the salesman on the bill.
+
+Salesmen are also updated when the manager runs sync from central.
+
+---
+
+## 9. Credit bills
+
+**Primary till only.**
+
+Use when a pay-later (credit) sale still has a balance.
+
+1. Go to **Credit Bills**.
+2. Search by customer, bill number, status (pending / partial / settled), or date.
+3. Select a bill and **Record payment** (cash, card, UPI, credit note, or split, as allowed by Settings).
+4. Print a credit / balance receipt if needed.
+
+Managers configure credit rules in Settings → Other (minimum advance, whether zero advance is allowed, etc.).
+
+---
+
+## 10. Bill lookup
+
+Find any posted bill from one screen:
+
+1. Go to **Bill Lookup**.
+2. Search by invoice number, customer name, or mobile.
+3. Open the bill to **view** details, start a **return**, start an **adjustment**, **duplicate print**, or print a **credit note**.
+
+Available on all tills.
+
+---
+
+## 11. Sale returns and exchanges
+
+1. Go to **Returns** (or start a return from **Bill Lookup**).
 2. Enter the original **bill number** (full number or last 3–4 digits) and click **Load Bill**.
 3. If multiple bills match, pick the correct one from the list.
 4. Select return lines and enter **return quantity** for each.
@@ -283,11 +358,11 @@ Customer codes are generated automatically. Data syncs to the central system.
 
 ---
 
-## 8. Bill adjustments
+## 12. Bill adjustments
 
 Use to correct quantity or rate on an already-posted bill.
 
-1. Go to **Adjustments**.
+1. Go to **Adjustments** (or start from **Bill Lookup**).
 2. Enter the bill number and click **Lookup**.
 3. Edit **adjusted quantity** and **adjusted rate** per line.
 4. Enter a **reason**.
@@ -297,7 +372,7 @@ The screen shows the difference in payable amount and tax. Business day must be 
 
 ---
 
-## 9. Duplicate print and WhatsApp
+## 13. Duplicate print and WhatsApp
 
 Reprint a posted invoice or credit note with a **DUPLICATE** watermark.
 
@@ -309,7 +384,7 @@ Duplicate printing can be disabled by the manager in Settings → Other.
 
 ---
 
-## 10. Day close and cash management
+## 14. Day close and cash management
 
 ### During the day
 
@@ -335,7 +410,7 @@ After closing, the day status shows **Day: Closed**. No new bills can be posted 
 
 ---
 
-## 11. Daily expenses
+## 15. Daily expenses
 
 **Primary till only.**
 
@@ -348,26 +423,34 @@ Description is required; amount must be greater than zero. Business day must be 
 
 ---
 
-## 12. Dashboard and reports
+## 16. Dashboard and reports
 
 **Primary till only.**
 
 ### Overview tab
 
 - Today's and this week's bill counts
-- Pending sync count
+- Pending sync / credit / COD summaries with links
 - Product cache status
-- Online COD balance
 - Filter by POS counter
-- **Inventory search** — find products by SKU, barcode, or name; filter by in-stock / out-of-stock
-- **Approve** stock exceptions (shortfalls at post)
+- **Inventory search** — find products by SKU, barcode, or name; filter by in-stock / out-of-stock; store price column
+- Stock exception shortcuts
 - Recent bills list
 
 ### Day close tab
 
 - Tender breakdown: cash, card, UPI, credit notes, returns, expenses
 - Store-wide rollup across all counters
-- Returns, invoices, and stock exceptions for the selected day
+- Returns, invoices, and stock exceptions (with approve) for the selected day
+- Export CSV / Excel
+
+### Salesman tab
+
+- Salesman-wise totals for a date range, drill-down to bills, export
+
+### Stock sales tab
+
+- Brand-wise or product-wise sales compared with available quantity
 
 ### All bills tab
 
@@ -375,17 +458,21 @@ Description is required; amount must be greater than zero. Business day must be 
 - Download report
 - **Open** a bill to view details, payments, and linked return/adjustment
 
+### Bill margin tab
+
+- Margin analysis (cost vs selling) per bill; Excel export
+
 ### Analytics
 
-Shows a **14-day daily sales trend** with total bills and revenue.
+Shows a **14-day daily sales trend** with total bills and revenue (separate **Analytics** menu page).
 
 ### Ledger
 
-Recent bills and payments with quick duplicate reprint.
+Recent bills and payments with quick duplicate reprint (**Ledger** menu page).
 
 ---
 
-## 13. Online COD orders
+## 17. Online COD orders
 
 **Primary till only.**
 
@@ -400,7 +487,7 @@ Only pending orders can receive payment. Duplicate payments are blocked.
 
 ---
 
-## 14. Barcode label printing
+## 18. Barcode label printing
 
 1. Go to **Barcodes**.
 2. Type a **SKU** in the blank row and press **Enter**, or press **F6** to open the product pick list.
@@ -408,11 +495,11 @@ Only pending orders can receive payment. Duplicate payments are blocked.
 4. Press **F5** to print → preview window → select label printer.
 5. Press **F7** to clear the screen.
 
-Products must be synced from central before labels can be printed.
+Products must be synced from central before labels can be printed. Label layout comes from the design synced from central.
 
 ---
 
-## 15. Settings and sync
+## 19. Settings and sync
 
 **Primary till only.** Open via the gear icon or navigation menu.
 
@@ -421,18 +508,22 @@ Products must be synced from central before labels can be printed.
 | Action | Purpose |
 |--------|---------|
 | **Login / Logout** | Authenticate with the central office API |
-| **Run sync** | Push local bills/events; pull products, stock, schemes, users |
+| **Run sync** | Push local bills/events; pull products, stock, schemes, users, salesmen |
+| **Re-sync products** | Full product catalog refresh (resets product cursor and downloads all pages). Use after major central price or catalog changes when normal sync still looks stale |
 | **Refresh status** | View outbox count, sync cursors, last error |
 
-Run sync at the start of each day and whenever products or stock seem outdated.
+Run sync at the start of each day. Prefer **Re-sync products** when many item prices or image notes look wrong after a central update.
+
+When store price is unset or zero in central, the local catalog uses **selling price** as the store rate after sync.
 
 ### Receipt & printing
 
 Configure store header (name, address, GSTIN, etc.), printer queues, and print format:
 
 - **Thermal 80 mm** — counter receipt
-- **A4 / A5** — tax invoice
-- **Pre-printed A5** — values only on branded stationery (alignment editor included)
+- **A4 / A5 / A4 Commercial** — tax / office invoice
+- **Pre-printed A4 / A5** — values only on branded stationery (alignment editors included)
+- **Credit receipt format** — Thermal or A4 (separate from normal invoice format)
 
 Click **Save receipt settings** after changes.
 
@@ -441,25 +532,29 @@ Click **Save receipt settings** after changes.
 - Enable **Auto-send bill on post** when customer phone is present
 - Use **Test send** to verify WhatsApp delivery
 
-### Other
+### Other (manager options cashiers may notice)
 
 | Setting | Description |
 |---------|-------------|
 | Allow duplicate bill print | Enable/disable F11 and Duplicate page |
+| Confirm when adding a product already on the bill | Ask before increasing quantity |
 | Allow CN remaining cash payout | Allow cash payout of credit note balance at payment |
+| Allow multiple returns per bill | Partial returns across transactions |
+| Credit billing options | Enable pay-later, min advance, credit-customer required, max balance |
 | Line item column detail level | Minimal / Standard / Full grid columns |
+| Razorpay POS | Device credentials for UPI payment (manager configures) |
 
 ---
 
-## 16. Keyboard shortcuts
+## 20. Keyboard shortcuts
 
 ### Global shortcuts
 
 | Key | Action | Notes |
 |-----|--------|-------|
 | **F1** | Help | Billing screen only |
-| **F2** | New bill | Clears current draft |
-| **F3** | Focus search | Product entry row on Billing; SKU row on Barcodes |
+| **F2** | New / clear current page | Page-aware (Billing, Quotation, Customers, Returns, Bill Lookup, etc.) |
+| **F3** | Focus search | Product entry on Billing; SKU on Barcodes; also Returns / Bill Lookup return |
 | **F4** | Save customer | Customers page only |
 | **F8** | Hold bill | Billing only |
 | **F9** | Post bill | Billing only |
@@ -491,21 +586,25 @@ Click **Save receipt settings** after changes.
 
 ---
 
-## 17. Primary vs secondary till
+## 21. Primary vs secondary till
 
 Each computer is configured as a **till** with a unique number (`POS_COUNTER` in configuration).
 
 | Feature | Primary till (Counter 1) | Secondary till (Counter 2+) |
 |---------|--------------------------|-------------------------------|
 | Billing | ✓ | ✓ |
+| Quotations | ✓ | ✓ |
+| Bill Lookup | ✓ | ✓ |
+| Salesman | ✓ | ✓ |
+| Customers | ✓ | ✓ |
 | Returns & Adjustments | ✓ | ✓ |
 | Day Close | ✓ | ✓ |
 | Duplicate print | ✓ | ✓ |
 | Barcodes | ✓ | ✓ |
-| Customers | ✓ | ✓ |
 | Dashboard | ✓ | ✗ |
 | Analytics | ✓ | ✗ |
 | Online Sales | ✓ | ✗ |
+| Credit Bills | ✓ | ✗ |
 | Ledger | ✓ | ✗ |
 | Expenses | ✓ | ✗ |
 | Settings & sync | ✓ | ✗ |
@@ -515,13 +614,24 @@ Secondary tills share the same store database on the local network but have thei
 
 ---
 
-## 18. Troubleshooting
+## 22. Troubleshooting
 
 ### Product not found when scanning or typing code
 
 - Ask the manager to **Run sync** from Settings.
+- If many items are missing or prices look old after a central update, use **Re-sync products**.
 - Confirm the product exists in the central catalog with the correct SKU/barcode.
 - For new barcode labels, print from Barcodes page, assign the code in central, then sync again.
+
+### Store price looks wrong (zero or outdated)
+
+- Run **Re-sync products** on the primary till.
+- Central often stores the real rate in **selling price**; after sync, the store rate should follow when store price is unset or zero.
+
+### Image note column is empty in product search
+
+- Central has not set an image description for that product, or products have not been synced since it was added.
+- Ask the manager to sync / re-sync products. Billing works without Image note.
 
 ### Cannot post bill — "Day not open"
 
@@ -559,27 +669,30 @@ Secondary tills share the same store database on the local network but have thei
 
 ### Secondary till missing pages
 
-- Dashboard, Settings, Expenses, and similar pages are **primary till only**. Use Counter 1 for those tasks.
+- Dashboard, Settings, Expenses, Credit Bills, Online Sales, Ledger, and Analytics are **primary till only**. Use Counter 1 for those tasks.
 
 ---
 
-## 19. Quick reference — daily checklist
+## 23. Quick reference — daily checklist
 
 ### Opening (manager / primary till)
 
 - [ ] Log in
 - [ ] Settings → Login to central → **Run sync**
+- [ ] After major central catalog/price updates: **Re-sync products**
 - [ ] Day Close → **Open day** with opening cash
 - [ ] Verify day status shows **Open**
 
 ### During the day (all tills)
 
-- [ ] Billing: phone → items → discounts → **F9 Post** → payment
-- [ ] Process returns and adjustments as needed
+- [ ] Billing: phone → salesman → items → discounts → **F9 Post** → payment
+- [ ] Use Quotations when quoting before sale; convert open quotes to Billing when ready
+- [ ] Process returns, adjustments, and Bill Lookup as needed
 - [ ] Record cash deposits/withdrawals on Day Close page
 
 ### Closing (manager / primary till)
 
+- [ ] Collect pending **Credit Bills** / Online COD payments as needed
 - [ ] Record any remaining **Expenses**
 - [ ] Review Dashboard day-close summary
 - [ ] Day Close → **Cash Hand Over** → count cash → **Close day**
@@ -589,4 +702,4 @@ Secondary tills share the same store database on the local network but have thei
 
 ---
 
-*TruBilling — User Manual v1.0*
+*TruBilling — User Manual v2.0*

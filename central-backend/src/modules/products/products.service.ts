@@ -1,20 +1,31 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import {
+  applyObjectIdArrayRefAnyFilter,
+  applyObjectIdArrayRefContainsFilter,
   applyObjectIdRefFilter,
   isValidObjectIdString,
+  normalizeObjectIdArrayField,
+  PRODUCT_REF_OBJECT_ID_ARRAY_FIELDS,
   PRODUCT_REF_OBJECT_ID_FIELDS,
+  stripInvalidObjectIdArrayRefs,
   stripInvalidObjectIdRefs,
   toObjectId,
 } from '../../common/object-id.util';
-import { normalizeMediaPublicUrl } from '../../common/media-url.util';
 import { MONEY_DECIMAL_PLACES } from '../../common/money.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuditActor, serializeAuditDocument } from '../audit-logs/audit-change.util';
 import { AuditLogsService, LogProductChangeInput } from '../audit-logs/audit-logs.service';
+import {
+  appendOrUpdateMediaItem,
+  normalizeMediaItemsInput,
+  ProductMediaItemValue,
+  ProductMediaSource,
+  resolveProductMediaItems,
+} from './product-media-items';
 import { ProductSkuGenerator } from './product-sku.generator';
 import { Product, ProductDocument } from './schemas/product.schema';
 
@@ -50,7 +61,7 @@ export class ProductsService {
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
     const doc = await this.productModel.create(payload);
-    const lean = serializeAuditDocument(this.withNormalizedMediaUrls(doc.toObject())) as Record<
+    const lean = serializeAuditDocument(this.withNormalizedMediaItems(doc.toObject())) as Record<
       string,
       unknown
     >;
@@ -62,44 +73,100 @@ export class ProductsService {
     };
     if (actor) auditInput.actor = actor;
     await this.auditLogs.logProductChange(auditInput);
-    return this.withNormalizedMediaUrls(doc.toObject());
+    return this.withNormalizedMediaItems(doc.toObject());
   }
 
   private apiPublicOrigin(): string | undefined {
     return process.env.API_PUBLIC_ORIGIN?.trim() || undefined;
   }
 
-  private normalizeMediaUrlsInput(urls: unknown): string[] | undefined {
-    if (urls === undefined) return undefined;
-    if (!Array.isArray(urls)) return undefined;
-    const origin = this.apiPublicOrigin();
-    return urls
-      .map((u) => (typeof u === 'string' ? u.trim() : ''))
-      .filter((u) => u.length > 0)
-      .map((u) => normalizeMediaPublicUrl(u, origin) ?? u);
-  }
+    private withNormalizedMediaItems<T extends object>(doc: T): T & {
+      mediaItems: ProductMediaItemValue[];
+      colourIds?: unknown;
+    } {
+      const origin = this.apiPublicOrigin();
+      const migrated = this.migrateLegacyColourIds(doc as Record<string, unknown>);
+      const source = migrated as ProductMediaSource;
+      const resolved = resolveProductMediaItems(source);
+      const mediaItems =
+        normalizeMediaItemsInput(resolved, origin) ??
+        resolved.map((m) => {
+          const item: ProductMediaItemValue = { url: m.url };
+          if (m.description) item.description = m.description;
+          return item;
+        });
+      const { mediaUrls: _legacy, colourId: _legacyColour, ...rest } = migrated as T & {
+        mediaUrls?: unknown;
+        colourId?: unknown;
+      };
+      return {
+        ...(rest as T),
+        mediaItems,
+      };
+    }
 
-  private withNormalizedMediaUrls<T extends { mediaUrls?: string[] }>(doc: T): T {
-    if (!doc.mediaUrls?.length) return doc;
-    const origin = this.apiPublicOrigin();
+  private migrateLegacyColourIds<T extends Record<string, unknown>>(doc: T): T {
+    const current = doc.colourIds;
+    if (Array.isArray(current) && current.length > 0) {
+      const { colourId: _legacy, ...rest } = doc;
+      return rest as T;
+    }
+
+    const legacy = doc.colourId;
+    if (legacy === undefined || legacy === null || legacy === '') return doc;
+
+    const { colourId: _legacy, ...rest } = doc;
     return {
-      ...doc,
-      mediaUrls: doc.mediaUrls.map((u) => normalizeMediaPublicUrl(u, origin) ?? u),
-    };
+      ...rest,
+      colourIds: [legacy],
+    } as unknown as T;
   }
 
   private normalizeProductWritePayload(dto: Record<string, unknown>): Record<string, unknown> {
     const doc = { ...dto };
-    if ('mediaUrls' in doc) {
-      doc.mediaUrls = this.normalizeMediaUrlsInput(doc.mediaUrls) ?? [];
+    const origin = this.apiPublicOrigin();
+
+    if ('mediaItems' in doc && doc.mediaItems !== undefined) {
+      const items = normalizeMediaItemsInput(doc.mediaItems, origin) ?? [];
+      doc.mediaItems = items.map((item) => {
+        const row: Record<string, unknown> = { url: item.url };
+        if (item.description) row.description = item.description;
+        if (item.colourIds?.length) {
+          row.colourIds = normalizeObjectIdArrayField(item.colourIds) ?? [];
+        }
+        return row;
+      });
+      delete doc.mediaUrls;
+    } else if ('mediaUrls' in doc && doc.mediaUrls !== undefined) {
+      const urls = Array.isArray(doc.mediaUrls) ? doc.mediaUrls : [];
+      doc.mediaItems =
+        normalizeMediaItemsInput(
+          urls.map((u) => (typeof u === 'string' ? { url: u } : u)),
+          origin,
+        ) ?? [];
+      delete doc.mediaUrls;
     }
+
     stripInvalidObjectIdRefs(doc, PRODUCT_REF_OBJECT_ID_FIELDS);
+    stripInvalidObjectIdArrayRefs(doc, PRODUCT_REF_OBJECT_ID_ARRAY_FIELDS);
     for (const field of PRODUCT_REF_OBJECT_ID_FIELDS) {
       const v = doc[field];
       if (typeof v === 'string' && isValidObjectIdString(v)) {
         doc[field] = toObjectId(v);
       }
     }
+
+    if ('colourIds' in doc && doc.colourIds !== undefined) {
+      doc.colourIds = normalizeObjectIdArrayField(doc.colourIds) ?? [];
+      delete doc.colourId;
+    } else if ('colourId' in doc && doc.colourId !== undefined && doc.colourId !== null && doc.colourId !== '') {
+      const legacy = doc.colourId;
+      if (typeof legacy === 'string' && isValidObjectIdString(legacy)) {
+        doc.colourIds = [toObjectId(legacy)];
+      }
+      delete doc.colourId;
+    }
+
     return doc;
   }
 
@@ -139,7 +206,7 @@ export class ProductsService {
     if (!isValidObjectIdString(id)) throw new NotFoundException('Product not found');
     const doc = await this.productModel.findById(toObjectId(id)).lean();
     if (!doc) throw new NotFoundException('Product not found');
-    return this.withNormalizedMediaUrls(doc);
+    return this.withNormalizedMediaItems(doc as Record<string, unknown>);
   }
 
   /** Create or update by SKU, or by itemName when SKU is missing or not found. */
@@ -176,8 +243,21 @@ export class ProductsService {
 
     const payload = this.normalizeProductWritePayload({ ...dto } as Record<string, unknown>);
     const changedFields = Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined);
+    const wroteMedia = 'mediaItems' in payload;
+    if (wroteMedia && !changedFields.includes('mediaItems')) {
+      changedFields.push('mediaItems');
+    }
+
+    const updateOps: Record<string, unknown> = { $set: payload };
+    if (wroteMedia) {
+      updateOps.$unset = { mediaUrls: 1 };
+    }
+    if ('colourIds' in payload) {
+      updateOps.$unset = { ...(updateOps.$unset as Record<string, unknown> | undefined), colourId: 1 };
+    }
+
     const doc = await this.productModel
-      .findByIdAndUpdate(toObjectId(id), { $set: payload }, { new: true })
+      .findByIdAndUpdate(toObjectId(id), updateOps, { new: true })
       .lean();
     if (!doc) throw new NotFoundException('Product not found');
 
@@ -191,25 +271,50 @@ export class ProductsService {
     if (typeof doc.sku === 'string') auditInput.sku = doc.sku;
     if (actor) auditInput.actor = actor;
     await this.auditLogs.logProductChange(auditInput);
-    return this.withNormalizedMediaUrls(doc);
+    return this.withNormalizedMediaItems(doc as Record<string, unknown>);
   }
 
-  async appendMediaUrl(id: string, url: string, actor?: AuditActor) {
-    const normalized = this.normalizeMediaUrlsInput([url])?.[0];
-    if (!normalized) return await this.findById(id);
-
+  async appendMediaItem(
+    id: string,
+    url: string,
+    description?: string,
+    colourIds?: string[],
+    actor?: AuditActor,
+  ) {
+    const origin = this.apiPublicOrigin();
     const before = await this.productModel.findById(toObjectId(id)).lean();
     if (!before) throw new NotFoundException('Product not found');
 
-    const existing = Array.isArray(before.mediaUrls) ? before.mediaUrls : [];
-    if (existing.includes(normalized)) {
-      return this.withNormalizedMediaUrls(before);
+    const existing = resolveProductMediaItems(before as { mediaItems?: unknown; mediaUrls?: unknown });
+    const next = appendOrUpdateMediaItem(existing, url, description, origin, colourIds);
+    if (
+      next.length === existing.length &&
+      next.every(
+        (m, i) =>
+          m.url === existing[i]?.url &&
+          m.description === existing[i]?.description &&
+          JSON.stringify(m.colourIds ?? []) === JSON.stringify(existing[i]?.colourIds ?? []),
+      )
+    ) {
+      return this.withNormalizedMediaItems(before as Record<string, unknown>);
     }
+
+    const persistedItems = next.map((item) => {
+      const row: Record<string, unknown> = { url: item.url };
+      if (item.description) row.description = item.description;
+      if (item.colourIds?.length) {
+        row.colourIds = normalizeObjectIdArrayField(item.colourIds) ?? [];
+      }
+      return row;
+    });
 
     const doc = await this.productModel
       .findByIdAndUpdate(
         toObjectId(id),
-        { $push: { mediaUrls: normalized } },
+        {
+          $set: { mediaItems: persistedItems },
+          $unset: { mediaUrls: 1 },
+        },
         { new: true },
       )
       .lean();
@@ -220,12 +325,17 @@ export class ProductsService {
       action: 'updated',
       before: serializeAuditDocument(before) as Record<string, unknown>,
       after: serializeAuditDocument(doc) as Record<string, unknown>,
-      changedFields: ['mediaUrls'],
+      changedFields: ['mediaItems'],
     };
     if (typeof doc.sku === 'string') auditInput.sku = doc.sku;
     if (actor) auditInput.actor = actor;
     await this.auditLogs.logProductChange(auditInput);
-    return this.withNormalizedMediaUrls(doc);
+    return this.withNormalizedMediaItems(doc as Record<string, unknown>);
+  }
+
+  /** @deprecated Use appendMediaItem */
+  async appendMediaUrl(id: string, url: string, actor?: AuditActor) {
+    return await this.appendMediaItem(id, url, undefined, undefined, actor);
   }
 
   async list(params: ProductListFilterParams & { skip?: number; limit?: number }) {
@@ -239,18 +349,20 @@ export class ProductsService {
       .limit(limit)
       .lean();
     const data = await this.populateProductRefLookups(rawData);
-    return data.map((row) => this.withNormalizedMediaUrls(row));
+    return data.map((row) => this.withNormalizedMediaItems(row));
   }
 
-  /** Expand each ObjectId ref to its master document (same as POST /products/filter). */
   private async populateProductRefLookups(rawData: unknown[]): Promise<Record<string, unknown>[]> {
-    const data = rawData.map((row) =>
-      stripInvalidObjectIdRefs({ ...(row as Record<string, unknown>) }, PRODUCT_REF_OBJECT_ID_FIELDS),
-    );
-    await this.productModel.populate(
-      data,
-      PRODUCT_REF_OBJECT_ID_FIELDS.map((path) => ({ path })),
-    );
+    const data = rawData.map((row) => {
+      const migrated = this.migrateLegacyColourIds({ ...(row as Record<string, unknown>) });
+      stripInvalidObjectIdRefs(migrated, PRODUCT_REF_OBJECT_ID_FIELDS);
+      stripInvalidObjectIdArrayRefs(migrated, PRODUCT_REF_OBJECT_ID_ARRAY_FIELDS);
+      return migrated;
+    });
+    await this.productModel.populate(data, [
+      ...PRODUCT_REF_OBJECT_ID_FIELDS.map((path) => ({ path })),
+      ...PRODUCT_REF_OBJECT_ID_ARRAY_FIELDS.map((path) => ({ path })),
+    ]);
     return data;
   }
 
@@ -302,6 +414,17 @@ export class ProductsService {
       dto.supplierNameId ?? dto.supplierId,
     );
 
+    const colourFilterIds: string[] = [];
+    if (dto.colourId?.trim()) colourFilterIds.push(dto.colourId.trim());
+    if (dto.colourIds?.length) {
+      colourFilterIds.push(...dto.colourIds.map((id) => id.trim()).filter((id) => id.length > 0));
+    }
+    if (colourFilterIds.length === 1) {
+      applyObjectIdArrayRefContainsFilter(filter, 'colourIds', colourFilterIds[0]);
+    } else if (colourFilterIds.length > 1) {
+      applyObjectIdArrayRefAnyFilter(filter, 'colourIds', colourFilterIds);
+    }
+
     const exactMatchFields = [
       'upcEanCode',
       'manufacturerNameId',
@@ -314,7 +437,6 @@ export class ProductsService {
       'weightPerGmOrMlId',
       'offerGroupId',
       'productStatusId',
-      'colourId',
       'colourTypeId',
       'hsnCodeId',
       'gstUomId',
@@ -387,7 +509,7 @@ export class ProductsService {
     ]);
 
     const data = (await this.populateProductRefLookups(rawData)).map((row) =>
-      this.withNormalizedMediaUrls(row),
+      this.withNormalizedMediaItems(row),
     );
 
     return {
@@ -400,7 +522,11 @@ export class ProductsService {
   }
 
   async listDeltas(cursorFilter: Record<string, unknown>, limit: number) {
-    return await this.productModel.find(cursorFilter).sort({ _id: 1 }).limit(limit).lean();
+    const rows = await this.productModel
+      .find(cursorFilter)
+      .sort({ updatedAt: 1, _id: 1 })
+      .limit(limit)
+      .lean();
+    return rows.map((row) => this.withNormalizedMediaItems(row as Record<string, unknown>));
   }
 }
-

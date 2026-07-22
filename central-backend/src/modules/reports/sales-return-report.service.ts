@@ -118,6 +118,8 @@ export class SalesReturnReportService {
         billTime: billTimeByNo.get(entry.billNo) ?? '',
         returnTime: entry.returnTime,
         sku: entry.line.sku,
+        isLegacy: entry.payload.isLegacy === true,
+        originalBillDate: readString(entry.payload.originalBillDate) ?? '',
       };
     });
 

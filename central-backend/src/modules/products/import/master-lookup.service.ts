@@ -28,7 +28,7 @@ import { Supplier, SupplierDocument } from '../../suppliers/schemas/supplier.sch
 import { UomSub, UomSubDocument } from '../../uom-subs/schemas/uom-sub.schema';
 import { WeightSize, WeightSizeDocument } from '../../weight-sizes/schemas/weight-size.schema';
 import { WeightUnit, WeightUnitDocument } from '../../weight-units/schemas/weight-unit.schema';
-import type { ParsedProductImportRow } from './product-import.types';
+import type { ParsedProductImportRow, ResolvedProductImportRefs } from './product-import.types';
 
 type NameDoc = { _id: Types.ObjectId; name: string };
 
@@ -186,6 +186,33 @@ export class MasterLookupService {
     const id = String(created._id);
     this.cache.set(key, id);
     return id;
+  }
+
+  private splitMultiMasterNames(value: string | undefined): string[] {
+    if (!value?.trim()) return [];
+    return value
+      .split(/[,;|]/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+  }
+
+  private async resolveCodeMasters(
+    label: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    model: Model<any>,
+    prefix: string,
+    names: string | undefined,
+    createMissing: boolean,
+  ): Promise<string[] | undefined> {
+    const parts = this.splitMultiMasterNames(names);
+    if (parts.length === 0) return undefined;
+
+    const ids: string[] = [];
+    for (const part of parts) {
+      const id = await this.resolveCodeMaster(label, model, prefix, part, createMissing);
+      if (id) ids.push(id);
+    }
+    return ids.length > 0 ? ids : undefined;
   }
 
   private async resolveWeightAndSizeId(
@@ -371,7 +398,7 @@ export class MasterLookupService {
   async resolveRowToProductRefs(
     row: ParsedProductImportRow,
     createMissing: boolean,
-  ): Promise<Record<string, string | undefined>> {
+  ): Promise<ResolvedProductImportRefs> {
     const departmentId = await this.resolveDepartment(row.departmentName, createMissing);
     const categoryId = await this.resolveCategory(row.categoryName, createMissing);
     const supplierNameId = await this.resolveSupplier(row.supplierName, createMissing);
@@ -389,7 +416,7 @@ export class MasterLookupService {
         createMissing,
       ),
       brandId: await this.resolveCodeMaster('Brand', this.brandModel, 'brand-', row.brandName, createMissing),
-      colourId: await this.resolveCodeMaster('Colour', this.colourModel, 'clr-', row.colourName, createMissing),
+      colourIds: await this.resolveCodeMasters('Colour', this.colourModel, 'clr-', row.colourName, createMissing),
       colourTypeId: await this.resolveCodeMaster(
         'ColourType',
         this.colourTypeModel,
@@ -473,7 +500,7 @@ export class MasterLookupService {
         row.batchSelectionName,
         createMissing,
       ),
-    };
+    } as ResolvedProductImportRefs;
   }
 
   static tryObjectId(value: string | undefined): string | undefined {

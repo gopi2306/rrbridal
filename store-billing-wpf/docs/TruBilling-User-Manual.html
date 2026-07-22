@@ -1,0 +1,468 @@
+<html><head><meta charset="utf-8"/><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.35;margin:2cm} h1{color:#c45c26;font-size:18pt} h2{font-size:14pt;margin-top:16px} h3{font-size:12pt} table{border-collapse:collapse;width:100%;margin:8px 0;font-size:10pt} th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top} th{background:#fff5f0} code{font-family:Consolas,monospace;font-size:10pt} pre{background:#f7f7f7;padding:8px;white-space:pre-wrap}</style></head><body>
+<h1>TruBilling — User Manual</h1>
+<p><strong>Application:</strong> TruBilling  </p>
+<p><strong>Version:</strong> 2.0  </p>
+<p><strong>Last updated:</strong> 16 July 2026</p>
+<h2>About this manual</h2>
+<p>This guide is for <strong>cashiers</strong>, <strong>store managers</strong>, and <strong>support staff</strong> who use the <strong>TruBilling</strong> desktop application at the retail counter. It explains how to perform everyday tasks: billing, quotations, returns, day close, printing, and sync.</p>
+<p>For a technical feature reference (configuration, MongoDB collections, API sync details), see [RR-Bridal-Store-Billing-WPF-Feature-Guide.html](./RR-Bridal-Store-Billing-WPF-Feature-Guide.html).</p>
+<p><strong>PDF / Word copies:</strong> This Markdown file is the source of truth. Printable companions: <code>RR-Bridal-Store-Billing-User-Manual.html</code> / <code>.pdf</code> (and matching <code>TruBilling-User-Manual.*</code> copies). Re-save <code>.docx</code> from the HTML in Microsoft Word if you need an updated Word file.</p>
+<h2>Table of contents</h2>
+<ol><li>[Introduction](#1-introduction)</li></ol>
+<ol><li>[Logging in](#2-logging-in)</li></ol>
+<ol><li>[Main screen layout](#3-main-screen-layout)</li></ol>
+<ol><li>[Starting your day](#4-starting-your-day)</li></ol>
+<ol><li>[Billing (POS)](#5-billing-pos)</li></ol>
+<ol><li>[Quotations](#6-quotations)</li></ol>
+<ol><li>[Customer registration](#7-customer-registration)</li></ol>
+<ol><li>[Salesman registration](#8-salesman-registration)</li></ol>
+<ol><li>[Credit bills](#9-credit-bills)</li></ol>
+<ol><li>[Bill lookup](#10-bill-lookup)</li></ol>
+<ol><li>[Sale returns and exchanges](#11-sale-returns-and-exchanges)</li></ol>
+<ol><li>[Bill adjustments](#12-bill-adjustments)</li></ol>
+<ol><li>[Duplicate print and WhatsApp](#13-duplicate-print-and-whatsapp)</li></ol>
+<ol><li>[Day close and cash management](#14-day-close-and-cash-management)</li></ol>
+<ol><li>[Daily expenses](#15-daily-expenses)</li></ol>
+<ol><li>[Dashboard and reports](#16-dashboard-and-reports)</li></ol>
+<ol><li>[Online COD orders](#17-online-cod-orders)</li></ol>
+<ol><li>[Barcode label printing](#18-barcode-label-printing)</li></ol>
+<ol><li>[Settings and sync](#19-settings-and-sync)</li></ol>
+<ol><li>[Keyboard shortcuts](#20-keyboard-shortcuts)</li></ol>
+<ol><li>[Primary vs secondary till](#21-primary-vs-secondary-till)</li></ol>
+<ol><li>[Troubleshooting](#22-troubleshooting)</li></ol>
+<ol><li>[Quick reference — daily checklist](#23-quick-reference--daily-checklist)</li></ol>
+<h2>1. Introduction</h2>
+<p><strong>TruBilling</strong> is a <strong>point-of-sale (POS)</strong> application for retail counters. It works <strong>offline-first</strong>: bills are saved on the local computer and synced to the central office system when the internet is available.</p>
+<h3>What you can do</h3>
+<table>
+<tr><th>Task</th><th>Where</th></tr>
+<tr><td>Create and post sales bills</td><td>Billing</td></tr>
+<tr><td>Hold bills and resume later</td><td>Billing</td></tr>
+<tr><td>Create quotations and convert to bills</td><td>Quotations</td></tr>
+<tr><td>Register customers</td><td>Customers</td></tr>
+<tr><td>Register salesmen</td><td>Salesman</td></tr>
+<tr><td>Find a posted bill (view / return / adjust)</td><td>Bill Lookup</td></tr>
+<tr><td>Collect credit (pay-later) balances</td><td>Credit Bills (primary till)</td></tr>
+<tr><td>Process returns and exchanges</td><td>Returns</td></tr>
+<tr><td>Correct posted bills</td><td>Adjustments</td></tr>
+<tr><td>Reprint invoices</td><td>Duplicate</td></tr>
+<tr><td>Open/close business day</td><td>Day Close</td></tr>
+<tr><td>Record expenses</td><td>Expenses (primary till)</td></tr>
+<tr><td>View sales and inventory</td><td>Dashboard (primary till)</td></tr>
+<tr><td>Track online COD payments</td><td>Online Sales (primary till)</td></tr>
+<tr><td>Print barcode labels</td><td>Barcodes</td></tr>
+<tr><td>Configure printers and sync</td><td>Settings (primary till)</td></tr>
+</table>
+<h2>2. Logging in</h2>
+<ol><li>Open <strong>TruBilling</strong> on your till computer.</li></ol>
+<ol><li>The login screen shows the store name and till number.</li></ol>
+<ol><li>Enter your <strong>email</strong> and <strong>password</strong> (provided by your manager).</li></ol>
+<ol><li>Click <strong>Login</strong> or press <strong>Enter</strong>.</li></ol>
+<p><strong>Notes:</strong></p>
+<ul><li>Credentials are validated against users synced from the central system.</li></ul>
+<ul><li>Only one person can be logged in on the same till at a time.</li></ul>
+<ul><li>If you see a sync warning banner, ask the manager to run sync from Settings before billing.</li></ul>
+<ul><li>After login, the app opens on the <strong>Billing</strong> screen.</li></ul>
+<p>To sign out, click the <strong>logout icon</strong> in the top-right header or choose <strong>Logout</strong> from the navigation menu.</p>
+<h2>3. Main screen layout</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  ☰  Logo   Store name          Page title        🔍 Search …   │
+│              Till line           Day status  User  🔔  ⚙       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                     Current page content                        │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  F1 Help  F2 New  F3 Search  F8 Hold  F9 Post  F10 Print …     │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+<table>
+<tr><th>Area</th><th>Purpose</th></tr>
+<tr><td><strong>☰ Menu</strong></td><td>Opens the navigation drawer with all pages</td></tr>
+<tr><td><strong>Global search</strong></td><td>Scan or type a product code; on Billing, adds items to the bill</td></tr>
+<tr><td><strong>Day status chip</strong></td><td>Shows whether the business day is open or closed; click to go to Day Close</td></tr>
+<tr><td><strong>Notification bell</strong></td><td>Shows pending items waiting to sync; click to view and sync</td></tr>
+<tr><td><strong>Settings gear</strong></td><td>Opens Settings (primary till only)</td></tr>
+<tr><td><strong>Footer shortcuts</strong></td><td>Quick access to F1–F12 keys</td></tr>
+</table>
+<p>Press <strong>Escape</strong> to close the navigation drawer. <strong>F2 New</strong> clears or resets the <strong>current</strong> page (not only Billing).</p>
+<h2>4. Starting your day</h2>
+<p>Complete these steps <strong>before</strong> posting any bills.</p>
+<h3>Step 1 — Sync product data (primary till / manager)</h3>
+<ol><li>Open <strong>Settings</strong> (gear icon or navigation menu).</li></ol>
+<ol><li>Go to <strong>Connection &amp; sync</strong>.</li></ol>
+<ol><li>Log in with your central office credentials if not already logged in.</li></ol>
+<ol><li>Click <strong>Run sync</strong>.</li></ol>
+<p>Sync downloads products, stock, promotion schemes, salesmen, users, and related masters. Without sync, product lookup and barcode scanning will not work.</p>
+<p>After a large catalog or price update in central, also click <strong>Re-sync products</strong> (see [Settings and sync](#19-settings-and-sync)).</p>
+<h3>Step 2 — Open the business day</h3>
+<ol><li>Go to <strong>Day Close</strong> (navigation menu or click the day status chip).</li></ol>
+<ol><li>Confirm today&#39;s date is selected.</li></ol>
+<ol><li>Enter the <strong>opening cash</strong> amount in the drawer.</li></ol>
+<ol><li>Click <strong>Open day</strong>.</li></ol>
+<p>The day status chip in the header should now show <strong>Day: Open</strong>. Bills, returns, and expenses cannot be posted until the day is open.</p>
+<h2>5. Billing (POS)</h2>
+<p>Billing is the main screen for creating sales invoices.</p>
+<h3>5.1 Customer details</h3>
+<table>
+<tr><th>Field</th><th>Description</th></tr>
+<tr><td><strong>Phone</strong></td><td>10-digit mobile number (required to post). The field blinks until a valid number is entered.</td></tr>
+<tr><td><strong>Customer name</strong></td><td>Required to post the bill</td></tr>
+<tr><td><strong>Customer code</strong></td><td>Filled automatically when a customer is found</td></tr>
+<tr><td><strong>Salesman</strong></td><td>Pick from registered salesmen (code + name). Required when at least one active salesman exists in the store master.</td></tr>
+</table>
+<p><strong>Finding a customer:</strong></p>
+<ol><li>Type the phone number and press <strong>Tab</strong> or <strong>Enter</strong> — the app searches automatically.</li></ol>
+<ol><li>Or click <strong>Find Customer</strong> to open the search dialog.</li></ol>
+<ol><li>If the phone is unknown, a quick-capture dialog asks for the customer name.</li></ol>
+<p><strong>Bill options (checkboxes):</strong></p>
+<table>
+<tr><th>Option</th><th>When to use</th></tr>
+<tr><td><strong>Hold bills</strong></td><td>Mark as a hold-type bill</td></tr>
+<tr><td><strong>Door delivery</strong></td><td>Customer wants home delivery</td></tr>
+<tr><td><strong>Online COD</strong></td><td>Online order — payment collected later (no payment at post)</td></tr>
+<tr><td><strong>Stitching</strong></td><td>Shows a delivery date picker</td></tr>
+<tr><td><strong>Print invoice</strong></td><td>Print automatically after posting</td></tr>
+</table>
+<h3>5.2 Adding products</h3>
+<p>Use the <strong>last row</strong> of the line-items grid:</p>
+<ol><li>Type the <strong>SKU or barcode</strong> in the Product code column and press <strong>Enter</strong> — the item is added.</li></ol>
+<ol><li>Or type a <strong>product name</strong> — a pick list opens; select the correct item.</li></ol>
+<ol><li>Or click <strong>Add manual</strong> to enter a product code not in the catalog.</li></ol>
+<ol><li>Use <strong>F3</strong> to jump focus to the product entry row.</li></ol>
+<p>You can also use the <strong>global search box</strong> in the header: enter a code and press <strong>Enter</strong>.</p>
+<p><strong>Product pick list columns:</strong></p>
+<ul><li>Always: SKU, Name, Rate, <strong>Image note</strong> (short description from central for the product image, when set)</li></ul>
+<ul><li>With Standard/Full detail: GST %, MRP, Stock, and (Full) HSN</li></ul>
+<p>If <strong>Image note</strong> is blank, central has no image description yet — billing still works normally.</p>
+<p><strong>Editing lines:</strong></p>
+<ul><li>Change quantity, rate, description, HSN, MRP, or tax % directly in the grid.</li></ul>
+<ul><li>Click the trash icon to remove a line.</li></ul>
+<ul><li>Use <strong>Tab</strong> to move between cells.</li></ul>
+<p><strong>Column display:</strong> Managers can set Minimal, Standard, or Full columns in Settings → Other.</p>
+<p><strong>Store rate:</strong> The rate used at the counter comes from the local catalog. If central has no store price (or it is zero), the app uses the central selling price after sync.</p>
+<h3>5.3 Discounts and totals</h3>
+<p>The <strong>invoice preview panel</strong> on the right shows live totals:</p>
+<ul><li>Subtotal, GST, item discount %, cash discount</li></ul>
+<ul><li>Applied promotion schemes (click to remove)</li></ul>
+<ul><li>Round off</li></ul>
+<ul><li><strong>Inter-state (IGST)</strong> toggle for out-of-state customers</li></ul>
+<ul><li>Customer credit notes (toggle to apply)</li></ul>
+<ul><li>Credit / pay-later advance when credit billing is enabled by the manager</li></ul>
+<p>The <strong>Payable</strong> amount is what the customer owes now.</p>
+<h3>5.4 Hold a bill (F8)</h3>
+<p>Use when the customer is not ready to pay yet:</p>
+<ol><li>Add at least one line item.</li></ol>
+<ol><li>Press <strong>F8</strong> or use the footer shortcut.</li></ol>
+<p>The bill is saved as a draft with a hold number. Stock is <strong>not</strong> deducted. To resume later, click <strong>Resume held</strong> on the Billing screen.</p>
+<h3>5.5 Post a bill (F9)</h3>
+<p><strong>Before posting, confirm:</strong></p>
+<ul><li>Customer name is filled in</li></ul>
+<ul><li>Phone is a valid 10-digit number</li></ul>
+<ul><li>Salesman is selected if required</li></ul>
+<ul><li>At least one line has quantity &#215; rate greater than zero</li></ul>
+<ul><li>Business day is <strong>open</strong></li></ul>
+<ul><li>Your discount does not exceed your allowed limit</li></ul>
+<p><strong>To post:</strong></p>
+<ol><li>Press <strong>F9</strong>.</li></ol>
+<ol><li>If stock is short, a warning appears — choose <strong>Post anyway</strong> (creates an indent request) or <strong>Cancel</strong>.</li></ol>
+<ol><li>The <strong>Payment</strong> dialog opens (unless Online COD is checked):</li></ol>
+<p>   - <strong>Cash</strong></p>
+<p>   - <strong>Card</strong> (Pine Labs)</p>
+<p>   - <strong>UPI</strong> (Razorpay)</p>
+<p>   - <strong>Credit note</strong></p>
+<p>   - <strong>Split</strong> (multiple modes)</p>
+<p>   - <strong>Credit / advance</strong> when pay-later billing is enabled</p>
+<ol><li>Confirm payment.</li></ol>
+<p>After a successful post:</p>
+<ul><li>Bill number is assigned</li></ul>
+<ul><li>Stock is reduced</li></ul>
+<ul><li>Invoice may print and/or send via WhatsApp (if configured)</li></ul>
+<ul><li>Screen clears for the next bill</li></ul>
+<p>Press <strong>F2</strong> anytime to start a <strong>new bill</strong> (clears the current draft).</p>
+<h3>5.6 Print without posting (F10)</h3>
+<p>Press <strong>F10</strong> to preview or print the current draft <strong>without</strong> saving it as a posted bill. Useful for customer review before post.</p>
+<p>Press <strong>F1</strong> on the Billing screen for an in-app quick reference.</p>
+<h2>6. Quotations</h2>
+<p>Use quotations when the customer wants a formal quote before buying.</p>
+<ol><li>Go to <strong>Quotations</strong> in the menu.</li></ol>
+<ol><li>Click <strong>Create</strong> (or use <strong>F2</strong> on this page) to open the quotation editor.</li></ol>
+<ol><li>Enter customer and products similar to Billing.</li></ol>
+<ol><li><strong>Save</strong> the quotation (it is not a posted bill and does not deduct stock).</li></ol>
+<ol><li>Later, from the quotations list: <strong>Open</strong> to edit, <strong>Cancel</strong> unused quotes, or <strong>Convert to bill</strong> for an open quotation — this loads lines into Billing for payment and post.</li></ol>
+<h2>7. Customer registration</h2>
+<p>Use when a new customer needs a full profile before billing.</p>
+<ol><li>Go to <strong>Customers</strong> (navigation menu).</li></ol>
+<ol><li>Enter <strong>Customer name</strong> and <strong>Mobile no.</strong> (required).</li></ol>
+<ol><li>Optionally mark <strong>Credit customer</strong> if the store allows pay-later for that customer.</li></ol>
+<ol><li>Click <strong>Save customer</strong> or press <strong>F4</strong>.</li></ol>
+<ol><li>A success dialog appears — choose to apply the customer to the current bill or register another.</li></ol>
+<p>Press <strong>Escape</strong> to cancel and return to Billing.</p>
+<p>Customer codes are generated automatically. Data syncs to the central system.</p>
+<h2>8. Salesman registration</h2>
+<p>Salesmen appear in the Billing salesman dropdown.</p>
+<ol><li>Go to <strong>Salesman</strong> in the menu.</li></ol>
+<ol><li>Enter salesman details and save.</li></ol>
+<ol><li>Return to Billing and select the salesman on the bill.</li></ol>
+<p>Salesmen are also updated when the manager runs sync from central.</p>
+<h2>9. Credit bills</h2>
+<p><strong>Primary till only.</strong></p>
+<p>Use when a pay-later (credit) sale still has a balance.</p>
+<ol><li>Go to <strong>Credit Bills</strong>.</li></ol>
+<ol><li>Search by customer, bill number, status (pending / partial / settled), or date.</li></ol>
+<ol><li>Select a bill and <strong>Record payment</strong> (cash, card, UPI, credit note, or split, as allowed by Settings).</li></ol>
+<ol><li>Print a credit / balance receipt if needed.</li></ol>
+<p>Managers configure credit rules in Settings → Other (minimum advance, whether zero advance is allowed, etc.).</p>
+<h2>10. Bill lookup</h2>
+<p>Find any posted bill from one screen:</p>
+<ol><li>Go to <strong>Bill Lookup</strong>.</li></ol>
+<ol><li>Search by invoice number, customer name, or mobile.</li></ol>
+<ol><li>Open the bill to <strong>view</strong> details, start a <strong>return</strong>, start an <strong>adjustment</strong>, <strong>duplicate print</strong>, or print a <strong>credit note</strong>.</li></ol>
+<p>Available on all tills.</p>
+<h2>11. Sale returns and exchanges</h2>
+<ol><li>Go to <strong>Returns</strong> (or start a return from <strong>Bill Lookup</strong>).</li></ol>
+<ol><li>Enter the original <strong>bill number</strong> (full number or last 3–4 digits) and click <strong>Load Bill</strong>.</li></ol>
+<ol><li>If multiple bills match, pick the correct one from the list.</li></ol>
+<ol><li>Select return lines and enter <strong>return quantity</strong> for each.</li></ol>
+<ol><li>Optionally add <strong>exchange items</strong> using the header search box.</li></ol>
+<ol><li>Choose <strong>Return mode:</strong></li></ol>
+<p>   - <strong>Credit note</strong> — customer gets store credit</p>
+<p>   - <strong>Cash refund</strong> — cash returned (confirmation required)</p>
+<ol><li>Enter a <strong>reason</strong>.</li></ol>
+<ol><li>Click <strong>Post Return / Exchange</strong>.</li></ol>
+<p><strong>Settings (Settings → Other):</strong></p>
+<ul><li><strong>Allow multiple returns per bill (partial returns)</strong> — when <strong>off</strong> (default), only one return transaction is allowed per posted bill.</li></ul>
+<ul><li>When <strong>on</strong>, you may return remaining quantity in separate transactions. Lines already fully returned in a prior transaction show a disabled <strong>Select</strong> checkbox and a <strong>Prev Ret</strong> column with the quantity already returned.</li></ul>
+<p><strong>Rules:</strong></p>
+<ul><li>With multiple returns <strong>disabled</strong>, only one return is allowed per posted bill.</li></ul>
+<ul><li>With multiple returns <strong>enabled</strong>, each line tracks cumulative returned quantity; you cannot return more than the original bill quantity.</li></ul>
+<ul><li>Business day must be open.</li></ul>
+<ul><li>If exchange items cost more than the return, a payment dialog collects the difference.</li></ul>
+<ul><li>If exchange items cost less, credit balance is issued per the return mode.</li></ul>
+<h2>12. Bill adjustments</h2>
+<p>Use to correct quantity or rate on an already-posted bill.</p>
+<ol><li>Go to <strong>Adjustments</strong> (or start from <strong>Bill Lookup</strong>).</li></ol>
+<ol><li>Enter the bill number and click <strong>Lookup</strong>.</li></ol>
+<ol><li>Edit <strong>adjusted quantity</strong> and <strong>adjusted rate</strong> per line.</li></ol>
+<ol><li>Enter a <strong>reason</strong>.</li></ol>
+<ol><li>Click <strong>Post Adjustment</strong>.</li></ol>
+<p>The screen shows the difference in payable amount and tax. Business day must be open.</p>
+<h2>13. Duplicate print and WhatsApp</h2>
+<p>Reprint a posted invoice or credit note with a <strong>DUPLICATE</strong> watermark.</p>
+<ol><li>Go to <strong>Duplicate</strong> (or press <strong>F11</strong> from any screen).</li></ol>
+<ol><li><strong>Bill tab:</strong> Search by invoice number, customer, or date range → select a bill → <strong>Print duplicate copy</strong> or <strong>Send WhatsApp bill</strong>.</li></ol>
+<ol><li><strong>Credit Note tab:</strong> Search and reprint a credit note.</li></ol>
+<p>Duplicate printing can be disabled by the manager in Settings → Other.</p>
+<h2>14. Day close and cash management</h2>
+<h3>During the day</h3>
+<p>On the <strong>Day Close</strong> page you can:</p>
+<ul><li>View live summary: bills, sales, cash/card/UPI totals, expenses, deposits, withdrawals</li></ul>
+<ul><li><strong>Deposit cash</strong> — record cash put into the safe</li></ul>
+<ul><li><strong>Withdraw cash</strong> — record cash taken from the drawer</li></ul>
+<ul><li><strong>Download full report</strong> (CSV or Excel)</li></ul>
+<p>Cash deposit and withdrawal are only available while the day is open and for today&#39;s date.</p>
+<h3>End of day — Cash hand-over</h3>
+<ol><li>Go to <strong>Day Close</strong>.</li></ol>
+<ol><li>Click <strong>Cash Hand Over…</strong></li></ol>
+<ol><li>Count cash by denomination in the hand-over window.</li></ol>
+<ol><li>Press <strong>F3</strong> to print a hand-over slip (optional).</li></ol>
+<ol><li>Enter <strong>actual cash in hand</strong> and click <strong>Close day</strong>.</li></ol>
+<ol><li>Confirm if the amount differs from expected.</li></ol>
+<p>After closing, the day status shows <strong>Day: Closed</strong>. No new bills can be posted until the next day is opened.</p>
+<h2>15. Daily expenses</h2>
+<p><strong>Primary till only.</strong></p>
+<ol><li>Go to <strong>Expenses</strong>.</li></ol>
+<ol><li>Select the date.</li></ol>
+<ol><li>Enter <strong>description</strong> and <strong>amount</strong>.</li></ol>
+<ol><li>Click <strong>Post expense</strong>.</li></ol>
+<p>Description is required; amount must be greater than zero. Business day must be open.</p>
+<h2>16. Dashboard and reports</h2>
+<p><strong>Primary till only.</strong></p>
+<h3>Overview tab</h3>
+<ul><li>Today&#39;s and this week&#39;s bill counts</li></ul>
+<ul><li>Pending sync / credit / COD summaries with links</li></ul>
+<ul><li>Product cache status</li></ul>
+<ul><li>Filter by POS counter</li></ul>
+<ul><li><strong>Inventory search</strong> — find products by SKU, barcode, or name; filter by in-stock / out-of-stock; store price column</li></ul>
+<ul><li>Stock exception shortcuts</li></ul>
+<ul><li>Recent bills list</li></ul>
+<h3>Day close tab</h3>
+<ul><li>Tender breakdown: cash, card, UPI, credit notes, returns, expenses</li></ul>
+<ul><li>Store-wide rollup across all counters</li></ul>
+<ul><li>Returns, invoices, and stock exceptions (with approve) for the selected day</li></ul>
+<ul><li>Export CSV / Excel</li></ul>
+<h3>Salesman tab</h3>
+<ul><li>Salesman-wise totals for a date range, drill-down to bills, export</li></ul>
+<h3>Stock sales tab</h3>
+<ul><li>Brand-wise or product-wise sales compared with available quantity</li></ul>
+<h3>All bills tab</h3>
+<ul><li>Search bills by invoice number, customer name/mobile, or date range</li></ul>
+<ul><li>Download report</li></ul>
+<ul><li><strong>Open</strong> a bill to view details, payments, and linked return/adjustment</li></ul>
+<h3>Bill margin tab</h3>
+<ul><li>Margin analysis (cost vs selling) per bill; Excel export</li></ul>
+<h3>Analytics</h3>
+<p>Shows a <strong>14-day daily sales trend</strong> with total bills and revenue (separate <strong>Analytics</strong> menu page).</p>
+<h3>Ledger</h3>
+<p>Recent bills and payments with quick duplicate reprint (<strong>Ledger</strong> menu page).</p>
+<h2>17. Online COD orders</h2>
+<p><strong>Primary till only.</strong></p>
+<p>Tracks online Cash-on-Delivery orders where payment was not collected at billing time.</p>
+<ol><li>Go to <strong>Online Sales</strong>.</li></ol>
+<ol><li>Summary chips show balance till, pending count, and received today.</li></ol>
+<ol><li>Search by bill number, customer, status, or date range.</li></ol>
+<ol><li>For pending orders, click <strong>Record payment</strong> → enter payment mode and transaction number.</li></ol>
+<p>Only pending orders can receive payment. Duplicate payments are blocked.</p>
+<h2>18. Barcode label printing</h2>
+<ol><li>Go to <strong>Barcodes</strong>.</li></ol>
+<ol><li>Type a <strong>SKU</strong> in the blank row and press <strong>Enter</strong>, or press <strong>F6</strong> to open the product pick list.</li></ol>
+<ol><li>Set <strong>print quantity</strong> per line (entering the same SKU again increases quantity).</li></ol>
+<ol><li>Press <strong>F5</strong> to print → preview window → select label printer.</li></ol>
+<ol><li>Press <strong>F7</strong> to clear the screen.</li></ol>
+<p>Products must be synced from central before labels can be printed. Label layout comes from the design synced from central.</p>
+<h2>19. Settings and sync</h2>
+<p><strong>Primary till only.</strong> Open via the gear icon or navigation menu.</p>
+<h3>Connection &amp; sync</h3>
+<table>
+<tr><th>Action</th><th>Purpose</th></tr>
+<tr><td><strong>Login / Logout</strong></td><td>Authenticate with the central office API</td></tr>
+<tr><td><strong>Run sync</strong></td><td>Push local bills/events; pull products, stock, schemes, users, salesmen</td></tr>
+<tr><td><strong>Re-sync products</strong></td><td>Full product catalog refresh (resets product cursor and downloads all pages). Use after major central price or catalog changes when normal sync still looks stale</td></tr>
+<tr><td><strong>Refresh status</strong></td><td>View outbox count, sync cursors, last error</td></tr>
+</table>
+<p>Run sync at the start of each day. Prefer <strong>Re-sync products</strong> when many item prices or image notes look wrong after a central update.</p>
+<p>When store price is unset or zero in central, the local catalog uses <strong>selling price</strong> as the store rate after sync.</p>
+<h3>Receipt &amp; printing</h3>
+<p>Configure store header (name, address, GSTIN, etc.), printer queues, and print format:</p>
+<ul><li><strong>Thermal 80 mm</strong> — counter receipt</li></ul>
+<ul><li><strong>A4 / A5 / A4 Commercial</strong> — tax / office invoice</li></ul>
+<ul><li><strong>Pre-printed A4 / A5</strong> — values only on branded stationery (alignment editors included)</li></ul>
+<ul><li><strong>Credit receipt format</strong> — Thermal or A4 (separate from normal invoice format)</li></ul>
+<p>Click <strong>Save receipt settings</strong> after changes.</p>
+<h3>WhatsApp</h3>
+<ul><li>Enable <strong>Auto-send bill on post</strong> when customer phone is present</li></ul>
+<ul><li>Use <strong>Test send</strong> to verify WhatsApp delivery</li></ul>
+<h3>Other (manager options cashiers may notice)</h3>
+<table>
+<tr><th>Setting</th><th>Description</th></tr>
+<tr><td>Allow duplicate bill print</td><td>Enable/disable F11 and Duplicate page</td></tr>
+<tr><td>Confirm when adding a product already on the bill</td><td>Ask before increasing quantity</td></tr>
+<tr><td>Allow CN remaining cash payout</td><td>Allow cash payout of credit note balance at payment</td></tr>
+<tr><td>Allow multiple returns per bill</td><td>Partial returns across transactions</td></tr>
+<tr><td>Credit billing options</td><td>Enable pay-later, min advance, credit-customer required, max balance</td></tr>
+<tr><td>Line item column detail level</td><td>Minimal / Standard / Full grid columns</td></tr>
+<tr><td>Razorpay POS</td><td>Device credentials for UPI payment (manager configures)</td></tr>
+</table>
+<h2>20. Keyboard shortcuts</h2>
+<h3>Global shortcuts</h3>
+<table>
+<tr><th>Key</th><th>Action</th><th>Notes</th></tr>
+<tr><td><strong>F1</strong></td><td>Help</td><td>Billing screen only</td></tr>
+<tr><td><strong>F2</strong></td><td>New / clear current page</td><td>Page-aware (Billing, Quotation, Customers, Returns, Bill Lookup, etc.)</td></tr>
+<tr><td><strong>F3</strong></td><td>Focus search</td><td>Product entry on Billing; SKU on Barcodes; also Returns / Bill Lookup return</td></tr>
+<tr><td><strong>F4</strong></td><td>Save customer</td><td>Customers page only</td></tr>
+<tr><td><strong>F8</strong></td><td>Hold bill</td><td>Billing only</td></tr>
+<tr><td><strong>F9</strong></td><td>Post bill</td><td>Billing only</td></tr>
+<tr><td><strong>F10</strong></td><td>Print stub</td><td>Preview/print without posting</td></tr>
+<tr><td><strong>F11</strong></td><td>Duplicate page</td><td>From any screen</td></tr>
+<tr><td><strong>F12</strong></td><td>Close application</td><td>Exits the app</td></tr>
+<tr><td><strong>Escape</strong></td><td>Cancel / close menu</td><td>Context-dependent</td></tr>
+</table>
+<h3>Barcodes page</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><strong>F5</strong></td><td>Print labels</td></tr>
+<tr><td><strong>F6</strong></td><td>Product pick list</td></tr>
+<tr><td><strong>F7</strong></td><td>Clear screen</td></tr>
+</table>
+<h3>Cash hand-over window</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><strong>F3</strong></td><td>Print hand-over slip</td></tr>
+<tr><td><strong>F12</strong></td><td>Exit window</td></tr>
+</table>
+<h3>Login</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><strong>Enter</strong></td><td>Submit login</td></tr>
+</table>
+<h2>21. Primary vs secondary till</h2>
+<p>Each computer is configured as a <strong>till</strong> with a unique number (<code>POS_COUNTER</code> in configuration).</p>
+<table>
+<tr><th>Feature</th><th>Primary till (Counter 1)</th><th>Secondary till (Counter 2+)</th></tr>
+<tr><td>Billing</td><td>✓</td><td>✓</td></tr>
+<tr><td>Quotations</td><td>✓</td><td>✓</td></tr>
+<tr><td>Bill Lookup</td><td>✓</td><td>✓</td></tr>
+<tr><td>Salesman</td><td>✓</td><td>✓</td></tr>
+<tr><td>Customers</td><td>✓</td><td>✓</td></tr>
+<tr><td>Returns &amp; Adjustments</td><td>✓</td><td>✓</td></tr>
+<tr><td>Day Close</td><td>✓</td><td>✓</td></tr>
+<tr><td>Duplicate print</td><td>✓</td><td>✓</td></tr>
+<tr><td>Barcodes</td><td>✓</td><td>✓</td></tr>
+<tr><td>Dashboard</td><td>✓</td><td>✗</td></tr>
+<tr><td>Analytics</td><td>✓</td><td>✗</td></tr>
+<tr><td>Online Sales</td><td>✓</td><td>✗</td></tr>
+<tr><td>Credit Bills</td><td>✓</td><td>✗</td></tr>
+<tr><td>Ledger</td><td>✓</td><td>✗</td></tr>
+<tr><td>Expenses</td><td>✓</td><td>✗</td></tr>
+<tr><td>Settings &amp; sync</td><td>✓</td><td>✗</td></tr>
+<tr><td>Auto-sync</td><td>✓</td><td>✗</td></tr>
+</table>
+<p>Secondary tills share the same store database on the local network but have their own device identity.</p>
+<h2>22. Troubleshooting</h2>
+<h3>Product not found when scanning or typing code</h3>
+<ul><li>Ask the manager to <strong>Run sync</strong> from Settings.</li></ul>
+<ul><li>If many items are missing or prices look old after a central update, use <strong>Re-sync products</strong>.</li></ul>
+<ul><li>Confirm the product exists in the central catalog with the correct SKU/barcode.</li></ul>
+<ul><li>For new barcode labels, print from Barcodes page, assign the code in central, then sync again.</li></ul>
+<h3>Store price looks wrong (zero or outdated)</h3>
+<ul><li>Run <strong>Re-sync products</strong> on the primary till.</li></ul>
+<ul><li>Central often stores the real rate in <strong>selling price</strong>; after sync, the store rate should follow when store price is unset or zero.</li></ul>
+<h3>Image note column is empty in product search</h3>
+<ul><li>Central has not set an image description for that product, or products have not been synced since it was added.</li></ul>
+<ul><li>Ask the manager to sync / re-sync products. Billing works without Image note.</li></ul>
+<h3>Cannot post bill — &quot;Day not open&quot;</h3>
+<ul><li>Go to <strong>Day Close</strong> and <strong>Open day</strong> with opening cash.</li></ul>
+<ul><li>Only today&#39;s date can be opened.</li></ul>
+<h3>Cannot post bill — discount limit</h3>
+<ul><li>Your combined item and cash discount exceeds your user limit. Reduce the discount or ask a manager.</li></ul>
+<h3>Stock shortfall warning at post</h3>
+<ul><li>Choose <strong>Post anyway</strong> to complete the sale (creates a stock indent request), or <strong>Cancel</strong> to adjust the bill.</li></ul>
+<h3>Pending notifications (bell icon)</h3>
+<ul><li>Click the bell → view pending sync items → <strong>Sync now</strong>.</li></ul>
+<ul><li>Ensure Settings → central login is active and internet is available.</li></ul>
+<h3>Printer not working</h3>
+<ul><li>Settings → Receipt &amp; printing → <strong>Refresh printers</strong> → select correct queue → Save.</li></ul>
+<ul><li>For thermal receipts, confirm the 80 mm printer is set as the thermal printer.</li></ul>
+<h3>WhatsApp bill not sent</h3>
+<ul><li>Check Settings → WhatsApp connection status.</li></ul>
+<ul><li>Confirm customer phone is a valid 10-digit number.</li></ul>
+<ul><li>Verify auto-send is enabled if expecting automatic delivery.</li></ul>
+<h3>Login failed</h3>
+<ul><li>Check email and password with your manager.</li></ul>
+<ul><li>Confirm users were synced (manager runs sync from Settings).</li></ul>
+<h3>Secondary till missing pages</h3>
+<ul><li>Dashboard, Settings, Expenses, Credit Bills, Online Sales, Ledger, and Analytics are <strong>primary till only</strong>. Use Counter 1 for those tasks.</li></ul>
+<h2>23. Quick reference — daily checklist</h2>
+<h3>Opening (manager / primary till)</h3>
+<ul><li>[ ] Log in</li></ul>
+<ul><li>[ ] Settings → Login to central → <strong>Run sync</strong></li></ul>
+<ul><li>[ ] After major central catalog/price updates: <strong>Re-sync products</strong></li></ul>
+<ul><li>[ ] Day Close → <strong>Open day</strong> with opening cash</li></ul>
+<ul><li>[ ] Verify day status shows <strong>Open</strong></li></ul>
+<h3>During the day (all tills)</h3>
+<ul><li>[ ] Billing: phone → salesman → items → discounts → <strong>F9 Post</strong> → payment</li></ul>
+<ul><li>[ ] Use Quotations when quoting before sale; convert open quotes to Billing when ready</li></ul>
+<ul><li>[ ] Process returns, adjustments, and Bill Lookup as needed</li></ul>
+<ul><li>[ ] Record cash deposits/withdrawals on Day Close page</li></ul>
+<h3>Closing (manager / primary till)</h3>
+<ul><li>[ ] Collect pending <strong>Credit Bills</strong> / Online COD payments as needed</li></ul>
+<ul><li>[ ] Record any remaining <strong>Expenses</strong></li></ul>
+<ul><li>[ ] Review Dashboard day-close summary</li></ul>
+<ul><li>[ ] Day Close → <strong>Cash Hand Over</strong> → count cash → <strong>Close day</strong></li></ul>
+<ul><li>[ ] <strong>Download full report</strong></li></ul>
+<ul><li>[ ] Confirm notifications bell shows no pending sync (or sync before logout)</li></ul>
+<ul><li>[ ] <strong>Logout</strong></li></ul>
+<p>*TruBilling — User Manual v2.0*</p>
+</body></html>

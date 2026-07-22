@@ -15,6 +15,8 @@ public partial class QuotationViewModel : ObservableObject
 
     public BillingViewModel Editor { get; }
 
+    public Action? NavigateToQuotationList { get; set; }
+
     [ObservableProperty] private string _quotationNo = "—";
     [ObservableProperty] private string _statusMessage = "Create a quotation like a bill, then save. Convert from Quotation list when ready.";
 
@@ -111,4 +113,7 @@ public partial class QuotationViewModel : ObservableObject
 
     [RelayCommand]
     private void NewQuotation() => StartNew();
+
+    [RelayCommand]
+    private void BackToList() => NavigateToQuotationList?.Invoke();
 }

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -8,7 +9,9 @@ import {
   IsString,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { ProductMediaItemDto } from './product-media-item.dto';
 
 export class CreateProductDto {
   // ── Item Information ──
@@ -94,10 +97,16 @@ export class CreateProductDto {
   @IsOptional()
   productStatusId?: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Colour master ids (supports 1–3 colours for multi-colour products)',
+    example: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  colourId?: string;
+  colourIds?: string[];
 
   @ApiProperty({ required: false, description: 'Colour type master id (1/2/3 Color)' })
   @IsString()
@@ -283,8 +292,28 @@ export class CreateProductDto {
 
   @ApiProperty({
     required: false,
+    type: [ProductMediaItemDto],
+    description: 'Product images/files with optional per-image descriptions',
+    example: [
+      {
+        url: '/api/media/files/products/507f1f77bcf86cd799439011.jpg',
+        description: 'Front view',
+        colourIds: ['507f1f77bcf86cd799439012'],
+      },
+    ],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductMediaItemDto)
+  @IsOptional()
+  mediaItems?: ProductMediaItemDto[];
+
+  /** @deprecated Prefer mediaItems. Converted to mediaItems on write. */
+  @ApiProperty({
+    required: false,
     type: [String],
-    description: 'Public URLs of uploaded product media',
+    deprecated: true,
+    description: 'Deprecated — use mediaItems. Legacy public URLs only.',
     example: ['/api/media/files/products/507f1f77bcf86cd799439011.jpg'],
   })
   @IsArray()
