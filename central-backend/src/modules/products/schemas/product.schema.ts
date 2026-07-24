@@ -202,6 +202,10 @@ export class Product {
   @Prop()
   storePrice?: number;
 
+  @ApiProperty({ required: false, description: 'Optional wholesale unit price for POS billing mode' })
+  @Prop()
+  wholesalePrice?: number;
+
   // ── Reorder Configurations ──
 
   @ApiProperty({ required: false })

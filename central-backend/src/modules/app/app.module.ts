@@ -63,6 +63,7 @@ import { BillsModule } from '../bills/bills.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { ReportsModule } from '../reports/reports.module';
 import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-label-design.module';
+import { PosV2Module } from '../pos-v2/pos-v2.module';
 
 
 @Module({
@@ -135,6 +136,7 @@ import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-labe
     WhatsAppModule,
     ReportsModule,
     BarcodeLabelDesignsModule,
+    PosV2Module,
   ],
   controllers: [AppController],
 })
