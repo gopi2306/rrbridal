@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -94,7 +95,7 @@ public partial class OnlineSalesViewModel : ObservableObject
 
         if (!ok)
         {
-            MessageBox.Show("Could not record payment. The order may already be received.", "Online sales",
+            AppDialog.Show("Could not record payment. The order may already be received.", "Online sales",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

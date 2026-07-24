@@ -1,4 +1,5 @@
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Documents;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Invoicing;
@@ -45,7 +46,7 @@ public partial class InvoicePrintPreviewWindow : Window
     {
         if (!_printInvoiceEnabled)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Turn on \"Print invoice\" on the billing screen to allow printing.",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,

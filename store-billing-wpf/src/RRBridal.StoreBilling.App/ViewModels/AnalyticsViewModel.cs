@@ -23,6 +23,12 @@ public partial class AnalyticsViewModel : ObservableObject
 
     [ObservableProperty] private string _totalsSummary = "—";
 
+    [ObservableProperty] private string _periodBillsCount = "—";
+
+    [ObservableProperty] private string _periodRevenue = "—";
+
+    [ObservableProperty] private string _periodAvgBill = "—";
+
     [ObservableProperty] private string _statusMessage = "";
 
     public ObservableCollection<DailySalesRow> DailyRows { get; } = new();
@@ -45,6 +51,12 @@ public partial class AnalyticsViewModel : ObservableObject
             var snap = await _analyticsService.LoadAsync(storeId, dayCount: 14);
             PeriodSummary = snap.PeriodLabel;
             TotalsSummary = $"{snap.TotalBillsInPeriod} bills · {MoneyMath.FormatRupee(snap.TotalRevenueInPeriod)}";
+
+            PeriodBillsCount = snap.TotalBillsInPeriod.ToString();
+            PeriodRevenue = MoneyMath.FormatRupee(snap.TotalRevenueInPeriod);
+            PeriodAvgBill = snap.TotalBillsInPeriod > 0
+                ? MoneyMath.FormatRupee(snap.TotalRevenueInPeriod / snap.TotalBillsInPeriod)
+                : "—";
 
             DailyRows.Clear();
             foreach (var r in snap.DailyRows)

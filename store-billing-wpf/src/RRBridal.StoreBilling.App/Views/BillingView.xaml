@@ -24,7 +24,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
-                                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Customer profiles" VerticalAlignment="Center"/>
+                                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Customer" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
                                         Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
                                 <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
@@ -41,10 +41,10 @@
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
                                     Margin="0,0,0,6"
                                     Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                            <TextBlock Text="Delivery date" Style="{StaticResource FormFieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28"/>
                         </StackPanel>
-                        <Grid Grid.Row="2">
+                        <Grid Grid.Row="2" ui:ResponsiveFormGridBehavior.IsEnabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="*"/>
@@ -57,17 +57,17 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
 
-                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                             <ComboBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedComboBox}"
                                       ItemsSource="{Binding ActiveSalesmen}"
                                       SelectedItem="{Binding SelectedSalesman}"
                                       DisplayMemberPath="DisplayLabel"
                                       IsEditable="False" Margin="0,0,0,4"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" Style="{StaticResource FormFieldLabel}"/>
                             <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Margin="0,0,0,0"
                                     CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" SnapsToDevicePixels="True">
                                 <Border.Style>
@@ -104,7 +104,7 @@
                                          LostFocus="CustomerPhoneBox_OnLostFocus"/>
                             </Border>
 
-                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" VerticalAlignment="Center" FontSize="13"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
                             <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="4"
                                      Style="{StaticResource RoundedTextBoxCompact}"
                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
@@ -242,7 +242,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0">
+        <Border Style="{StaticResource TotalsSidebarPanel}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -250,7 +250,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                     <StackPanel>
                         <TextBlock Text="INVOICE PREVIEW" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
@@ -465,7 +465,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                     <Grid>
                         <TextBlock Text="Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>

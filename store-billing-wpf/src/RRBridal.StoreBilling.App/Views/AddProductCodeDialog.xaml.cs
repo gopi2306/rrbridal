@@ -33,7 +33,7 @@ public partial class AddProductCodeDialog : Window
         var code = (ProductCodeBox.Text ?? "").Trim();
         if (string.IsNullOrEmpty(code))
         {
-            MessageBox.Show("Enter a product code.", "Add product",
+            AppDialog.Show("Enter a product code.", "Add product",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             ProductCodeBox.Focus();
             return;

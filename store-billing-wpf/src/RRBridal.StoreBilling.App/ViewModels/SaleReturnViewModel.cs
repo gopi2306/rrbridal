@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -189,28 +190,28 @@ public partial class SaleReturnViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(OriginalBillNo))
         {
-            MessageBox.Show("Enter the reference invoice / bill number.", "Pre-system Return",
+            AppDialog.Show("Enter the reference invoice / bill number.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (OriginalBillDate == null)
         {
-            MessageBox.Show("Select the original invoice date.", "Pre-system Return",
+            AppDialog.Show("Select the original invoice date.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(LegacyCustomerName))
         {
-            MessageBox.Show("Enter customer name.", "Pre-system Return",
+            AppDialog.Show("Enter customer name.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (!IsValidLegacyCustomerPhone(LegacyCustomerPhone))
         {
-            MessageBox.Show("Enter a valid 10-digit customer mobile (required for credit note).", "Pre-system Return",
+            AppDialog.Show("Enter a valid 10-digit customer mobile (required for credit note).", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -270,7 +271,7 @@ public partial class SaleReturnViewModel : ObservableObject
         var query = (LegacyCustomerName ?? "").Trim();
         if (string.IsNullOrEmpty(query))
         {
-            MessageBox.Show("Enter a customer name to search.", "Pre-system Return",
+            AppDialog.Show("Enter a customer name to search.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -354,7 +355,7 @@ public partial class SaleReturnViewModel : ObservableObject
         {
             if (!phoneSearchOnly)
             {
-                MessageBox.Show("Enter customer mobile, name, or code to search.", "Pre-system Return",
+                AppDialog.Show("Enter customer mobile, name, or code to search.", "Pre-system Return",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             return;
@@ -446,7 +447,7 @@ public partial class SaleReturnViewModel : ObservableObject
 
             if (!string.IsNullOrWhiteSpace(reg.CentralSyncWarning))
             {
-                MessageBox.Show(reg.CentralSyncWarning, "Pre-system Return",
+                AppDialog.Show(reg.CentralSyncWarning, "Pre-system Return",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
@@ -510,7 +511,7 @@ public partial class SaleReturnViewModel : ObservableObject
 
         if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Sale Return",
+            AppDialog.Show("Enter at least one search field (bill no, customer name, or mobile).", "Sale Return",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -611,7 +612,7 @@ public partial class SaleReturnViewModel : ObservableObject
             if (matches.Count == 0)
             {
                 if (!skipDuplicateChecks)
-                    MessageBox.Show($"No bill found ending with '{digits}'.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    AppDialog.Show($"No bill found ending with '{digits}'.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -649,7 +650,7 @@ public partial class SaleReturnViewModel : ObservableObject
         if (doc == null)
         {
             if (!skipDuplicateChecks)
-                MessageBox.Show($"Bill '{input}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show($"Bill '{input}' not found.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
 
@@ -663,7 +664,7 @@ public partial class SaleReturnViewModel : ObservableObject
                     _services.StoreContext.StoreId, billNo);
                 if (existingReturn != null)
                 {
-                    MessageBox.Show(
+                    AppDialog.Show(
                         BuildDuplicateReturnMessage(billNo, existingReturn),
                         "Sale Return",
                         MessageBoxButton.OK,
@@ -674,7 +675,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 var existingCreditNote = await FindCreditNoteForBillAsync(billNo);
                 if (existingCreditNote != null)
                 {
-                    MessageBox.Show(
+                    AppDialog.Show(
                         BuildDuplicateCreditNoteMessage(billNo, existingCreditNote),
                         "Sale Return",
                         MessageBoxButton.OK,
@@ -688,7 +689,7 @@ public partial class SaleReturnViewModel : ObservableObject
                     _services.StoreContext.StoreId, billNo);
                 if (!SaleReturnHistoryService.HasRemainingReturnableQty(doc, priorByLine))
                 {
-                    MessageBox.Show(
+                    AppDialog.Show(
                         "All items on this bill have already been returned.",
                         "Sale Return",
                         MessageBoxButton.OK,
@@ -936,7 +937,7 @@ public partial class SaleReturnViewModel : ObservableObject
 
         if (!BillLoaded)
         {
-            MessageBox.Show("Load the original bill before adding an exchange product.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Load the original bill before adding an exchange product.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -964,7 +965,7 @@ public partial class SaleReturnViewModel : ObservableObject
 
         if (existing != null && existing.StockQty <= 0)
         {
-            MessageBox.Show($"Product \"{existing.Name}\" (SKU: {existing.Sku}) is out of local stock.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Product \"{existing.Name}\" (SKU: {existing.Sku}) is out of local stock.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -977,7 +978,7 @@ public partial class SaleReturnViewModel : ObservableObject
     {
         if (!BillLoaded)
         {
-            MessageBox.Show("Enter invoice details and press Start return before adding products.", "Pre-system Return",
+            AppDialog.Show("Enter invoice details and press Start return before adding products.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1051,7 +1052,7 @@ public partial class SaleReturnViewModel : ObservableObject
     {
         if (product.StockQty <= 0)
         {
-            MessageBox.Show($"Product \"{product.Name}\" (SKU: {product.Sku}) is out of local stock.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Product \"{product.Name}\" (SKU: {product.Sku}) is out of local stock.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1060,7 +1061,7 @@ public partial class SaleReturnViewModel : ObservableObject
         {
             if (existing.Qty + 1 > existing.AvailableQty)
             {
-                MessageBox.Show($"Only {existing.AvailableQty:N2} available locally for SKU {existing.ProductCode}.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show($"Only {existing.AvailableQty:N2} available locally for SKU {existing.ProductCode}.", "Sale Exchange", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -1101,13 +1102,13 @@ public partial class SaleReturnViewModel : ObservableObject
         var selected = ReturnLines.Where(l => l.IsSelected && l.ReturnQty > 0).ToList();
         if (selected.Count == 0)
         {
-            MessageBox.Show("Select at least one item with a return quantity.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Select at least one item with a return quantity.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(OriginalBillNo))
         {
-            MessageBox.Show("Load the original bill before posting a return.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Load the original bill before posting a return.", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1118,7 +1119,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 _services.StoreContext.StoreId, OriginalBillNo.Trim());
             if (existingReturn != null)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     BuildDuplicateReturnMessage(OriginalBillNo.Trim(), existingReturn),
                     "Sale Return",
                     MessageBoxButton.OK,
@@ -1136,7 +1137,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 var maxQty = Math.Max(0, line.OriginalQty - prior);
                 if (line.ReturnQty > maxQty)
                 {
-                    MessageBox.Show(
+                    AppDialog.Show(
                         $"Return quantity for line {line.LineNo} ({line.ProductCode}) exceeds remaining quantity ({maxQty:N2}).",
                         "Sale Return",
                         MessageBoxButton.OK,
@@ -1152,7 +1153,7 @@ public partial class SaleReturnViewModel : ObservableObject
             _services.StoreContext.PosCounter);
         if (dayBlock != null)
         {
-            MessageBox.Show(dayBlock, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(dayBlock, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1161,7 +1162,7 @@ public partial class SaleReturnViewModel : ObservableObject
             var existingCreditNote = await FindCreditNoteForBillAsync(OriginalBillNo.Trim());
             if (existingCreditNote != null)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     BuildDuplicateCreditNoteMessage(OriginalBillNo.Trim(), existingCreditNote),
                     "Sale Return",
                     MessageBoxButton.OK,
@@ -1237,7 +1238,7 @@ public partial class SaleReturnViewModel : ObservableObject
             decimal cashRefunded = 0m;
             if (ReturnMode == ReturnMode.CashRefund && creditBalance > 0)
             {
-                var confirm = MessageBox.Show(
+                var confirm = AppDialog.Show(
                     $"Cash refund {MoneyMath.FormatRupee(creditBalance)} to customer?",
                     "Sale Return — Cash Refund",
                     MessageBoxButton.YesNo,
@@ -1468,7 +1469,7 @@ public partial class SaleReturnViewModel : ObservableObject
             if (stockFailed.Count > 0)
                 successBody += $"\n\nWarning: could not update local stock for: {string.Join(", ", stockFailed)}.";
 
-            MessageBox.Show(successBody, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show(successBody, "Sale Return", MessageBoxButton.OK, MessageBoxImage.Information);
 
             var postedBillNo = OriginalBillNo.Trim();
             if (OnPostedSuccessfully != null)
@@ -1478,7 +1479,7 @@ public partial class SaleReturnViewModel : ObservableObject
         }
         catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 $"A return has already been posted for bill {OriginalBillNo.Trim()}.\n\nOnly one return is allowed per bill.",
                 "Sale Return",
                 MessageBoxButton.OK,
@@ -1486,7 +1487,7 @@ public partial class SaleReturnViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not post return: {ex.Message}", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not post return: {ex.Message}", "Sale Return", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1495,21 +1496,21 @@ public partial class SaleReturnViewModel : ObservableObject
         var lines = LegacyReturnLines.Where(l => l.Qty > 0).ToList();
         if (lines.Count == 0)
         {
-            MessageBox.Show("Add at least one product with quantity.", "Pre-system Return",
+            AppDialog.Show("Add at least one product with quantity.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(OriginalBillNo) || OriginalBillDate == null)
         {
-            MessageBox.Show("Enter reference invoice number and date.", "Pre-system Return",
+            AppDialog.Show("Enter reference invoice number and date.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (!IsValidLegacyCustomerPhone(LegacyCustomerPhone))
         {
-            MessageBox.Show("Enter a valid 10-digit customer mobile.", "Pre-system Return",
+            AppDialog.Show("Enter a valid 10-digit customer mobile.", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -1520,7 +1521,7 @@ public partial class SaleReturnViewModel : ObservableObject
             storeId, OriginalBillNo.Trim(), phoneNorm);
         if (priorLegacy > 0)
         {
-            var warn = MessageBox.Show(
+            var warn = AppDialog.Show(
                 $"There are already {priorLegacy} pre-system return(s) for invoice {OriginalBillNo.Trim()}.\n\nContinue anyway?",
                 "Pre-system Return",
                 MessageBoxButton.YesNo,
@@ -1533,7 +1534,7 @@ public partial class SaleReturnViewModel : ObservableObject
         var dayBlock = await dayGuard.ValidatePostingTodayAsync(storeId, _services.StoreContext.PosCounter);
         if (dayBlock != null)
         {
-            MessageBox.Show(dayBlock, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(dayBlock, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1547,7 +1548,7 @@ public partial class SaleReturnViewModel : ObservableObject
         decimal cashRefunded = 0m;
         if (ReturnMode == ReturnMode.CashRefund && creditBalance > 0)
         {
-            var confirm = MessageBox.Show(
+            var confirm = AppDialog.Show(
                 $"Cash refund {MoneyMath.FormatRupee(creditBalance)} to customer?",
                 "Pre-system Return — Cash Refund",
                 MessageBoxButton.YesNo,
@@ -1717,7 +1718,7 @@ public partial class SaleReturnViewModel : ObservableObject
             if (stockFailed.Count > 0)
                 successBody += $"\n\nWarning: could not update local stock for: {string.Join(", ", stockFailed)}.";
 
-            MessageBox.Show(successBody, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show(successBody, "Pre-system Return", MessageBoxButton.OK, MessageBoxImage.Information);
 
             var postedBillNo = OriginalBillNo.Trim();
             if (OnPostedSuccessfully != null)
@@ -1727,7 +1728,7 @@ public partial class SaleReturnViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not post pre-system return: {ex.Message}", "Pre-system Return",
+            AppDialog.Show($"Could not post pre-system return: {ex.Message}", "Pre-system Return",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1814,7 +1815,7 @@ public partial class SaleReturnViewModel : ObservableObject
             var (profileOk, profileMsg) = await _services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 

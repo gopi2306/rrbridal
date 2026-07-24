@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -31,7 +32,7 @@ public partial class HeldBillsDialog
     {
         if (SelectedRow == null)
         {
-            MessageBox.Show("Select a held bill first.", "Held bills", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Select a held bill first.", "Held bills", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -44,11 +45,11 @@ public partial class HeldBillsDialog
     {
         if (SelectedRow == null)
         {
-            MessageBox.Show("Select a held bill first.", "Held bills", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Select a held bill first.", "Held bills", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        if (MessageBox.Show($"Delete held bill {SelectedRow.HoldNo}?", "Held bills", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (AppDialog.Show($"Delete held bill {SelectedRow.HoldNo}?", "Held bills", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         DeleteRequested = true;

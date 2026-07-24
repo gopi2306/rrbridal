@@ -10,49 +10,61 @@
     <Grid Background="{StaticResource BrushBackground}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12,10">
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Bill lookup" Style="{StaticResource TextPageTitleAccent}"/>
+            <TextBlock Text="Find a posted bill to view, return, adjust, or reprint" Style="{StaticResource PageSubtitle}"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-                    <StackPanel Width="240" Margin="0,0,8,8">
-                        <TextBlock Text="Bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="120"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*" MinWidth="120"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*" MinWidth="110"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Bill no" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox x:Name="BillNoBox"
                                  Style="{StaticResource RoundedTextBox}"
-                                 Margin="0,4,0,0"
                                  Text="{Binding BillNoInput, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="Full bill no or partial match"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <StackPanel Width="220" Margin="0,0,8,8">
-                        <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}"
-                                 Margin="0,4,0,0"
                                  Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <StackPanel Width="180" Margin="0,0,8,8">
-                        <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Customer mobile" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}"
-                                 Margin="0,4,0,0"
                                  Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <Button Content="Search" Style="{StaticResource PrimaryButton}"
-                            VerticalAlignment="Bottom" Width="100" Padding="14,8" Margin="0,0,0,8"
+                    <Button Grid.Column="6" Content="Search" Style="{StaticResource PrimaryButton}"
+                            VerticalAlignment="Bottom" MinWidth="80"
                             Command="{Binding SearchBillsCommand}"/>
-                </WrapPanel>
+                </Grid>
                 <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12"
                            Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12"
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,0,12"
                 MinHeight="240"
                 Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVis}}">
             <Grid>
@@ -84,7 +96,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Visibility="{Binding Detail.IsLoaded, Converter={StaticResource BoolToVis}}" MinHeight="0">
+        <Grid Grid.Row="2" Visibility="{Binding Detail.IsLoaded, Converter={StaticResource BoolToVis}}" MinHeight="0">
             <Grid x:Name="MasterDetailGrid" MinHeight="0"
                   ui:MasterDetailLayoutBehavior.IsEnabled="True">
             <Grid Grid.Column="0" MinHeight="0">
@@ -95,18 +107,18 @@
 
                 <Border Grid.Row="0" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="10,8">
                     <WrapPanel>
-                        <Button Content="View Bill" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                        <Button Content="View Bill" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
                                 Command="{Binding ShowViewModeCommand}"/>
-                        <Button Content="Add Return" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,4"
+                        <Button Content="Add Return" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"
                                 Command="{Binding StartReturnCommand}"/>
-                        <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,4"
+                        <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"
                                 Command="{Binding StartAdjustmentCommand}"/>
-                        <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                        <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
                                 Command="{Binding PrintDuplicateCommand}"/>
-                        <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Padding="12,6" Margin="0,0,8,4"
+                        <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
                                 Command="{Binding PrintCreditNoteDuplicateCommand}"
                                 Visibility="{Binding Detail.HasCreditNoteReturn, Converter={StaticResource BoolToVis}}"/>
-                        <Button Content="← Back to view" Style="{StaticResource GhostNavButton}" Padding="12,6" Margin="0,0,0,4"
+                        <Button Content="← Back to view" Style="{StaticResource GhostNavButton}" Margin="0,0,0,4"
                                 Command="{Binding BackToViewCommand}"
                                 Visibility="{Binding IsViewMode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                     </WrapPanel>
@@ -139,7 +151,7 @@
                             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
                                         Margin="0,0,0,6"
                                         Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Delivery date" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                                <TextBlock Text="Delivery date" Style="{StaticResource FormFieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBlock Text="{Binding DeliveryDateDisplay}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                             </StackPanel>
                             <Grid Grid.Row="2">
@@ -154,16 +166,16 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding CustomerCode}" IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" VerticalAlignment="Center" Margin="0,0,0,4" FontSize="13"/>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                                 <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding SalesmanDisplay}" IsReadOnly="True" IsTabStop="False" Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" Style="{StaticResource FormFieldLabel}"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding CustomerPhone}" IsReadOnly="True" IsTabStop="False"/>
-                                <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
                                 <TextBox Grid.Row="1" Grid.Column="4" Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding CustomerName}" IsReadOnly="True" IsTabStop="False"/>
                             </Grid>
@@ -294,7 +306,7 @@
 
                     <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" DataContext="{Binding Return}">
                         <DockPanel LastChildFill="True">
-                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="15" Text="Return items" Margin="0,0,0,10"/>
+                            <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextSectionTitle}" Text="Return items" Margin="0,0,0,10"/>
                             <DataGrid ItemsSource="{Binding ReturnLines}" Style="{StaticResource ThemedDataGrid}"
                                       AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
                                       BorderThickness="1" BorderBrush="{StaticResource BrushBorder}">
@@ -326,9 +338,9 @@
                     <Border Style="{StaticResource CardBorder}" DataContext="{Binding Return}">
                         <DockPanel LastChildFill="True">
                             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                                <TextBlock FontWeight="SemiBold" FontSize="15" Text="Exchange items (optional)"/>
+                                <TextBlock Style="{StaticResource TextSectionTitle}" Text="Exchange items (optional)"/>
                                 <TextBlock Text="Use the top search box (F3) to add replacement products."
-                                           Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,4,0,0"/>
+                                           Style="{StaticResource TextCaption}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <DataGrid ItemsSource="{Binding ExchangeLines}" Style="{StaticResource ThemedDataGrid}"
                                       AutoGenerateColumns="False" CanUserAddRows="False" RowHeight="36"
@@ -408,8 +420,7 @@
 
             <Grid Grid.Column="1" MinHeight="0">
             <!-- VIEW MODE - RIGHT -->
-            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="0"
+            <Border Style="{StaticResource TotalsSidebarPanel}"
                     VerticalAlignment="Stretch"
                     DataContext="{Binding Detail}"
                     Visibility="{Binding DataContext.IsViewMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
@@ -420,7 +431,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                    <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                         <StackPanel>
                             <TextBlock Text="BILL DETAILS" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
@@ -552,7 +563,7 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" Padding="14,14">
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                         <Grid>
                             <TextBlock Text="Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22"
@@ -563,8 +574,8 @@
             </Border>
 
             <!-- RETURN MODE - RIGHT -->
-            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Return}"
+            <Border Style="{StaticResource TotalsSidebarPanel}"
+                    DataContext="{Binding Return}"
                     Visibility="{Binding DataContext.IsReturnMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -572,7 +583,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                    <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                         <StackPanel>
                             <TextBlock Text="RETURN SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12"/>
                             <TextBlock Text="{Binding ReturnNo, StringFormat=RETURN NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
@@ -612,7 +623,7 @@
                             </TextBlock>
                         </StackPanel>
                     </ScrollViewer>
-                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                         <Grid>
                             <TextBlock Text="{Binding FooterLabel}" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding FooterAmountFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
@@ -622,8 +633,8 @@
             </Border>
 
             <!-- ADJUSTMENT MODE - RIGHT -->
-            <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="0" DataContext="{Binding Adjustment}"
+            <Border Style="{StaticResource TotalsSidebarPanel}"
+                    DataContext="{Binding Adjustment}"
                     Visibility="{Binding DataContext.IsAdjustmentMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -631,7 +642,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                    <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                         <StackPanel>
                             <TextBlock Text="ADJUSTMENT SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12"/>
                             <TextBlock Text="{Binding AdjustmentNo, StringFormat=ADJ NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
@@ -666,7 +677,7 @@
                             </TextBlock>
                         </StackPanel>
                     </ScrollViewer>
-                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                    <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                         <Grid>
                             <TextBlock Text="Diff Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding DiffPayableFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>

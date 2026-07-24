@@ -105,7 +105,7 @@ public partial class CustomerSearchDialog : Window, INotifyPropertyChanged
     {
         if (SelectedItem == null)
         {
-            MessageBox.Show("Select a customer from the list.", "Find Customer",
+            AppDialog.Show("Select a customer from the list.", "Find Customer",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }

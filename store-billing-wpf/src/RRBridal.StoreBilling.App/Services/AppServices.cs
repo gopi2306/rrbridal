@@ -15,6 +15,7 @@ using RRBridal.StoreBilling.App.Services.Sync;
 using RRBridal.StoreBilling.App.Services.BarcodePrinting;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.WhatsApp;
 
 namespace RRBridal.StoreBilling.App.Services;
@@ -54,6 +55,7 @@ public sealed class AppServices
     public required BillNumberGenerator BillNumberGenerator { get; init; }
     public required BillingOutboxPublisher BillingOutbox { get; init; }
     public required PosBillingSettingsStore PosBillingSettings { get; init; }
+    public required ShellUiSettingsStore ShellUiSettings { get; init; }
     public required RazorpayPosSettingsStore RazorpayPosSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
     public required HeldBillService HeldBills { get; init; }
@@ -161,6 +163,7 @@ public sealed class AppServices
             inventoryAdjustments);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
+        var shellUiSettings = new ShellUiSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
@@ -217,6 +220,7 @@ public sealed class AppServices
             BillNumberGenerator = billNumberGenerator,
             BillingOutbox = billingOutbox,
             PosBillingSettings = posBillingSettings,
+            ShellUiSettings = shellUiSettings,
             RazorpayPosSettings = razorpayPosSettings,
             BillDocuments = billDocuments,
             HeldBills = heldBills,

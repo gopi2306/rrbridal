@@ -15,29 +15,33 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
-            <StackPanel>
-                <TextBlock Text="Ledger" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-                <StackPanel Margin="0,4,0,0">
-                    <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
-                    <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
-                    <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
-                              SelectedItem="{Binding SelectedPosCounterFilter}"
-                              DisplayMemberPath="Label"
-                              MinWidth="160"/>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Ledger" Style="{StaticResource TextPageTitleAccent}"/>
+                <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" Style="{StaticResource PageSubtitle}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <StackPanel VerticalAlignment="Bottom">
+                        <TextBlock Text="Counter filter" Style="{StaticResource FilterFieldLabel}"/>
+                        <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
+                                  SelectedItem="{Binding SelectedPosCounterFilter}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="160"/>
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <Button Content="Reprint duplicate" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
                         Command="{Binding ReprintDuplicateCommand}" Width="130"/>
-                <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
+                <Button Content="Refresh" Style="{StaticResource SecondaryButton}"
                         Command="{Binding RefreshCommand}" Width="100"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Style="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
         <TabControl Grid.Row="2" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch">
             <TabItem Header="Posted bills">

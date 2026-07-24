@@ -11,6 +11,11 @@
           ui:MasterDetailLayoutBehavior.IsEnabled="True">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Adjustments" Style="{StaticResource TextPageTitleAccent}"/>
+                    <TextBlock Text="Correct rate, quantity or discount on a posted bill" Style="{StaticResource PageSubtitle}"/>
+                </StackPanel>
+
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TextSectionTitle}" Text="Adjustment Bill" Margin="0,0,0,12"/>
@@ -22,25 +27,25 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Original bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Original bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer mobile" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <Button Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
-                                    VerticalAlignment="Bottom" Width="100" Padding="14,8"
+                                    VerticalAlignment="Bottom" MinWidth="80"
                                     Command="{Binding SearchBillsCommand}"/>
                         </Grid>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="12"
@@ -108,7 +113,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0"
+        <Border Style="{StaticResource TotalsSidebarPanel}"
                 Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -117,7 +122,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                     <StackPanel>
                         <TextBlock Text="ADJUSTMENT SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
                         <TextBlock Text="{Binding AdjustmentNo, StringFormat=ADJ NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
@@ -137,7 +142,7 @@
 
                         <Separator Margin="0,8,0,12"/>
 
-                        <TextBlock Text="Difference" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="Difference" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,8"/>
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="Sub total diff" Foreground="{StaticResource BrushTextMuted}"/>
                             <TextBlock Text="{Binding DiffSubTotalFormatted}" HorizontalAlignment="Right"/>
@@ -163,7 +168,7 @@
 
                         <Separator Margin="0,8,0,12"/>
 
-                        <TextBlock Text="Reason" Margin="0,0,0,4"/>
+                        <TextBlock Text="Reason" Style="{StaticResource FormFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
                                  AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
 
@@ -174,7 +179,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                     <Grid>
                         <TextBlock Text="Diff Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding DiffPayableFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>

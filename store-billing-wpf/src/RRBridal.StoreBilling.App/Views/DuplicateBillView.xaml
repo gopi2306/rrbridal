@@ -13,9 +13,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Duplicate print" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="Duplicate print" Style="{StaticResource TextPageTitleAccent}"/>
             <TextBlock Text="Reprint a posted bill or credit note with DUPLICATE watermark. Does not change stock or totals."
-                       Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                       Style="{StaticResource PageSubtitle}"/>
         </StackPanel>
 
         <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch">
@@ -27,7 +27,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                    <Border Grid.Row="0" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
                         <Grid DataContext="{Binding Bill}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -39,19 +39,19 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                                <TextBlock Text="Invoice no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Invoice no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
-                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
                                 <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
                                 <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Search" Style="{StaticResource PrimaryButton}"
@@ -82,7 +82,7 @@
                         </Border>
                         <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12">
                             <StackPanel>
-                                <TextBlock Text="Bill details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                                <TextBlock Text="Bill details" Style="{StaticResource TextSectionTitle}"/>
                                 <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
                                 <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
@@ -105,7 +105,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                    <Border Grid.Row="0" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
                         <Grid DataContext="{Binding CreditNote}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -118,27 +118,27 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                                <TextBlock Text="Original bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Original bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchOriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
-                                <TextBlock Text="Return bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Return bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchReturnNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
-                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Mobile no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Mobile no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchMobileNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
                                 <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,8,0">
-                                <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
                                 <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
@@ -171,7 +171,7 @@
                         </Border>
                         <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12">
                             <StackPanel>
-                                <TextBlock Text="Credit note details" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                                <TextBlock Text="Credit note details" Style="{StaticResource TextSectionTitle}"/>
                                 <TextBlock Text="{Binding DetailText}" Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{StaticResource BrushText}"/>
                                 <Button Content="Print duplicate copy" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding PrintDuplicateCommand}" HorizontalAlignment="Stretch"/>

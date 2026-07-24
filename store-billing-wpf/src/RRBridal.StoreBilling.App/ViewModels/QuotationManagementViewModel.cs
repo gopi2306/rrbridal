@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -111,7 +112,7 @@ public partial class QuotationManagementViewModel : ObservableObject
         if (SelectedQuotation == null)
             return;
 
-        var confirm = MessageBox.Show(
+        var confirm = AppDialog.Show(
             $"Cancel quotation {SelectedQuotation.QuotationNo}?",
             "Quotations",
             MessageBoxButton.YesNo,
@@ -122,7 +123,7 @@ public partial class QuotationManagementViewModel : ObservableObject
         var ok = await _services.Quotations.CancelAsync(SelectedQuotation.QuotationNo);
         if (!ok)
         {
-            MessageBox.Show("Could not cancel (it may already be converted).", "Quotations",
+            AppDialog.Show("Could not cancel (it may already be converted).", "Quotations",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

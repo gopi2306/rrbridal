@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Documents;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -94,6 +95,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingCreditAllowZeroAdvance = true;
     [ObservableProperty] private bool _billingCreditAllowPartialCollection = true;
     [ObservableProperty] private string _billingCreditMaxBalancePerBillText = "0";
+
+    [ObservableProperty] private bool _uiShowSidebarMenu;
 
     [ObservableProperty] private bool _razorpayPosEnabled;
     [ObservableProperty] private string _razorpayPosUsername = "";
@@ -500,7 +503,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Credit receipt preview failed: {ex.Message}", "Settings",
+            AppDialog.Show($"Credit receipt preview failed: {ex.Message}", "Settings",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -603,7 +606,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 $"Could not open invoice preview: {ex.Message}",
                 "Preview",
                 MessageBoxButton.OK,
@@ -925,6 +928,19 @@ public partial class SettingsViewModel : ObservableObject
         BillingCreditAllowZeroAdvance = _services.PosBillingSettings.Current.CreditBillingAllowZeroAdvance;
         BillingCreditAllowPartialCollection = _services.PosBillingSettings.Current.CreditBillingAllowPartialCollection;
         BillingCreditMaxBalancePerBillText = _services.PosBillingSettings.Current.CreditBillingMaxBalancePerBill.ToString("0.##");
+
+        _services.ShellUiSettings.Load();
+        UiShowSidebarMenu = _services.ShellUiSettings.Current.ShowSidebarMenu;
+    }
+
+    [RelayCommand]
+    public async Task SaveUiSettingsAsync()
+    {
+        _services.ShellUiSettings.Update(s => s.ShowSidebarMenu = UiShowSidebarMenu);
+        await _services.ShellUiSettings.SaveAsync();
+        LastActionText = UiShowSidebarMenu
+            ? "Appearance saved — left sidebar menu enabled."
+            : "Appearance saved — navigation shown in the header bar.";
     }
 
     [RelayCommand]
@@ -998,7 +1014,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (!PhoneE164Helper.CanSendWhatsApp(WhatsAppTestPhone))
         {
-            MessageBox.Show("Enter a valid 10-digit test mobile number.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Enter a valid 10-digit test mobile number.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1012,7 +1028,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 var msg = settingsErr ?? "Could not load WhatsApp settings.";
                 LastActionText = msg;
-                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -1020,7 +1036,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 const string msg = "WhatsApp is not configured on central. Set phone number id, access token, and template name via Central admin, then click Refresh status.";
                 LastActionText = msg;
-                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -1028,7 +1044,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 const string msg = "WhatsApp is disabled for this store on central. Enable it in Central admin, then click Refresh status.";
                 LastActionText = msg;
-                MessageBox.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(msg, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -1044,17 +1060,17 @@ public partial class SettingsViewModel : ObservableObject
             if (result == null)
             {
                 LastActionText = err ?? "WhatsApp test failed.";
-                MessageBox.Show(err ?? "WhatsApp test failed.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(err ?? "WhatsApp test failed.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             LastActionText = $"WhatsApp test sent (message id: {result.MessageId}).";
-            MessageBox.Show("Test bill sent on WhatsApp.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Test bill sent on WhatsApp.", "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             LastActionText = ex.Message;
-            MessageBox.Show(ex.Message, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show(ex.Message, "WhatsApp test", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

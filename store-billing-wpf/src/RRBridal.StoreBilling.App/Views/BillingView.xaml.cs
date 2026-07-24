@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -268,7 +269,7 @@ public partial class BillingView
 
         if (!decimal.TryParse(text, NumberStyles.Number, ParseCulture, out var qty) || qty <= 0)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Enter a valid quantity greater than zero.",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -115,7 +116,7 @@ public partial class BillLookupViewModel : ObservableObject
     {
         if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Bill Lookup",
+            AppDialog.Show("Enter at least one search field (bill no, customer name, or mobile).", "Bill Lookup",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -333,7 +334,7 @@ public partial class BillLookupViewModel : ObservableObject
 
         if (!_services.PosBillingSettings.Current.AllowDuplicatePrint)
         {
-            MessageBox.Show("Duplicate bill printing is disabled in billing settings.", "Duplicate print",
+            AppDialog.Show("Duplicate bill printing is disabled in billing settings.", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -342,14 +343,14 @@ public partial class BillLookupViewModel : ObservableObject
         var doc = await _services.BillDocuments.GetByBillNoAsync(billNo);
         if (doc == null)
         {
-            MessageBox.Show("Bill not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Bill not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var status = doc.GetValue("status", "posted").AsString;
         if (status != "posted")
         {
-            MessageBox.Show($"Only posted bills can be reprinted (status: {status}).", "Duplicate print",
+            AppDialog.Show($"Only posted bills can be reprinted (status: {status}).", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -374,7 +375,7 @@ public partial class BillLookupViewModel : ObservableObject
 
         if (!_services.PosBillingSettings.Current.AllowDuplicatePrint)
         {
-            MessageBox.Show("Duplicate printing is disabled in billing settings.", "Credit note print",
+            AppDialog.Show("Duplicate printing is disabled in billing settings.", "Credit note print",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -384,13 +385,13 @@ public partial class BillLookupViewModel : ObservableObject
         var returnDoc = await _services.StoreBillList.GetReturnByBillNoAsync(storeId, billNo);
         if (returnDoc == null)
         {
-            MessageBox.Show("Return record not found.", "Credit note print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Return record not found.", "Credit note print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (SaleReturnDocumentMapper.HasExchangeLines(returnDoc))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Exchange credit-note duplicate reprint is not supported from bill lookup.",
                 "Credit note print",
                 MessageBoxButton.OK,

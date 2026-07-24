@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="44" d:DesignWidth="260">
+             d:DesignHeight="40" d:DesignWidth="240">
     <Button HorizontalContentAlignment="Stretch"
             Command="{Binding NavigateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
             CommandParameter="{Binding Page, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -12,31 +12,54 @@
             BorderThickness="0"
             Padding="0"
             Cursor="Hand"
-            FocusVisualStyle="{x:Null}">
+            FocusVisualStyle="{x:Null}"
+            ToolTip="{Binding ToolTipText, RelativeSource={RelativeSource AncestorType=UserControl}}">
         <Button.Template>
             <ControlTemplate TargetType="Button">
                 <Border x:Name="Root"
                         Background="Transparent"
-                        Padding="16,12"
-                        BorderThickness="3,0,0,0"
-                        BorderBrush="Transparent">
-                    <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                               FontFamily="{StaticResource FontFamilyPrimary}"
-                               FontSize="14"
-                               VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
-                                <Setter Property="FontWeight" Value="Normal"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        Padding="12,9"
+                        Margin="6,1"
+                        CornerRadius="8"
+                        BorderThickness="0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   FontFamily="{StaticResource FontFamilyPrimary}"
+                                   FontSize="13.5"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                                    <Setter Property="FontWeight" Value="Normal"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Border Grid.Column="1"
+                                Background="{StaticResource BrushShortcutBadge}"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding HasShortcut, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding Shortcut, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                       FontFamily="{StaticResource FontFamilyPrimary}"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
                 </Border>
                 <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
@@ -44,7 +67,6 @@
                     </Trigger>
                     <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
                         <Setter TargetName="Root" Property="Background" Value="{StaticResource BrushSidebarTint}"/>
-                        <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
                     </DataTrigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>

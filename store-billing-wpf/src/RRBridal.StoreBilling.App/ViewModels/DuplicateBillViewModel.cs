@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -92,7 +93,7 @@ public partial class DuplicateBillViewModel : ObservableObject
 
         if (!_services.PosBillingSettings.Current.AllowDuplicatePrint)
         {
-            MessageBox.Show("Duplicate bill printing is disabled in billing settings.", "Duplicate print",
+            AppDialog.Show("Duplicate bill printing is disabled in billing settings.", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -100,14 +101,14 @@ public partial class DuplicateBillViewModel : ObservableObject
         var doc = await _services.BillDocuments.GetByBillNoAsync(SelectedBill.BillNo);
         if (doc == null)
         {
-            MessageBox.Show("Bill not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Bill not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var status = doc.GetValue("status", "posted").AsString;
         if (status != "posted")
         {
-            MessageBox.Show($"Only posted bills can be reprinted (status: {status}).", "Duplicate print",
+            AppDialog.Show($"Only posted bills can be reprinted (status: {status}).", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -136,7 +137,7 @@ public partial class DuplicateBillViewModel : ObservableObject
         var doc = await _services.BillDocuments.GetByBillNoAsync(SelectedBill.BillNo);
         if (doc == null)
         {
-            MessageBox.Show("Bill not found.", "WhatsApp", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Bill not found.", "WhatsApp", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -154,7 +155,7 @@ public partial class DuplicateBillViewModel : ObservableObject
             return;
         }
 
-        MessageBox.Show(
+        AppDialog.Show(
             outcome.Error ?? "Could not send WhatsApp bill.",
             "WhatsApp",
             MessageBoxButton.OK,

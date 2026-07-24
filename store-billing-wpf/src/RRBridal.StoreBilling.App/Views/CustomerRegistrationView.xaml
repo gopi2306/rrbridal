@@ -14,9 +14,8 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="New customer registration" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-                <TextBlock Text="Enter customer name and mobile number to register." Style="{StaticResource TextCaption}"
-                           TextWrapping="Wrap" Margin="0,4,0,0"/>
+                <TextBlock Text="New customer registration" Style="{StaticResource TextPageTitleAccent}"/>
+                <TextBlock Text="Enter customer name and mobile number to register." Style="{StaticResource PageSubtitle}"/>
             </StackPanel>
             <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Top">
                 <Button Content="Cancel (Esc)" Style="{StaticResource OutlineButton}" MinWidth="120" Margin="0,0,10,4"
@@ -29,14 +28,14 @@
         <StackPanel Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="12,0">
             <Border Style="{StaticResource CardBorder}" Padding="16" MaxWidth="520" MinWidth="280" HorizontalAlignment="Stretch">
                 <StackPanel>
-                    <TextBlock Text="CUSTOMER NAME *" Style="{StaticResource TextLabel}" Margin="0,0,0,4"/>
+                    <TextBlock Text="Customer name *" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,0,0,12" ToolTip="Full name"/>
 
-                    <TextBlock Text="MOBILE NO. *" Style="{StaticResource TextLabel}" Margin="0,0,0,4"/>
+                    <TextBlock Text="Mobile no. *" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Mobile, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,0,0,8"/>
-                    <TextBlock Text="Mobile number is required for billing lookup." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+                    <TextBlock Text="Mobile number is required for billing lookup." Style="{StaticResource TextCaption}" Margin="0,0,0,12"/>
 
                     <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Orientation="Horizontal">

@@ -20,48 +20,48 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                <TextBlock Text="Quotations" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Quotations" Style="{StaticResource TextPageTitleAccent}"/>
                 <TextBlock Text="Filter by quotation no, customer name, or mobile. Open to edit or convert to billing."
-                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                           Style="{StaticResource PageSubtitle}"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="96" Height="36" Margin="0,0,8,0"
+                <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0"
                         Command="{Binding RefreshCommand}"/>
-                <Button Content="+ Create quotation" Style="{StaticResource PrimaryButton}" MinWidth="150" Height="36"
+                <Button Content="+ Create quotation" Style="{StaticResource PrimaryButton}" MinWidth="150"
                         Command="{Binding NewQuotationCommand}"/>
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="14" Margin="0,0,0,12">
+        <Border Grid.Row="1" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="200"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="160"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*" MinWidth="120"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="120"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="10"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Quotation no" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                    <TextBlock Text="Quotation no" Style="{StaticResource FilterFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"
                              Text="{Binding SearchQuotationNo, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                    <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"
                              Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="4">
-                    <TextBlock Text="Mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                    <TextBlock Text="Mobile" Style="{StaticResource FilterFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"
                              Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Bottom">
-                    <Button Content="Search" Style="{StaticResource PrimaryButton}" MinWidth="96" Height="34" Margin="0,0,8,0"
+                    <Button Content="Search" Style="{StaticResource PrimaryButton}" MinWidth="80" Margin="0,0,8,0"
                             Command="{Binding SearchCommand}"/>
-                    <Button Content="Clear" Style="{StaticResource OutlineButton}" MinWidth="80" Height="34"
+                    <Button Content="Clear" Style="{StaticResource OutlineButton}" MinWidth="72"
                             Command="{Binding ClearFiltersAndSearchCommand}"/>
                 </StackPanel>
             </Grid>
@@ -86,7 +86,7 @@
             </DataGrid>
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="14,12" Margin="0,12,0,0">
+        <Border Grid.Row="3" Style="{StaticResource ActionFooterCard}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -95,11 +95,11 @@
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}"
                            VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="Open" Style="{StaticResource OutlineButton}" MinWidth="96" Height="36" Margin="0,0,8,0"
+                    <Button Content="Open" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0"
                             Command="{Binding OpenSelectedCommand}"/>
-                    <Button Content="Convert to billing" Style="{StaticResource PrimaryButton}" MinWidth="150" Height="36" Margin="0,0,8,0"
+                    <Button Content="Convert to billing" Style="{StaticResource PrimaryButton}" MinWidth="150" Margin="0,0,8,0"
                             Command="{Binding ConvertToBillingCommand}"/>
-                    <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96" Height="36"
+                    <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96"
                             Command="{Binding CancelSelectedCommand}"/>
                 </StackPanel>
             </Grid>

@@ -3,94 +3,128 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
              Background="{StaticResource BrushBackground}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,0,0,16">
-            <TextBlock Text="Day Close" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-            <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Margin="0,4,0,0"/>
-            <TextBlock Text="{Binding TillDisplayLine}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,8"/>
+            <StackPanel Margin="0,0,0,14">
+                <TextBlock Text="Day Close" Style="{StaticResource TextPageTitleAccent}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource PageSubtitle}" Margin="8,0,0,0"/>
+                </StackPanel>
+            </StackPanel>
 
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+            <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                    <TextBlock Text="{Binding SessionStatusBanner}" FontWeight="Bold" FontSize="15"/>
-                    <WrapPanel Margin="0,10,0,0">
-                        <TextBlock Text="Business date" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                        <DatePicker SelectedDate="{Binding SelectedDate}" Width="140" Margin="0,0,8,4"/>
-                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
-                                Command="{Binding RefreshCommand}" Width="90"/>
-                        <Button Content="Download full report" Style="{StaticResource OutlineButton}" Margin="0,0,0,4"
-                                Command="{Binding DownloadReportCommand}" Width="160"/>
+                    <Border Background="{StaticResource BrushAccentSoft}" BorderBrush="{StaticResource BrushAccent}"
+                            BorderThickness="1" CornerRadius="10" Padding="14,10">
+                        <TextBlock Text="{Binding SessionStatusBanner}" FontWeight="Bold" FontSize="15"
+                                   Foreground="{StaticResource BrushAccent}" TextWrapping="Wrap"/>
+                    </Border>
+                    <WrapPanel Margin="0,12,0,0">
+                        <StackPanel Margin="0,0,10,4" VerticalAlignment="Center">
+                            <TextBlock Text="BUSINESS DATE" Style="{StaticResource FilterFieldLabel}"/>
+                            <DatePicker SelectedDate="{Binding SelectedDate}" Width="150" Style="{StaticResource RoundedDatePicker}"/>
+                        </StackPanel>
+                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="100" Margin="0,20,8,4"
+                                Command="{Binding RefreshCommand}"/>
+                        <Button Content="Download full report" Style="{StaticResource OutlineButton}" MinWidth="170" Margin="0,20,0,4"
+                                Command="{Binding DownloadReportCommand}"/>
                     </WrapPanel>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12"
+            <Border Style="{StaticResource CardBorder}"
                     Visibility="{Binding CanOpenDay, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Open day" Margin="0,0,0,8"/>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Open day" Margin="0,0,0,10"/>
                     <WrapPanel>
-                        <TextBlock Text="Opening cash (₹)" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                        <TextBox Width="120" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,4"
-                                 Text="{Binding OpeningCashText, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Content="Open day" Style="{StaticResource PrimaryButton}" Margin="0,0,0,4"
-                                Command="{Binding OpenDayCommand}" Width="100"/>
+                        <StackPanel Margin="0,0,10,4">
+                            <TextBlock Text="OPENING CASH (₹)" Style="{StaticResource FilterFieldLabel}"/>
+                            <TextBox Width="140" Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding OpeningCashText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <Button Content="Open day" Style="{StaticResource PrimaryButton}" MinWidth="110" Margin="0,20,0,4"
+                                Command="{Binding OpenDayCommand}"/>
                     </WrapPanel>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+            <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Day summary" Margin="0,0,0,8"/>
-                    <UniformGrid Columns="4">
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryBillCount}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Sales" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryAmount}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryNetCash}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Expected cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryExpectedCash}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Expenses" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryExpenses}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Deposits" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryDeposits}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Withdrawals" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryWithdrawals}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Expected tender total" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryExpectedTender}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="Online COD pending" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                            <TextBlock Text="{Binding SummaryOnlineCodPending}" FontWeight="SemiBold"/>
-                        </StackPanel>
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Day summary" Margin="0,0,0,12"/>
+                    <UniformGrid ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="4">
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="BILLS" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryBillCount}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCardAccent}">
+                            <StackPanel>
+                                <TextBlock Text="SALES" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryAmount}" Style="{StaticResource MetricValueAccent}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="NET CASH" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryNetCash}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="EXPECTED CASH" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryExpectedCash}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="EXPENSES" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryExpenses}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="DEPOSITS" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryDeposits}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="WITHDRAWALS" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryWithdrawals}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="EXPECTED TENDER TOTAL" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryExpectedTender}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
+                                <TextBlock Text="ONLINE COD PENDING" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryOnlineCodPending}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
                     </UniformGrid>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="12">
+            <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Cash movements" Margin="0,0,0,8"/>
-                    <Grid Margin="0,0,0,8">
+                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Cash movements" Margin="0,0,0,10"/>
+                    <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="130"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
@@ -101,10 +135,10 @@
                                  Text="{Binding MovementAmountText, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="Amount"/>
                         <Button Grid.Column="2" Content="Deposit" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                                Command="{Binding PostDepositCommand}" Width="90"
+                                Command="{Binding PostDepositCommand}" MinWidth="90"
                                 IsEnabled="{Binding CanPostMovements}"/>
-                        <Button Grid.Column="3" Content="Withdraw" Style="{StaticResource OutlineButton}"
-                                Command="{Binding PostWithdrawalCommand}" Width="90"
+                        <Button Grid.Column="3" Content="Withdraw" Style="{StaticResource OutlineButton}" MinWidth="90"
+                                Command="{Binding PostWithdrawalCommand}"
                                 IsEnabled="{Binding CanPostMovements}"/>
                     </Grid>
                     <DataGrid ItemsSource="{Binding CashMovements}" Style="{StaticResource ThemedDataGrid}"
@@ -119,12 +153,12 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardBorder}" Padding="12">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,0">
                 <StackPanel>
                     <TextBlock Style="{StaticResource TextSectionTitle}" Text="Cash hand over &amp; close" Margin="0,0,0,8"/>
                     <TextBlock Text="Count physical cash by denomination, print hand-over slip (F3), then close the day."
-                               Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                    <Button Content="Cash Hand Over…" Style="{StaticResource PrimaryButton}" Width="160" HorizontalAlignment="Left"
+                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                    <Button Content="Cash Hand Over…" Style="{StaticResource PrimaryButton}" MinWidth="170" HorizontalAlignment="Left"
                             Command="{Binding OpenCashHandOverCommand}"/>
                 </StackPanel>
             </Border>

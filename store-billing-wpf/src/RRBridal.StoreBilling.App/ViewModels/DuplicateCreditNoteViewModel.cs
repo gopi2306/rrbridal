@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -98,7 +99,7 @@ public partial class DuplicateCreditNoteViewModel : ObservableObject
 
         if (!_services.PosBillingSettings.Current.AllowDuplicatePrint)
         {
-            MessageBox.Show("Duplicate printing is disabled in billing settings.", "Duplicate print",
+            AppDialog.Show("Duplicate printing is disabled in billing settings.", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -108,13 +109,13 @@ public partial class DuplicateCreditNoteViewModel : ObservableObject
             SelectedCreditNote.ReturnNo);
         if (returnDoc == null)
         {
-            MessageBox.Show("Linked return not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Linked return not found.", "Duplicate print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (SaleReturnDocumentMapper.HasExchangeLines(returnDoc))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Exchange credit-note duplicate reprint is not supported yet. Use the original exchange receipt from the Returns screen.",
                 "Duplicate print",
                 MessageBoxButton.OK,
@@ -127,7 +128,7 @@ public partial class DuplicateCreditNoteViewModel : ObservableObject
         if (!string.Equals(returnMode, "credit_note", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(creditNoteOnReturn))
         {
-            MessageBox.Show("This return was not issued as a credit note.", "Duplicate print",
+            AppDialog.Show("This return was not issued as a credit note.", "Duplicate print",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

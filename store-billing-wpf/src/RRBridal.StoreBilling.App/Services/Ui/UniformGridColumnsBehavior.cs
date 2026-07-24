@@ -57,6 +57,8 @@ public static class UniformGridColumnsBehavior
 
         grid.SetValue(HookedProperty, true);
         grid.Loaded += (_, _) => Attach(grid);
+        if (grid.IsLoaded)
+            Attach(grid);
     }
 
     private static void Attach(UniformGrid grid)

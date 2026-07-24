@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -102,7 +103,7 @@ public partial class SalesmanViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(EditName))
         {
-            MessageBox.Show("Salesman name is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Salesman name is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -121,7 +122,7 @@ public partial class SalesmanViewModel : ObservableObject
 
             if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
             {
-                MessageBox.Show(result.CentralSyncWarning, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(result.CentralSyncWarning, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
             await Refresh();
@@ -132,7 +133,7 @@ public partial class SalesmanViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "Save failed: " + ex.Message;
-            MessageBox.Show(ex.Message, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show(ex.Message, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

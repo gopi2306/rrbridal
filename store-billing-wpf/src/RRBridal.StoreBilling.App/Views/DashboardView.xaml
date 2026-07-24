@@ -17,13 +17,13 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Dashboard" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+                <TextBlock Text="Dashboard" Style="{StaticResource TextPageTitleAccent}"/>
                 <StackPanel Margin="0,4,0,0">
                     <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
-                    <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" FontSize="12" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" Style="{StaticResource PageSubtitle}" Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <TextBlock Text="Counter filter:" VerticalAlignment="Center" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,8,0"/>
+                    <TextBlock Text="Counter filter:" Style="{StaticResource FilterFieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
                               SelectedItem="{Binding SelectedPosCounterFilter}"
                               DisplayMemberPath="Label"
@@ -48,16 +48,16 @@
                                      ui:UniformGridColumnsBehavior.CompactColumns="1"
                                      ui:UniformGridColumnsBehavior.MediumColumns="2"
                                      ui:UniformGridColumnsBehavior.WideColumns="2">
-                            <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8" BorderBrush="{StaticResource BrushAccent}">
+                            <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,8,8">
                                 <StackPanel>
                                     <TextBlock Text="Today" Style="{StaticResource TextCaption}"/>
-                                    <TextBlock Text="{Binding BillsTodaySummary}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding BillsTodaySummary}" Style="{StaticResource MetricValue}"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardBorder}" Margin="8,0,0,8">
+                            <Border Style="{StaticResource MetricCard}" Margin="8,0,0,8">
                                 <StackPanel>
-                                    <TextBlock Text="Last 7 days" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                    <TextBlock Text="{Binding BillsWeekSummary}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Last 7 days" Style="{StaticResource TextCaption}"/>
+                                    <TextBlock Text="{Binding BillsWeekSummary}" Style="{StaticResource MetricValue}"/>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
@@ -67,34 +67,34 @@
                                      ui:UniformGridColumnsBehavior.CompactColumns="1"
                                      ui:UniformGridColumnsBehavior.MediumColumns="2"
                                      ui:UniformGridColumnsBehavior.WideColumns="4">
-                            <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0" BorderBrush="{StaticResource BrushAccent}">
+                            <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,8,0">
                                 <StackPanel>
                                     <TextBlock Text="COD balance till" Style="{StaticResource TextCaption}"/>
-                                    <TextBlock Text="{Binding CodBalanceTillSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CodBalanceTillSummary}" Style="{StaticResource MetricValue}"/>
                                     <Button Content="Online sales" Style="{StaticResource OutlineButton}" Margin="0,8,0,0" Padding="8,4"
                                             Command="{Binding OpenOnlineSalesPageCommand}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource MetricCard}" Margin="4,0" BorderBrush="{StaticResource BrushAccent}">
+                            <Border Style="{StaticResource MetricCardAccent}" Margin="4,0">
                                 <StackPanel>
                                     <TextBlock Text="Pending credit bills" Style="{StaticResource TextCaption}"/>
-                                    <TextBlock Text="{Binding CreditPendingBalanceSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CreditPendingBalanceSummary}" Style="{StaticResource MetricValue}"/>
                                     <TextBlock Text="{Binding CreditPendingCountSummary, StringFormat={}{0} open}" FontSize="12"
                                                Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
                                     <Button Content="Credit bills" Style="{StaticResource OutlineButton}" Margin="0,8,0,0" Padding="8,4"
                                             Command="{Binding OpenCreditBillsPageCommand}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                            <Border Style="{StaticResource MetricCard}" Margin="4,0">
                                 <StackPanel>
-                                    <TextBlock Text="Total available quantity" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                    <TextBlock Text="{Binding TotalAvailableQtySummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Total available quantity" Style="{StaticResource TextCaption}"/>
+                                    <TextBlock Text="{Binding TotalAvailableQtySummary}" Style="{StaticResource MetricValue}"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                            <Border Style="{StaticResource MetricCard}" Margin="8,0,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="Products in local cache" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                    <TextBlock Text="{Binding ProductCacheSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Products in local cache" Style="{StaticResource TextCaption}"/>
+                                    <TextBlock Text="{Binding ProductCacheSummary}" Style="{StaticResource MetricValue}"/>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
@@ -228,22 +228,22 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="3">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Total bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseBillCountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Total bills" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseBillCountSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0,4,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0,4,8">
                             <StackPanel>
-                                <TextBlock Text="Total qty sold" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseQtySummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Total qty sold" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseQtySummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="8,0,0,8">
                             <StackPanel>
-                                <TextBlock Text="Total amount" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseAmountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Total amount" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseAmountSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -253,28 +253,28 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="4">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="Cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseCashSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Cash" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseCashSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Card" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseCardSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Card" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseCardSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="UPI" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseUpiSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="UPI" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseUpiSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="CN used (billing)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseCreditNoteSummary}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Text="CN used (billing)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseCreditNoteSummary}" Style="{StaticResource MetricValue}" FontSize="13"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -284,31 +284,31 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="4">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="Return count" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseReturnCountSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Return count" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseReturnCountSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Total return amount" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseReturnTotalSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Total return amount" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseReturnTotalSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Cash refunded" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseCashRefundSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Cash refunded" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseCashRefundSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                                 <TextBlock Text="{Binding DayCloseCashRefundDetailSummary}" FontSize="11" Foreground="{StaticResource BrushTextMuted}"
                                            TextWrapping="Wrap" Margin="0,2,0,0"
                                            Visibility="{Binding DayCloseShowCashRefundDetail, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="CN issued" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseCnIssuedSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="CN issued" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseCnIssuedSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -318,16 +318,16 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="4">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="Online COD pending (not in cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseOnlineCodPendingSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Online COD pending (not in cash)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseOnlineCodPendingSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Daily expenses (deducted from net cash)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseDailyExpensesSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Daily expenses (deducted from net cash)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseDailyExpensesSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -337,28 +337,28 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="4">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="Net cash" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseNetCashSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Net cash" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseNetCashSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Net card" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseNetCardSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Net card" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseNetCardSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Net UPI" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseNetUpiSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Net UPI" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseNetUpiSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                        <Border Style="{StaticResource MetricCardAccent}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Expected tender total" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseActualHandInSummary}" FontSize="18" FontWeight="Bold"/>
+                                <TextBlock Text="Expected tender total" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseActualHandInSummary}" Style="{StaticResource MetricValue}" FontSize="18" FontWeight="Bold"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -368,22 +368,22 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="3">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="Expected cash (drawer)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseExpectedCashSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Expected cash (drawer)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseExpectedCashSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="4,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="4,0">
                             <StackPanel>
-                                <TextBlock Text="Deposits to bank" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseDepositsSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Deposits to bank" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseDepositsSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                        <Border Style="{StaticResource MetricCard}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Cash withdrawals" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding DayCloseWithdrawalsSummary}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Cash withdrawals" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding DayCloseWithdrawalsSummary}" Style="{StaticResource MetricValue}" FontSize="16"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -874,40 +874,40 @@
                                  ui:UniformGridColumnsBehavior.CompactColumns="2"
                                  ui:UniformGridColumnsBehavior.MediumColumns="3"
                                  ui:UniformGridColumnsBehavior.WideColumns="6">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Bills" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginBillCountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Bills" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginBillCountSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Cost (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginTotalCostSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Cost (ex GST)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginTotalCostSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Selling (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginTotalSellingSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Selling (ex GST)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginTotalSellingSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCard}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Discount (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginTotalDiscountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Discount (ex GST)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginTotalDiscountSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,8,8">
+                        <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,8,8">
                             <StackPanel>
-                                <TextBlock Text="Margin amt (ex GST)" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginTotalMarginSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Margin amt (ex GST)" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginTotalMarginSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
+                        <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,0,8">
                             <StackPanel>
-                                <TextBlock Text="Margin %" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding BillMarginTotalMarginPercentSummary}" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Margin %" Style="{StaticResource TextCaption}"/>
+                                <TextBlock Text="{Binding BillMarginTotalMarginPercentSummary}" Style="{StaticResource MetricValue}" FontSize="18"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>

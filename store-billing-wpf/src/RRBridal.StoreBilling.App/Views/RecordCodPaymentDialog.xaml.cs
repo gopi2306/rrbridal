@@ -1,4 +1,5 @@
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -20,7 +21,7 @@ public partial class RecordCodPaymentDialog : Window
         var txn = TransactionNoBox.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(txn))
         {
-            MessageBox.Show("Enter a transaction / reference number.", "Record payment",
+            AppDialog.Show("Enter a transaction / reference number.", "Record payment",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }

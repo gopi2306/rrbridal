@@ -19,9 +19,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Online sales" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+            <TextBlock Text="Online sales" Style="{StaticResource TextPageTitleAccent}"/>
             <TextBlock Text="Online COD orders — balance till until payment is recorded with transaction number."
-                       Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                       Style="{StaticResource PageSubtitle}"/>
         </StackPanel>
 
         <UniformGrid Grid.Row="1" Margin="0,0,0,12"
@@ -29,62 +29,65 @@
                      ui:UniformGridColumnsBehavior.CompactColumns="1"
                      ui:UniformGridColumnsBehavior.MediumColumns="2"
                      ui:UniformGridColumnsBehavior.WideColumns="3">
-            <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0" BorderBrush="{StaticResource BrushAccent}">
+            <Border Style="{StaticResource MetricCardAccent}" Margin="0,0,8,0">
                 <StackPanel>
                     <TextBlock Text="Balance till" Style="{StaticResource TextCaption}"/>
-                    <TextBlock Text="{Binding BalanceTillSummary}" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding BalanceTillSummary}" Style="{StaticResource MetricValueAccent}"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardBorder}" Margin="4,0">
+            <Border Style="{StaticResource MetricCard}" Margin="4,0">
                 <StackPanel>
-                    <TextBlock Text="Pending orders" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                    <TextBlock Text="{Binding PendingCountSummary}" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="Pending orders" Style="{StaticResource TextCaption}"/>
+                    <TextBlock Text="{Binding PendingCountSummary}" Style="{StaticResource MetricValue}"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+            <Border Style="{StaticResource MetricCard}" Margin="8,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="Received today" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                    <TextBlock Text="{Binding ReceivedTodaySummary}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="Received today" Style="{StaticResource TextCaption}"/>
+                    <TextBlock Text="{Binding ReceivedTodaySummary}" Style="{StaticResource MetricValue}" FontSize="14"/>
                 </StackPanel>
             </Border>
         </UniformGrid>
 
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+        <Border Grid.Row="2" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="100"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="10"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                    <TextBlock Text="Bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Bill no" Style="{StaticResource FilterFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchBillNo, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
-                    <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,8,8">
-                    <TextBlock Text="Status" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Status" Style="{StaticResource FilterFieldLabel}"/>
                     <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding StatusFilterOptions}"
-                              SelectedItem="{Binding SelectedStatusFilter}" Margin="0,4,0,0"/>
+                              SelectedItem="{Binding SelectedStatusFilter}"/>
                 </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                    <TextBlock Text="Date from" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                <StackPanel Grid.Column="6">
+                    <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}"/>
                 </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
-                    <TextBlock Text="Date to" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                <StackPanel Grid.Column="8">
+                    <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}"/>
                 </StackPanel>
-                <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="90" Margin="0,0,8,0" Command="{Binding SearchCommand}"/>
-                    <Button Content="Refresh" Style="{StaticResource OutlineButton}" Width="90" Command="{Binding RefreshCommand}"/>
+                <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <Button Content="Search" Style="{StaticResource PrimaryButton}" MinWidth="80" Margin="0,0,8,0" Command="{Binding SearchCommand}"/>
+                    <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="80" Command="{Binding RefreshCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -112,21 +115,23 @@
             </DataGrid>
         </Border>
 
-        <StackPanel Grid.Row="4" Margin="0,12,0,0">
-            <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{StaticResource BrushTextMuted}"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,10"
-                       IsHitTestVisible="False"/>
-            <Button Content="Record payment"
-                    Style="{StaticResource PrimaryButton}"
-                    MinWidth="160"
-                    Padding="20,10"
-                    HorizontalAlignment="Center"
-                    Command="{Binding RecordPaymentCommand}"/>
-        </StackPanel>
+        <Border Grid.Row="4" Style="{StaticResource ActionFooterCard}">
+            <StackPanel>
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource BrushTextMuted}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,10"
+                           IsHitTestVisible="False"/>
+                <Button Content="Record payment"
+                        Style="{StaticResource PrimaryButton}"
+                        MinWidth="160"
+                        Padding="20,10"
+                        HorizontalAlignment="Center"
+                        Command="{Binding RecordPaymentCommand}"/>
+            </StackPanel>
+        </Border>
     </Grid>
     </ScrollViewer>
 </UserControl>

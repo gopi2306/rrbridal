@@ -10,82 +10,78 @@
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="0,0,0,8">
+        <Grid Grid.Row="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="BarCode Printing" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-                <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}" Margin="0,4,0,0"/>
+                <TextBlock Text="Barcode printing" Style="{StaticResource TextPageTitleAccent}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <TextBlock Text=" · Type SKU in the blank row — pick from suggestions or press Enter — or use the list (F6)."
+                               Style="{StaticResource PageSubtitle}" Margin="4,0,0,0"/>
+                </StackPanel>
             </StackPanel>
             <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Button Content="Print (F5)" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4" Padding="16,8"
+                <Button Content="Print (F5)" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="0,0,8,4"
                         Command="{Binding PrintLabelsCommand}"/>
-                <Button Content="Add item (F6)" Style="{StaticResource OutlineButton}" Margin="0,0,8,4" Padding="16,8"
+                <Button Content="Add item (F6)" Style="{StaticResource OutlineButton}" MinWidth="120" Margin="0,0,8,4"
                         Command="{Binding OpenItemListCommand}"/>
-                <Button Content="Clear (F7)" Style="{StaticResource OutlineButton}" Margin="0,0,0,4" Padding="16,8"
+                <Button Content="Clear (F7)" Style="{StaticResource OutlineButton}" MinWidth="100" Margin="0,0,0,4"
                         Command="{Binding ClearScreenCommand}"/>
             </WrapPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,0,0,8">
-            <TextBlock Text="Type SKU in the blank row — pick from suggestions or press Enter — or use the list (F6)."
-                       Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Button HorizontalAlignment="Right" Content="Clear (F7)" Style="{StaticResource GhostNavButton}"
-                    Command="{Binding ClearScreenCommand}"/>
-        </Grid>
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="8">
+            <DataGrid x:Name="LinesGrid"
+                      ItemsSource="{Binding Lines}"
+                      Style="{StaticResource ThemedDataGrid}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="SNo" Binding="{Binding LineNo}" IsReadOnly="True" Width="45"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Code" Binding="{Binding Code, UpdateSourceTrigger=PropertyChanged}" Width="100"
+                                        EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Item" Binding="{Binding Item}" IsReadOnly="True" Width="*"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Cost price" Binding="{Binding CostPrice, StringFormat=N2}" IsReadOnly="True" Width="90"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=N2}" IsReadOnly="True" Width="85"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Selling price" Binding="{Binding SellingPrice, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=N2}" IsReadOnly="True" Width="95"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="GST %" Binding="{Binding GstPercent, StringFormat=N2}" IsReadOnly="True" Width="65"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Qty" Binding="{Binding PrintQty, UpdateSourceTrigger=PropertyChanged}" Width="70"
+                                        EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="Packing" Binding="{Binding Packing}" IsReadOnly="True" Width="70"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="BatchNo" Binding="{Binding BatchNo}" IsReadOnly="True" Width="75"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="PkdDate" Binding="{Binding PkdDate}" IsReadOnly="True" Width="75"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                    <DataGridTextColumn Header="ExpDate" Binding="{Binding ExpDate}" IsReadOnly="True" Width="75"
+                                        ElementStyle="{StaticResource ThemedDataGridCellText}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
 
-        <DataGrid x:Name="LinesGrid" Grid.Row="2"
-                  ItemsSource="{Binding Lines}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  HeadersVisibility="Column"
-                  GridLinesVisibility="Horizontal"
-                  Background="White"
-                  BorderBrush="{StaticResource BrushBorder}"
-                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                  PreparingCellForEdit="LinesGrid_OnPreparingCellForEdit">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="SNo" Binding="{Binding LineNo}" IsReadOnly="True" Width="45"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Code" Binding="{Binding Code, UpdateSourceTrigger=PropertyChanged}" Width="100"
-                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Item" Binding="{Binding Item}" IsReadOnly="True" Width="*"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Cost price" Binding="{Binding CostPrice, StringFormat=N2}" IsReadOnly="True" Width="90"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=N2}" IsReadOnly="True" Width="85"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Selling price" Binding="{Binding SellingPrice, StringFormat=N2}" IsReadOnly="True" Width="95"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=N2}" IsReadOnly="True" Width="95"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="GST %" Binding="{Binding GstPercent, StringFormat=N2}" IsReadOnly="True" Width="65"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Qty" Binding="{Binding PrintQty, UpdateSourceTrigger=PropertyChanged}" Width="70"
-                                    EditingElementStyle="{StaticResource ThemedDataGridCellTextBox}"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="Packing" Binding="{Binding Packing}" IsReadOnly="True" Width="70"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="BatchNo" Binding="{Binding BatchNo}" IsReadOnly="True" Width="75"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="PkdDate" Binding="{Binding PkdDate}" IsReadOnly="True" Width="75"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-                <DataGridTextColumn Header="ExpDate" Binding="{Binding ExpDate}" IsReadOnly="True" Width="75"
-                                    ElementStyle="{StaticResource ThemedDataGridCellText}"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <Border Grid.Row="2" Style="{StaticResource ActionFooterCard}" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+        </Border>
 
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}"
-                   TextWrapping="Wrap" Margin="0,8,0,0"/>
-
-        <Border Grid.Row="4" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}"
-                BorderThickness="0,1,0,0" Padding="12,10" Margin="0,12,0,0">
+        <Border Grid.Row="3" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,1,0,0" Padding="12,10" CornerRadius="10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button Style="{StaticResource ShortcutChip}" Content="F5 Print" Command="{Binding PrintLabelsCommand}"/>
                 <Button Style="{StaticResource ShortcutChip}" Content="F6 Item list" Command="{Binding OpenItemListCommand}"/>

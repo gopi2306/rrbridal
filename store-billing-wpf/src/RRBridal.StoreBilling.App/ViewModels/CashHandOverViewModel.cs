@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -135,7 +136,7 @@ public partial class CashHandOverViewModel : ObservableObject
             return;
         }
 
-        var confirm = MessageBox.Show(
+        var confirm = AppDialog.Show(
             $"Close day with cash in hand {MoneyMath.FormatRupee(cashInHand)}?\nExpected: {MoneyMath.FormatRupee(_snapshot.ExpectedCash)}",
             "Close day",
             MessageBoxButton.YesNo,

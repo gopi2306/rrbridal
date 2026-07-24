@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -162,7 +163,7 @@ public partial class BillingViewModel : ObservableObject
 
     [ObservableProperty] private bool _isPhoneComplete;
 
-    /// <summary>Orange blinking border while fewer than 10 digits are entered.</summary>
+    /// <summary>Accent blinking border while fewer than 10 digits are entered.</summary>
     [ObservableProperty] private bool _isPhoneIncompleteHighlight;
 
     private bool _roundOffUserEdited;
@@ -460,7 +461,7 @@ public partial class BillingViewModel : ObservableObject
             SyncDiscountTextFromState();
             if (showMessage)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     $"Discount cannot exceed {maxPct:0.##}% for your user account.",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -1118,7 +1119,7 @@ public partial class BillingViewModel : ObservableObject
         var query = (CustomerName ?? "").Trim();
         if (string.IsNullOrEmpty(query))
         {
-            MessageBox.Show("Enter a customer name to search.", "RR Bridal Billing",
+            AppDialog.Show("Enter a customer name to search.", "RR Bridal Billing",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1244,7 +1245,7 @@ public partial class BillingViewModel : ObservableObject
 
             if (!string.IsNullOrWhiteSpace(reg.CentralSyncWarning))
             {
-                MessageBox.Show(reg.CentralSyncWarning, "RR Bridal Billing",
+                AppDialog.Show(reg.CentralSyncWarning, "RR Bridal Billing",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
@@ -1274,7 +1275,7 @@ public partial class BillingViewModel : ObservableObject
         {
             if (!phoneSearchOnly)
             {
-                MessageBox.Show("Enter a mobile number, customer name, or code to search.", "RR Bridal Billing",
+                AppDialog.Show("Enter a mobile number, customer name, or code to search.", "RR Bridal Billing",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             return;
@@ -1326,7 +1327,7 @@ public partial class BillingViewModel : ObservableObject
         var q = (input ?? "").Trim();
         if (q.Length < 1)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Enter a product code.",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
@@ -1375,7 +1376,7 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        MessageBox.Show(
+        AppDialog.Show(
             $"No product found in local inventory for \"{q}\".\nA reference indent request has been created.",
             "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
         await AddIndentRequestAsync(q, q, "", ct);
@@ -1476,7 +1477,7 @@ public partial class BillingViewModel : ObservableObject
         if (!MarginGatekeeper.TryBuildWarning(label, line.Rate, line.CostPrice, line.MarginPercent, out var message))
             return;
 
-        MessageBox.Show(
+        AppDialog.Show(
             message,
             "Below minimum margin",
             MessageBoxButton.OK,
@@ -1500,7 +1501,7 @@ public partial class BillingViewModel : ObservableObject
                 _services.PosBillingSettings.Load();
                 if (_services.PosBillingSettings.Current.ConfirmDuplicateProductAdd)
                 {
-                    var confirm = MessageBox.Show(
+                    var confirm = AppDialog.Show(
                         $"\"{productLabel}\" is already on this bill (qty {existing.Qty:0.###}).\n\nAdd {addQty:0.###} more to quantity?",
                         "RR Bridal Billing",
                         MessageBoxButton.YesNo,
@@ -1561,7 +1562,7 @@ public partial class BillingViewModel : ObservableObject
     [RelayCommand]
     private void ImportCsv()
     {
-        MessageBox.Show("CSV import is not implemented yet.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+        AppDialog.Show("CSV import is not implemented yet.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     [RelayCommand]
@@ -1619,7 +1620,7 @@ public partial class BillingViewModel : ObservableObject
         {
             if (!IsCustomerReadyForPost)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     "Enter customer name and a valid 10-digit mobile number before posting the bill.",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -1627,7 +1628,7 @@ public partial class BillingViewModel : ObservableObject
             }
             else
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     "Select a salesman before posting the bill.",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -1641,7 +1642,7 @@ public partial class BillingViewModel : ObservableObject
             var stillOffline = !await _services.MongoHealth.PingAsync().ConfigureAwait(true);
             if (stillOffline)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     _services.MongoHealth.OfflineUserMessage +
                     "\n\nBill posting is blocked until store MongoDB is reachable.",
                     "RR Bridal Billing — MongoDB offline",
@@ -1653,7 +1654,7 @@ public partial class BillingViewModel : ObservableObject
 
         if (!Lines.Any(l => l.Amount > 0))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Add at least one line with quantity × rate (use product search or Add manual).",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
@@ -1667,7 +1668,7 @@ public partial class BillingViewModel : ObservableObject
             _services.StoreContext.PosCounter);
         if (dayBlock != null)
         {
-            MessageBox.Show(dayBlock, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(dayBlock, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1678,7 +1679,7 @@ public partial class BillingViewModel : ObservableObject
             RecalculateTotals();
             if (!IsManualDiscountWithinCap())
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     $"Discount cannot exceed {MaxDiscountPercent:0.##}% for your user account.",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -1717,7 +1718,7 @@ public partial class BillingViewModel : ObservableObject
 
         if (OnlineCodOrder && totals.AppliedCredit > 0)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Online COD orders cannot use credit note payment. Clear the credit note selection first.",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
@@ -1815,7 +1816,7 @@ public partial class BillingViewModel : ObservableObject
                 totals.AppliedCredit);
             if (!consumed)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     "Could not apply the selected credit note (it may already be used). Refresh and try again.",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -2067,7 +2068,7 @@ public partial class BillingViewModel : ObservableObject
 
             if (postWarnings.Count > 0)
             {
-                MessageBox.Show(
+                AppDialog.Show(
                     $"Bill {postedBillNo} was saved, but some follow-up steps had issues:\n\n{string.Join("\n", postWarnings)}",
                     "RR Bridal Billing",
                     MessageBoxButton.OK,
@@ -2083,7 +2084,7 @@ public partial class BillingViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not save bill: {ex.Message}", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not save bill: {ex.Message}", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2123,7 +2124,7 @@ public partial class BillingViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 $"Bill was saved, but credit receipt print failed:\n{ex.Message}",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
@@ -2134,24 +2135,15 @@ public partial class BillingViewModel : ObservableObject
     [RelayCommand]
     private static void ShowHelp()
     {
-        MessageBox.Show(
-            "Store billing flow:\n" +
-            "• Settings (gear): login to central, Run sync once — fills local product cache.\n" +
-            "• Barcode labels: store the printed code in central product field barcode (or sku), then sync — scan into last row Product code.\n" +
-            "• Last row Product code — SKU/barcode Enter adds line (Qty on row optional, default 1).\n" +
-            "• Change Qty on the entry row and press Enter to move to Product code before scanning.\n" +
-            "• F3 — focus entry row Product code.\n" +
-            "• F2 — new bill (clears lines).\n" +
-            "• Add manual — same as typing product code in the last grid row.\n" +
-            "• F8 — hold bill (save draft without payment or stock change).\n" +
-            "• Resume held — open held bills from billing screen.\n" +
-            "• F9 — post bill (saves to local store_bills in Mongo).\n" +
-            "• F10 — invoice preview / print (thermal format).\n" +
-            "• F11 — duplicate bill (reprint posted invoice).\n" +
-            "• Multi-counter / ZeroTier parent-Mongo: same STORE_ID + STORE_MONGO_URI on parent ZeroTier IP; unique DEVICE_ID and POS_COUNTER per till (see deploy/env.counter-*.example and deploy/ZEROTIER_PARENT_MONGO.md).\n" +
-            "• Set STORE_ID, DEVICE_ID, POS_COUNTER and STORE_MONGO_URI in .env.\n" +
-            "• F12 — exit.",
-            "RR Bridal Billing",
+        AppDialog.Show(
+            "Billing flow:\n" +
+            "• Sync products from Settings, then scan barcode / SKU into the last row Product code.\n" +
+            "• Enter on product code adds the line (qty optional, default 1).\n" +
+            "• F3 / Ctrl+F — focus product code · F2 / Ctrl+N — new bill\n" +
+            "• F8 / Ctrl+H — hold · F9 / Ctrl+Enter — post · F10 / Ctrl+P — print\n" +
+            "• F11 — duplicate · F12 — exit · Ctrl+A — Billing · Ctrl+G — Go To\n" +
+            "• Press F1 on any screen for the full shortcut map.",
+            "Billing help",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -2161,7 +2153,7 @@ public partial class BillingViewModel : ObservableObject
     {
         if (!Lines.Any(l => l.Amount > 0))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Add at least one line with quantity × rate before printing.",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,
@@ -2270,7 +2262,7 @@ public partial class BillingViewModel : ObservableObject
     {
         if (!Lines.Any(l => l.Amount > 0))
         {
-            MessageBox.Show("Add at least one line before holding the bill.", "Hold bill",
+            AppDialog.Show("Add at least one line before holding the bill.", "Hold bill",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -2288,13 +2280,13 @@ public partial class BillingViewModel : ObservableObject
             DraftLabel = "HELD";
             var doc = BuildHeldBillDocument(_activeHoldNo);
             await _services.HeldBills.UpsertAsync(doc);
-            MessageBox.Show($"Hold {HoldNo} saved. Use Resume held bills to continue.", "Hold bill",
+            AppDialog.Show($"Hold {HoldNo} saved. Use Resume held bills to continue.", "Hold bill",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             ClearForNewBill();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not hold bill: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not hold bill: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2311,7 +2303,7 @@ public partial class BillingViewModel : ObservableObject
             if (dlg.DeleteRequested && dlg.SelectedRow != null)
             {
                 await _services.HeldBills.DeleteAsync(dlg.SelectedRow.HoldNo);
-                MessageBox.Show("Held bill deleted.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Information);
+                AppDialog.Show("Held bill deleted.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -2321,7 +2313,7 @@ public partial class BillingViewModel : ObservableObject
             var doc = await _services.HeldBills.GetByHoldNoAsync(dlg.SelectedRow.HoldNo);
             if (doc == null)
             {
-                MessageBox.Show("Held bill not found.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show("Held bill not found.", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -2329,7 +2321,7 @@ public partial class BillingViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open held bills: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not open held bills: {ex.Message}", "Hold bill", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

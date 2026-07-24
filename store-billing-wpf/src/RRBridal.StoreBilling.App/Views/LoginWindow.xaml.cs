@@ -26,13 +26,27 @@ public partial class LoginWindow : Window
         {
             WindowLayoutHelper.CenterOnScreen(this);
             await _vm.RefreshBrandingAsync();
+            UpdatePlaceholders();
+            UpdateBrandPanelVisibility(ActualWidth);
+            if (string.IsNullOrWhiteSpace(_vm.Email))
+                EmailBox.Focus();
+            else
+                PasswordBox.Focus();
         };
 
-        PasswordBox.PasswordChanged += (_, _) => _vm.Password = PasswordBox.Password;
         PasswordBox.KeyDown += OnPasswordKeyDown;
+        EmailBox.KeyDown += OnEmailKeyDown;
     }
 
     public StoreUserRecord? AuthenticatedUser => _vm.AuthenticatedUser;
+
+    private void OnEmailKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+        PasswordBox.Focus();
+        e.Handled = true;
+    }
 
     private void OnPasswordKeyDown(object sender, KeyEventArgs e)
     {
@@ -41,6 +55,44 @@ public partial class LoginWindow : Window
             _vm.LoginCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    private void LoginWindow_OnSizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateBrandPanelVisibility(e.NewSize.Width);
+
+    private void UpdateBrandPanelVisibility(double width)
+    {
+        var showBrand = width >= 640;
+        BrandPanel.Visibility = showBrand ? Visibility.Visible : Visibility.Collapsed;
+        BrandColumn.Width = showBrand ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    }
+
+    private void EmailBox_OnGotFocus(object sender, RoutedEventArgs e) => UpdatePlaceholders();
+    private void EmailBox_OnLostFocus(object sender, RoutedEventArgs e) => UpdatePlaceholders();
+    private void EmailBox_OnTextChanged(object sender, TextChangedEventArgs e) => UpdatePlaceholders();
+
+    private void PasswordBox_OnGotFocus(object sender, RoutedEventArgs e)
+    {
+        _vm.Password = PasswordBox.Password;
+        UpdatePlaceholders();
+    }
+
+    private void PasswordBox_OnLostFocus(object sender, RoutedEventArgs e) => UpdatePlaceholders();
+
+    private void PasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        _vm.Password = PasswordBox.Password;
+        UpdatePlaceholders();
+    }
+
+    private void UpdatePlaceholders()
+    {
+        EmailPlaceholder.Visibility = string.IsNullOrEmpty(EmailBox.Text) && !EmailBox.IsKeyboardFocusWithin
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PasswordPlaceholder.Visibility = string.IsNullOrEmpty(PasswordBox.Password) && !PasswordBox.IsKeyboardFocusWithin
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void OnLoginSucceeded()

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Models;
 
@@ -35,7 +36,7 @@ public static class SaleReturnPrintFlow
             var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -80,7 +81,7 @@ public static class SaleReturnPrintFlow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
     }
@@ -107,7 +108,7 @@ public static class SaleReturnPrintFlow
             var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -153,7 +154,7 @@ public static class SaleReturnPrintFlow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
     }
@@ -170,7 +171,7 @@ public static class SaleReturnPrintFlow
             var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -202,7 +203,7 @@ public static class SaleReturnPrintFlow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Could not open return receipt preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
     }

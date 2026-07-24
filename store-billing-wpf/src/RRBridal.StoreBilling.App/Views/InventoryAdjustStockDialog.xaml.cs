@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.Inventory;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -55,14 +56,14 @@ public partial class InventoryAdjustStockDialog
 
         if (!decimal.TryParse(QuantityBox.Text?.Trim(), NumberStyles.Number, ParseCulture, out var qty) || qty < 0)
         {
-            MessageBox.Show(this, "Enter a valid quantity.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, "Enter a valid quantity.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
             QuantityBox.Focus();
             return;
         }
 
         if (SelectedMode is InventoryAdjustmentMode.Add or InventoryAdjustmentMode.Remove && qty <= 0)
         {
-            MessageBox.Show(this, "Quantity must be greater than zero.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, "Quantity must be greater than zero.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
             QuantityBox.Focus();
             return;
         }
@@ -70,7 +71,7 @@ public partial class InventoryAdjustStockDialog
         var trimmedReason = ReasonBox.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(trimmedReason))
         {
-            MessageBox.Show(this, "Reason is required.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, "Reason is required.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
             ReasonBox.Focus();
             return;
         }
@@ -88,13 +89,13 @@ public partial class InventoryAdjustStockDialog
 
         if (delta == 0)
         {
-            MessageBox.Show(this, "No change in quantity.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show(this, "No change in quantity.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (currentQty + delta < 0)
         {
-            MessageBox.Show(this, "Resulting quantity cannot be negative.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, "Resulting quantity cannot be negative.", "Adjust stock", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

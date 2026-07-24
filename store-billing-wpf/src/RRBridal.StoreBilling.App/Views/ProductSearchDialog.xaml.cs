@@ -78,7 +78,7 @@ public partial class ProductSearchDialog
         if (DataContext is not ProductSearchViewModel vm || vm.SelectedProduct == null)
         {
             if (success)
-                MessageBox.Show("Select a product first.", "Pick product", MessageBoxButton.OK, MessageBoxImage.Information);
+                AppDialog.Show("Select a product first.", "Pick product", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 

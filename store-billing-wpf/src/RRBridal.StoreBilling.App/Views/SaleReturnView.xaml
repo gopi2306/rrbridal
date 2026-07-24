@@ -12,10 +12,15 @@
           ui:MasterDetailLayoutBehavior.IsEnabled="True">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Returns" Style="{StaticResource TextPageTitleAccent}"/>
+                    <TextBlock Text="Look up the original bill and process a return or exchange" Style="{StaticResource PageSubtitle}"/>
+                </StackPanel>
+
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TextSectionTitle}" Text="Sale Return" Margin="0,0,0,12"/>
-                        <TextBlock Text="Return source" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
+                        <TextBlock Text="Return source" Style="{StaticResource FilterFieldLabel}" Margin="0,0,0,4"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <RadioButton Content="System bill" GroupName="ReturnSourceMode" Margin="0,0,16,0"
                                          IsChecked="{Binding SourceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=SystemBill}"/>
@@ -31,26 +36,26 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Original bill no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Original bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Full bill no or partial match"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer mobile" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Margin="0,4,0,0"
                                          Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <Button Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
-                                    VerticalAlignment="Bottom" Width="100" Padding="14,8"
+                                    VerticalAlignment="Bottom" MinWidth="80"
                                     Command="{Binding SearchBillsCommand}"/>
                         </Grid>
 
@@ -64,23 +69,23 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Reference invoice no" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Reference invoice no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
                                          Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Original invoice date" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
-                                <DatePicker Margin="0,4,0,0" SelectedDate="{Binding OriginalBillDate}"/>
+                                <TextBlock Text="Original invoice date" Style="{StaticResource FilterFieldLabel}"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" Margin="0,4,0,0" SelectedDate="{Binding OriginalBillDate}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                <TextBlock Text="Customer name" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox x:Name="LegacyCustomerNameBox" Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
                                          Text="{Binding LegacyCustomerName, UpdateSourceTrigger=PropertyChanged}"
                                          KeyDown="LegacyCustomerNameBox_OnKeyDown"
                                          ToolTip="Enter name and press Enter, or use Find customer"/>
                             </StackPanel>
                             <StackPanel Grid.Column="3" Margin="0,0,8,0">
-                                <TextBlock Text="Customer mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="11"/>
+                                <TextBlock Text="Customer mobile" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox x:Name="LegacyCustomerPhoneBox" Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
                                          MaxLength="10"
                                          Text="{Binding LegacyCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
@@ -89,11 +94,11 @@
                                          ToolTip="10-digit mobile — searches on Enter or when you leave the field"/>
                             </StackPanel>
                             <Button Grid.Column="4" Content="Find customer" Style="{StaticResource OutlineButton}"
-                                    VerticalAlignment="Bottom" Width="110" Padding="14,8" Margin="0,0,8,0"
+                                    VerticalAlignment="Bottom" MinWidth="100" Margin="0,0,8,0"
                                     Command="{Binding SearchLegacyCustomerCommand}"
                                     ToolTip="Search by name or mobile; create new if not found"/>
                             <Button Grid.Column="5" Content="Start return" Style="{StaticResource PrimaryButton}"
-                                    VerticalAlignment="Bottom" Width="110" Padding="14,8"
+                                    VerticalAlignment="Bottom" MinWidth="100"
                                     Command="{Binding StartPreSystemReturnCommand}"/>
                         </Grid>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="12"
@@ -136,7 +141,7 @@
                         Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
                     <DockPanel LastChildFill="True">
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="Return Items"/>
+                            <TextBlock Style="{StaticResource TextSectionTitle}" Text="Return Items"/>
                             <StackPanel Margin="0,8,0,0"
                                         Visibility="{Binding ShowLegacyReturnLines, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="Search catalog SKU or barcode, then Add product. Lines appear in the table below."
@@ -152,10 +157,10 @@
                                              Text="{Binding PreSystemProductSearch, UpdateSourceTrigger=PropertyChanged}"
                                              ToolTip="SKU, barcode, or product name"/>
                                     <Button Grid.Column="1" Content="Add product" Style="{StaticResource PrimaryButton}"
-                                            Padding="14,8" Margin="0,0,8,0"
+                                            MinWidth="100" Margin="0,0,8,0"
                                             Command="{Binding AddPreSystemProductCommand}"/>
                                     <Button Grid.Column="2" Content="Browse…" Style="{StaticResource OutlineButton}"
-                                            Padding="14,8"
+                                            MinWidth="80"
                                             Command="{Binding BrowsePreSystemProductCommand}"
                                             ToolTip="Open product search (or press F3)"/>
                                 </Grid>
@@ -237,9 +242,9 @@
                         Visibility="{Binding ShowExchangeSection, Converter={StaticResource BoolToVis}}">
                     <DockPanel LastChildFill="True">
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="New Exchange Items"/>
+                            <TextBlock Style="{StaticResource TextSectionTitle}" Text="New Exchange Items"/>
                             <TextBlock Text="Use the top search box to add replacement products from local inventory."
-                                       Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,4,0,0"/>
+                                       Style="{StaticResource TextCaption}" Margin="0,4,0,0"/>
                         </StackPanel>
                         <DataGrid ItemsSource="{Binding ExchangeLines}"
                                   Style="{StaticResource ThemedDataGrid}"
@@ -274,7 +279,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Background="{StaticResource BrushSidebarTint}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="0"
+        <Border Style="{StaticResource TotalsSidebarPanel}"
                 Visibility="{Binding BillLoaded, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -283,7 +288,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" CornerRadius="10,10,0,0" Padding="14,12">
+                <Border Grid.Row="0" Style="{StaticResource TotalsSidebarHeader}">
                     <StackPanel>
                         <TextBlock Text="RETURN SUMMARY" Foreground="White" FontWeight="Bold" FontSize="12" Opacity="0.95"/>
                         <TextBlock Text="{Binding ReturnNo, StringFormat=RETURN NO: {0}}" Foreground="White" Margin="0,6,0,0"/>
@@ -348,7 +353,7 @@
 
                         <Separator Margin="0,8,0,12"/>
 
-                        <TextBlock Text="Return Mode" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <TextBlock Text="Return Mode" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,6"/>
                         <RadioButton Content="Credit Note" GroupName="ReturnMode"
                                      IsChecked="{Binding ReturnMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CreditNote}"
                                      Margin="0,0,0,4"/>
@@ -358,7 +363,7 @@
 
                         <Separator Margin="0,4,0,12"/>
 
-                        <TextBlock Text="Reason" Margin="0,0,0,4"/>
+                        <TextBlock Text="Reason" Style="{StaticResource FormFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
                                  AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
 
@@ -369,7 +374,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,10,10" Padding="14,14">
+                <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                     <Grid>
                         <TextBlock Text="{Binding FooterLabel}" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding FooterAmountFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>

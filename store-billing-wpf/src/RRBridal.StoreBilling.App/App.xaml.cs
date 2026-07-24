@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Auth;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Views;
 
 namespace RRBridal.StoreBilling.App;
@@ -42,10 +43,11 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        UiDensityService.EnsureDefaults();
         RegisterDefaultWindowIcon();
         DispatcherUnhandledException += (_, args) =>
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 args.Exception.Message,
                 "RR Bridal Billing — error",
                 MessageBoxButton.OK,
@@ -154,7 +156,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             Services.MongoHealth.Stop();
-            MessageBox.Show(
+            AppDialog.Show(
                 $"Could not start billing: {ex.Message}",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,

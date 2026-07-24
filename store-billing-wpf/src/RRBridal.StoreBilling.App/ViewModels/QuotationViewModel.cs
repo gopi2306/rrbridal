@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -49,7 +50,7 @@ public partial class QuotationViewModel : ObservableObject
     {
         if (!Editor.IsCustomerReadyForPost)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Enter customer name and a valid 10-digit mobile number before saving the quotation.",
                 "Quotation",
                 MessageBoxButton.OK,
@@ -59,7 +60,7 @@ public partial class QuotationViewModel : ObservableObject
 
         if (!Editor.Lines.Any(l => l.Amount > 0))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Add at least one line with quantity × rate before saving.",
                 "Quotation",
                 MessageBoxButton.OK,
@@ -75,11 +76,11 @@ public partial class QuotationViewModel : ObservableObject
             QuotationNo = savedNo;
             Editor.ActiveEditQuotationNo = savedNo;
             StatusMessage = $"Quotation {savedNo} saved.";
-            MessageBox.Show($"Quotation {savedNo} saved.", "Quotation", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show($"Quotation {savedNo} saved.", "Quotation", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not save quotation: {ex.Message}", "Quotation", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not save quotation: {ex.Message}", "Quotation", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -88,7 +89,7 @@ public partial class QuotationViewModel : ObservableObject
     {
         if (!Editor.Lines.Any(l => l.Amount > 0))
         {
-            MessageBox.Show("Add at least one line before printing.", "Quotation", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Add at least one line before printing.", "Quotation", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -107,7 +108,7 @@ public partial class QuotationViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not print quotation: {ex.Message}", "Quotation", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not print quotation: {ex.Message}", "Quotation", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

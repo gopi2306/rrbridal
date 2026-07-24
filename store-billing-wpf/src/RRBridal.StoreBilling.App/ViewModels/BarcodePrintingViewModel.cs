@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Models;
@@ -78,7 +79,7 @@ public partial class BarcodePrintingViewModel : ObservableObject
         var printable = Lines.Where(l => !l.IsDraftRow && l.PrintQty > 0).ToList();
         if (printable.Count == 0)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Enter quantity on at least one line before printing.",
                 "Barcode printing",
                 MessageBoxButton.OK,
@@ -108,7 +109,7 @@ public partial class BarcodePrintingViewModel : ObservableObject
         var q = (input ?? "").Trim();
         if (q.Length < 1)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Enter a product code (SKU or barcode).",
                 "Barcode printing",
                 MessageBoxButton.OK,
@@ -153,7 +154,7 @@ public partial class BarcodePrintingViewModel : ObservableObject
             return;
         }
 
-        MessageBox.Show(
+        AppDialog.Show(
             $"No product found in local catalog for \"{q}\".",
             "Barcode printing",
             MessageBoxButton.OK,

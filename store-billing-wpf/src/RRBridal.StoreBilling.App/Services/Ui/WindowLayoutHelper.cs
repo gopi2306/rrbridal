@@ -4,7 +4,7 @@ namespace RRBridal.StoreBilling.App.Services.Ui;
 
 public static class WindowLayoutHelper
 {
-    public const double MinShellWidth = 1024;
+    public const double MinShellWidth = 900;
     public const double MinShellHeight = 600;
     public const double CompactMaxWidth = 1199;
     public const double MediumMaxWidth = 1599;
@@ -20,7 +20,9 @@ public static class WindowLayoutHelper
     public static void ApplyStartupBounds(Window window)
     {
         var workArea = SystemParameters.WorkArea;
-        var targetWidth = Math.Clamp(workArea.Width * 0.92, MinShellWidth, workArea.Width);
+        var targetWidth = workArea.Width < 1024
+            ? Math.Max(MinShellWidth, workArea.Width * 0.96)
+            : Math.Max(MinShellWidth, Math.Min(workArea.Width * 0.92, workArea.Width));
         var targetHeight = Math.Clamp(workArea.Height * 0.92, MinShellHeight, workArea.Height);
 
         window.Width = targetWidth;

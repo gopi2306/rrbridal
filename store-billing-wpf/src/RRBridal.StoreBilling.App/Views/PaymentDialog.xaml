@@ -161,7 +161,7 @@
                                 <TextBlock Text="{Binding CreditNoteCashOutMaxFormatted}" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,6"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
                                          Text="{Binding CreditNoteCashOutAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
-                                         MinHeight="36" Padding="10,8"/>
+                                         MinHeight="{DynamicResource DensityInputMinHeight}"/>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>

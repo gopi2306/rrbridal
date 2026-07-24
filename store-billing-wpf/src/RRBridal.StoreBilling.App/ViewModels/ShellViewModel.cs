@@ -76,7 +76,13 @@ public partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private bool _isNavDrawerOpen;
 
+    [ObservableProperty] private bool _isSidebarVisible;
+
+    [ObservableProperty] private bool _preferSidebarMenu;
+
     [ObservableProperty] private string _currentPageLabel = "Billing";
+
+    [ObservableProperty] private string _footerHintText = "Ctrl+G Go To · Ctrl+A Billing · F9 Post · F1 Shortcuts";
 
     [ObservableProperty] private double _shellWidth = 1280;
 
@@ -88,14 +94,47 @@ public partial class ShellViewModel : ObservableObject
 
     public bool ShowCompactHeaderDetails => !IsCompactLayout;
 
+    /// <summary>Persistent left rail — only when Settings enables sidebar and layout is not compact.</summary>
+    public bool ShowPersistentSidebar => PreferSidebarMenu && IsSidebarVisible && !IsCompactLayout;
+
+    /// <summary>Header quick-nav strip when sidebar mode is off.</summary>
+    public bool ShowHeaderNav => !PreferSidebarMenu;
+
     public void UpdateShellLayout(double width)
     {
         ShellWidth = width;
         LayoutBreakpoint = WindowLayoutHelper.GetBreakpoint(width);
+        UiDensityService.Apply(LayoutBreakpoint);
         OnPropertyChanged(nameof(IsCompactLayout));
         OnPropertyChanged(nameof(IsMediumOrWideLayout));
         OnPropertyChanged(nameof(ShowCompactHeaderDetails));
+        if (IsCompactLayout && IsSidebarVisible)
+            IsSidebarVisible = false;
+        NotifyShellNavVisibility();
     }
+
+    public void ApplyShellUiSettings()
+    {
+        PreferSidebarMenu = _services.ShellUiSettings.Current.ShowSidebarMenu;
+        if (PreferSidebarMenu)
+            IsSidebarVisible = !IsCompactLayout;
+        else
+        {
+            IsSidebarVisible = false;
+            IsNavDrawerOpen = false;
+        }
+        NotifyShellNavVisibility();
+    }
+
+    private void NotifyShellNavVisibility()
+    {
+        OnPropertyChanged(nameof(ShowPersistentSidebar));
+        OnPropertyChanged(nameof(ShowHeaderNav));
+    }
+
+    partial void OnPreferSidebarMenuChanged(bool value) => NotifyShellNavVisibility();
+
+    partial void OnIsSidebarVisibleChanged(bool value) => NotifyShellNavVisibility();
 
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
@@ -185,7 +224,10 @@ public partial class ShellViewModel : ObservableObject
         Settings = new SettingsViewModel(services);
 
         services.NotifyDaySessionChanged = () => _ = RefreshDaySessionStatusAsync();
+        services.ShellUiSettings.Changed += () =>
+            Application.Current.Dispatcher.Invoke(ApplyShellUiSettings);
 
+        ApplyShellUiSettings();
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
         _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
@@ -260,7 +302,7 @@ public partial class ShellViewModel : ObservableObject
         var doc = await _services.Quotations.GetByQuotationNoAsync(quotationNo);
         if (doc == null)
         {
-            MessageBox.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -273,14 +315,14 @@ public partial class ShellViewModel : ObservableObject
         var doc = await _services.Quotations.GetByQuotationNoAsync(quotationNo);
         if (doc == null)
         {
-            MessageBox.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Quotation not found.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var status = doc.GetValue("status", "").AsString;
         if (!string.Equals(status, QuotationService.StatusOpen, StringComparison.OrdinalIgnoreCase))
         {
-            MessageBox.Show("Only open quotations can be converted.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Only open quotations can be converted.", "Quotations", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -363,6 +405,7 @@ public partial class ShellViewModel : ObservableObject
             _ = RefreshBrandingAsync();
 
         CurrentPageLabel = GetPageLabel(value);
+        FooterHintText = GetFooterHint(value);
         IsNavDrawerOpen = false;
 
         OnPropertyChanged(nameof(IsBillingPage));
@@ -435,7 +478,22 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleNavDrawer() => IsNavDrawerOpen = !IsNavDrawerOpen;
+    private void ToggleNavDrawer()
+    {
+        if (IsNavDrawerOpen)
+        {
+            IsNavDrawerOpen = false;
+            return;
+        }
+
+        if (!PreferSidebarMenu || IsCompactLayout)
+        {
+            IsNavDrawerOpen = true;
+            return;
+        }
+
+        IsSidebarVisible = !IsSidebarVisible;
+    }
 
     [RelayCommand]
     private void CloseNavDrawer() => IsNavDrawerOpen = false;
@@ -464,6 +522,18 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.DailyExpenses => "Expenses",
         ShellPage.Settings => "Settings",
         _ => "Billing",
+    };
+
+    private static string GetFooterHint(ShellPage page) => page switch
+    {
+        ShellPage.Billing => "Billing · F3/Ctrl+F product · F8/Ctrl+H hold · F9/Ctrl+Enter post · F10/Ctrl+P print · F1 help",
+        ShellPage.Quotation or ShellPage.QuotationManagement => "Quotations · Ctrl+Q list · F2/Ctrl+N new · F1 shortcuts",
+        ShellPage.Barcodes => "Barcodes · F5 print · F6 list · F7 clear · Ctrl+B open · F1 shortcuts",
+        ShellPage.Customers => "Customers · F4/Ctrl+S save · Esc/F2 new · Ctrl+U open · F1 shortcuts",
+        ShellPage.SaleReturn => "Returns · Ctrl+R · F2 clear · F3 search exchange · F1 shortcuts",
+        ShellPage.DayClose => "Day Close · Ctrl+W · F2 refresh · F1 shortcuts",
+        ShellPage.Dashboard => "Dashboard · Ctrl+D · F2 refresh · F1 shortcuts",
+        _ => "Ctrl+G Go To · Ctrl+A Billing · Ctrl+U Customers · F1 all shortcuts",
     };
 
     [RelayCommand]
@@ -514,9 +584,30 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void ShowHelp()
     {
-        if (!EnsureBillingPage())
-            return;
-        Billing.ShowHelpCommand.Execute(null);
+        AppDialog.Show(
+            "GO TO (navigation)\n" +
+            "• Ctrl+G — show / hide Go To menu\n" +
+            "• Ctrl+A Billing · Ctrl+Q Quotations · Ctrl+B Barcodes\n" +
+            "• Ctrl+R Returns · Ctrl+T Adjustments · Ctrl+J Duplicate\n" +
+            "• Ctrl+O Online Sales · Ctrl+I Credit Bills\n" +
+            "• Ctrl+U Customers · Ctrl+M Salesman\n" +
+            "• Ctrl+D Dashboard · Ctrl+Y Analytics · Ctrl+L Ledger · Ctrl+K Bill Lookup\n" +
+            "• Ctrl+W Day Close · Ctrl+E Expenses · Ctrl+, Settings\n\n" +
+            "ACTIONS\n" +
+            "• F2 / Ctrl+N — new / clear / refresh (page-aware)\n" +
+            "• F3 / Ctrl+F — focus search / product code\n" +
+            "• F8 / Ctrl+H — hold bill (Billing)\n" +
+            "• F9 / Ctrl+Enter — post bill (Billing)\n" +
+            "• F10 / Ctrl+P — print preview (Billing)\n" +
+            "• F4 / Ctrl+S — save customer (Customers)\n" +
+            "• F11 — duplicate bill · F12 — exit\n" +
+            "• Esc — close Go To drawer / reset customer form\n\n" +
+            "BARCODES\n" +
+            "• F5 print · F6 item list · F7 clear\n\n" +
+            "Press F1 anytime for this guide.",
+            "Keyboard shortcuts — TruBilling",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     [RelayCommand]
@@ -625,7 +716,7 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void Logout()
     {
-        var answer = MessageBox.Show(
+        var answer = AppDialog.Show(
             "Sign out and return to the login screen?",
             "RR Bridal Billing",
             MessageBoxButton.YesNo,
@@ -646,7 +737,7 @@ public partial class ShellViewModel : ObservableObject
     {
         if (CurrentPage != ShellPage.Billing)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 "Switch to Billing to use billing shortcuts (F1, F2, F8 hold, F9 post, F10 print).",
                 "RR Bridal Billing",
                 MessageBoxButton.OK,

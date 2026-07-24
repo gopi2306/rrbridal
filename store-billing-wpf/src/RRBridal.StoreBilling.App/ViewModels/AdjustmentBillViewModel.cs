@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -67,7 +68,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
     {
         if (!HasSearchCriteria())
         {
-            MessageBox.Show("Enter at least one search field (bill no, customer name, or mobile).", "Adjustment Bill",
+            AppDialog.Show("Enter at least one search field (bill no, customer name, or mobile).", "Adjustment Bill",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -153,7 +154,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         var doc = await coll.Find(new BsonDocument("billNo", billNo)).FirstOrDefaultAsync();
         if (doc == null)
         {
-            MessageBox.Show($"Bill '{billNo}' not found.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Bill '{billNo}' not found.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
 
@@ -238,7 +239,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
     {
         if (AdjustmentLines.Count == 0)
         {
-            MessageBox.Show("Load a bill first.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Load a bill first.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -248,7 +249,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
             _services.StoreContext.PosCounter);
         if (dayBlock != null)
         {
-            MessageBox.Show(dayBlock, "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(dayBlock, "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -350,7 +351,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
             var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
             await outbox.InsertOneAsync(outboxEvent);
 
-            MessageBox.Show(
+            AppDialog.Show(
                 $"Adjustment {AdjustmentNo} posted.",
                 "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -362,7 +363,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not post adjustment: {ex.Message}", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not post adjustment: {ex.Message}", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

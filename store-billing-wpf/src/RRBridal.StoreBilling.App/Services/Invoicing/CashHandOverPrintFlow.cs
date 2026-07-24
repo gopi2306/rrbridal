@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.Store;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
@@ -20,7 +21,7 @@ public static class CashHandOverPrintFlow
             var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -63,7 +64,7 @@ public static class CashHandOverPrintFlow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open cash hand over preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show($"Could not open cash hand over preview: {ex.Message}", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
     }

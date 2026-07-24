@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -228,19 +229,19 @@ public partial class CustomersViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(CustomerName))
         {
-            MessageBox.Show("Customer name is required.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Customer name is required.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(Mobile))
         {
-            MessageBox.Show("Mobile number is required.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Mobile number is required.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(Email) && !IsValidEmail(Email))
         {
-            MessageBox.Show("Email address does not look valid.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Email address does not look valid.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -260,7 +261,7 @@ public partial class CustomersViewModel : ObservableObject
             {
                 if (string.IsNullOrWhiteSpace(LocalMongoId))
                 {
-                    MessageBox.Show("Select a local customer to update.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppDialog.Show("Select a local customer to update.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -269,7 +270,7 @@ public partial class CustomersViewModel : ObservableObject
 
             if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
             {
-                MessageBox.Show(result.CentralSyncWarning, "Customers", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(result.CentralSyncWarning, "Customers", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
             IsNewCustomer = false;
@@ -281,7 +282,7 @@ public partial class CustomersViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "";
-            MessageBox.Show($"Could not save customer: {ex.Message}", "Customers", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not save customer: {ex.Message}", "Customers", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

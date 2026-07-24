@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -533,7 +534,7 @@ public partial class DashboardViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(billNo))
             return;
 
-        var confirm = MessageBox.Show(
+        var confirm = AppDialog.Show(
             $"Approve stock decrement for all pending exception lines on bill {billNo}?\n\nLocal stock may go negative.",
             "Approve stock exception",
             MessageBoxButton.YesNo,
@@ -880,7 +881,7 @@ public partial class DashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Export failed: " + ex.Message, "Day close", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show("Export failed: " + ex.Message, "Day close", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -889,7 +890,7 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (BillListRows.Count == 0)
         {
-            MessageBox.Show("No bills to export. Run Search first.", "All bills", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("No bills to export. Run Search first.", "All bills", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -908,7 +909,7 @@ public partial class DashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Export failed: " + ex.Message, "All bills", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show("Export failed: " + ex.Message, "All bills", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -973,7 +974,7 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (BillMarginRows.Count == 0)
         {
-            MessageBox.Show("No rows to export. Run Search first.", "Bill margin", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("No rows to export. Run Search first.", "Bill margin", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -992,7 +993,7 @@ public partial class DashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Export failed: " + ex.Message, "Bill margin", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show("Export failed: " + ex.Message, "Bill margin", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

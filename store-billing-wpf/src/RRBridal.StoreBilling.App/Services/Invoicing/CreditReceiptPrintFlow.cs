@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Documents;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Views;
@@ -16,7 +17,7 @@ public static class CreditReceiptPrintFlow
             var (profileOk, profileMsg) = await services.ReceiptConfigSync.EnsureProfileReadyForPrintAsync();
             if (!profileOk)
             {
-                MessageBox.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialog.Show(profileMsg, "Receipt settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -61,7 +62,7 @@ public static class CreditReceiptPrintFlow
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 $"Could not open credit receipt print preview:\n{ex.Message}",
                 "Credit receipt",
                 MessageBoxButton.OK,

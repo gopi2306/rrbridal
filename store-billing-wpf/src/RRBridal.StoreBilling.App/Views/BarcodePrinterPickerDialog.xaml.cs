@@ -1,5 +1,6 @@
 using System.Printing;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.BarcodePrinting;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -47,7 +48,7 @@ public partial class BarcodePrinterPickerDialog
     {
         if (PrinterCombo.SelectedItem is not string name || string.IsNullOrWhiteSpace(name))
         {
-            MessageBox.Show("Select a printer.", "Barcode printing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Select a printer.", "Barcode printing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 

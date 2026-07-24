@@ -14,19 +14,16 @@
     <UserControl.Resources>
         <Style x:Key="SettingsFieldLabel" TargetType="TextBlock" BasedOn="{StaticResource TextLabel}">
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,12,10"/>
+            <Setter Property="Margin" Value="0,0,10,8"/>
         </Style>
         <Style x:Key="SettingsFieldInput" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="MinHeight" Value="40"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         <Style x:Key="SettingsNumericInput" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
             <Setter Property="MinWidth" Value="72"/>
-            <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinHeight" Value="{DynamicResource DensityInputMinHeight}"/>
+            <Setter Property="Padding" Value="{DynamicResource DensityInputPadding}"/>
+            <Setter Property="FontSize" Value="{DynamicResource DensityInputFontSize}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style x:Key="SettingsStatusBox" TargetType="Border">
@@ -37,6 +34,11 @@
             <Setter Property="Padding" Value="14,12"/>
             <Setter Property="Margin" Value="0,0,0,12"/>
         </Style>
+        <Style x:Key="SettingsGridCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid VerticalAlignment="Stretch">
@@ -46,44 +48,40 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Settings &amp; sync" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
-            <TextBlock Text="Central connection, sync, receipt printing, and developer tools."
-                       Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            <TextBlock Text="Settings" Style="{StaticResource TextPageTitleAccent}"/>
+            <TextBlock Text="Sync, printing, WhatsApp, appearance, and billing options — organised by section."
+                       Style="{StaticResource PageSubtitle}"/>
         </StackPanel>
 
         <TabControl Grid.Row="1" Style="{StaticResource ThemedTabControl}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                     SelectionChanged="SettingsTabs_OnSelectionChanged">
-            <TabItem Header="Connection &amp; sync">
+            <TabItem Header="1. Sync">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Padding="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch"
-                      ui:SettingsColumnsLayoutBehavior.IsEnabled="True">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="280"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*" MinWidth="280"/>
-                    </Grid.ColumnDefinitions>
+                    <UniformGrid HorizontalAlignment="Stretch"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="2">
 
-                        <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0" VerticalAlignment="Stretch">
+                        <!-- Store sync actions + status -->
+                        <Border Style="{StaticResource SettingsGridCard}">
                             <DockPanel LastChildFill="True">
-                                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <TextBlock Text="Sync" Style="{StaticResource TextSectionTitle}"/>
-                                        <TextBlock Text="Push local bills and pull master data from central."
-                                                   Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                                                Command="{Binding RefreshStatusCommand}" MinWidth="100"/>
-                                        <Button Content="Re-sync products" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                <StackPanel DockPanel.Dock="Top">
+                                    <TextBlock Text="Store sync" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Push local bills and pull master data from central."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <WrapPanel Margin="0,0,0,14">
+                                        <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,8"
+                                                Command="{Binding RefreshStatusCommand}" MinWidth="88"/>
+                                        <Button Content="Re-sync products" Style="{StaticResource OutlineButton}" Margin="0,0,8,8"
                                                 Command="{Binding ForceProductResyncCommand}" MinWidth="120"
                                                 ToolTip="Reset product cursor and pull the full central catalog again (fills missing prices on stock stubs)."/>
-                                        <Button Content="Run sync" Style="{StaticResource PrimaryButton}"
-                                                Command="{Binding RunSyncOnceCommand}" MinWidth="100"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Stretch" MinHeight="160">
+                                        <Button Content="Run sync" Style="{StaticResource PrimaryButton}" Margin="0,0,0,8"
+                                                Command="{Binding RunSyncOnceCommand}" MinWidth="88"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                                <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Stretch" MinHeight="120">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                         <StackPanel>
                                             <TextBlock Text="{Binding PendingOutboxText}" Style="{StaticResource TextBody}" Margin="0,0,0,6"/>
@@ -102,16 +100,17 @@
                             </DockPanel>
                         </Border>
 
-                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="0" VerticalAlignment="Stretch">
+                        <!-- Central auth -->
+                        <Border Style="{StaticResource SettingsGridCard}">
                             <DockPanel LastChildFill="True">
                                 <StackPanel DockPanel.Dock="Top">
                                     <TextBlock Text="Central connection" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                     <TextBlock Text="Authenticate this counter with the central backend."
-                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
-
-                                    <Grid>
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <Grid Margin="0,0,0,4"
+                                          ui:ResponsiveFormGridBehavior.IsEnabled="True">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="80"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
@@ -125,25 +124,23 @@
                                         <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsFieldInput}"
                                                  Text="{Binding LoginPassword, UpdateSourceTrigger=PropertyChanged}"/>
                                     </Grid>
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,14">
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,14">
                                         <Button Content="Login" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
-                                                Command="{Binding LoginCentralCommand}" MinWidth="100"/>
+                                                Command="{Binding LoginCentralCommand}" MinWidth="88"/>
                                         <Button Content="Logout" Style="{StaticResource OutlineButton}"
-                                                Command="{Binding LogoutCentralCommand}" MinWidth="100"/>
+                                                Command="{Binding LogoutCentralCommand}" MinWidth="88"/>
                                     </StackPanel>
                                 </StackPanel>
-
                                 <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Bottom">
                                     <TextBlock Text="{Binding AuthStatusText}" Style="{StaticResource TextBody}" FontWeight="SemiBold"/>
                                 </Border>
                             </DockPanel>
                         </Border>
-                </Grid>
+                    </UniformGrid>
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Receipt &amp; printing">
+            <TabItem Header="2. Printing">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Padding="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <StackPanel HorizontalAlignment="Stretch">
@@ -877,10 +874,14 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="WhatsApp">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
-                    <StackPanel MaxWidth="720" HorizontalAlignment="Left">
-                        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+            <TabItem Header="3. WhatsApp">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
+                    <UniformGrid HorizontalAlignment="Stretch"
+                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                 ui:UniformGridColumnsBehavior.WideColumns="2">
+                        <Border Style="{StaticResource SettingsGridCard}">
                             <StackPanel>
                                 <TextBlock Text="WhatsApp bill delivery" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                 <TextBlock Text="Sends thermal bill image via WhatsApp Business API after billing (when enabled). API credentials are configured in Central admin."
@@ -892,137 +893,171 @@
                                 <CheckBox Content="Auto-send bill on post (when customer phone is present)"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding WhatsAppAutoSendAfterPost}" Margin="0,0,0,12"/>
-                                <StackPanel Orientation="Horizontal">
+                                <WrapPanel>
                                     <Button Content="Save WhatsApp settings" Style="{StaticResource PrimaryButton}"
-                                            Command="{Binding SaveWhatsAppSettingsAsync}" Margin="0,0,8,0"/>
-                                    <Button Content="Refresh status" Style="{StaticResource OutlineButton}"
+                                            Command="{Binding SaveWhatsAppSettingsAsync}" Margin="0,0,8,8"/>
+                                    <Button Content="Refresh status" Style="{StaticResource OutlineButton}" Margin="0,0,0,8"
                                             Command="{Binding RefreshWhatsAppStatusAsync}"/>
-                                </StackPanel>
+                                </WrapPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource CardBorder}" Padding="16">
+                        <Border Style="{StaticResource SettingsGridCard}">
                             <StackPanel>
                                 <TextBlock Text="Test send" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                 <TextBlock Text="Send a sample bill image to verify Meta template and credentials."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                <TextBlock Text="Test mobile" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBox Style="{StaticResource RoundedTextBox}" Width="220" HorizontalAlignment="Left"
-                                         Text="{Binding WhatsAppTestPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12"/>
+                                <TextBlock Text="Test mobile" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBox Style="{StaticResource SettingsFieldInput}"
+                                         Text="{Binding WhatsAppTestPhone, UpdateSourceTrigger=PropertyChanged}" MaxWidth="280" HorizontalAlignment="Left"/>
                                 <Button Content="Send test WhatsApp bill" Style="{StaticResource OutlineButton}"
                                         HorizontalAlignment="Left" Command="{Binding TestWhatsAppSendAsync}"/>
                             </StackPanel>
                         </Border>
-                    </StackPanel>
+                    </UniformGrid>
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Other">
+            <TabItem Header="4. App &amp; billing">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="0,8,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                <Grid VerticalAlignment="Top" HorizontalAlignment="Stretch"
-                      ui:SettingsColumnsLayoutBehavior.IsEnabled="True">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="280"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*" MinWidth="280"/>
-                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <UniformGrid HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                     ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                     ui:UniformGridColumnsBehavior.CompactColumns="1"
+                                     ui:UniformGridColumnsBehavior.MediumColumns="2"
+                                     ui:UniformGridColumnsBehavior.WideColumns="3">
 
-                        <Border Grid.Column="0" Style="{StaticResource CardBorder}" VerticalAlignment="Stretch">
-                            <StackPanel>
-                                <TextBlock Text="Duplicate bill print" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Reprint posted invoices with DUPLICATE watermark (no stock change)."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
-                                <CheckBox Content="Allow duplicate bill print (F11 / Duplicate / Ledger)"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,12"/>
-                                <TextBlock Text="Duplicate product entry" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <CheckBox Content="Show confirmation when the same product is added again"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingConfirmDuplicateProductAdd}" Margin="0,0,0,4"/>
-                                <TextBlock Text="When off, scanning or entering the same SKU immediately increases its quantity without showing a popup."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                <CheckBox Content="Allow cash payout of credit note remaining balance (Payment dialog)"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,12"/>
-                                <CheckBox Content="Allow multiple returns per bill (partial returns)"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAllowMultipleReturnsPerBill}" Margin="0,0,0,4"/>
-                                <TextBlock Text="When on, items fully returned in a prior transaction cannot be selected again; remaining quantity can be returned in a new transaction."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                <TextBlock Text="Credit billing (pay later)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Allow advance at post with remaining balance collected later. Conditions apply in Payment dialog and Credit Bills page."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <CheckBox Content="Enable bill on credit"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingEnableCreditBilling}" Margin="0,0,0,8"/>
-                                <CheckBox Content="Require credit customer flag"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingCreditRequireCreditCustomer}" Margin="0,0,0,8"/>
-                                <CheckBox Content="Allow zero advance (full amount on credit)"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingCreditAllowZeroAdvance}" Margin="0,0,0,8"/>
-                                <CheckBox Content="Allow partial collection after post"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingCreditAllowPartialCollection}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Minimum advance %" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}"
-                                         Text="{Binding BillingCreditMinAdvancePercentText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Minimum advance amount (₹)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}"
-                                         Text="{Binding BillingCreditMinAdvanceAmountText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Max balance per bill (₹, 0 = no limit)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}"
-                                         Text="{Binding BillingCreditMaxBalancePerBillText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-                                <TextBlock Text="Alteration amount" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <CheckBox Content="Alteration amount is GST inclusive"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding BillingAlterationGstIncluded}" Margin="0,0,0,4"/>
-                                <TextBlock Text="When off, alteration is added as a flat charge after merchandise tax. When on, each line's alteration is split using that line's tax %."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
-                                <TextBlock Text="Razorpay POS (wired device)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Card and UPI payments are sent to the Ezetap / Razorpay POS Bridge. Use credentials and device ID from Razorpay."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <CheckBox Content="Enable Razorpay POS payments"
-                                          Style="{StaticResource ThemedCheckBox}"
-                                          IsChecked="{Binding RazorpayPosEnabled}" Margin="0,0,0,8"/>
-                                <TextBlock Text="{Binding RazorpayPosStatusText}"
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap"
-                                           Foreground="{StaticResource BrushAccent}" Margin="0,0,0,12"/>
-                                <TextBlock Text="Username" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-                                <TextBlock Text="App key" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosAppKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-                                <TextBlock Text="API base URL" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosApiBaseUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Device ID (pushTo)" Style="{StaticResource TextCaption}" Margin="0,0,0,4"/>
-                                <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosDeviceId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
-                                <TextBlock Text="From your Razorpay device screen: use serial number + |ezetap_android. Example for A99 device 3170046844 → 3170046844|ezetap_android. Device must show Paired."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8"/>
-                                <Button Content="Save Razorpay POS settings" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left" Margin="0,0,0,16"
-                                        Command="{Binding SaveRazorpayPosSettingsCommand}"/>
-                                <TextBlock Text="Line item columns" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="How many fields to show on Billing line items and product pick lists."
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <ComboBox MinWidth="280" HorizontalAlignment="Left" Margin="0,0,0,4"
-                                          ItemsSource="{Binding BillingLineItemDetailOptions}"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Level"
-                                          SelectedValue="{Binding BillingLineItemDetailLevel}"/>
-                                <TextBlock Text="{Binding BillingLineItemDetailDescription}"
-                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"
-                                           Foreground="{StaticResource BrushTextMuted}"/>
-                                <Button Content="Save settings" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
-                                        Command="{Binding SaveBillingSettingsCommand}"/>
-                            </StackPanel>
-                        </Border>
+                            <Border Style="{StaticResource SettingsGridCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Appearance &amp; navigation" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Choose how you open screens. Header menu keeps the workspace wider; sidebar is Tally-style."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <CheckBox Content="Show left sidebar menu"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding UiShowSidebarMenu}" Margin="0,0,0,6"/>
+                                    <TextBlock Text="Off = quick links in the header bar. On = persistent left menu. Ctrl+G opens Go To."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <Button Content="Save appearance" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                                            Command="{Binding SaveUiSettingsCommand}" MinWidth="140"/>
+                                </StackPanel>
+                            </Border>
 
-                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" VerticalAlignment="Stretch">
-                            <DockPanel LastChildFill="True">
-                                <StackPanel DockPanel.Dock="Top">
+                            <Border Style="{StaticResource SettingsGridCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Billing behaviour" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Duplicate print, product scan confirmations, returns, and alteration tax."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <CheckBox Content="Allow duplicate bill print (F11 / Duplicate / Ledger)"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingAllowDuplicatePrint}" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Confirm when the same product is added again"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingConfirmDuplicateProductAdd}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="When off, scanning the same SKU increases quantity immediately."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Allow cash payout of credit note remaining balance"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingAllowCreditNoteRemainingCashout}" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Allow multiple returns per bill (partial returns)"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingAllowMultipleReturnsPerBill}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Fully returned lines cannot be selected again in a later return."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Alteration amount is GST inclusive"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingAlterationGstIncluded}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="When off, alteration is a flat charge after merchandise tax."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <TextBlock Text="Line item columns" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
+                                    <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                              ItemsSource="{Binding BillingLineItemDetailOptions}"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Level"
+                                              SelectedValue="{Binding BillingLineItemDetailLevel}"/>
+                                    <TextBlock Text="{Binding BillingLineItemDetailDescription}"
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                               Foreground="{StaticResource BrushTextMuted}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsGridCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Credit billing (pay later)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Advance at post with remaining balance collected later from Credit Bills."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                    <CheckBox Content="Enable bill on credit"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingEnableCreditBilling}" Margin="0,0,0,8"/>
+                                    <CheckBox Content="Require credit customer flag"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingCreditRequireCreditCustomer}" Margin="0,0,0,8"/>
+                                    <CheckBox Content="Allow zero advance (full amount on credit)"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingCreditAllowZeroAdvance}" Margin="0,0,0,8"/>
+                                    <CheckBox Content="Allow partial collection after post"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingCreditAllowPartialCollection}" Margin="0,0,0,12"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                                            <TextBlock Text="Min advance %" Style="{StaticResource FilterFieldLabel}"/>
+                                            <TextBox Style="{StaticResource SettingsFieldInput}"
+                                                     Text="{Binding BillingCreditMinAdvancePercentText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                                            <TextBlock Text="Min advance ₹" Style="{StaticResource FilterFieldLabel}"/>
+                                            <TextBox Style="{StaticResource SettingsFieldInput}"
+                                                     Text="{Binding BillingCreditMinAdvanceAmountText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
+                                            <TextBlock Text="Max balance ₹ (0 = none)" Style="{StaticResource FilterFieldLabel}"/>
+                                            <TextBox Style="{StaticResource SettingsFieldInput}"
+                                                     Text="{Binding BillingCreditMaxBalancePerBillText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsGridCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Razorpay POS (card / UPI device)" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Wired Ezetap / Razorpay POS Bridge credentials for this counter."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <CheckBox Content="Enable Razorpay POS payments"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding RazorpayPosEnabled}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding RazorpayPosStatusText}"
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap"
+                                               Foreground="{StaticResource BrushAccent}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Username" Style="{StaticResource FilterFieldLabel}"/>
+                                    <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosUsername, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="App key" Style="{StaticResource FilterFieldLabel}"/>
+                                    <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosAppKey, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="API base URL" Style="{StaticResource FilterFieldLabel}"/>
+                                    <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosApiBaseUrl, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="Device ID (pushTo)" Style="{StaticResource FilterFieldLabel}"/>
+                                    <TextBox Style="{StaticResource SettingsFieldInput}" Text="{Binding RazorpayPosDeviceId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Example: 3170046844|ezetap_android — device must show Paired."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <Button Content="Save Razorpay POS" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left"
+                                            Command="{Binding SaveRazorpayPosSettingsCommand}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsGridCard}">
+                                <StackPanel>
                                     <TextBlock Text="Developer tests" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Payment gateway and purchase intent test actions."
-                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                                    <TextBlock Text="Payment gateway and purchase intent probes for this counter."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                     <WrapPanel Margin="0,0,0,12">
                                         <Button Content="PineLabs" Style="{StaticResource OutlineButton}" Margin="0,0,8,8"
                                                 Command="{Binding TestPineLabsPaymentCommand}"/>
@@ -1031,13 +1066,26 @@
                                         <Button Content="Purchase intent" Style="{StaticResource OutlineButton}" Margin="0,0,0,8"
                                                 Command="{Binding TestPurchaseIntentCommand}"/>
                                     </WrapPanel>
+                                    <Border Style="{StaticResource SettingsStatusBox}" Margin="0">
+                                        <TextBlock Text="{Binding LastActionText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap"/>
+                                    </Border>
                                 </StackPanel>
-                                <Border Style="{StaticResource SettingsStatusBox}" Margin="0" VerticalAlignment="Stretch" MinHeight="120">
-                                    <TextBlock Text="{Binding LastActionText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap" VerticalAlignment="Top"/>
-                                </Border>
-                            </DockPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Style="{StaticResource ActionFooterCard}" Margin="0,4,12,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding LastActionText}" Style="{StaticResource TextCaption}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="Save billing settings" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding SaveBillingSettingsCommand}" MinWidth="170"/>
+                            </Grid>
                         </Border>
-                </Grid>
+                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
         </TabControl>

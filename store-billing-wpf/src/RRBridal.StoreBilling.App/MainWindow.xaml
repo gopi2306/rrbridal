@@ -11,47 +11,231 @@
         Title="{Binding WindowTitleText}"
         Icon="pack://application:,,,/Resources/Assets/TruBill.ico"
         MinHeight="600"
-        MinWidth="1024"
+        MinWidth="900"
         FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushBackground}">
     <Window.InputBindings>
+        <!-- Function keys (billing + global actions) -->
         <KeyBinding Key="F1" Command="{Binding ShowHelpCommand}"/>
         <KeyBinding Key="F2" Command="{Binding ClearForNewBillCommand}"/>
         <KeyBinding Key="F4" Command="{Binding SaveCustomerRegistrationCommand}"/>
         <KeyBinding Key="Escape" Command="{Binding CancelCustomerRegistrationCommand}"/>
+        <KeyBinding Key="F8" Command="{Binding HoldBillCommand}"/>
         <KeyBinding Key="F9" Command="{Binding PostBillCommand}"/>
         <KeyBinding Key="F10" Command="{Binding PrintStubCommand}"/>
-        <KeyBinding Key="F8" Command="{Binding HoldBillCommand}"/>
         <KeyBinding Key="F11" Command="{Binding OpenDuplicateBillCommand}"/>
         <KeyBinding Key="F12" Command="{Binding CloseAppCommand}"/>
+
+        <!-- Ctrl navigation (Tally-style Go To) -->
+        <KeyBinding Key="G" Modifiers="Control" Command="{Binding ToggleNavDrawerCommand}"/>
+        <KeyBinding Key="A" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Billing}"/>
+        <KeyBinding Key="Q" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.QuotationManagement}"/>
+        <KeyBinding Key="B" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Barcodes}"/>
+        <KeyBinding Key="D" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}"/>
+        <KeyBinding Key="Y" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Analytics}"/>
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.OnlineSales}"/>
+        <KeyBinding Key="I" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.CreditBills}"/>
+        <KeyBinding Key="U" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Customers}"/>
+        <KeyBinding Key="M" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Salesmen}"/>
+        <KeyBinding Key="L" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}"/>
+        <KeyBinding Key="R" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.SaleReturn}"/>
+        <KeyBinding Key="K" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.BillLookup}"/>
+        <KeyBinding Key="W" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DayClose}"/>
+        <KeyBinding Key="J" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DuplicateBill}"/>
+        <KeyBinding Key="T" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Adjustments}"/>
+        <KeyBinding Key="E" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DailyExpenses}"/>
+        <KeyBinding Key="OemComma" Modifiers="Control" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Settings}"/>
+
+        <!-- Ctrl action shortcuts -->
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding ClearForNewBillCommand}"/>
+        <KeyBinding Key="F" Modifiers="Control" Command="{Binding FocusGlobalSearchCommand}"/>
+        <KeyBinding Key="H" Modifiers="Control" Command="{Binding HoldBillCommand}"/>
+        <KeyBinding Key="P" Modifiers="Control" Command="{Binding PrintStubCommand}"/>
+        <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding PostBillCommand}"/>
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCustomerRegistrationCommand}"/>
     </Window.InputBindings>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0"
-                Background="{StaticResource BrushHeaderBar}"
+        <!-- Persistent left gateway (Tally-style) -->
+        <Border Grid.Column="0"
+                Width="248"
+                Background="{StaticResource BrushSidebar}"
                 BorderBrush="{StaticResource BrushBorder}"
-                BorderThickness="0,0,0,1"
-                Padding="12,8"
-                Effect="{StaticResource CardShadowEffect}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                BorderThickness="0,0,1,0"
+                Visibility="{Binding ShowPersistentSidebar, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top"
+                        Background="{StaticResource BrushSidebarHeader}"
+                        BorderBrush="{StaticResource BrushBorder}"
+                        BorderThickness="0,0,0,1"
+                        Padding="14,12">
+                    <StackPanel>
+                        <controls:AppLogoMark LogoHeight="36" LogoMaxWidth="180" ShowTruPrefix="False" HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding CompanyTitle}"
+                                   Style="{StaticResource TextCaption}"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   Margin="0,8,0,0"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding StoreDisplayName}"
+                                   Style="{StaticResource TextCaption}"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   Margin="0,2,0,0"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Sidebar on · Ctrl+G hide"
+                                   FontSize="10"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border DockPanel.Dock="Bottom"
+                        BorderBrush="{StaticResource BrushBorder}"
+                        BorderThickness="0,1,0,0"
+                        Padding="12,10">
+                    <StackPanel>
+                        <Button Style="{StaticResource GhostNavButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="8,6"
+                                Command="{Binding ShowHelpCommand}"
+                                ToolTip="Keyboard shortcuts (F1)">
+                            <TextBlock Text="⌨  Shortcuts  F1" FontSize="12" Foreground="{StaticResource BrushTextMuted}"/>
+                        </Button>
+                        <Button Style="{StaticResource GhostNavButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="8,6"
+                                Command="{Binding LogoutCommand}"
+                                ToolTip="Sign out">
+                            <TextBlock Text="Sign out" FontSize="12" Foreground="{StaticResource BrushTextMuted}"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,4,0,8">
+                    <StackPanel>
+                        <TextBlock Text="TRANSACTIONS" Style="{StaticResource NavSectionHeader}"/>
+                        <controls:NavDrawerItem Label="Billing" Shortcut="Ctrl+A" Page="{x:Static vm:ShellPage.Billing}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
+                        <controls:NavDrawerItem Label="Quotations" Shortcut="Ctrl+Q" Page="{x:Static vm:ShellPage.QuotationManagement}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.QuotationManagement}}"/>
+                        <controls:NavDrawerItem Label="Barcodes" Shortcut="Ctrl+B" Page="{x:Static vm:ShellPage.Barcodes}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
+                        <controls:NavDrawerItem Label="Returns" Shortcut="Ctrl+R" Page="{x:Static vm:ShellPage.SaleReturn}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                        <controls:NavDrawerItem Label="Adjustments" Shortcut="Ctrl+T" Page="{x:Static vm:ShellPage.Adjustments}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
+                        <controls:NavDrawerItem Label="Duplicate" Shortcut="Ctrl+J" Page="{x:Static vm:ShellPage.DuplicateBill}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
+                        <controls:NavDrawerItem Label="Online Sales" Shortcut="Ctrl+O" Page="{x:Static vm:ShellPage.OnlineSales}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
+                        <controls:NavDrawerItem Label="Credit Bills" Shortcut="Ctrl+I" Page="{x:Static vm:ShellPage.CreditBills}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowCreditBillsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.CreditBills}}"/>
+
+                        <TextBlock Text="MASTERS" Style="{StaticResource NavSectionHeader}"/>
+                        <controls:NavDrawerItem Label="Customers" Shortcut="Ctrl+U" Page="{x:Static vm:ShellPage.Customers}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
+                        <controls:NavDrawerItem Label="Salesman" Shortcut="Ctrl+M" Page="{x:Static vm:ShellPage.Salesmen}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Salesmen}}"/>
+
+                        <TextBlock Text="REPORTS" Style="{StaticResource NavSectionHeader}"
+                                   Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"/>
+                        <controls:NavDrawerItem Label="Dashboard" Shortcut="Ctrl+D" Page="{x:Static vm:ShellPage.Dashboard}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Dashboard}}"/>
+                        <controls:NavDrawerItem Label="Analytics" Shortcut="Ctrl+Y" Page="{x:Static vm:ShellPage.Analytics}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                        <controls:NavDrawerItem Label="Ledger" Shortcut="Ctrl+L" Page="{x:Static vm:ShellPage.Ledger}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Ledger}}"/>
+                        <controls:NavDrawerItem Label="Bill Lookup" Shortcut="Ctrl+K" Page="{x:Static vm:ShellPage.BillLookup}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.BillLookup}}"/>
+
+                        <TextBlock Text="DAY END" Style="{StaticResource NavSectionHeader}"/>
+                        <controls:NavDrawerItem Label="Day Close" Shortcut="Ctrl+W" Page="{x:Static vm:ShellPage.DayClose}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DayClose}}"/>
+                        <controls:NavDrawerItem Label="Expenses" Shortcut="Ctrl+E" Page="{x:Static vm:ShellPage.DailyExpenses}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DailyExpenses}}"/>
+                        <controls:NavDrawerItem Label="Settings" Shortcut="Ctrl+," Page="{x:Static vm:ShellPage.Settings}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Settings}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- Main workspace -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="{StaticResource BrushHeaderBar}"
+                    BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="0,0,0,1"
+                    Effect="{StaticResource CardShadowEffect}">
+                <DockPanel>
+                    <ScrollViewer DockPanel.Dock="Bottom"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  Padding="10,0,10,8"
+                                  Visibility="{Binding ShowHeaderNav, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Billing" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Billing}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Quotations" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.QuotationManagement}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Barcodes" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Barcodes}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Customers" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Customers}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Returns" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.SaleReturn}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Day Close" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DayClose}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Duplicate" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DuplicateBill}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Dashboard" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}"
+                                    Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Ledger" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}"
+                                    Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="More…" Command="{Binding ToggleNavDrawerCommand}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Grid Margin="12,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Width="40" Height="40"
                                 Style="{StaticResource GhostNavButton}"
-                                Margin="0,0,8,0"
+                                Margin="0,0,10,0"
                                 Command="{Binding ToggleNavDrawerCommand}"
-                                ToolTip="Open navigation menu">
+                                ToolTip="Go To menu (Ctrl+G)">
                             <Viewbox Width="20" Height="20" Stretch="Uniform">
                                 <Canvas Width="24" Height="24">
                                     <Path Data="M3,6h18v2H3V6z M3,11h18v2H3v-2z M3,16h18v2H3v-2z"
@@ -59,23 +243,25 @@
                                 </Canvas>
                             </Viewbox>
                         </Button>
-                        <controls:AppLogoMark LogoHeight="40" LogoMaxWidth="200" ShowTruPrefix="False" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <controls:AppLogoMark LogoHeight="28" LogoMaxWidth="120" ShowTruPrefix="False"
+                                              VerticalAlignment="Center" Margin="0,0,12,0"
+                                              Visibility="{Binding ShowHeaderNav, Converter={StaticResource BoolToVis}}"/>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding CompanyTitle}" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding StoreDisplayName}" Style="{StaticResource TextBody}" FontWeight="SemiBold" Margin="0,2,0,0"
-                                       Visibility="{Binding ShowCompactHeaderDetails, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="{Binding CurrentPageLabel}" Style="{StaticResource PageBreadcrumb}"/>
                             <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"
                                        Visibility="{Binding ShowCompactHeaderDetails, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               Text="{Binding CurrentPageLabel}"
-                               Style="{StaticResource TextBody}"
-                               FontWeight="SemiBold"
+                               Text="{Binding FooterHintText}"
+                               Style="{StaticResource TextCaption}"
                                Foreground="{StaticResource BrushTextMuted}"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               Margin="12,0"
+                               Visibility="{Binding ShowPersistentSidebar, Converter={StaticResource BoolToVis}}"/>
 
                     <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
                         <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
@@ -85,7 +271,7 @@
                                        VerticalAlignment="Center" Margin="8,4"/>
                         </Border>
                         <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
-                                ToolTip="Business day status — click to open Day Close">
+                                ToolTip="Business day status — click to open Day Close (Ctrl+W)">
                             <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
                                     Command="{Binding NavigateDayCloseCommand}">
                                 <TextBlock Text="{Binding DaySessionStatusChip}" Style="{StaticResource TextCaption}"
@@ -127,7 +313,7 @@
                                 </Canvas>
                             </Viewbox>
                         </Button>
-                        <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings"
+                        <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings (Ctrl+,)"
                                 Command="{Binding NavigateCommand}"
                                 CommandParameter="{x:Static vm:ShellPage.Settings}"
                                 Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
@@ -150,91 +336,102 @@
                             </Viewbox>
                         </Button>
                     </WrapPanel>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="{DynamicResource DensityContentMargin}">
+                <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
+                    <views:BillingView DataContext="{Binding Billing}"/>
                 </Grid>
+                <Grid Visibility="{Binding IsBarcodesPage, Converter={StaticResource BoolToVis}}">
+                    <views:BarcodePrintingView DataContext="{Binding BarcodePrinting}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
+                    <views:DashboardView DataContext="{Binding Dashboard}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsAnalyticsPage, Converter={StaticResource BoolToVis}}">
+                    <views:AnalyticsView DataContext="{Binding Analytics}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsOnlineSalesPage, Converter={StaticResource BoolToVis}}">
+                    <views:OnlineSalesView DataContext="{Binding OnlineSales}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsQuotationPage, Converter={StaticResource BoolToVis}}">
+                    <views:QuotationView DataContext="{Binding Quotation}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsQuotationManagementPage, Converter={StaticResource BoolToVis}}">
+                    <views:QuotationManagementView DataContext="{Binding QuotationManagement}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsCreditBillsPage, Converter={StaticResource BoolToVis}}">
+                    <views:CreditBillsView DataContext="{Binding CreditBills}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
+                    <views:CustomersView DataContext="{Binding Customers}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsSalesmenPage, Converter={StaticResource BoolToVis}}">
+                    <views:SalesmanView DataContext="{Binding Salesmen}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsLedgerPage, Converter={StaticResource BoolToVis}}">
+                    <views:LedgerView DataContext="{Binding Ledger}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsSaleReturnPage, Converter={StaticResource BoolToVis}}">
+                    <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsBillLookupPage, Converter={StaticResource BoolToVis}}">
+                    <views:BillLookupView DataContext="{Binding BillLookup}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
+                    <views:DuplicateBillView DataContext="{Binding DuplicatePrint}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
+                    <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsDayClosePage, Converter={StaticResource BoolToVis}}">
+                    <views:DayCloseView DataContext="{Binding DayClose}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsDailyExpensesPage, Converter={StaticResource BoolToVis}}">
+                    <views:DailyExpenseView DataContext="{Binding DailyExpenses}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsSettingsPage, Converter={StaticResource BoolToVis}}">
+                    <views:SettingsView DataContext="{Binding Settings}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+            </Grid>
 
-        </Border>
-
-        <Grid Grid.Row="1" Margin="12,8,12,8">
-            <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
-                <views:BillingView DataContext="{Binding Billing}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsBarcodesPage, Converter={StaticResource BoolToVis}}">
-                <views:BarcodePrintingView DataContext="{Binding BarcodePrinting}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
-                <views:DashboardView DataContext="{Binding Dashboard}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsAnalyticsPage, Converter={StaticResource BoolToVis}}">
-                <views:AnalyticsView DataContext="{Binding Analytics}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsOnlineSalesPage, Converter={StaticResource BoolToVis}}">
-                <views:OnlineSalesView DataContext="{Binding OnlineSales}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsQuotationPage, Converter={StaticResource BoolToVis}}">
-                <views:QuotationView DataContext="{Binding Quotation}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsQuotationManagementPage, Converter={StaticResource BoolToVis}}">
-                <views:QuotationManagementView DataContext="{Binding QuotationManagement}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsCreditBillsPage, Converter={StaticResource BoolToVis}}">
-                <views:CreditBillsView DataContext="{Binding CreditBills}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
-                <views:CustomersView DataContext="{Binding Customers}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsSalesmenPage, Converter={StaticResource BoolToVis}}">
-                <views:SalesmanView DataContext="{Binding Salesmen}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsLedgerPage, Converter={StaticResource BoolToVis}}">
-                <views:LedgerView DataContext="{Binding Ledger}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsSaleReturnPage, Converter={StaticResource BoolToVis}}">
-                <views:SaleReturnView DataContext="{Binding SaleReturn}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsBillLookupPage, Converter={StaticResource BoolToVis}}">
-                <views:BillLookupView DataContext="{Binding BillLookup}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
-                <views:DuplicateBillView DataContext="{Binding DuplicatePrint}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsAdjustmentsPage, Converter={StaticResource BoolToVis}}">
-                <views:AdjustmentBillView DataContext="{Binding AdjustmentBill}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsDayClosePage, Converter={StaticResource BoolToVis}}">
-                <views:DayCloseView DataContext="{Binding DayClose}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsDailyExpensesPage, Converter={StaticResource BoolToVis}}">
-                <views:DailyExpenseView DataContext="{Binding DailyExpenses}"/>
-            </Grid>
-            <Grid Visibility="{Binding IsSettingsPage, Converter={StaticResource BoolToVis}}">
-                <views:SettingsView DataContext="{Binding Settings}"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </Grid>
+            <!-- Tally-style dark shortcut strip -->
+            <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" Padding="10,7">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="Go To" Foreground="{StaticResource BrushFooterMuted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="Ctrl+G Menu" Command="{Binding ToggleNavDrawerCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="Ctrl+A Bill" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Billing}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="Ctrl+Q Qtns" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.QuotationManagement}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="Ctrl+U Cust" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Customers}" Margin="0,0,3,0"/>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button Style="{StaticResource ShortcutChip}" Content="F11 Dup" Command="{Binding OpenDuplicateBillCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="F12 Exit" Command="{Binding CloseAppCommand}"/>
+                    </StackPanel>
+                    <WrapPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button Style="{StaticResource ShortcutChip}" Content="F1 Help" Command="{Binding ShowHelpCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="F2 / Ctrl+N New" Command="{Binding ClearForNewBillCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="F3 / Ctrl+F Search" Command="{Binding FocusGlobalSearchCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="F8 / Ctrl+H Hold" Command="{Binding HoldBillCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource FooterPrimaryChip}" Content="F9 / Ctrl+↵ Post" Command="{Binding PostBillCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource ShortcutChip}" Content="F10 / Ctrl+P Print" Command="{Binding PrintStubCommand}"/>
+                    </WrapPanel>
+                </DockPanel>
+            </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="{StaticResource BrushFooterBar}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="10,8">
-            <WrapPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="Billing" Style="{StaticResource TextCaption}" VerticalAlignment="Center" Margin="0,0,6,4" FontWeight="SemiBold"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F1 Help" Command="{Binding ShowHelpCommand}" Margin="0,0,4,4"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F2 New" Command="{Binding ClearForNewBillCommand}" Margin="0,0,4,4"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F3 Search" Command="{Binding FocusGlobalSearchCommand}" Margin="0,0,4,4"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F8 Hold" Command="{Binding HoldBillCommand}" Margin="0,0,4,4"/>
-                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="4,0,8,4"/>
-                <Button Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="0,0,4,4" Content="F9 Post bill" Command="{Binding PostBillCommand}"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F10 Print" Command="{Binding PrintStubCommand}" Margin="0,0,4,4"/>
-                <Rectangle Width="1" Height="24" Fill="{StaticResource BrushBorder}" Margin="4,0,8,4"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F11 Duplicate" Command="{Binding OpenDuplicateBillCommand}" Margin="0,0,4,4"/>
-                <Button Style="{StaticResource ShortcutChip}" Content="F12 Close" Command="{Binding CloseAppCommand}" Margin="0,0,4,4"/>
-            </WrapPanel>
-        </Border>
-
-        <Border Grid.RowSpan="3"
+        <!-- Compact overlay drawer when sidebar hidden -->
+        <Border Grid.ColumnSpan="2"
                 Panel.ZIndex="100"
                 Background="#66000000"
                 Visibility="{Binding IsNavDrawerOpen, Converter={StaticResource BoolToVis}}"
                 MouseLeftButtonDown="NavDrawerOverlay_MouseLeftButtonDown"/>
 
-        <Border Grid.RowSpan="3"
+        <Border Grid.ColumnSpan="2"
                 Panel.ZIndex="101"
                 HorizontalAlignment="Left"
                 Width="280"
@@ -254,7 +451,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Navigation"
+                        <TextBlock Text="Go To"
                                    Style="{StaticResource TextBody}"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource BrushAccent}"
@@ -263,7 +460,7 @@
                                 Width="32" Height="32"
                                 Style="{StaticResource GhostNavButton}"
                                 Command="{Binding CloseNavDrawerCommand}"
-                                ToolTip="Close menu">
+                                ToolTip="Close (Esc)">
                             <TextBlock Text="✕" FontSize="14" Foreground="{StaticResource BrushNavInactive}"/>
                         </Button>
                     </Grid>
@@ -271,94 +468,64 @@
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="0,8,0,8">
-                        <controls:NavDrawerItem Label="Billing" Page="{x:Static vm:ShellPage.Billing}"
+                        <controls:NavDrawerItem Label="Billing" Shortcut="Ctrl+A" Page="{x:Static vm:ShellPage.Billing}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Billing}}"/>
-                        <controls:NavDrawerItem Label="Quotations" Page="{x:Static vm:ShellPage.QuotationManagement}"
+                        <controls:NavDrawerItem Label="Quotations" Shortcut="Ctrl+Q" Page="{x:Static vm:ShellPage.QuotationManagement}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.QuotationManagement}}"/>
-                        <controls:NavDrawerItem Label="Barcodes" Page="{x:Static vm:ShellPage.Barcodes}"
+                        <controls:NavDrawerItem Label="Barcodes" Shortcut="Ctrl+B" Page="{x:Static vm:ShellPage.Barcodes}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Barcodes}}"/>
-                        <controls:NavDrawerItem Label="Dashboard" Page="{x:Static vm:ShellPage.Dashboard}"
+                        <controls:NavDrawerItem Label="Dashboard" Shortcut="Ctrl+D" Page="{x:Static vm:ShellPage.Dashboard}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Dashboard}}"/>
-                        <controls:NavDrawerItem Label="Analytics" Page="{x:Static vm:ShellPage.Analytics}"
+                        <controls:NavDrawerItem Label="Analytics" Shortcut="Ctrl+Y" Page="{x:Static vm:ShellPage.Analytics}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
-                        <controls:NavDrawerItem Label="Online Sales" Page="{x:Static vm:ShellPage.OnlineSales}"
+                        <controls:NavDrawerItem Label="Online Sales" Shortcut="Ctrl+O" Page="{x:Static vm:ShellPage.OnlineSales}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OnlineSales}}"/>
-                        <controls:NavDrawerItem Label="Credit Bills" Page="{x:Static vm:ShellPage.CreditBills}"
+                        <controls:NavDrawerItem Label="Credit Bills" Shortcut="Ctrl+I" Page="{x:Static vm:ShellPage.CreditBills}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowCreditBillsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.CreditBills}}"/>
-                        <controls:NavDrawerItem Label="Customers" Page="{x:Static vm:ShellPage.Customers}"
+                        <controls:NavDrawerItem Label="Customers" Shortcut="Ctrl+U" Page="{x:Static vm:ShellPage.Customers}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Customers}}"/>
-                        <controls:NavDrawerItem Label="Salesman" Page="{x:Static vm:ShellPage.Salesmen}"
+                        <controls:NavDrawerItem Label="Salesman" Shortcut="Ctrl+M" Page="{x:Static vm:ShellPage.Salesmen}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Salesmen}}"/>
-                        <controls:NavDrawerItem Label="Ledger" Page="{x:Static vm:ShellPage.Ledger}"
+                        <controls:NavDrawerItem Label="Ledger" Shortcut="Ctrl+L" Page="{x:Static vm:ShellPage.Ledger}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Ledger}}"/>
-                        <controls:NavDrawerItem Label="Returns" Page="{x:Static vm:ShellPage.SaleReturn}"
+                        <controls:NavDrawerItem Label="Returns" Shortcut="Ctrl+R" Page="{x:Static vm:ShellPage.SaleReturn}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
-                        <controls:NavDrawerItem Label="Bill Lookup" Page="{x:Static vm:ShellPage.BillLookup}"
+                        <controls:NavDrawerItem Label="Bill Lookup" Shortcut="Ctrl+K" Page="{x:Static vm:ShellPage.BillLookup}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.BillLookup}}"/>
-                        <controls:NavDrawerItem Label="Day Close" Page="{x:Static vm:ShellPage.DayClose}"
+                        <controls:NavDrawerItem Label="Day Close" Shortcut="Ctrl+W" Page="{x:Static vm:ShellPage.DayClose}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DayClose}}"/>
-                        <controls:NavDrawerItem Label="Duplicate" Page="{x:Static vm:ShellPage.DuplicateBill}"
+                        <controls:NavDrawerItem Label="Duplicate" Shortcut="Ctrl+J" Page="{x:Static vm:ShellPage.DuplicateBill}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DuplicateBill}}"/>
-                        <controls:NavDrawerItem Label="Adjustments" Page="{x:Static vm:ShellPage.Adjustments}"
+                        <controls:NavDrawerItem Label="Adjustments" Shortcut="Ctrl+T" Page="{x:Static vm:ShellPage.Adjustments}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Adjustments}}"/>
-                        <controls:NavDrawerItem Label="Expenses" Page="{x:Static vm:ShellPage.DailyExpenses}"
+                        <controls:NavDrawerItem Label="Expenses" Shortcut="Ctrl+E" Page="{x:Static vm:ShellPage.DailyExpenses}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.DailyExpenses}}"/>
-                        <controls:NavDrawerItem Label="Settings" Page="{x:Static vm:ShellPage.Settings}"
+                        <controls:NavDrawerItem Label="Settings" Shortcut="Ctrl+," Page="{x:Static vm:ShellPage.Settings}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Settings}}"/>
-                        <Button HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Stretch"
-                                Command="{Binding LogoutCommand}"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="0"
-                                Cursor="Hand"
-                                FocusVisualStyle="{x:Null}"
-                                ToolTip="Sign out and return to login">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Root"
-                                            Background="Transparent"
-                                            Padding="16,12"
-                                            BorderThickness="3,0,0,0"
-                                            BorderBrush="Transparent">
-                                        <TextBlock Text="Logout"
-                                                   FontFamily="{StaticResource FontFamilyPrimary}"
-                                                   FontSize="14"
-                                                   Foreground="{StaticResource BrushNavInactive}"
-                                                   VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Root" Property="Background" Value="{StaticResource BrushAccentSoft}"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

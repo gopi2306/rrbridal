@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Input;
 using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Services.Billing;
@@ -77,7 +78,7 @@ public partial class BillPickDialog : Window, INotifyPropertyChanged
         {
             if (success)
             {
-                MessageBox.Show("Select a bill from the list.", "Select bill",
+                AppDialog.Show("Select a bill from the list.", "Select bill",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             return;

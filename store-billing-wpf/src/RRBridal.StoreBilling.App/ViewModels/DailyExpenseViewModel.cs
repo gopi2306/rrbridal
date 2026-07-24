@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MongoDB.Bson;
@@ -108,20 +109,20 @@ public partial class DailyExpenseViewModel : ObservableObject
         var description = (Description ?? "").Trim();
         if (string.IsNullOrEmpty(description))
         {
-            MessageBox.Show("Enter a description for the expense.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Enter a description for the expense.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (!decimal.TryParse((AmountText ?? "").Trim(), NumberStyles.Number, InCulture, out var amount) &&
             !decimal.TryParse((AmountText ?? "").Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out amount))
         {
-            MessageBox.Show("Enter a valid amount.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Enter a valid amount.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (amount <= 0)
         {
-            MessageBox.Show("Amount must be greater than zero.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show("Amount must be greater than zero.", "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -133,7 +134,7 @@ public partial class DailyExpenseViewModel : ObservableObject
             _services.StoreContext.PosCounter);
         if (dayBlock != null)
         {
-            MessageBox.Show(dayBlock, "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(dayBlock, "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -168,7 +169,7 @@ public partial class DailyExpenseViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Post failed: " + ex.Message, "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show("Post failed: " + ex.Message, "Daily Expense", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

@@ -20,23 +20,23 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="Quotation" Style="{StaticResource TextPageTitle}" Foreground="{StaticResource BrushAccent}"/>
+                    <TextBlock Text="Quotation" Style="{StaticResource TextPageTitleAccent}"/>
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <Border Background="{StaticResource BrushSidebarTint}" CornerRadius="4" Padding="8,4" Margin="0,0,8,0">
-                            <TextBlock Text="{Binding QuotationNo, StringFormat=No: {0}}" FontSize="12" FontWeight="SemiBold"/>
+                        <Border Style="{StaticResource StatusChip}" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding QuotationNo, StringFormat=No: {0}}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
                         </Border>
-                        <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" FontSize="12"
+                        <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource TextCaption}"
                                    VerticalAlignment="Center" TextWrapping="Wrap"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="← Back to list" Style="{StaticResource OutlineButton}" MinWidth="110" Height="36" Margin="0,0,8,0"
+                    <Button Content="← Back to list" Style="{StaticResource OutlineButton}" MinWidth="110" Margin="0,0,8,0"
                             Command="{Binding BackToListCommand}"/>
-                    <Button Content="New (F2)" Style="{StaticResource OutlineButton}" MinWidth="96" Height="36" Margin="0,0,8,0"
+                    <Button Content="New (F2)" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0"
                             Command="{Binding NewQuotationCommand}"/>
-                    <Button Content="Print" Style="{StaticResource OutlineButton}" MinWidth="88" Height="36" Margin="0,0,8,0"
+                    <Button Content="Print" Style="{StaticResource OutlineButton}" MinWidth="88" Margin="0,0,8,0"
                             Command="{Binding PrintQuotationCommand}"/>
-                    <Button Content="Save quotation" Style="{StaticResource PrimaryButton}" MinWidth="140" Height="36"
+                    <Button Content="Save quotation" Style="{StaticResource PrimaryButton}" MinWidth="140"
                             Command="{Binding SaveQuotationCommand}"/>
                 </StackPanel>
             </Grid>

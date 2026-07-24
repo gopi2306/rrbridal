@@ -2,6 +2,7 @@ using System;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -55,19 +56,19 @@ public partial class CustomerRegistrationViewModel : ObservableObject
         StatusMessage = "";
         if (string.IsNullOrWhiteSpace(CustomerName))
         {
-            MessageBox.Show("Customer name is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Customer name is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(Mobile))
         {
-            MessageBox.Show("Mobile number is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Mobile number is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(Email) && !IsValidEmail(Email))
         {
-            MessageBox.Show("Email address does not look valid.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Email address does not look valid.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -120,7 +121,7 @@ public partial class CustomerRegistrationViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "";
-            MessageBox.Show($"Could not save customer: {ex.Message}", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialog.Show($"Could not save customer: {ex.Message}", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

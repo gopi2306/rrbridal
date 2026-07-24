@@ -1,6 +1,7 @@
 using System.IO;
 using System.Printing;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using RRBridal.StoreBilling.App.Models;
@@ -119,7 +120,7 @@ public partial class BarcodeLabelPrintPreviewWindow
             return;
 
         File.WriteAllText(dlg.FileName, payload);
-        MessageBox.Show(
+        AppDialog.Show(
             $"Saved {BarcodePrinterPreferences.LanguageHint(language)} commands to:\n{dlg.FileName}",
             "Barcode printing",
             MessageBoxButton.OK,
@@ -140,13 +141,13 @@ public partial class BarcodeLabelPrintPreviewWindow
     {
         if (PrinterCombo.SelectedItem is not string printer || string.IsNullOrWhiteSpace(printer))
         {
-            MessageBox.Show("Select a printer.", "Barcode printing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show("Select a printer.", "Barcode printing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (BarcodePrinterFilter.IsVirtualOrPdfQueue(printer))
         {
-            MessageBox.Show(
+            AppDialog.Show(
                 BarcodePrinterFilter.VirtualPrinterWarning,
                 "Barcode printing",
                 MessageBoxButton.OK,
@@ -164,7 +165,7 @@ public partial class BarcodeLabelPrintPreviewWindow
 
         if (!ok)
         {
-            MessageBox.Show(message, "Barcode printing — error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(message, "Barcode printing — error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

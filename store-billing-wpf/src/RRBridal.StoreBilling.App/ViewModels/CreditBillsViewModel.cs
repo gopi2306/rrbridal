@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RRBridal.StoreBilling.App.Services;
@@ -127,7 +128,7 @@ public partial class CreditBillsViewModel : ObservableObject
                 dlg.PaidAmount);
             if (!consumed)
             {
-                MessageBox.Show("Could not apply credit note. Check balance and try again.", "Credit bills",
+                AppDialog.Show("Could not apply credit note. Check balance and try again.", "Credit bills",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -145,7 +146,7 @@ public partial class CreditBillsViewModel : ObservableObject
                     leg.Amount);
                 if (!consumed)
                 {
-                    MessageBox.Show($"Could not apply credit note {leg.Reference}.", "Credit bills",
+                    AppDialog.Show($"Could not apply credit note {leg.Reference}.", "Credit bills",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -165,7 +166,7 @@ public partial class CreditBillsViewModel : ObservableObject
 
         if (!result.Success)
         {
-            MessageBox.Show(result.Error ?? "Could not save receipt.", "Credit bills",
+            AppDialog.Show(result.Error ?? "Could not save receipt.", "Credit bills",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

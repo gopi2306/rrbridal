@@ -93,7 +93,7 @@ public static class MasterDetailLayoutBehavior
                 {
                     Width = new GridLength(1, GridUnitType.Star),
                     MinWidth = 280,
-                    MaxWidth = 440,
+                    MaxWidth = shell.IsMediumOrWideLayout && shell.LayoutBreakpoint == LayoutBreakpoint.Medium ? 360 : 440,
                 });
                 foreach (var child in mainChildren)
                 {

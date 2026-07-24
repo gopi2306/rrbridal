@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Controls;
 using RRBridal.StoreBilling.App.Services.Billing;
 
@@ -157,7 +158,7 @@ public partial class RecordCreditPaymentDialog : Window
     {
         if (!TryParseAmount(AmountBox.Text, out var amt) || amt <= 0)
         {
-            MessageBox.Show("Enter a valid payment amount.", "Receipt",
+            AppDialog.Show("Enter a valid payment amount.", "Receipt",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -165,14 +166,14 @@ public partial class RecordCreditPaymentDialog : Window
         amt = MoneyMath.RoundDisplayAmount(amt);
         if (amt > _balanceDue + 0.009m)
         {
-            MessageBox.Show("Amount cannot exceed balance due.", "Receipt",
+            AppDialog.Show("Amount cannot exceed balance due.", "Receipt",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (!_allowPartial && amt + 0.009m < _balanceDue)
         {
-            MessageBox.Show("Partial collection is disabled. Enter the full balance.", "Receipt",
+            AppDialog.Show("Partial collection is disabled. Enter the full balance.", "Receipt",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -190,7 +191,7 @@ public partial class RecordCreditPaymentDialog : Window
             reference = TransactionNoBox.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(reference))
             {
-                MessageBox.Show("Enter a transaction / reference number.", "Receipt",
+                AppDialog.Show("Enter a transaction / reference number.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -202,7 +203,7 @@ public partial class RecordCreditPaymentDialog : Window
             reference = TransactionNoBox.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(reference))
             {
-                MessageBox.Show("Enter a transaction / reference number.", "Receipt",
+                AppDialog.Show("Enter a transaction / reference number.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -216,7 +217,7 @@ public partial class RecordCreditPaymentDialog : Window
                 : CreditNoteCombo.SelectedValue as string ?? "";
             if (string.IsNullOrWhiteSpace(reference))
             {
-                MessageBox.Show("Select or enter a credit note number.", "Receipt",
+                AppDialog.Show("Select or enter a credit note number.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -234,21 +235,21 @@ public partial class RecordCreditPaymentDialog : Window
 
             if (total != amt)
             {
-                MessageBox.Show("Split amounts must exactly equal the amount to collect.", "Receipt",
+                AppDialog.Show("Split amounts must exactly equal the amount to collect.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             if (cnAmt > 0 && string.IsNullOrWhiteSpace(cnRef))
             {
-                MessageBox.Show("Enter a credit note reference for the credit note split amount.", "Receipt",
+                AppDialog.Show("Enter a credit note reference for the credit note split amount.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             if (cash <= 0 && card <= 0 && upi <= 0 && cnAmt <= 0)
             {
-                MessageBox.Show("Enter at least one split amount.", "Receipt",
+                AppDialog.Show("Enter at least one split amount.", "Receipt",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }

@@ -36,7 +36,7 @@
             <!-- Credit note panel -->
             <StackPanel x:Name="CreditNotePanel" Margin="0,8,0,0" Visibility="Collapsed">
                 <TextBlock Text="Customer credit note" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
-                <ComboBox x:Name="CreditNoteCombo" MinHeight="36" Margin="0,0,0,8"
+                <ComboBox x:Name="CreditNoteCombo" Margin="0,0,0,8"
                           DisplayMemberPath="CreditNoteNo" SelectedValuePath="CreditNoteNo"/>
                 <TextBlock Text="Or enter credit note no." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
                 <TextBox x:Name="CreditNoteRefBox" Style="{StaticResource RoundedTextBox}"/>
@@ -74,8 +74,8 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96" Height="36" Margin="0,0,8,0" Click="Cancel_Click"/>
-                <Button Content="Confirm" Style="{StaticResource PrimaryButton}" MinWidth="110" Height="36" Click="Confirm_Click"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0" Click="Cancel_Click"/>
+                <Button Content="Confirm" Style="{StaticResource PrimaryButton}" MinWidth="110" Click="Confirm_Click"/>
             </StackPanel>
         </StackPanel>
     </Border>

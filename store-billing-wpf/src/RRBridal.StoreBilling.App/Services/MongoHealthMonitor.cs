@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Threading;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -191,7 +192,7 @@ public sealed class MongoHealthMonitor : IDisposable
 
         dispatcher.BeginInvoke(() =>
         {
-            var result = MessageBox.Show(
+            var result = AppDialog.Show(
                 OfflineUserMessage + "\n\nYes = Retry connection\nNo = Exit the app",
                 "RR Bridal Billing — MongoDB unreachable",
                 MessageBoxButton.YesNo,

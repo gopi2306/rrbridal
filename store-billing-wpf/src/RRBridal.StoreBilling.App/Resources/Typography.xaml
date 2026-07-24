@@ -4,14 +4,19 @@
 
     <Style x:Key="TextPageTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
-        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontSize" Value="{DynamicResource DensityPageTitleFontSize}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
     </Style>
 
+    <Style x:Key="TextPageTitleAccent" TargetType="TextBlock" BasedOn="{StaticResource TextPageTitle}">
+        <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
     <Style x:Key="TextSectionTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
-        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontSize" Value="{DynamicResource DensitySectionTitleFontSize}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
     </Style>
@@ -24,7 +29,7 @@
 
     <Style x:Key="TextCaption" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="11.5"/>
         <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
     </Style>
 
@@ -35,6 +40,30 @@
         <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
     </Style>
 
+    <Style x:Key="FilterFieldLabel" TargetType="TextBlock" BasedOn="{StaticResource TextCaption}">
+        <Setter Property="Margin" Value="0,0,0,5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style x:Key="MetricValue" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
+        <Setter Property="FontSize" Value="{DynamicResource DensityMetricValueFontSize}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <Style x:Key="MetricValueAccent" TargetType="TextBlock" BasedOn="{StaticResource MetricValue}">
+        <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+    </Style>
+
+    <Style x:Key="FormFieldLabel" TargetType="TextBlock" BasedOn="{StaticResource TextLabel}">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
     <Style x:Key="TextMuted" TargetType="TextBlock" BasedOn="{StaticResource TextBody}">
         <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
     </Style>
@@ -42,5 +71,10 @@
     <Style x:Key="TextAccent" TargetType="TextBlock" BasedOn="{StaticResource TextBody}">
         <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style x:Key="PageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource TextCaption}">
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,4,0,0"/>
     </Style>
 </ResourceDictionary>

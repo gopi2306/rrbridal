@@ -1,5 +1,6 @@
 using System.Printing;
 using System.Windows;
+using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -199,7 +200,7 @@ public sealed class BillPrintService
         if (TryPrintToQueue(document, queueName, jobName))
             return true;
 
-        var r = MessageBox.Show(
+        var r = AppDialog.Show(
             owner,
             $"Could not print to saved printer \"{queueName}\". Open the print dialog to pick a printer?",
             "RR Bridal Billing",
