@@ -58,6 +58,7 @@ public sealed class AppServices
     public required ShellUiSettingsStore ShellUiSettings { get; init; }
     public required RazorpayPosSettingsStore RazorpayPosSettings { get; init; }
     public required BillDocumentService BillDocuments { get; init; }
+    public required BillDeleteService BillDelete { get; init; }
     public required HeldBillService HeldBills { get; init; }
     public required CustomerCreditNoteService CustomerCreditNotes { get; init; }
     public required SaleReturnHistoryService SaleReturnHistory { get; init; }
@@ -166,6 +167,8 @@ public sealed class AppServices
         var shellUiSettings = new ShellUiSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
+        var billDelete = new BillDeleteService(
+            localDb, storeContext, billDocuments, storeBillList, productCatalog, billingOutbox);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var saleReturnHistory = new SaleReturnHistoryService(localDb);
@@ -223,6 +226,7 @@ public sealed class AppServices
             ShellUiSettings = shellUiSettings,
             RazorpayPosSettings = razorpayPosSettings,
             BillDocuments = billDocuments,
+            BillDelete = billDelete,
             HeldBills = heldBills,
             CustomerCreditNotes = customerCreditNotes,
             SaleReturnHistory = saleReturnHistory,

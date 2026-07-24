@@ -35,15 +35,30 @@ public partial class LedgerViewModel : ObservableObject
 
     [ObservableProperty] private PosCounterFilterOption? _selectedPosCounterFilter;
 
+    [ObservableProperty] private LedgerDateFilterOption? _selectedDateFilter;
+
+    [ObservableProperty] private DateTime? _filterDateFrom = DateTime.Today;
+
+    [ObservableProperty] private DateTime? _filterDateTo = DateTime.Today;
+
     [ObservableProperty] private LedgerBillRow? _selectedBill;
 
     private readonly AppServices _services;
 
     public ObservableCollection<PosCounterFilterOption> PosCounterFilterOptions { get; } = new();
 
+    public ObservableCollection<LedgerDateFilterOption> DateFilterOptions { get; } = new()
+    {
+        new(LedgerDateFilterMode.Today, "Today"),
+        new(LedgerDateFilterMode.Custom, "Custom date"),
+    };
+
     public ObservableCollection<LedgerBillRow> Bills { get; } = new();
 
     public ObservableCollection<LedgerPaymentRow> Payments { get; } = new();
+
+    public bool ShowCustomDateRange =>
+        SelectedDateFilter?.Mode == LedgerDateFilterMode.Custom;
 
     public LedgerViewModel(AppServices services)
     {
@@ -53,6 +68,7 @@ public partial class LedgerViewModel : ObservableObject
         _shellBranding = services.ShellBranding;
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
         SelectedPosCounterFilter = PosCounterFilterOptions[0];
+        SelectedDateFilter = DateFilterOptions[0];
         ApplyBrandingFromShell();
     }
 
@@ -74,6 +90,7 @@ public partial class LedgerViewModel : ObservableObject
 
             await ReloadPosCounterFilterOptionsAsync(storeId);
 
+            var (dateFrom, dateTo, dateLabel) = ResolveDateFilter();
             var posFilter = SelectedPosCounterFilter?.PosCounter;
             var snap = await _ledgerService.LoadAsync(
                 storeId,
@@ -81,7 +98,9 @@ public partial class LedgerViewModel : ObservableObject
                 MaxPayments,
                 ReportScope.StoreWide,
                 _storeContext.DeviceId,
-                posFilter);
+                posFilter,
+                dateFrom,
+                dateTo);
 
             Bills.Clear();
             foreach (var b in snap.Bills)
@@ -93,7 +112,7 @@ public partial class LedgerViewModel : ObservableObject
 
             var filterLabel = SelectedPosCounterFilter?.Label ?? "All counters";
             StatusMessage =
-                $"Loaded {Bills.Count} bill(s), {Payments.Count} payment(s) ({filterLabel}). Updated {DateTime.Now.ToString("T", InCulture)}";
+                $"Loaded {Bills.Count} bill(s), {Payments.Count} payment(s) ({filterLabel}, {dateLabel}). Updated {DateTime.Now.ToString("T", InCulture)}";
         }
         catch (Exception ex)
         {
@@ -141,6 +160,53 @@ public partial class LedgerViewModel : ObservableObject
     {
         if (!_suppressFilterRefresh)
             _ = Refresh();
+    }
+
+    partial void OnSelectedDateFilterChanged(LedgerDateFilterOption? value)
+    {
+        OnPropertyChanged(nameof(ShowCustomDateRange));
+        if (!_suppressFilterRefresh)
+            _ = Refresh();
+    }
+
+    partial void OnFilterDateFromChanged(DateTime? value)
+    {
+        if (!_suppressFilterRefresh && ShowCustomDateRange)
+            _ = Refresh();
+    }
+
+    partial void OnFilterDateToChanged(DateTime? value)
+    {
+        if (!_suppressFilterRefresh && ShowCustomDateRange)
+            _ = Refresh();
+    }
+
+    private (DateTime? dateFrom, DateTime? dateTo, string label) ResolveDateFilter()
+    {
+        if (SelectedDateFilter?.Mode == LedgerDateFilterMode.Custom)
+        {
+            var from = FilterDateFrom?.Date;
+            var to = FilterDateTo?.Date;
+            if (from.HasValue && to.HasValue && from > to)
+                (from, to) = (to, from);
+
+            string label;
+            if (from.HasValue && to.HasValue && from != to)
+                label = $"{from.Value.ToString("dd-MMM-yyyy", InCulture)} → {to.Value.ToString("dd-MMM-yyyy", InCulture)}";
+            else if (from.HasValue && to.HasValue)
+                label = from.Value.ToString("dd-MMM-yyyy", InCulture);
+            else if (from.HasValue)
+                label = $"from {from.Value.ToString("dd-MMM-yyyy", InCulture)}";
+            else if (to.HasValue)
+                label = $"to {to.Value.ToString("dd-MMM-yyyy", InCulture)}";
+            else
+                label = "custom (all dates)";
+
+            return (from, to, label);
+        }
+
+        var today = DateTime.Today;
+        return (today, today, "Today");
     }
 
     private async Task ReloadPosCounterFilterOptionsAsync(string storeId)

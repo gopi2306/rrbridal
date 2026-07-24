@@ -25,17 +25,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Grid Grid.Row="0" Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="120"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*" MinWidth="120"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*" MinWidth="110"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
+                <WrapPanel Grid.Row="0" Margin="0,0,0,8" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <StackPanel Width="150" Margin="0,0,12,0">
                         <TextBlock Text="Bill no" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox x:Name="BillNoBox"
                                  Style="{StaticResource RoundedTextBox}"
@@ -43,22 +34,22 @@
                                  ToolTip="Full bill no or partial match"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="2">
+                    <StackPanel Width="160" Margin="0,0,12,0">
                         <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}"
                                  Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="4">
+                    <StackPanel Width="130" Margin="0,0,12,0">
                         <TextBlock Text="Customer mobile" Style="{StaticResource FilterFieldLabel}"/>
                         <TextBox Style="{StaticResource RoundedTextBox}"
                                  Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="BillNoBox_KeyDown"/>
                     </StackPanel>
-                    <Button Grid.Column="6" Content="Search" Style="{StaticResource PrimaryButton}"
-                            VerticalAlignment="Bottom" MinWidth="80"
+                    <Button Content="Search" Style="{StaticResource PrimaryButton}"
+                            VerticalAlignment="Bottom" Width="88" Height="32"
                             Command="{Binding SearchBillsCommand}"/>
-                </Grid>
+                </WrapPanel>
                 <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12"
                            Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
             </Grid>
@@ -113,6 +104,11 @@
                                 Command="{Binding StartReturnCommand}"/>
                         <Button Content="Add Adjustment" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"
                                 Command="{Binding StartAdjustmentCommand}"/>
+                        <Button Content="Delete Bill" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
+                                Foreground="{StaticResource BrushNegative}"
+                                BorderBrush="{StaticResource BrushNegative}"
+                                Command="{Binding DeleteBillCommand}"
+                                Visibility="{Binding ShowDeleteBill, Converter={StaticResource BoolToVis}}"/>
                         <Button Content="Duplicate Print" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"
                                 Command="{Binding PrintDuplicateCommand}"/>
                         <Button Content="Print Credit Note" Style="{StaticResource OutlineButton}" Margin="0,0,8,4"

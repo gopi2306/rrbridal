@@ -3,6 +3,7 @@ import { readNumber, readString } from '../dashboard/store-sales-payload.util';
 export type StockLine = { sku: string; qty: number };
 
 export const STORE_INVOICE_POSTED = 'StoreInvoicePosted';
+export const STORE_INVOICE_DELETED = 'StoreInvoiceDeleted';
 export const STORE_SALE_RETURN_POSTED = 'StoreSaleReturnPosted';
 export const STORE_SALE_EXCHANGE_POSTED = 'StoreSaleExchangePosted';
 

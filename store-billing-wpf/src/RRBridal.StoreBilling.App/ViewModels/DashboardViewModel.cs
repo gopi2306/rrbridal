@@ -825,9 +825,14 @@ public partial class DashboardViewModel : ObservableObject
 
             var snap = await _services.StoreBillList.LoadAsync(_storeContext.StoreId, query);
 
+            foreach (var existing in BillListRows)
+                existing.PropertyChanged -= OnBillListRowPropertyChanged;
             BillListRows.Clear();
             foreach (var row in snap.Rows)
+            {
+                row.PropertyChanged += OnBillListRowPropertyChanged;
                 BillListRows.Add(row);
+            }
 
             BillListTotalsSummary =
                 $"{snap.Rows.Count} bill(s) · Payable {MoneyMath.FormatRupee(snap.TotalPayable)} · " +
@@ -839,11 +844,94 @@ public partial class DashboardViewModel : ObservableObject
                 : FilterBusinessDate.ToString("dd-MMM-yyyy", InCulture);
             var trunc = snap.WasTruncated ? $" (showing first {snap.Rows.Count} of {snap.TotalMatched})" : "";
             BillListStatusMessage = $"Updated {DateTime.Now:T} · {dateLabel}{trunc}";
+            DeleteSelectedBillsCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {
             BillListStatusMessage = "Could not load bills: " + ex.Message;
             BillListTotalsSummary = "";
+            DeleteSelectedBillsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private void OnBillListRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StoreBillListRow.IsSelected))
+            DeleteSelectedBillsCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanDeleteSelectedBills() =>
+        BillListRows.Any(r => r.IsSelected && r.CanDelete);
+
+    [RelayCommand(CanExecute = nameof(CanDeleteSelectedBills))]
+    private async Task DeleteSelectedBills()
+    {
+        var selected = BillListRows.Where(r => r.IsSelected && r.CanDelete).ToList();
+        if (selected.Count == 0)
+        {
+            AppDialog.Show(
+                "Select one or more bills to delete. Bills with a return or adjustment cannot be deleted.",
+                "Delete bills",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var preview = string.Join("\n", selected.Take(15).Select(r => "• " + r.BillNo));
+        if (selected.Count > 15)
+            preview += $"\n… and {selected.Count - 15} more";
+
+        var confirm = AppDialog.Show(
+            $"Permanently delete {selected.Count} bill(s)?\n\n{preview}\n\nStock will be restored and changes will sync to central. This cannot be undone.",
+            "Delete bills",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        BillListStatusMessage = $"Deleting {selected.Count} bill(s)…";
+        var ok = 0;
+        var failures = new System.Collections.Generic.List<string>();
+
+        foreach (var row in selected)
+        {
+            var result = await _services.BillDelete.DeleteAsync(row.BillNo);
+            if (result.Success)
+                ok++;
+            else
+                failures.Add($"{row.BillNo}: {result.Message}");
+        }
+
+        string syncMsg;
+        try
+        {
+            BillListStatusMessage = "Syncing deletes to central…";
+            var syncResult = await _services.StoreSyncRunner.RunFullStoreSyncAsync(default);
+            syncMsg = syncResult.SkippedBecauseBusy
+                ? " Sync skipped (already running) — pending outbox will sync shortly."
+                : " Synced to central.";
+        }
+        catch (Exception ex)
+        {
+            syncMsg = $" Sync failed: {ex.Message}. Deletes are queued in outbox.";
+        }
+
+        await LoadBillList();
+
+        if (failures.Count == 0)
+        {
+            BillListStatusMessage = $"Deleted {ok} bill(s).{syncMsg}";
+            AppDialog.Show($"Deleted {ok} bill(s).{syncMsg}", "Delete bills", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        else
+        {
+            var detail = string.Join("\n", failures.Take(8));
+            BillListStatusMessage = $"Deleted {ok}; {failures.Count} failed.{syncMsg}";
+            AppDialog.Show(
+                $"Deleted {ok} bill(s); {failures.Count} failed.{syncMsg}\n\n{detail}",
+                "Delete bills",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

@@ -13,6 +13,7 @@ import {
   parseExchangeStockLines,
   parseInvoiceStockLines,
   parseReturnStockLines,
+  STORE_INVOICE_DELETED,
   STORE_INVOICE_POSTED,
   STORE_SALE_EXCHANGE_POSTED,
   STORE_SALE_RETURN_POSTED,
@@ -52,6 +53,20 @@ export class StoreSalesInventoryService {
       meta.eventId;
 
     return await this.postStoreLedger(meta.storeId, meta.eventId, STORE_INVOICE_POSTED, note, lines, -1);
+  }
+
+  async postInvoiceDeletedLedger(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<number> {
+    if (await this.hasLedgerForEvent(meta.eventId, STORE_INVOICE_DELETED)) return 0;
+
+    const lines = parseInvoiceStockLines(payload);
+    if (lines.length === 0) return 0;
+
+    const note =
+      (typeof payload.billNo === 'string' && payload.billNo.trim()) ||
+      (typeof payload.invoiceNo === 'string' && payload.invoiceNo.trim()) ||
+      meta.eventId;
+
+    return await this.postStoreLedger(meta.storeId, meta.eventId, STORE_INVOICE_DELETED, note, lines, 1);
   }
 
   async postReturnLedger(

@@ -100,6 +100,21 @@ export class StoreSalesSyncService {
     }
   }
 
+  async applyInvoiceDeleted(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const invoiceNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!invoiceNo) throw new BadRequestException('billNo or invoiceNo is required');
+
+    const existing = await this.invoiceModel.findOne({ storeId: meta.storeId, invoiceNo }).lean();
+    if (!existing) {
+      // Idempotent: invoice already gone (or never synced to central).
+      return;
+    }
+
+    await this.invoiceModel.deleteOne({ storeId: meta.storeId, invoiceNo });
+    await this.storeSalesInventoryService.postInvoiceDeletedLedger(meta, payload);
+  }
+
   async applySaleReturn(
     meta: StoreSyncEventMeta,
     payload: Record<string, unknown>,

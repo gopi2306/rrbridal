@@ -1,9 +1,10 @@
 using System;
+using CommunityToolkit.Mvvm.ComponentModel;
 using RRBridal.StoreBilling.App.Services.Billing;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
-public sealed class StoreBillListRow
+public sealed partial class StoreBillListRow : ObservableObject
 {
     public required string BillNo { get; init; }
     public string BillDate { get; init; } = "";
@@ -27,6 +28,10 @@ public sealed class StoreBillListRow
     public bool HasAdjustment { get; init; }
     public string AdjustmentNo { get; init; } = "";
     public DateTime SortUtc { get; init; }
+
+    [ObservableProperty] private bool _isSelected;
+
+    public bool CanDelete => !HasReturn && !HasAdjustment;
 
     public string PayableFormatted => MoneyMath.FormatRupee(Payable);
     public string SalesmanDisplay => !string.IsNullOrWhiteSpace(SalesmanCode)

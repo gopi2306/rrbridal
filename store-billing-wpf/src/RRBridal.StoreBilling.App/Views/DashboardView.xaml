@@ -181,21 +181,65 @@
                                       IsReadOnly="True"
                                       CanUserAddRows="False"
                                       HeadersVisibility="Column"
+                                      RowHeight="40"
                                       MinHeight="200"
-                                      MaxHeight="320">
+                                      MaxHeight="360"
+                                      HorizontalAlignment="Stretch">
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource ThemedDataGridCell}">
+                                        <Setter Property="Padding" Value="10,8"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGrid.CellStyle>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="100"/>
-                                    <DataGridTextColumn Header="UPC/EAN" Binding="{Binding UpcEanCode}" Width="100"/>
-                                    <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*"/>
-                                    <DataGridTextColumn Header="Local store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="120"/>
-                                    <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N2}}" Width="85"/>
-                                    <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N2}}" Width="95"/>
-                                    <DataGridTemplateColumn Header="" Width="90">
+                                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110"/>
+                                    <DataGridTextColumn Header="UPC/EAN" Binding="{Binding UpcEanCode}" Width="120"/>
+                                    <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" MinWidth="180">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding Product}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Local store qty" Binding="{Binding StoreQty, StringFormat={}{0:N2}}" Width="120">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="Margin" Value="0,0,8,0"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="MRP" Binding="{Binding Mrp, StringFormat=₹ {0:N2}}" Width="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="Margin" Value="0,0,8,0"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Store price" Binding="{Binding StorePrice, StringFormat=₹ {0:N2}}" Width="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="Margin" Value="0,0,8,0"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTemplateColumn Header="" Width="100">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Button Content="Adjust"
                                                         Style="{StaticResource OutlineButton}"
-                                                        Padding="8,2"
+                                                        Padding="10,4"
+                                                        Margin="0,2"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Left"
                                                         Command="{Binding DataContext.AdjustInventoryStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}"/>
                                             </DataTemplate>
@@ -748,6 +792,11 @@
                                 </StackPanel>
                             </Grid>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                <Button Content="Delete selected" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                        Foreground="{StaticResource BrushNegative}"
+                                        BorderBrush="{StaticResource BrushNegative}"
+                                        Command="{Binding DeleteSelectedBillsCommand}"
+                                        ToolTip="Delete checked bills (restores stock and syncs to central). Bills with return/adjustment cannot be deleted."/>
                                 <Button Content="Download report" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
                                         Command="{Binding DownloadBillListReportCommand}"/>
                                 <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="100"
@@ -763,29 +812,40 @@
                         <DataGrid ItemsSource="{Binding BillListRows}"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
-                                  IsReadOnly="True"
+                                  IsReadOnly="False"
                                   CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
                                   HeadersVisibility="Column"
                                   MinHeight="280"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120"/>
-                                <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130"/>
-                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90"/>
-                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120"/>
-                                <DataGridTextColumn Header="Salesman" Binding="{Binding SalesmanDisplay}" Width="130"/>
-                                <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="100"/>
-                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55"/>
-                                <DataGridTextColumn Header="Payable" Binding="{Binding PayableFormatted}" Width="95"/>
-                                <DataGridTextColumn Header="Cash" Binding="{Binding CashFormatted}" Width="85"/>
-                                <DataGridTextColumn Header="Card" Binding="{Binding CardFormatted}" Width="85"/>
-                                <DataGridTextColumn Header="UPI" Binding="{Binding UpiFormatted}" Width="85"/>
-                                <DataGridTextColumn Header="Credit note" Binding="{Binding CreditNoteFormatted}" Width="95"/>
-                                <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedDisplay}" Width="70"/>
-                                <DataGridTextColumn Header="Adjustment" Binding="{Binding AdjustmentDisplay}" Width="80"/>
-                                <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="90"/>
-                                <DataGridTemplateColumn Header="Actions" Width="110">
+                                <DataGridTemplateColumn Header="" Width="36" CanUserResize="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                                      IsEnabled="{Binding CanDelete}"
+                                                      ToolTip="Select bill to delete (disabled if return/adjustment exists)"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Bill no" Binding="{Binding BillNo}" Width="120" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="130" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="90" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="120" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Salesman" Binding="{Binding SalesmanDisplay}" Width="130" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Mobile" Binding="{Binding CustomerPhone}" Width="100" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQty, StringFormat={}{0:N2}}" Width="55" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Payable" Binding="{Binding PayableFormatted}" Width="95" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Cash" Binding="{Binding CashFormatted}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Card" Binding="{Binding CardFormatted}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="UPI" Binding="{Binding UpiFormatted}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Credit note" Binding="{Binding CreditNoteFormatted}" Width="95" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedDisplay}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Adjustment" Binding="{Binding AdjustmentDisplay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="90" IsReadOnly="True"/>
+                                <DataGridTemplateColumn Header="Actions" Width="110" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">

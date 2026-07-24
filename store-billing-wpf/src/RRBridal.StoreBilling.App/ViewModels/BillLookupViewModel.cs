@@ -50,6 +50,10 @@ public partial class BillLookupViewModel : ObservableObject
     public bool ShowReturnAlreadyPostedMessage => IsReturnMode && Detail.HasReturn && !CanPostReturn;
     public bool CanPostAdjustment => IsAdjustmentMode && Adjustment.BillLoaded && !Detail.HasAdjustment;
 
+    public bool ShowDeleteBill => _services.StoreContext.IsPrimaryCounter;
+    public bool CanDeleteBill =>
+        ShowDeleteBill && Detail.IsLoaded && !Detail.HasReturn && !Detail.HasAdjustment;
+
     public BillLookupViewModel(AppServices services)
     {
         _services = services;
@@ -324,6 +328,41 @@ public partial class BillLookupViewModel : ObservableObject
         await EnterAdjustmentViewAsync(Detail.LoadedBillNo);
     }
 
+    [RelayCommand(CanExecute = nameof(CanDeleteBill))]
+    private async Task DeleteBill()
+    {
+        if (!CanDeleteBill)
+            return;
+
+        var billNo = Detail.LoadedBillNo;
+        var confirm = AppDialog.Show(
+            $"Permanently delete bill {billNo}?\n\nStock will be restored and the deletion will sync to central. This cannot be undone.",
+            "Delete bill",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        var result = await _services.BillDelete.DeleteAsync(billNo);
+        if (!result.Success)
+        {
+            AppDialog.Show(result.Message, "Delete bill", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusMessage = result.Message;
+            return;
+        }
+
+        Detail.Clear();
+        OriginalDetail.Clear();
+        SearchResults.Clear();
+        SelectedSearchBill = null;
+        await Return.ClearFormCommand.ExecuteAsync(null);
+        await Adjustment.ClearFormCommand.ExecuteAsync(null);
+        NotifySearchResultsChanged();
+        NotifyActionCommands();
+        StatusMessage = result.Message;
+        AppDialog.Show(result.Message, "Delete bill", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private bool CanPrintDuplicate() => Detail.IsLoaded;
 
     [RelayCommand(CanExecute = nameof(CanPrintDuplicate))]
@@ -419,10 +458,12 @@ public partial class BillLookupViewModel : ObservableObject
     {
         StartReturnCommand.NotifyCanExecuteChanged();
         StartAdjustmentCommand.NotifyCanExecuteChanged();
+        DeleteBillCommand.NotifyCanExecuteChanged();
         PrintDuplicateCommand.NotifyCanExecuteChanged();
         PrintCreditNoteDuplicateCommand.NotifyCanExecuteChanged();
         NotifyReturnPostState();
         OnPropertyChanged(nameof(CanPostAdjustment));
+        OnPropertyChanged(nameof(CanDeleteBill));
     }
 
     private void NotifyReturnPostState()

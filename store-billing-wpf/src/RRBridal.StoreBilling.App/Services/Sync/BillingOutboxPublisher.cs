@@ -51,6 +51,37 @@ public sealed class BillingOutboxPublisher
         return EnqueueAsync("InvoiceCreated", payload, hash, ct);
     }
 
+    public Task<string> PublishInvoiceDeletedAsync(BsonDocument billDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)billDoc.DeepClone();
+        if (!payload.Contains("billNo") && payload.Contains("invoiceNo"))
+            payload["billNo"] = payload["invoiceNo"];
+
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("InvoiceDeleted", payload, hash, ct);
+    }
+
+    /// <summary>
+    /// Removes pending InvoiceCreated events for a bill so a later sync cannot recreate a deleted invoice.
+    /// </summary>
+    public async Task<long> CancelPendingInvoiceCreatedAsync(string billNo, CancellationToken ct = default)
+    {
+        var trimmed = billNo.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return 0;
+
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", _storeContext.StoreId),
+            Builders<BsonDocument>.Filter.Eq("type", "InvoiceCreated"),
+            Builders<BsonDocument>.Filter.Eq("status", "pending"),
+            Builders<BsonDocument>.Filter.Or(
+                Builders<BsonDocument>.Filter.Eq("payload.billNo", trimmed),
+                Builders<BsonDocument>.Filter.Eq("payload.invoiceNo", trimmed)));
+
+        var result = await _outbox.DeleteManyAsync(filter, ct);
+        return result.DeletedCount;
+    }
+
     public Task<string> PublishCreditNoteCreatedAsync(BsonDocument noteDoc, CancellationToken ct = default)
     {
         var payload = (BsonDocument)noteDoc.DeepClone();

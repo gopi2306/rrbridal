@@ -24,12 +24,27 @@
                 <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" Style="{StaticResource PageSubtitle}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                 <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" Style="{StaticResource TextCaption}" Margin="0,2,0,0"/>
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                    <StackPanel VerticalAlignment="Bottom">
+                    <StackPanel Width="160" Margin="0,0,12,0" VerticalAlignment="Bottom">
                         <TextBlock Text="Counter filter" Style="{StaticResource FilterFieldLabel}"/>
                         <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding PosCounterFilterOptions}"
                                   SelectedItem="{Binding SelectedPosCounterFilter}"
-                                  DisplayMemberPath="Label"
-                                  MinWidth="160"/>
+                                  DisplayMemberPath="Label"/>
+                    </StackPanel>
+                    <StackPanel Width="140" Margin="0,0,12,0" VerticalAlignment="Bottom">
+                        <TextBlock Text="Date filter" Style="{StaticResource FilterFieldLabel}"/>
+                        <ComboBox Style="{StaticResource RoundedComboBox}" ItemsSource="{Binding DateFilterOptions}"
+                                  SelectedItem="{Binding SelectedDateFilter}"
+                                  DisplayMemberPath="Label"/>
+                    </StackPanel>
+                    <StackPanel Width="140" Margin="0,0,12,0" VerticalAlignment="Bottom"
+                                Visibility="{Binding ShowCustomDateRange, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
+                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateFrom}"/>
+                    </StackPanel>
+                    <StackPanel Width="140" VerticalAlignment="Bottom"
+                                Visibility="{Binding ShowCustomDateRange, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
+                        <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding FilterDateTo}"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

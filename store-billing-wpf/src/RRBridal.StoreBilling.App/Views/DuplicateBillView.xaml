@@ -28,35 +28,27 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
-                        <Grid DataContext="{Binding Bill}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                        <WrapPanel DataContext="{Binding Bill}" Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <StackPanel Width="150" Margin="0,0,12,0">
                                 <TextBlock Text="Invoice no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchInvoiceNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                            <StackPanel Width="160" Margin="0,0,12,0">
                                 <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                            <StackPanel Width="140" Margin="0,0,12,0">
                                 <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
-                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
+                            <StackPanel Width="140" Margin="0,0,12,0">
                                 <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
-                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}"/>
                             </StackPanel>
-                            <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Search" Style="{StaticResource PrimaryButton}"
-                                    VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>
-                        </Grid>
+                            <Button Content="Search" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom" Width="88" Height="32"
+                                    Command="{Binding SearchCommand}"/>
+                        </WrapPanel>
                     </Border>
 
                     <Grid Grid.Row="1" DataContext="{Binding Bill}">
@@ -106,44 +98,35 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
-                        <Grid DataContext="{Binding CreditNote}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                        <WrapPanel DataContext="{Binding CreditNote}" Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <StackPanel Width="150" Margin="0,0,12,8">
                                 <TextBlock Text="Original bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchOriginalBillNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
+                            <StackPanel Width="150" Margin="0,0,12,8">
                                 <TextBlock Text="Return bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchReturnNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                            <StackPanel Width="160" Margin="0,0,12,8">
                                 <TextBlock Text="Customer name" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                            <StackPanel Width="130" Margin="0,0,12,8">
                                 <TextBlock Text="Mobile no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchMobileNo, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,0">
+                            <StackPanel Width="140" Margin="0,0,12,8">
                                 <TextBlock Text="Date from" Style="{StaticResource FilterFieldLabel}"/>
-                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}" Margin="0,4,0,0"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateFrom}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,8,0">
+                            <StackPanel Width="140" Margin="0,0,12,8">
                                 <TextBlock Text="Date to" Style="{StaticResource FilterFieldLabel}"/>
-                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}" Margin="0,4,0,0"/>
+                                <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding SearchDateTo}"/>
                             </StackPanel>
-                            <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
-                                    VerticalAlignment="Center" Width="100" Command="{Binding SearchCommand}"/>
-                        </Grid>
+                            <Button Content="Search" Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom" Width="88" Height="32" Margin="0,0,0,8"
+                                    Command="{Binding SearchCommand}"/>
+                        </WrapPanel>
                     </Border>
 
                     <Grid Grid.Row="1" DataContext="{Binding CreditNote}">

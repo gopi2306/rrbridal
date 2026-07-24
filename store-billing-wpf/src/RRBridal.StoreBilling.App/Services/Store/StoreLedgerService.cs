@@ -49,6 +49,8 @@ public sealed class StoreLedgerService
         ReportScope scope = ReportScope.ThisCounter,
         string? deviceId = null,
         string? posCounterFilter = null,
+        DateTime? dateFrom = null,
+        DateTime? dateTo = null,
         CancellationToken ct = default)
     {
         maxBills = Math.Clamp(maxBills, 1, 500);
@@ -63,6 +65,7 @@ public sealed class StoreLedgerService
         var bills = billDocs
             .Where(d => MatchesScope(d, deviceId, scope))
             .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
+            .Where(d => MatchesBillDateFilter(d, dateFrom, dateTo))
             .Select(MapBill)
             .Where(x => x != null)
             .Cast<LedgerBillRow>()
@@ -74,6 +77,7 @@ public sealed class StoreLedgerService
         var payments = payDocs
             .Where(d => MatchesPaymentScope(d, storeId, deviceId, scope))
             .Where(d => MatchesPaymentPosCounterFilter(d, posCounterFilter))
+            .Where(d => MatchesPaymentDateFilter(d, dateFrom, dateTo))
             .Select(MapPayment)
             .OrderByDescending(x => x.SortUtc)
             .Take(maxPayments)
@@ -160,6 +164,37 @@ public sealed class StoreLedgerService
             return true;
         var pos = ReadString(doc, "PosCounter", "posCounter") ?? "";
         return string.Equals(pos, posCounterFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesBillDateFilter(BsonDocument doc, DateTime? dateFrom, DateTime? dateTo)
+    {
+        if (dateFrom == null && dateTo == null)
+            return true;
+        if (!TryGetUtcDate(doc, "createdAtUtc", out var utc))
+            return false;
+        return IsLocalDateInRange(utc, dateFrom, dateTo);
+    }
+
+    private static bool MatchesPaymentDateFilter(BsonDocument doc, DateTime? dateFrom, DateTime? dateTo)
+    {
+        if (dateFrom == null && dateTo == null)
+            return true;
+        var created = ReadDateTimeUtc(doc, "CreatedAt", "createdAt");
+        if (created == DateTime.MinValue && doc.TryGetValue("_id", out var id) && id.IsObjectId)
+            created = DateTime.SpecifyKind(id.AsObjectId.CreationTime, DateTimeKind.Utc);
+        if (created == DateTime.MinValue)
+            return false;
+        return IsLocalDateInRange(created, dateFrom, dateTo);
+    }
+
+    private static bool IsLocalDateInRange(DateTime utc, DateTime? dateFrom, DateTime? dateTo)
+    {
+        var localDate = utc.ToLocalTime().Date;
+        if (dateFrom.HasValue && localDate < dateFrom.Value.Date)
+            return false;
+        if (dateTo.HasValue && localDate > dateTo.Value.Date)
+            return false;
+        return true;
     }
 
     private static bool MatchesScope(BsonDocument doc, string? deviceId, ReportScope scope)

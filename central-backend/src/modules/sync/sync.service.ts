@@ -57,6 +57,8 @@ export class SyncService {
           await this.stockTransfersService.receiveFromSync(ev.storeId, ev.payload);
         } else if (ev.type === 'InvoiceCreated') {
           await this.storeSalesSyncService.applyInvoiceCreated(meta, ev.payload);
+        } else if (ev.type === 'InvoiceDeleted') {
+          await this.storeSalesSyncService.applyInvoiceDeleted(meta, ev.payload);
         } else if (ev.type === 'SaleReturnCreated') {
           await this.storeSalesSyncService.applySaleReturn(meta, ev.payload, 'return');
         } else if (ev.type === 'SaleExchangeCreated') {
