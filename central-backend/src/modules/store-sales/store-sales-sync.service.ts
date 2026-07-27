@@ -9,10 +9,11 @@ import { StoreCreditNoteCashout, StoreCreditNoteCashoutDocument } from './schema
 import { StoreCreditNote, StoreCreditNoteDocument } from './schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceDocument } from './schemas/store-invoice.schema';
 import { StorePaymentReceipt, StorePaymentReceiptDocument } from './schemas/store-payment-receipt.schema';
+import { StoreGatewayPayment, StoreGatewayPaymentDocument } from './schemas/store-gateway-payment.schema';
 import { StoreQuotation, StoreQuotationDocument } from './schemas/store-quotation.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
 import { StoreSalesInventoryService } from './store-sales-inventory.service';
-
+import { readNumber } from '../dashboard/store-sales-payload.util';
 
 export type StoreSyncEventMeta = {
   eventId: string;
@@ -35,6 +36,8 @@ export class StoreSalesSyncService {
     @InjectModel(StoreQuotation.name) private readonly quotationModel: Model<StoreQuotationDocument>,
     @InjectModel(StorePaymentReceipt.name)
     private readonly paymentReceiptModel: Model<StorePaymentReceiptDocument>,
+    @InjectModel(StoreGatewayPayment.name)
+    private readonly gatewayPaymentModel: Model<StoreGatewayPaymentDocument>,
     private readonly storeSalesInventoryService: StoreSalesInventoryService,
   ) {}
 
@@ -196,16 +199,23 @@ export class StoreSalesSyncService {
     if (existing) return;
 
     const creditNoteNo = this.requireString(payload, 'creditNoteNo');
-    const duplicate = await this.creditNoteModel
-      .findOne({ storeId: meta.storeId, creditNoteNo })
-      .lean();
-    if (duplicate) return;
-
     const amount = this.requireNumber(payload, 'amount');
     const remaining =
       payload.remainingAmount !== undefined
         ? this.requireNumber(payload, 'remainingAmount')
         : amount;
+
+    const duplicate = await this.creditNoteModel.findOne({ storeId: meta.storeId, creditNoteNo });
+    if (duplicate) {
+      // Upsert amounts for additional credit from a later return against the same CN.
+      duplicate.amount = amount;
+      duplicate.remainingAmount = remaining;
+      if (payload.status === 'available' || remaining > 0) duplicate.status = 'available';
+      const returnNo = this.optionalString(payload, 'returnNo');
+      if (returnNo) duplicate.returnNo = returnNo;
+      await duplicate.save();
+      return;
+    }
 
     try {
       await this.creditNoteModel.create({
@@ -468,16 +478,47 @@ export class StoreSalesSyncService {
       throw new BadRequestException('DaySessionClosed requires status closed');
     }
 
+    const mergedPayload: Record<string, unknown> = {
+      ...payload,
+      businessDate,
+      posCounter,
+      status,
+    };
+
     const duplicate = await this.dayCloseModel
       .findOne({ storeId: meta.storeId, businessDate, posCounter })
       .lean();
     if (duplicate) {
-      if (requireClose && (duplicate.payload as Record<string, unknown>).status === 'closed') {
+      const priorStatus = String(
+        (duplicate.payload as Record<string, unknown> | undefined)?.status ?? '',
+      ).toLowerCase();
+
+      if (requireClose && priorStatus === 'closed') {
         throw new ConflictException(
           `Day close already exists for store '${meta.storeId}' counter '${posCounter}' on ${businessDate}`,
         );
       }
-      if (!requireClose) return;
+
+      // Online/offline close after open: update the existing open row in place.
+      if (requireClose) {
+        await this.dayCloseModel.updateOne(
+          { storeId: meta.storeId, businessDate, posCounter },
+          {
+            $set: {
+              sourceEventId: meta.eventId,
+              deviceId: meta.deviceId,
+              payload: {
+                ...((duplicate.payload as Record<string, unknown> | undefined) ?? {}),
+                ...mergedPayload,
+              },
+            },
+          },
+        );
+        return;
+      }
+
+      // DaySessionOpened when a row already exists — idempotent no-op.
+      return;
     }
 
     try {
@@ -487,7 +528,7 @@ export class StoreSalesSyncService {
         posCounter,
         sourceEventId: meta.eventId,
         deviceId: meta.deviceId,
-        payload: { ...payload, businessDate, posCounter, status },
+        payload: mergedPayload,
       });
     } catch (err: unknown) {
       const dup =
@@ -496,6 +537,34 @@ export class StoreSalesSyncService {
         const again = await this.dayCloseModel.findOne({ sourceEventId: meta.eventId }).lean();
         if (again) return;
         if (requireClose) {
+          // Race: open created between find and create — retry as update.
+          const raced = await this.dayCloseModel
+            .findOne({ storeId: meta.storeId, businessDate, posCounter })
+            .lean();
+          if (raced) {
+            const racedStatus = String(
+              (raced.payload as Record<string, unknown> | undefined)?.status ?? '',
+            ).toLowerCase();
+            if (racedStatus === 'closed') {
+              throw new ConflictException(
+                `Day close already exists for store '${meta.storeId}' counter '${posCounter}' on ${businessDate}`,
+              );
+            }
+            await this.dayCloseModel.updateOne(
+              { storeId: meta.storeId, businessDate, posCounter },
+              {
+                $set: {
+                  sourceEventId: meta.eventId,
+                  deviceId: meta.deviceId,
+                  payload: {
+                    ...((raced.payload as Record<string, unknown> | undefined) ?? {}),
+                    ...mergedPayload,
+                  },
+                },
+              },
+            );
+            return;
+          }
           throw new ConflictException(
             `Day close already exists for store '${meta.storeId}' counter '${posCounter}' on ${businessDate}`,
           );
@@ -729,5 +798,219 @@ export class StoreSalesSyncService {
       { storeId: meta.storeId, invoiceNo: billNo },
       { $set: { payload: mergedPayload } },
     );
+  }
+
+  async applyInvoiceStockExceptionsApproved(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const billNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!billNo) throw new BadRequestException('billNo is required');
+
+    const invoice = await this.invoiceModel.findOne({ storeId: meta.storeId, invoiceNo: billNo }).lean();
+    if (!invoice) {
+      throw new BadRequestException(`Invoice '${billNo}' not found for store '${meta.storeId}'`);
+    }
+
+    const currentPayload = { ...(invoice.payload ?? {}) } as Record<string, unknown>;
+    const appliedIds = Array.isArray(currentPayload.stockExceptionApproveEventIds)
+      ? (currentPayload.stockExceptionApproveEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedIds.includes(meta.eventId)) return;
+
+    const exceptions = Array.isArray(currentPayload.stockExceptions)
+      ? [...(currentPayload.stockExceptions as unknown[])]
+      : [];
+    const pending = exceptions.filter((item) => {
+      if (!item || typeof item !== 'object') return false;
+      return (item as Record<string, unknown>).stockDecremented !== true;
+    });
+    if (pending.length === 0) {
+      throw new BadRequestException('No pending stock exceptions to approve');
+    }
+
+    await this.storeSalesInventoryService.postStockExceptionApproveLedger(meta, {
+      ...currentPayload,
+      billNo,
+      invoiceNo: billNo,
+    });
+
+    const approvedAt = new Date().toISOString();
+    const approvedBy =
+      this.optionalString(payload, 'approvedBy') ??
+      this.optionalString(payload, 'approvedByUser') ??
+      '';
+    const updatedExceptions = exceptions.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const row = { ...(item as Record<string, unknown>) };
+      if (row.stockDecremented === true) return row;
+      return {
+        ...row,
+        stockDecremented: true,
+        approvedAtUtc: approvedAt,
+        approvedBy,
+      };
+    });
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      stockExceptions: updatedExceptions,
+      stockExceptionApproveEventIds: [...appliedIds, meta.eventId],
+    };
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: billNo },
+      { $set: { payload: mergedPayload } },
+    );
+  }
+
+  async applyInvoiceWhatsAppUpdated(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const billNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!billNo) throw new BadRequestException('billNo is required');
+
+    const invoice = await this.invoiceModel.findOne({ storeId: meta.storeId, invoiceNo: billNo }).lean();
+    if (!invoice) {
+      throw new BadRequestException(`Invoice '${billNo}' not found for store '${meta.storeId}'`);
+    }
+
+    const currentPayload = { ...(invoice.payload ?? {}) } as Record<string, unknown>;
+    const whatsapp =
+      payload.whatsapp && typeof payload.whatsapp === 'object'
+        ? (payload.whatsapp as Record<string, unknown>)
+        : payload;
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      whatsapp: {
+        ...((currentPayload.whatsapp && typeof currentPayload.whatsapp === 'object'
+          ? currentPayload.whatsapp
+          : {}) as Record<string, unknown>),
+        ...whatsapp,
+        updatedAtUtc: new Date().toISOString(),
+        sourceEventId: meta.eventId,
+      },
+    };
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: billNo },
+      { $set: { payload: mergedPayload } },
+    );
+  }
+
+  async applyInvoicePrintAuditAppended(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const billNo =
+      this.optionalString(payload, 'billNo') ?? this.optionalString(payload, 'invoiceNo');
+    if (!billNo) throw new BadRequestException('billNo is required');
+
+    const invoice = await this.invoiceModel.findOne({ storeId: meta.storeId, invoiceNo: billNo }).lean();
+    if (!invoice) {
+      throw new BadRequestException(`Invoice '${billNo}' not found for store '${meta.storeId}'`);
+    }
+
+    const currentPayload = { ...(invoice.payload ?? {}) } as Record<string, unknown>;
+    const appliedIds = Array.isArray(currentPayload.printAuditEventIds)
+      ? (currentPayload.printAuditEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedIds.includes(meta.eventId)) return;
+
+    const entry = {
+      kind: this.optionalString(payload, 'kind') ?? 'print',
+      printedBy: this.optionalString(payload, 'printedBy') ?? '',
+      printedAtUtc: this.optionalString(payload, 'printedAtUtc') ?? new Date().toISOString(),
+      deviceId: meta.deviceId,
+      posCounter: this.optionalString(payload, 'posCounter') ?? '',
+      sourceEventId: meta.eventId,
+    };
+
+    const existingAudit = Array.isArray(currentPayload.printAudit)
+      ? [...(currentPayload.printAudit as unknown[])]
+      : [];
+    existingAudit.push(entry);
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      printAudit: existingAudit,
+      printAuditEventIds: [...appliedIds, meta.eventId],
+    };
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: billNo },
+      { $set: { payload: mergedPayload } },
+    );
+  }
+
+  async applyDaySessionCashHandOverPrinted(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const businessDate = this.requireString(payload, 'businessDate');
+    const posCounter = this.requireString(payload, 'posCounter');
+    const printedAt = this.optionalString(payload, 'cashHandOverPrintedAtUtc') ?? new Date().toISOString();
+
+    const session = await this.dayCloseModel
+      .findOne({ storeId: meta.storeId, businessDate, posCounter })
+      .lean();
+    if (!session) {
+      throw new BadRequestException(
+        `Day session not found for store '${meta.storeId}' date '${businessDate}' counter '${posCounter}'`,
+      );
+    }
+
+    const currentPayload = { ...(session.payload ?? {}) } as Record<string, unknown>;
+    if (currentPayload.cashHandOverPrintedAtUtc) return;
+
+    const mergedPayload: Record<string, unknown> = {
+      ...currentPayload,
+      cashHandOverPrintedAtUtc: printedAt,
+      cashHandOverPrintedEventId: meta.eventId,
+    };
+
+    await this.dayCloseModel.updateOne(
+      { storeId: meta.storeId, businessDate, posCounter },
+      { $set: { payload: mergedPayload } },
+    );
+  }
+
+  async applyPaymentRecorded(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const existing = await this.gatewayPaymentModel.findOne({ sourceEventId: meta.eventId }).lean();
+    if (existing) return;
+
+    const invoiceNo =
+      this.optionalString(payload, 'invoiceNo') ?? this.optionalString(payload, 'billNo');
+    if (!invoiceNo) throw new BadRequestException('invoiceNo is required');
+
+    const amount = readNumber(payload.amount);
+    if (!(amount > 0)) throw new BadRequestException('amount must be positive');
+
+    try {
+      await this.gatewayPaymentModel.create({
+        storeId: meta.storeId,
+        invoiceNo,
+        sourceEventId: meta.eventId,
+        deviceId: meta.deviceId,
+        posCounter: this.optionalString(payload, 'posCounter'),
+        payload: {
+          ...payload,
+          invoiceNo,
+          amount,
+          storeId: meta.storeId,
+          deviceId: meta.deviceId,
+          createdAt: this.optionalString(payload, 'createdAt') ?? new Date().toISOString(),
+        },
+      });
+    } catch (err: unknown) {
+      const dup =
+        err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
+      if (dup) return;
+      throw err;
+    }
   }
 }

@@ -1,25 +1,116 @@
+using System.Text.Json;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing.Promotions;
 
 public sealed class PromotionSchemeRepository
 {
     private readonly IMongoCollection<BsonDocument> _schemes;
+    private readonly object _cacheLock = new();
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
+    private IReadOnlyList<PromotionSchemeDefinition>? _memoryCache;
+    private int _refreshTicket;
 
     public PromotionSchemeRepository(IMongoDatabase localDb)
     {
         _schemes = localDb.GetCollection<BsonDocument>("local_promotion_schemes");
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+        // Prefetch off UI thread — never block WPF sync context with GetResult().
+        _ = RefreshCacheAsync();
+    }
+
     public async Task<IReadOnlyList<PromotionSchemeDefinition>> LoadActiveAsync(CancellationToken ct = default)
     {
+        if (_centralMode?.IsOnlineMode == true && _storePos != null)
+        {
+            var list = await FetchCentralAsync(ct).ConfigureAwait(false);
+            lock (_cacheLock)
+                _memoryCache = list;
+            return list;
+        }
+
+        var local = await LoadLocalAsync(ct).ConfigureAwait(false);
+        lock (_cacheLock)
+            _memoryCache = local;
+        return local;
+    }
+
+    /// <summary>
+    /// Sync path used by totals/promotions. Must never block on HTTP (WPF deadlock).
+    /// Returns memory cache, else local Mongo; kicks a background refresh when Online.
+    /// </summary>
+    public IReadOnlyList<PromotionSchemeDefinition> LoadActive()
+    {
+        lock (_cacheLock)
+        {
+            if (_memoryCache != null)
+                return _memoryCache;
+        }
+
+        if (_centralMode?.IsOnlineMode == true && _storePos != null)
+            _ = RefreshCacheAsync();
+
+        return LoadLocalSync();
+    }
+
+    private async Task RefreshCacheAsync()
+    {
+        var ticket = Interlocked.Increment(ref _refreshTicket);
+        try
+        {
+            var list = _centralMode?.IsOnlineMode == true && _storePos != null
+                ? await FetchCentralAsync(CancellationToken.None).ConfigureAwait(false)
+                : await LoadLocalAsync(CancellationToken.None).ConfigureAwait(false);
+
+            if (ticket != Volatile.Read(ref _refreshTicket))
+                return;
+
+            lock (_cacheLock)
+                _memoryCache = list;
+        }
+        catch
+        {
+            // Keep prior cache / local fallback.
+        }
+    }
+
+    private async Task<IReadOnlyList<PromotionSchemeDefinition>> FetchCentralAsync(CancellationToken ct)
+    {
+        using var json = await _storePos!.ListActivePromotionsAsync(ct).ConfigureAwait(false);
+        if (json.RootElement.ValueKind != JsonValueKind.Array)
+            return Array.Empty<PromotionSchemeDefinition>();
+
+        var list = new List<PromotionSchemeDefinition>();
+        foreach (var el in json.RootElement.EnumerateArray())
+        {
+            var doc = BsonDocument.Parse(el.GetRawText());
+            if (el.TryGetProperty("_id", out var idEl))
+                doc["schemeId"] = idEl.ToString();
+            var mapped = Map(doc);
+            if (mapped.IsActive)
+                list.Add(mapped);
+        }
+
+        return list.OrderBy(s => s.Priority).ToList();
+    }
+
+    private async Task<IReadOnlyList<PromotionSchemeDefinition>> LoadLocalAsync(CancellationToken ct)
+    {
         var filter = Builders<BsonDocument>.Filter.Eq("isActive", true);
-        var docs = await _schemes.Find(filter).ToListAsync(ct);
+        var docs = await _schemes.Find(filter).ToListAsync(ct).ConfigureAwait(false);
         return docs.Select(Map).Where(s => s.IsActive).OrderBy(s => s.Priority).ToList();
     }
 
-    public IReadOnlyList<PromotionSchemeDefinition> LoadActive()
+    private IReadOnlyList<PromotionSchemeDefinition> LoadLocalSync()
     {
         var filter = Builders<BsonDocument>.Filter.Eq("isActive", true);
         return _schemes.Find(filter).ToList().Select(Map).Where(s => s.IsActive).OrderBy(s => s.Priority).ToList();
@@ -145,8 +236,9 @@ public sealed class PromotionSchemeRepository
     {
         if (!doc.TryGetValue(key, out var v) || !v.IsBsonArray) return Array.Empty<string>();
         return v.AsBsonArray
-            .Where(x => x.IsString && !string.IsNullOrWhiteSpace(x.AsString))
-            .Select(x => x.AsString.Trim())
+            .Where(x => !x.IsBsonNull)
+            .Select(x => x.ToString()?.Trim() ?? "")
+            .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToList();
     }
 }

@@ -20,6 +20,10 @@ public sealed class CatalogProduct
 
     public string? HsnSac { get; init; }
 
+    public string? CategoryId { get; init; }
+    public string? BrandId { get; init; }
+    public string? OfferGroupId { get; init; }
+
     public decimal StockQty { get; init; }
 
     public IReadOnlyList<ProductMediaItem> MediaItems { get; init; } = System.Array.Empty<ProductMediaItem>();

@@ -1,30 +1,143 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Inventory;
 
 public sealed class InventoryGridClient
 {
     private readonly IMongoCollection<BsonDocument> _products;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public InventoryGridClient(IMongoDatabase localDb)
     {
         _products = localDb.GetCollection<BsonDocument>("local_products_cache");
     }
 
-    public async Task<InventoryGridPageResult> SearchAsync(
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
+
+    public Task<InventoryGridPageResult> SearchAsync(
         string search,
         string storeId,
         int page = 1,
         int limit = 100,
         InventoryStockFilter stockFilter = InventoryStockFilter.All,
         CancellationToken ct = default)
+    {
+        return IsCentralOnline
+            ? SearchOnlineAsync(search, page, limit, stockFilter, ct)
+            : SearchOfflineAsync(search, storeId, page, limit, stockFilter, ct);
+    }
+
+    /// <summary>Central inventory grid is fail-closed: any API failure propagates so the caller shows an error.</summary>
+    private async Task<InventoryGridPageResult> SearchOnlineAsync(
+        string search,
+        int page,
+        int limit,
+        InventoryStockFilter stockFilter,
+        CancellationToken ct)
+    {
+        page = Math.Max(1, page);
+        limit = Math.Clamp(limit, 1, 500);
+
+        using var doc = await _dashboardApi!.GetInventoryGridAsync(search, page, limit, ct);
+        var root = doc.RootElement;
+
+        var data = new List<InventoryGridRow>();
+        if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var rowEl in dataEl.EnumerateArray())
+            {
+                var row = MapFromJson(rowEl);
+                if (row != null)
+                    data.Add(row);
+            }
+        }
+
+        data = ApplyStockFilter(data, stockFilter);
+
+        var total = CentralDashboardClient.ReadInt(root, "total", data.Count);
+        var totalPages = CentralDashboardClient.ReadInt(
+            root, "totalPages", total == 0 ? 0 : (int)Math.Ceiling(total / (double)limit));
+
+        return new InventoryGridPageResult
+        {
+            Data = data,
+            Total = total,
+            Page = CentralDashboardClient.ReadInt(root, "page", page),
+            Limit = CentralDashboardClient.ReadInt(root, "limit", limit),
+            TotalPages = totalPages,
+        };
+    }
+
+    private static List<InventoryGridRow> ApplyStockFilter(List<InventoryGridRow> rows, InventoryStockFilter stockFilter) =>
+        stockFilter switch
+        {
+            InventoryStockFilter.InStock => rows.Where(r => r.StoreQty > 0).ToList(),
+            InventoryStockFilter.OutOfStock => rows.Where(r => r.StoreQty <= 0).ToList(),
+            _ => rows,
+        };
+
+    private static InventoryGridRow? MapFromJson(JsonElement el)
+    {
+        var sku = CentralDashboardClient.ReadString(el, "sku");
+        if (string.IsNullOrWhiteSpace(sku))
+            return null;
+
+        string? productName = null;
+        if (el.TryGetProperty("product", out var productEl) && productEl.ValueKind == JsonValueKind.Object)
+        {
+            productName = ReadOptionalString(productEl, "itemName") ?? ReadOptionalString(productEl, "shortName");
+        }
+
+        return new InventoryGridRow
+        {
+            Sku = sku,
+            UpcEanCode = ReadOptionalString(el, "upcEanCode"),
+            Product = productName ?? sku,
+            StoreQty = CentralDashboardClient.ReadDecimal(el, "storeQty"),
+            Mrp = ReadOptionalDecimal(el, "mrp"),
+            StorePrice = ReadOptionalDecimal(el, "storePrice"),
+        };
+    }
+
+    private static string? ReadOptionalString(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var p) || p.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        var s = CentralDashboardClient.ReadString(el, name);
+        return string.IsNullOrWhiteSpace(s) ? null : s;
+    }
+
+    private static decimal? ReadOptionalDecimal(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var p) || p.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        return CentralDashboardClient.ReadDecimal(el, name);
+    }
+
+    private async Task<InventoryGridPageResult> SearchOfflineAsync(
+        string search,
+        string storeId,
+        int page,
+        int limit,
+        InventoryStockFilter stockFilter,
+        CancellationToken ct)
     {
         _ = storeId;
         var q = search?.Trim() ?? "";

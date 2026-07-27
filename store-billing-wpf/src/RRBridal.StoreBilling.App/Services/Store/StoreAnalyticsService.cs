@@ -2,21 +2,34 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
 public sealed class StoreAnalyticsService
 {
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public StoreAnalyticsService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
 
     /// <summary>
     /// Builds a day-by-day sales view from posted <c>store_bills</c> for the given store (UTC days).
@@ -24,6 +37,10 @@ public sealed class StoreAnalyticsService
     public async Task<StoreAnalyticsSnapshot> LoadAsync(string storeId, int dayCount = 14, CancellationToken ct = default)
     {
         dayCount = Math.Clamp(dayCount, 1, 90);
+
+        if (IsCentralOnline)
+            return await LoadOnlineAsync(dayCount, ct);
+
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
@@ -68,6 +85,61 @@ public sealed class StoreAnalyticsService
             PeriodLabel = $"{dayCount} days ending {todayUtc:yyyy-MM-dd} (UTC)",
             TotalBillsInPeriod = totalBills,
             TotalRevenueInPeriod = totalRev,
+            DailyRows = rows,
+        };
+    }
+
+    private async Task<StoreAnalyticsSnapshot> LoadOnlineAsync(int dayCount, CancellationToken ct)
+    {
+        var today = DateTime.Today;
+        var startDate = today.AddDays(-(dayCount - 1));
+        var from = startDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var to = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        using var json = await _dashboardApi!.GetStoreSalesAsync("custom", from, to, billPage: 1, billLimit: 1, ct: ct);
+        var root = json.RootElement;
+
+        var periodLabel = root.TryGetProperty("period", out var periodEl)
+            ? CentralDashboardClient.ReadString(periodEl, "label", $"{from} to {to}")
+            : $"{from} to {to}";
+
+        var summaryInvoices = 0;
+        var summaryNet = 0m;
+        if (root.TryGetProperty("summary", out var summaryEl))
+        {
+            summaryInvoices = CentralDashboardClient.ReadInt(summaryEl, "invoices");
+            summaryNet = CentralDashboardClient.ReadDecimal(summaryEl, "netSales");
+        }
+
+        var rows = new List<DailySalesRow>();
+        if (root.TryGetProperty("salesDetails", out var detailsEl) && detailsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in detailsEl.EnumerateArray())
+            {
+                var bucketKey = CentralDashboardClient.ReadString(el, "bucketKey");
+                var label = CentralDashboardClient.ReadString(el, "label", bucketKey);
+                var dayUtc = DateTime.TryParse(
+                    bucketKey, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+                    ? DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc)
+                    : DateTime.MinValue;
+
+                rows.Add(new DailySalesRow
+                {
+                    DayUtc = dayUtc,
+                    DayLabel = label,
+                    BillsCount = CentralDashboardClient.ReadInt(el, "invoices"),
+                    Revenue = CentralDashboardClient.ReadDecimal(el, "net"),
+                });
+            }
+        }
+
+        rows = rows.OrderByDescending(r => r.DayUtc).ToList();
+
+        return new StoreAnalyticsSnapshot
+        {
+            PeriodLabel = $"{periodLabel} (Online)",
+            TotalBillsInPeriod = summaryInvoices,
+            TotalRevenueInPeriod = summaryNet,
             DailyRows = rows,
         };
     }

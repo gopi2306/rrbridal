@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Salesmen;
 
@@ -19,6 +20,7 @@ public sealed class SalesmanService
     private readonly IMongoDatabase _localDb;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
+    private readonly CentralOnlineModeService? _centralMode;
 
     private static readonly JsonSerializerOptions JsonCamel = new()
     {
@@ -26,15 +28,26 @@ public sealed class SalesmanService
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public SalesmanService(IMongoDatabase localDb, HttpClient centralApi, StoreContext storeContext)
+    public SalesmanService(
+        IMongoDatabase localDb,
+        HttpClient centralApi,
+        StoreContext storeContext,
+        CentralOnlineModeService? centralMode = null)
     {
         _localDb = localDb;
         _centralApi = centralApi;
         _storeContext = storeContext;
+        _centralMode = centralMode;
     }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
+    private bool IsCentralOffline => _centralMode != null && !_centralMode.IsOnlineMode;
 
     public async Task<IReadOnlyList<SalesmanRecord>> ListAsync(string? search = null, bool activeOnly = false, CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return await ListCentralAsync(search, activeOnly, ct);
+
         var coll = _localDb.GetCollection<BsonDocument>(CollectionName);
         var storeId = _storeContext.StoreId;
         var filter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
@@ -57,14 +70,89 @@ public sealed class SalesmanService
         return rows;
     }
 
+    private async Task<IReadOnlyList<SalesmanRecord>> ListCentralAsync(string? search, bool activeOnly, CancellationToken ct)
+    {
+        var storeId = _storeContext.StoreId;
+        var url = $"/api/salesmen?storeId={Uri.EscapeDataString(storeId)}";
+        if (!string.IsNullOrWhiteSpace(search))
+            url += $"&search={Uri.EscapeDataString(search.Trim())}";
+
+        using var response = await _centralApi.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var raw = await response.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"Central salesmen list failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        var rows = new List<SalesmanRecord>();
+        if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            return rows;
+
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            var isActive = !el.TryGetProperty("isActive", out var a) || a.ValueKind != JsonValueKind.False;
+            if (activeOnly && !isActive)
+                continue;
+
+            rows.Add(new SalesmanRecord
+            {
+                LocalMongoId = "",
+                CentralId = ReadJsonId(el),
+                SalesmanCode = el.TryGetProperty("salesmanCode", out var c) ? c.GetString() ?? "" : "",
+                Name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                Phone = el.TryGetProperty("phone", out var p) ? p.GetString() ?? "" : "",
+                IsActive = isActive,
+                CentralSyncStatus = "synced",
+            });
+        }
+
+        return rows.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     public async Task<SalesmanSaveResult> CreateAsync(string name, string phone, string? salesmanCode = null, CancellationToken ct = default)
     {
         var storeId = _storeContext.StoreId;
-        var coll = _localDb.GetCollection<BsonDocument>(CollectionName);
         var code = string.IsNullOrWhiteSpace(salesmanCode)
-            ? await new SalesmanCodeGenerator(_localDb).NextAsync(ct)
+            ? (IsCentralOnline ? Guid.NewGuid().ToString("N")[..8].ToUpperInvariant() : await new SalesmanCodeGenerator(_localDb).NextAsync(ct))
             : salesmanCode.Trim();
 
+        var body = new CentralCreateSalesmanBody
+        {
+            StoreId = storeId,
+            SalesmanCode = code,
+            Name = name.Trim(),
+            Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+            IsActive = true,
+        };
+
+        if (IsCentralOnline)
+        {
+            using var response = await _centralApi.PostAsJsonAsync("/api/salesmen", body, JsonCamel, ct);
+            var raw = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Central salesman create failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
+            var centralId = TryReadCentralId(raw);
+            var centralCode = TryReadSalesmanCode(raw) ?? code;
+            return new SalesmanSaveResult
+            {
+                Record = new SalesmanRecord
+                {
+                    LocalMongoId = "",
+                    CentralId = centralId ?? "",
+                    SalesmanCode = centralCode,
+                    Name = name.Trim(),
+                    Phone = phone.Trim(),
+                    IsActive = true,
+                    CentralSyncStatus = "synced",
+                },
+                CentralSyncStatus = "synced",
+            };
+        }
+
+        var coll = _localDb.GetCollection<BsonDocument>(CollectionName);
         var localDoc = new BsonDocument
         {
             { "storeId", storeId },
@@ -80,26 +168,23 @@ public sealed class SalesmanService
 
         await coll.InsertOneAsync(localDoc, cancellationToken: ct);
 
-        string? centralId = null;
-        var syncStatus = "pending";
+        if (IsCentralOffline)
+            return new SalesmanSaveResult
+            {
+                Record = MapRecord(localDoc),
+                CentralSyncWarning = "Saved locally (Central mode is Offline).",
+                CentralSyncStatus = "pending",
+            };
+
         string? syncWarning = null;
-
-        var body = new CentralCreateSalesmanBody
-        {
-            StoreId = storeId,
-            SalesmanCode = code,
-            Name = name.Trim(),
-            Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
-            IsActive = true,
-        };
-
+        var syncStatus = "pending";
         try
         {
             using var response = await _centralApi.PostAsJsonAsync("/api/salesmen", body, JsonCamel, ct);
             var raw = await response.Content.ReadAsStringAsync(ct);
             if (response.IsSuccessStatusCode)
             {
-                centralId = TryReadCentralId(raw);
+                var centralId = TryReadCentralId(raw);
                 var centralCode = TryReadSalesmanCode(raw);
                 syncStatus = "synced";
                 var update = Builders<BsonDocument>.Update
@@ -142,6 +227,38 @@ public sealed class SalesmanService
 
     public async Task<SalesmanSaveResult> UpdateAsync(SalesmanRecord selected, string name, string phone, bool isActive, CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+        {
+            if (string.IsNullOrWhiteSpace(selected.CentralId))
+                throw new InvalidOperationException("Salesman is not linked to central. Cannot update in Online mode.");
+
+            var body = new CentralUpdateSalesmanBody
+            {
+                Name = name.Trim(),
+                Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+                IsActive = isActive,
+            };
+            using var response = await _centralApi.PatchAsJsonAsync($"/api/salesmen/{selected.CentralId}", body, JsonCamel, ct);
+            var raw = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Central salesman update failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
+            return new SalesmanSaveResult
+            {
+                Record = new SalesmanRecord
+                {
+                    LocalMongoId = "",
+                    CentralId = selected.CentralId,
+                    SalesmanCode = selected.SalesmanCode,
+                    Name = name.Trim(),
+                    Phone = phone.Trim(),
+                    IsActive = isActive,
+                    CentralSyncStatus = "synced",
+                },
+                CentralSyncStatus = "synced",
+            };
+        }
+
         if (string.IsNullOrWhiteSpace(selected.LocalMongoId))
             throw new InvalidOperationException("Salesman local id is missing.");
 
@@ -159,7 +276,11 @@ public sealed class SalesmanService
         string? syncWarning = null;
         var syncStatus = selected.CentralSyncStatus;
 
-        if (!string.IsNullOrWhiteSpace(selected.CentralId))
+        if (IsCentralOffline)
+        {
+            syncWarning = "Saved locally (Central mode is Offline).";
+        }
+        else if (!string.IsNullOrWhiteSpace(selected.CentralId))
         {
             var body = new CentralUpdateSalesmanBody
             {
@@ -182,6 +303,9 @@ public sealed class SalesmanService
                 }
                 else
                 {
+                    if (IsCentralOnline)
+                        throw new InvalidOperationException($"Central salesman update failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
                     syncStatus = "failed";
                     syncWarning = $"Central update failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}";
                     await coll.UpdateOneAsync(
@@ -190,8 +314,15 @@ public sealed class SalesmanService
                         cancellationToken: ct);
                 }
             }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
+                if (IsCentralOnline)
+                    throw new InvalidOperationException("Central salesman update failed: " + ex.Message, ex);
+
                 syncStatus = "failed";
                 syncWarning = "Central update failed: " + ex.Message;
                 await coll.UpdateOneAsync(
@@ -199,6 +330,10 @@ public sealed class SalesmanService
                     Builders<BsonDocument>.Update.Set("centralSyncStatus", "failed").Set("lastCentralError", ex.Message),
                     cancellationToken: ct);
             }
+        }
+        else if (IsCentralOnline)
+        {
+            throw new InvalidOperationException("Salesman is not linked to central. Cannot update in Online mode.");
         }
 
         var saved = await coll.Find(filter).FirstOrDefaultAsync(ct);

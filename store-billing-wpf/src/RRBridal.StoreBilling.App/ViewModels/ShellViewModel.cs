@@ -73,6 +73,7 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _daySessionStatusChip = "Day: …";
 
     [ObservableProperty] private string _mongoHealthStatusChip = "Mongo: …";
+    [ObservableProperty] private string _centralOnlineStatusChip = "Central: Offline";
 
     [ObservableProperty] private bool _isNavDrawerOpen;
 
@@ -231,7 +232,9 @@ public partial class ShellViewModel : ObservableObject
         NotifyPageVisibility();
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
         _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
+        _services.CentralMode.StatusChanged += OnCentralModeStatusChanged;
         MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
+        CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
         if (!IsPrimaryCounter && IsRestrictedPage(CurrentPage))
             CurrentPage = ShellPage.Billing;
 
@@ -243,6 +246,11 @@ public partial class ShellViewModel : ObservableObject
     private void OnMongoHealthStatusChanged()
     {
         MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
+    }
+
+    private void OnCentralModeStatusChanged()
+    {
+        CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
     }
 
     private static bool IsRestrictedPage(ShellPage page) =>

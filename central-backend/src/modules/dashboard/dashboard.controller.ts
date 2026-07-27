@@ -88,6 +88,12 @@ export class DashboardController {
     return await this.storeDayCloseDashboardService.getDayCloseDashboard(options);
   }
 
+  @Get('store/day-close/report')
+  async getStoreDayCloseReport(@Query() query: StoreDayCloseDashboardQueryDto) {
+    const options = resolveStoreDayCloseOptions(query);
+    return await this.storeDayCloseReportService.getReport(options);
+  }
+
   @Get('store/day-close/export')
   @ApiProduces('text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportStoreDayCloseReport(

@@ -2,6 +2,9 @@ namespace RRBridal.StoreBilling.App.Services.Billing;
 
 public sealed class PosBillingSettingsDocument
 {
+    /// <summary>When true, call central APIs immediately; when false, work local-only and sync later.</summary>
+    public bool PreferCentralOnline { get; set; }
+
     public bool AllowDuplicatePrint { get; set; } = true;
 
     /// <summary>When true, adding an SKU already on the bill asks before increasing its quantity.</summary>

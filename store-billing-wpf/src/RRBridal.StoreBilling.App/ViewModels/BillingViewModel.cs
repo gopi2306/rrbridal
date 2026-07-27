@@ -193,11 +193,14 @@ public partial class BillingViewModel : ObservableObject
     public BillingViewModel(AppServices services)
     {
         _services = services;
-        _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
-        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode);
+        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
-        _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext);
-        _promotionEngine = new PromotionEngine(new PromotionSchemeRepository(services.LocalDb));
+        _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
+        var promoRepo = new PromotionSchemeRepository(services.LocalDb);
+        promoRepo.ConfigureOnline(services.CentralMode, services.StorePos);
+        _promotionEngine = new PromotionEngine(promoRepo);
+        _ = promoRepo.LoadActiveAsync(); // warm Online promotions cache off UI thread
         RefreshAlterationGstIncludedFromSettings();
         AssignNewBillIdentity();
         _ = LoadActiveSalesmenAsync();
@@ -1394,6 +1397,9 @@ public partial class BillingViewModel : ObservableObject
                 "Reference intent created from WPF billing because local stock was unavailable.",
                 ct);
 
+            if (_services.CentralMode.IsOnlineMode)
+                return;
+
             var coll = _services.LocalDb.GetCollection<BsonDocument>("indent_requests");
             var doc = new BsonDocument
             {
@@ -1441,11 +1447,23 @@ public partial class BillingViewModel : ObservableObject
         line.Rate = p.SuggestedRate;
         line.Mrp = p.Mrp ?? 0;
         line.TaxPercent = p.SuggestedTaxPercent;
+        line.CategoryId = p.CategoryId ?? "";
+        line.BrandId = p.BrandId ?? "";
+        line.OfferGroupId = p.OfferGroupId ?? "";
     }
 
     private void EnrichLineProductMetadata(BillingLineItem line)
     {
         if (line.IsEntryRow || string.IsNullOrWhiteSpace(line.ProductCode)) return;
+
+        if (!string.IsNullOrWhiteSpace(line.CategoryId)
+            || !string.IsNullOrWhiteSpace(line.BrandId)
+            || !string.IsNullOrWhiteSpace(line.OfferGroupId))
+            return;
+
+        if (_services.CentralMode.IsOnlineMode)
+            return;
+
         var products = _services.LocalDb.GetCollection<BsonDocument>("local_products_cache");
         var filter = !string.IsNullOrWhiteSpace(line.CentralProductId)
             ? Builders<BsonDocument>.Filter.Eq("centralProductId", line.CentralProductId)
@@ -1952,7 +1970,9 @@ public partial class BillingViewModel : ObservableObject
 
             var postWarnings = new List<string>();
             var postedBillNo = BillNo;
-            await coll.InsertOneAsync(doc);
+            var isOnline = _services.CentralMode.IsOnlineMode;
+            if (!isOnline)
+                await coll.InsertOneAsync(doc);
 
             var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
             await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
@@ -2007,6 +2027,9 @@ public partial class BillingViewModel : ObservableObject
             }
             catch (Exception ex)
             {
+                if (isOnline)
+                    throw new InvalidOperationException("Central bill create failed: " + ex.Message, ex);
+
                 postWarnings.Add($"Outbox enqueue failed: {ex.Message}");
             }
 
@@ -2049,7 +2072,7 @@ public partial class BillingViewModel : ObservableObject
                 }
             }
 
-            if (postWarnings.Count > 0)
+            if (postWarnings.Count > 0 && !isOnline)
             {
                 var warnArr = new BsonArray(postWarnings);
                 doc["postWarnings"] = warnArr;

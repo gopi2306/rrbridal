@@ -33,6 +33,7 @@ public partial class CustomersViewModel : ObservableObject
     [ObservableProperty] private string _detailSourceLabel = "";
 
     [ObservableProperty] private string _localMongoId = "";
+    [ObservableProperty] private string _centralCustomerId = "";
     [ObservableProperty] private string _customerCode = "";
     [ObservableProperty] private string _customerName = "";
     [ObservableProperty] private string _telephone = "";
@@ -60,10 +61,11 @@ public partial class CustomersViewModel : ObservableObject
     public CustomersViewModel(AppServices services, BillingViewModel billing, Action navigateToBilling)
     {
         _services = services;
-        _registrationService = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _registrationService = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         _directory = new CustomerDirectoryService(
             services.LocalDb,
-            new CustomerLookupService(services.LocalDb, services.CentralApi));
+            new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode),
+            services.CentralMode);
         _codeGenerator = new CustomerCodeGenerator(services.LocalDb);
         _billing = billing;
         _navigateToBilling = navigateToBilling;
@@ -155,9 +157,18 @@ public partial class CustomersViewModel : ObservableObject
         if (row.Source == "Central" || string.IsNullOrWhiteSpace(row.LocalMongoId))
         {
             LoadDetailFromRow(row);
-            DetailSourceLabel = "Central customer (register locally to edit)";
-            IsDetailReadOnly = true;
-            StatusMessage = $"{row.Name} — central record only.";
+            if (_services.CentralMode.IsOnlineMode && !string.IsNullOrWhiteSpace(row.CentralCustomerId))
+            {
+                DetailSourceLabel = "Central customer — editable (Online mode).";
+                IsDetailReadOnly = false;
+                StatusMessage = $"Viewing {row.Name} (central).";
+            }
+            else
+            {
+                DetailSourceLabel = "Central customer (register locally to edit)";
+                IsDetailReadOnly = true;
+                StatusMessage = $"{row.Name} — central record only.";
+            }
             return;
         }
 
@@ -180,6 +191,7 @@ public partial class CustomersViewModel : ObservableObject
     private void LoadDetailFromRow(CustomerListRow row)
     {
         LocalMongoId = row.LocalMongoId ?? "";
+        CentralCustomerId = row.CentralCustomerId ?? "";
         CustomerCode = row.CustomerCode;
         CustomerName = row.Name;
         Mobile = row.Phone;
@@ -201,6 +213,8 @@ public partial class CustomersViewModel : ObservableObject
     private void LoadDetailFromDocument(BsonDocument doc)
     {
         LocalMongoId = doc["_id"].ToString() ?? "";
+        var centralIdValue = doc.GetValue("centralCustomerId", BsonNull.Value);
+        CentralCustomerId = centralIdValue.IsBsonNull ? "" : centralIdValue.AsString;
         CustomerCode = doc.GetValue("customerCode", "").AsString;
         CustomerName = doc.GetValue("name", "").AsString;
         Telephone = doc.GetValue("telephone", "").AsString;
@@ -259,13 +273,13 @@ public partial class CustomersViewModel : ObservableObject
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(LocalMongoId))
+                if (string.IsNullOrWhiteSpace(LocalMongoId) && string.IsNullOrWhiteSpace(CentralCustomerId))
                 {
-                    AppDialog.Show("Select a local customer to update.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppDialog.Show("Select a customer to update.", "Customers", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                result = await _registrationService.UpdateAsync(LocalMongoId, payload);
+                result = await _registrationService.UpdateAsync(LocalMongoId, payload, CentralCustomerId);
             }
 
             if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
@@ -286,7 +300,8 @@ public partial class CustomersViewModel : ObservableObject
         }
     }
 
-    private bool CanSave() => IsNewCustomer || (!IsDetailReadOnly && !string.IsNullOrWhiteSpace(LocalMongoId));
+    private bool CanSave() => IsNewCustomer
+        || (!IsDetailReadOnly && (!string.IsNullOrWhiteSpace(LocalMongoId) || !string.IsNullOrWhiteSpace(CentralCustomerId)));
 
     [RelayCommand(CanExecute = nameof(CanUseInBilling))]
     private void UseInBilling()
@@ -336,6 +351,7 @@ public partial class CustomersViewModel : ObservableObject
     private void ClearDetailForm()
     {
         LocalMongoId = "";
+        CentralCustomerId = "";
         CustomerCode = "";
         CustomerName = "";
         Telephone = "";

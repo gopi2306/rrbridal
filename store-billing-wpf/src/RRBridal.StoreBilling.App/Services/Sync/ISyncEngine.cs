@@ -7,6 +7,7 @@ public interface ISyncEngine
 {
     Task<SyncStatus> GetStatusAsync(CancellationToken ct);
     Task RunOnceAsync(CancellationToken ct);
+    Task PushPendingAsync(CancellationToken ct);
 
     /// <summary>
     /// Sets the product pull cursor to <c>0</c> so the next sync re-pulls the full product catalog.

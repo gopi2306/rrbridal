@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Sync;
 
@@ -19,6 +21,8 @@ public sealed class CashMovementService
     private readonly BillingOutboxPublisher _outbox;
     private readonly StoreContext _storeContext;
     private readonly DaySessionGuard _guard;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public CashMovementService(
         IMongoDatabase localDb,
@@ -34,22 +38,63 @@ public sealed class CashMovementService
         _guard = new DaySessionGuard(daySessions);
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _storePos != null;
+
     public async Task<IReadOnlyList<CashMovementRecord>> ListForBusinessDateAsync(
         string storeId,
         string businessDate,
         string? posCounterFilter = null,
         CancellationToken ct = default)
     {
-        var filter = Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-            Builders<BsonDocument>.Filter.Eq("businessDate", businessDate));
+        List<BsonDocument> docs;
+        if (IsCentralOnline)
+        {
+            using var json = await _storePos!.ListCashMovementsAsync(businessDate, 200, ct);
+            docs = new List<BsonDocument>();
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in json.RootElement.EnumerateArray())
+                    docs.Add(MapCentralMovementToDoc(el));
+            }
+        }
+        else
+        {
+            var filter = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                Builders<BsonDocument>.Filter.Eq("businessDate", businessDate));
 
-        var docs = await _movements.Find(filter).ToListAsync(ct);
+            docs = await _movements.Find(filter).ToListAsync(ct);
+        }
+
         return docs
             .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
             .OrderByDescending(d => DayBillingCloseDocumentReader.ReadString(d, "createdAtUtc"))
             .Select(DaySessionDocumentMapper.ToMovementRecord)
             .ToList();
+    }
+
+    private static BsonDocument MapCentralMovementToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("movementNo", out var noEl) && noEl.ValueKind == JsonValueKind.String)
+            doc["movementNo"] = noEl.GetString() ?? "";
+        if (el.TryGetProperty("storeId", out var storeIdEl) && storeIdEl.ValueKind == JsonValueKind.String)
+            doc["storeId"] = storeIdEl.GetString() ?? "";
+        if (!doc.Contains("status"))
+            doc["status"] = "posted";
+
+        return doc;
     }
 
     public async Task<(bool Success, string Message)> PostMovementAsync(
@@ -89,8 +134,9 @@ public sealed class CashMovementService
             { "createdAtUtc", createdAtUtc },
         };
 
-        await _movements.InsertOneAsync(doc, cancellationToken: ct);
-        try { await _outbox.PublishCashMovementCreatedAsync(doc, ct); } catch { /* best-effort */ }
+        if (_centralMode?.IsOnlineMode != true)
+            await _movements.InsertOneAsync(doc, cancellationToken: ct);
+        await _outbox.PublishCashMovementCreatedAsync(doc, ct);
 
         return (true, $"{movementNo} posted.");
     }

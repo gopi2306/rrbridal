@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Sync;
 
@@ -34,6 +36,8 @@ public sealed class CustomerCreditNoteService
     private readonly IMongoCollection<BsonDocument> _notes;
     private readonly IMongoCollection<BsonDocument> _cashouts;
     private readonly BillingOutboxPublisher? _outbox;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public CustomerCreditNoteService(IMongoDatabase localDb, BillingOutboxPublisher? outbox = null)
     {
@@ -41,6 +45,14 @@ public sealed class CustomerCreditNoteService
         _cashouts = localDb.GetCollection<BsonDocument>("store_credit_note_cashouts");
         _outbox = outbox;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
 
     public async Task<CustomerCreditNoteRecord?> FindByOriginalBillAsync(
         string storeId,
@@ -50,10 +62,26 @@ public sealed class CustomerCreditNoteService
         if (string.IsNullOrWhiteSpace(originalBillNo))
             return null;
 
+        var billNo = originalBillNo.Trim();
+
+        if (IsCentralOnline)
+        {
+            using var listDoc = await _storePos!.ListCreditNotesAsync(ct: ct);
+            foreach (var el in listDoc.RootElement.EnumerateArray())
+            {
+                if (ReadJsonBool(el, "isLegacy"))
+                    continue;
+                if (!string.Equals(ReadJsonString(el, "originalBillNo"), billNo, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return MapJson(el);
+            }
+            return null;
+        }
+
         var doc = await _notes.Find(
             Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-                Builders<BsonDocument>.Filter.Eq("originalBillNo", originalBillNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("originalBillNo", billNo),
                 Builders<BsonDocument>.Filter.Ne("isLegacy", true)))
             .FirstOrDefaultAsync(ct);
         return doc == null ? null : Map(doc);
@@ -94,10 +122,19 @@ public sealed class CustomerCreditNoteService
             ? returnNo.Trim()
             : $"CN-{returnNo.Trim()}";
 
-        var existing = await _notes.Find(
-            Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo)).FirstOrDefaultAsync(ct);
-        if (existing != null)
-            return creditNoteNo;
+        if (IsCentralOnline)
+        {
+            using var existingDoc = await _storePos!.GetCreditNoteAsync(creditNoteNo, ct);
+            if (existingDoc.RootElement.ValueKind != JsonValueKind.Null)
+                return creditNoteNo;
+        }
+        else
+        {
+            var existing = await _notes.Find(
+                Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo)).FirstOrDefaultAsync(ct);
+            if (existing != null)
+                return creditNoteNo;
+        }
 
         var doc = new BsonDocument
         {
@@ -124,7 +161,8 @@ public sealed class CustomerCreditNoteService
                 doc["originalBillDate"] = originalBillDate.Trim();
         }
 
-        await _notes.InsertOneAsync(doc, cancellationToken: ct);
+        if (!IsCentralOnline)
+            await _notes.InsertOneAsync(doc, cancellationToken: ct);
         if (_outbox != null)
             await _outbox.PublishCreditNoteCreatedAsync(doc, ct);
         return creditNoteNo;
@@ -140,9 +178,42 @@ public sealed class CustomerCreditNoteService
         if (additionalCredit <= 0 || string.IsNullOrWhiteSpace(creditNoteNo))
             return null;
 
+        var noteNo = creditNoteNo.Trim();
+
+        if (IsCentralOnline)
+        {
+            using var noteDoc = await _storePos!.GetCreditNoteAsync(noteNo, ct);
+            if (noteDoc.RootElement.ValueKind == JsonValueKind.Null)
+                return null;
+
+            var currentAmount = ReadJsonDecimal(noteDoc.RootElement, "amount");
+            var currentRemaining = ReadJsonDecimal(noteDoc.RootElement, "remainingAmount");
+            var newAmountOnline = currentAmount + additionalCredit;
+            var newRemainingOnline = currentRemaining + additionalCredit;
+
+            if (_outbox != null)
+            {
+                // No dedicated "add credit" endpoint exists centrally; republish the
+                // updated note via the create channel (server currently no-ops on
+                // duplicate creditNoteNo, so this relies on the central sync handler
+                // being upgraded to upsert amounts for an existing note).
+                var updated = JsonToDoc(noteDoc.RootElement);
+                updated["creditNoteNo"] = noteNo;
+                updated["amount"] = (double)newAmountOnline;
+                updated["remainingAmount"] = (double)newRemainingOnline;
+                updated["status"] = StatusAvailable;
+                if (!string.IsNullOrWhiteSpace(returnNo))
+                    updated["returnNo"] = returnNo.Trim();
+                updated["storeId"] = storeId?.Trim() ?? ReadString(updated, "storeId") ?? "";
+                await _outbox.PublishCreditNoteCreatedAsync(updated, ct);
+            }
+
+            return noteNo;
+        }
+
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-            Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()));
+            Builders<BsonDocument>.Filter.Eq("creditNoteNo", noteNo));
 
         var doc = await _notes.Find(filter).FirstOrDefaultAsync(ct);
         if (doc == null)
@@ -159,7 +230,7 @@ public sealed class CustomerCreditNoteService
                 .Set("status", StatusAvailable),
             cancellationToken: ct);
 
-        return creditNoteNo;
+        return noteNo;
     }
 
     public async Task<IReadOnlyList<CustomerCreditNoteRecord>> ListAvailableForCustomerAsync(
@@ -171,6 +242,20 @@ public sealed class CustomerCreditNoteService
         var phoneNorm = PhoneMatchHelper.NormalizePhone(customerPhone);
         if (string.IsNullOrEmpty(phoneNorm) && string.IsNullOrWhiteSpace(customerCode))
             return Array.Empty<CustomerCreditNoteRecord>();
+
+        if (IsCentralOnline)
+        {
+            using var listDoc = await _storePos!.ListCreditNotesAsync(
+                customerPhone: customerPhone,
+                customerCode: customerCode,
+                availableOnly: true,
+                ct: ct);
+            return listDoc.RootElement.EnumerateArray()
+                .Select(MapJson)
+                .Where(r => r.RemainingAmount > 0)
+                .Take(50)
+                .ToList();
+        }
 
         var filters = new List<FilterDefinition<BsonDocument>>
         {
@@ -197,8 +282,16 @@ public sealed class CustomerCreditNoteService
         if (string.IsNullOrWhiteSpace(creditNoteNo))
             return null;
 
+        var noteNo = creditNoteNo.Trim();
+
+        if (IsCentralOnline)
+        {
+            using var noteDoc = await _storePos!.GetCreditNoteAsync(noteNo, ct);
+            return noteDoc.RootElement.ValueKind == JsonValueKind.Null ? null : MapJson(noteDoc.RootElement);
+        }
+
         var doc = await _notes.Find(
-            Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()))
+            Builders<BsonDocument>.Filter.Eq("creditNoteNo", noteNo))
             .FirstOrDefaultAsync(ct);
         return doc == null ? null : Map(doc);
     }
@@ -215,6 +308,49 @@ public sealed class CustomerCreditNoteService
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
+
+        if (IsCentralOnline)
+        {
+            using var listDoc = await _storePos!.ListCreditNotesAsync(ct: ct);
+            var billFilter = originalBillNo?.Trim();
+            var returnFilter = returnNo?.Trim();
+            var nameFilter = customerName?.Trim();
+
+            var rows = new List<CreditNoteSearchRow>();
+            foreach (var el in listDoc.RootElement.EnumerateArray())
+            {
+                var noteDoc2 = JsonToDoc(el);
+                var row = MapSearchRow(noteDoc2);
+                if (row == null)
+                    continue;
+
+                if (!string.IsNullOrEmpty(billFilter) &&
+                    row.OriginalBillNo.IndexOf(billFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                if (!string.IsNullOrEmpty(returnFilter) &&
+                    row.ReturnNo.IndexOf(returnFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                if (!string.IsNullOrEmpty(nameFilter) &&
+                    row.CustomerName.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                if (!MatchesMobileFilter(noteDoc2, mobile))
+                    continue;
+
+                if (!InCreatedDateRange(row.SortUtc, dateFrom, dateTo))
+                    continue;
+
+                rows.Add(row);
+            }
+
+            return rows
+                .OrderByDescending(r => r.SortUtc)
+                .Take(limit)
+                .ToList();
+        }
+
         var filters = new List<FilterDefinition<BsonDocument>>
         {
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
@@ -292,9 +428,40 @@ public sealed class CustomerCreditNoteService
         if (string.IsNullOrWhiteSpace(creditNoteNo) || amountApplied <= 0)
             return false;
 
+        var noteNo = creditNoteNo.Trim();
+        var billTrim = billNo?.Trim() ?? "";
+
+        if (IsCentralOnline)
+        {
+            using var noteDoc = await _storePos!.GetCreditNoteAsync(noteNo, ct);
+            if (noteDoc.RootElement.ValueKind == JsonValueKind.Null)
+                return false;
+
+            var status0 = ReadJsonString(noteDoc.RootElement, "status") ?? "";
+            if (!string.Equals(status0, StatusAvailable, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var remainingOnline = ReadJsonDecimal(noteDoc.RootElement, "remainingAmount");
+            if (amountApplied > remainingOnline)
+                return false;
+
+            var newRemainingOnline = remainingOnline - amountApplied;
+            if (_outbox == null)
+                return false;
+
+            await _outbox.PublishCreditNoteAppliedAsync(
+                noteNo,
+                billTrim,
+                amountApplied,
+                newRemainingOnline,
+                newRemainingOnline <= 0 ? StatusConsumed : StatusAvailable,
+                ct);
+            return true;
+        }
+
         var doc = await _notes.Find(
             Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("creditNoteNo", noteNo),
                 Builders<BsonDocument>.Filter.Eq("status", StatusAvailable)))
             .FirstOrDefaultAsync(ct);
 
@@ -362,9 +529,60 @@ public sealed class CustomerCreditNoteService
         if (string.IsNullOrWhiteSpace(creditNoteNo) || cashOutAmount <= 0)
             return false;
 
+        var noteNo = creditNoteNo.Trim();
+        var billTrim = billNo?.Trim() ?? "";
+
+        if (IsCentralOnline)
+        {
+            using var noteDoc = await _storePos!.GetCreditNoteAsync(noteNo, ct);
+            if (noteDoc.RootElement.ValueKind == JsonValueKind.Null)
+                return false;
+
+            var status0 = ReadJsonString(noteDoc.RootElement, "status") ?? "";
+            if (!string.Equals(status0, StatusAvailable, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var remainingBeforeOnline = ReadJsonDecimal(noteDoc.RootElement, "remainingAmount");
+            if (cashOutAmount > remainingBeforeOnline)
+                return false;
+
+            var remainingAfterOnline = remainingBeforeOnline - cashOutAmount;
+            var cashoutNoOnline = $"COUT-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6]}";
+
+            var cashoutDocOnline = new BsonDocument
+            {
+                { "cashoutNo", cashoutNoOnline },
+                { "creditNoteNo", noteNo },
+                { "billNo", billTrim },
+                { "cashRefunded", (double)cashOutAmount },
+                { "remainingBefore", (double)remainingBeforeOnline },
+                { "remainingAfter", (double)remainingAfterOnline },
+                { "storeId", storeId?.Trim() ?? "" },
+                { "posCounter", posCounter?.Trim() ?? "" },
+                { "customerCode", ReadJsonString(noteDoc.RootElement, "customerCode") ?? "" },
+                { "customerName", ReadJsonString(noteDoc.RootElement, "customerName") ?? "" },
+                { "customerPhone", ReadJsonString(noteDoc.RootElement, "customerPhone") ?? "" },
+                { "status", "posted" },
+                { "createdAtUtc", DateTime.UtcNow.ToString("O") },
+            };
+
+            if (_outbox == null)
+                return false;
+
+            await _outbox.PublishCreditNoteCashedOutAsync(
+                cashoutDocOnline,
+                noteNo,
+                billTrim,
+                cashOutAmount,
+                remainingAfterOnline,
+                remainingAfterOnline <= 0 ? StatusConsumed : StatusAvailable,
+                ct);
+            return true;
+        }
+
         var doc = await _notes.Find(
             Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("creditNoteNo", noteNo),
                 Builders<BsonDocument>.Filter.Eq("status", StatusAvailable)))
             .FirstOrDefaultAsync(ct);
 
@@ -520,6 +738,50 @@ public sealed class CustomerCreditNoteService
             { IsInt32: true } => v.AsInt32,
             { IsInt64: true } => v.AsInt64,
             { IsDecimal128: true } => (decimal)v.AsDecimal128,
+            _ => 0m,
+        };
+    }
+
+    private static CustomerCreditNoteRecord MapJson(JsonElement el) => Map(JsonToDoc(el));
+
+    /// <summary>
+    /// Converts a central store-pos JSON credit-note document into the same
+    /// BsonDocument shape used by the local Mongo collection so the existing
+    /// Map()/MapSearchRow() helpers can be reused for both Online and Offline reads.
+    /// </summary>
+    private static BsonDocument JsonToDoc(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return new BsonDocument();
+
+        var doc = BsonDocument.Parse(el.GetRawText());
+        if (!doc.Contains("createdAtUtc"))
+        {
+            var createdAt = ReadJsonString(el, "createdAt") ?? ReadJsonString(el, "createdAtUtc");
+            if (!string.IsNullOrEmpty(createdAt))
+                doc["createdAtUtc"] = createdAt;
+        }
+
+        return doc;
+    }
+
+    private static string? ReadJsonString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString())
+            : null;
+
+    private static bool ReadJsonBool(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static decimal ReadJsonDecimal(JsonElement el, string prop)
+    {
+        if (el.ValueKind != JsonValueKind.Object || !el.TryGetProperty(prop, out var v))
+            return 0m;
+        return v.ValueKind switch
+        {
+            JsonValueKind.Number when v.TryGetDecimal(out var d) => d,
+            JsonValueKind.String when decimal.TryParse(
+                v.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var sd) => sd,
             _ => 0m,
         };
     }

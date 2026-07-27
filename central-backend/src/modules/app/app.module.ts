@@ -63,6 +63,7 @@ import { BillsModule } from '../bills/bills.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { ReportsModule } from '../reports/reports.module';
 import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-label-design.module';
+import { StorePosModule } from '../store-pos/store-pos.module';
 
 
 @Module({
@@ -132,6 +133,7 @@ import { BarcodeLabelDesignsModule } from '../barcode-label-designs/barcode-labe
     StockTallyModule,
     InventoryAdjustmentsModule,
     BillsModule,
+    StorePosModule,
     WhatsAppModule,
     ReportsModule,
     BarcodeLabelDesignsModule,

@@ -32,7 +32,9 @@ public partial class DuplicateCreditNoteViewModel : ObservableObject
     public DuplicateCreditNoteViewModel(AppServices services)
     {
         _services = services;
-        _billListService = new StoreBillListService(services.LocalDb);
+        // Use the shared, Online-aware instance rather than a local-only one — the linked return
+        // lookup below must work against central data when running in Online mode.
+        _billListService = services.StoreBillList;
     }
 
     [RelayCommand]

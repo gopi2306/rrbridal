@@ -6,12 +6,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Customers;
 
 public sealed class CustomerListRow
 {
     public string? LocalMongoId { get; init; }
+    public string? CentralCustomerId { get; init; }
     public string Source { get; init; } = "Local";
     public string CustomerCode { get; init; } = "";
     public string Name { get; init; } = "";
@@ -27,12 +29,16 @@ public sealed class CustomerDirectoryService
     private const string CollectionName = "store_customers";
     private readonly IMongoCollection<BsonDocument> _customers;
     private readonly CustomerLookupService _lookup;
+    private readonly CentralOnlineModeService? _centralMode;
 
-    public CustomerDirectoryService(IMongoDatabase localDb, CustomerLookupService lookup)
+    public CustomerDirectoryService(IMongoDatabase localDb, CustomerLookupService lookup, CentralOnlineModeService? centralMode = null)
     {
         _customers = localDb.GetCollection<BsonDocument>(CollectionName);
         _lookup = lookup;
+        _centralMode = centralMode;
     }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
 
     public async Task<IReadOnlyList<CustomerListRow>> SearchAsync(
         string storeId,
@@ -43,6 +49,34 @@ public sealed class CustomerDirectoryService
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
+
+        if (IsCentralOnline)
+        {
+            var onlineQuery = string.Join(" ",
+                new[] { customerCode, customerName, customerPhone }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            if (string.IsNullOrWhiteSpace(onlineQuery))
+                return [];
+
+            var onlineMatches = await _lookup.SearchAsync(onlineQuery, ct);
+            return onlineMatches
+                .Where(m => m.Source == "Central")
+                .Select(m => new CustomerListRow
+                {
+                    CentralCustomerId = m.Id,
+                    Source = "Central",
+                    CustomerCode = m.Code,
+                    Name = m.Name,
+                    Phone = m.Phone,
+                    Email = m.Email,
+                    IsCreditCustomer = m.IsCreditCustomer,
+                    SyncStatus = "central",
+                    SortUtc = DateTime.MinValue,
+                })
+                .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(limit)
+                .ToList();
+        }
+
         var sid = (storeId ?? "").Trim();
         var docs = await _customers
             .Find(Builders<BsonDocument>.Filter.Eq("storeId", sid))
@@ -102,11 +136,13 @@ public sealed class CustomerDirectoryService
 
             merged.Add(new CustomerListRow
             {
+                CentralCustomerId = match.Id,
                 Source = "Central",
                 CustomerCode = match.Code,
                 Name = match.Name,
                 Phone = match.Phone,
                 Email = match.Email,
+                IsCreditCustomer = match.IsCreditCustomer,
                 SyncStatus = "central",
                 SortUtc = DateTime.MinValue,
             });
@@ -121,6 +157,8 @@ public sealed class CustomerDirectoryService
 
     public async Task<BsonDocument?> GetLocalByIdAsync(string localMongoId, CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return null;
         if (!ObjectId.TryParse(localMongoId, out var oid))
             return null;
         return await _customers.Find(Builders<BsonDocument>.Filter.Eq("_id", oid)).FirstOrDefaultAsync(ct);

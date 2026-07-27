@@ -27,6 +27,7 @@ public sealed class BillDeleteService
     private readonly StoreBillListService _storeBillList;
     private readonly ProductCatalogService _productCatalog;
     private readonly BillingOutboxPublisher _outbox;
+    private CentralOnlineModeService? _centralMode;
 
     public BillDeleteService(
         IMongoDatabase localDb,
@@ -44,6 +45,8 @@ public sealed class BillDeleteService
         _outbox = outbox;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode) => _centralMode = centralMode;
+
     public async Task<BillDeleteResult> DeleteAsync(string billNo, CancellationToken ct = default)
     {
         var trimmed = billNo?.Trim() ?? "";
@@ -59,19 +62,25 @@ public sealed class BillDeleteService
             return BillDeleteResult.Fail($"Only posted bills can be deleted (status: {status}).");
 
         var storeId = _store.StoreId;
-        var existingReturn = await _storeBillList.GetReturnByBillNoAsync(storeId, trimmed, ct);
-        if (existingReturn != null)
-            return BillDeleteResult.Fail("Cannot delete a bill that has a return. Remove or reverse the return first.");
+        if (_centralMode?.IsOnlineMode != true)
+        {
+            var existingReturn = await _storeBillList.GetReturnByBillNoAsync(storeId, trimmed, ct);
+            if (existingReturn != null)
+                return BillDeleteResult.Fail("Cannot delete a bill that has a return. Remove or reverse the return first.");
 
-        var existingAdjustment = await _storeBillList.GetAdjustmentByBillNoAsync(storeId, trimmed, ct);
-        if (existingAdjustment != null)
-            return BillDeleteResult.Fail("Cannot delete a bill that has an adjustment.");
+            var existingAdjustment = await _storeBillList.GetAdjustmentByBillNoAsync(storeId, trimmed, ct);
+            if (existingAdjustment != null)
+                return BillDeleteResult.Fail("Cannot delete a bill that has an adjustment.");
+        }
 
         try
         {
             await RestoreStockAsync(billDoc, ct);
             await _outbox.CancelPendingInvoiceCreatedAsync(trimmed, ct);
             await _outbox.PublishInvoiceDeletedAsync(billDoc, ct);
+
+            if (_centralMode?.IsOnlineMode == true)
+                return BillDeleteResult.Ok($"Bill '{trimmed}' deleted on central.");
 
             var filter = Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("storeId", storeId),

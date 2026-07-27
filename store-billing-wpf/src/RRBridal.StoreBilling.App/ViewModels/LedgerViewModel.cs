@@ -64,6 +64,7 @@ public partial class LedgerViewModel : ObservableObject
     {
         _services = services;
         _ledgerService = new StoreLedgerService(services.LocalDb);
+        _ledgerService.ConfigureOnline(services.CentralMode, services.StorePos);
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));

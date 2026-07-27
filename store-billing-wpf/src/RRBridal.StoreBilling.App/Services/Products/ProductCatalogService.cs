@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Audit;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Products;
 
@@ -16,16 +18,36 @@ public sealed class ProductCatalogService
     private readonly IMongoCollection<BsonDocument> _cache;
     private readonly IMongoDatabase _localDb;
     private readonly StoreAuditLogService? _auditLog;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
-    public ProductCatalogService(IMongoDatabase localDb, HttpClient centralApi, StoreAuditLogService? auditLog = null)
+    public ProductCatalogService(
+        IMongoDatabase localDb,
+        HttpClient centralApi,
+        StoreAuditLogService? auditLog = null,
+        CentralOnlineModeService? centralMode = null,
+        CentralStorePosClient? storePos = null)
     {
         _localDb = localDb;
         _cache = localDb.GetCollection<BsonDocument>("local_products_cache");
         _auditLog = auditLog;
+        _centralMode = centralMode;
+        _storePos = storePos;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode ?? false;
 
     public async Task<IReadOnlyList<CatalogProduct>> SearchAsync(string query, CancellationToken ct = default)
     {
+        if (IsCentralOnline && _storePos != null)
+            return await _storePos.SearchCatalogAsync(query, ct);
+
         var q = query?.Trim() ?? "";
         if (q.Length < 1)
             return Array.Empty<CatalogProduct>();
@@ -90,6 +112,16 @@ public sealed class ProductCatalogService
         if (string.IsNullOrWhiteSpace(code))
             return null;
 
+        if (IsCentralOnline && _storePos != null)
+        {
+            var hits = await _storePos.SearchCatalogAsync(code.Trim(), ct);
+            var q = code.Trim();
+            return hits.FirstOrDefault(p =>
+                string.Equals(p.Sku, q, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.UpcEanCode, q, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Alias, q, StringComparison.OrdinalIgnoreCase));
+        }
+
         try
         {
             var hsnLookup = await HsnSacResolver.LoadLookupAsync(_localDb, ct);
@@ -111,6 +143,9 @@ public sealed class ProductCatalogService
     /// <summary>Partial match on SKU, barcode, or alias only (not product name).</summary>
     public async Task<IReadOnlyList<CatalogProduct>> SearchByProductCodeAsync(string query, CancellationToken ct = default)
     {
+        if (IsCentralOnline && _storePos != null)
+            return await _storePos.SearchCatalogAsync(query, ct);
+
         var q = query?.Trim() ?? "";
         if (q.Length < 1)
             return Array.Empty<CatalogProduct>();
@@ -288,6 +323,8 @@ public sealed class ProductCatalogService
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(centralProductId) || qty <= 0) return;
+        // Online catalog stock is owned by central inventory; local cache is Offline-only.
+        if (IsCentralOnline) return;
         try
         {
             var filter = Builders<BsonDocument>.Filter.Eq("centralProductId", centralProductId);
@@ -322,6 +359,7 @@ public sealed class ProductCatalogService
         string? actorName = null,
         CancellationToken ct = default)
     {
+        if (IsCentralOnline) return;
         if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return;
         try
         {
@@ -363,6 +401,19 @@ public sealed class ProductCatalogService
 
     public async Task<decimal> GetAvailableStockAsync(string? centralProductId, string? sku, CancellationToken ct = default)
     {
+        if (IsCentralOnline && _storePos != null)
+        {
+            var code = !string.IsNullOrWhiteSpace(sku) ? sku.Trim() : centralProductId?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(code))
+                return 0m;
+            var hits = await _storePos.SearchCatalogAsync(code, ct);
+            var match = hits.FirstOrDefault(p =>
+                (!string.IsNullOrWhiteSpace(sku) && string.Equals(p.Sku, sku.Trim(), StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(centralProductId)
+                    && string.Equals(p.CentralId, centralProductId.Trim(), StringComparison.OrdinalIgnoreCase)));
+            return match?.StockQty ?? hits.FirstOrDefault()?.StockQty ?? 0m;
+        }
+
         try
         {
             FilterDefinition<BsonDocument>? filter = null;
@@ -386,6 +437,7 @@ public sealed class ProductCatalogService
 
     public async Task<bool> IncrementStockBySkuAsync(string sku, decimal qty, string? description = null, CancellationToken ct = default)
     {
+        if (IsCentralOnline) return true;
         if (string.IsNullOrWhiteSpace(sku) || qty <= 0) return true;
         try
         {

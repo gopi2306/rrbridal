@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
@@ -30,6 +33,8 @@ public sealed class HeldBillService
     private readonly IMongoCollection<BsonDocument> _bills;
     private readonly StoreContext _store;
     private readonly BillNumberGenerator _billNumbers;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public HeldBillService(IMongoDatabase localDb, StoreContext store, BillNumberGenerator billNumbers)
     {
@@ -38,6 +43,14 @@ public sealed class HeldBillService
         _store = store;
         _billNumbers = billNumbers;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _storePos != null;
 
     public async Task UpsertAsync(BsonDocument doc, CancellationToken ct = default)
     {
@@ -50,6 +63,12 @@ public sealed class HeldBillService
             doc["heldAtUtc"] = now;
         doc["updatedAtUtc"] = now;
         doc["storeId"] = _store.StoreId;
+
+        if (IsCentralOnline)
+        {
+            await _storePos!.UpsertHeldBillAsync(holdNo, BsonTypeMapper.MapToDotNetValue(doc)!, ct);
+            return;
+        }
 
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
@@ -64,6 +83,13 @@ public sealed class HeldBillService
         if (string.IsNullOrEmpty(trimmed))
             return null;
 
+        if (IsCentralOnline)
+        {
+            var rows = await ListCentralDocsAsync(ct);
+            return rows.FirstOrDefault(d =>
+                string.Equals(d.GetValue("holdNo", "").AsString, trimmed, StringComparison.OrdinalIgnoreCase));
+        }
+
         return await _holds.Find(Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
             Builders<BsonDocument>.Filter.Eq("holdNo", trimmed))).FirstOrDefaultAsync(ct);
@@ -72,13 +98,20 @@ public sealed class HeldBillService
     public async Task<IReadOnlyList<HeldBillRow>> ListAsync(int limit = 50, CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 200);
-        var docs = await _holds
+
+        if (IsCentralOnline)
+        {
+            var docs = await ListCentralDocsAsync(ct);
+            return docs.Select(MapRow).Where(r => r != null).Cast<HeldBillRow>().Take(limit).ToList();
+        }
+
+        var localDocs = await _holds
             .Find(Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId))
             .Sort(Builders<BsonDocument>.Sort.Descending("updatedAtUtc"))
             .Limit(limit)
             .ToListAsync(ct);
 
-        return docs.Select(MapRow).Where(r => r != null).Cast<HeldBillRow>().ToList();
+        return localDocs.Select(MapRow).Where(r => r != null).Cast<HeldBillRow>().ToList();
     }
 
     public async Task DeleteAsync(string holdNo, CancellationToken ct = default)
@@ -86,6 +119,12 @@ public sealed class HeldBillService
         var trimmed = holdNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return;
+
+        if (IsCentralOnline)
+        {
+            await _storePos!.DeleteHeldBillAsync(trimmed, ct);
+            return;
+        }
 
         await _holds.DeleteOneAsync(
             Builders<BsonDocument>.Filter.And(
@@ -97,6 +136,8 @@ public sealed class HeldBillService
     /// <summary>Moves legacy store_bills drafts into held_bills (one-time on startup).</summary>
     public async Task MigrateDraftsFromStoreBillsAsync(CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return;
         var drafts = await _bills
             .Find(Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
@@ -122,6 +163,31 @@ public sealed class HeldBillService
                 Builders<BsonDocument>.Filter.Eq("_id", draft["_id"]),
                 ct);
         }
+    }
+
+    private async Task<List<BsonDocument>> ListCentralDocsAsync(CancellationToken ct)
+    {
+        using var json = await _storePos!.ListHeldBillsAsync(ct);
+        var list = new List<BsonDocument>();
+        if (json.RootElement.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var el in json.RootElement.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object)
+                continue;
+            BsonDocument doc;
+            if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+                doc = BsonDocument.Parse(payload.GetRawText());
+            else
+                doc = BsonDocument.Parse(el.GetRawText());
+
+            if (el.TryGetProperty("holdNo", out var hn) && hn.ValueKind == JsonValueKind.String)
+                doc["holdNo"] = hn.GetString() ?? "";
+            list.Add(doc);
+        }
+
+        return list;
     }
 
     private HeldBillRow? MapRow(BsonDocument doc)

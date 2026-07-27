@@ -16,6 +16,7 @@ public sealed class StoreSyncRunner
     private readonly ShellBrandingService? _shellBranding;
     private readonly LocalAuthService? _localAuth;
     private readonly Func<UserSession?>? _getUserSession;
+    private readonly Func<bool>? _isOnlineMode;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public StoreSyncRunner(
@@ -25,7 +26,8 @@ public sealed class StoreSyncRunner
         ReceiptConfigSyncService receiptConfigSync,
         ShellBrandingService? shellBranding = null,
         LocalAuthService? localAuth = null,
-        Func<UserSession?>? getUserSession = null)
+        Func<UserSession?>? getUserSession = null,
+        Func<bool>? isOnlineMode = null)
     {
         _syncEngine = syncEngine;
         _authSession = authSession;
@@ -34,6 +36,7 @@ public sealed class StoreSyncRunner
         _shellBranding = shellBranding;
         _localAuth = localAuth;
         _getUserSession = getUserSession;
+        _isOnlineMode = isOnlineMode;
     }
 
     public SemaphoreSlim SyncLock => _syncLock;
@@ -52,6 +55,9 @@ public sealed class StoreSyncRunner
 
         try
         {
+            if (_isOnlineMode != null && !_isOnlineMode())
+                return SyncRunResult.Ok("Sync skipped: Central mode is Offline.");
+
             _authSession.ApplyTo(_centralApi);
             await _syncEngine.RunOnceAsync(ct).ConfigureAwait(false);
 

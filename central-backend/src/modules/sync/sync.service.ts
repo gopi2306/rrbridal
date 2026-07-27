@@ -83,6 +83,16 @@ export class SyncService {
           await this.storeSalesSyncService.applyInvoiceCodPaymentReceived(meta, ev.payload);
         } else if (ev.type === 'InvoiceCreditPaymentReceived') {
           await this.storeSalesSyncService.applyInvoiceCreditPaymentReceived(meta, ev.payload);
+        } else if (ev.type === 'InvoiceStockExceptionsApproved') {
+          await this.storeSalesSyncService.applyInvoiceStockExceptionsApproved(meta, ev.payload);
+        } else if (ev.type === 'InvoiceWhatsAppUpdated') {
+          await this.storeSalesSyncService.applyInvoiceWhatsAppUpdated(meta, ev.payload);
+        } else if (ev.type === 'InvoicePrintAuditAppended') {
+          await this.storeSalesSyncService.applyInvoicePrintAuditAppended(meta, ev.payload);
+        } else if (ev.type === 'DaySessionCashHandOverPrinted') {
+          await this.storeSalesSyncService.applyDaySessionCashHandOverPrinted(meta, ev.payload);
+        } else if (ev.type === 'PaymentRecorded') {
+          await this.storeSalesSyncService.applyPaymentRecorded(meta, ev.payload);
         } else if (ev.type === 'QuotationUpserted') {
           await this.storeSalesSyncService.applyQuotationUpserted(meta, ev.payload);
         } else if (ev.type === 'QuotationConverted') {
@@ -119,6 +129,17 @@ export class SyncService {
     }
 
     return results;
+  }
+
+  /** Apply a single sync-compatible event (used by Online POS REST wrappers). */
+  async applyOne(
+    ev: SyncEventDto,
+  ): Promise<{ eventId: string; status: 'applied' | 'duplicate' | 'rejected'; reason?: string }> {
+    const [result] = await this.push([ev]);
+    if (!result) {
+      return { eventId: ev.eventId, status: 'rejected', reason: 'No result from sync push' };
+    }
+    return result;
   }
 
   async pull(

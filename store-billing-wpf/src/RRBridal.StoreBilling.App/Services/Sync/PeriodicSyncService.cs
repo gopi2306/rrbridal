@@ -15,6 +15,7 @@ public sealed class PeriodicSyncService : IDisposable
     private readonly SyncScheduleOptions _schedule;
     private readonly StoreSyncRunner _syncRunner;
     private readonly ShellBrandingService? _shellBranding;
+    private readonly CentralOnlineModeService? _centralMode;
     private readonly IMongoCollection<BsonDocument> _syncState;
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
@@ -25,12 +26,14 @@ public sealed class PeriodicSyncService : IDisposable
         SyncScheduleOptions schedule,
         StoreSyncRunner syncRunner,
         IMongoDatabase localDb,
-        ShellBrandingService? shellBranding = null)
+        ShellBrandingService? shellBranding = null,
+        CentralOnlineModeService? centralMode = null)
     {
         _storeContext = storeContext;
         _schedule = schedule;
         _syncRunner = syncRunner;
         _shellBranding = shellBranding;
+        _centralMode = centralMode;
         _syncState = localDb.GetCollection<BsonDocument>("sync_state");
     }
 
@@ -58,6 +61,9 @@ public sealed class PeriodicSyncService : IDisposable
             if (!IsScheduleEnabled)
                 return "Auto-sync: off (SYNC_INTERVAL_MINUTES=0)";
 
+            if (_centralMode != null && !_centralMode.IsOnlineMode)
+                return "Auto-sync: paused (Central mode is Offline)";
+
             var interval = IntervalMinutes == 1 ? "1 min" : $"{IntervalMinutes} min";
             var baseText = $"Auto-sync: every {interval} (counter 1 only)";
             if (LastRunUtc is null)
@@ -71,6 +77,9 @@ public sealed class PeriodicSyncService : IDisposable
 
     public void Start()
     {
+        if (_centralMode != null && !_centralMode.IsOnlineMode)
+            return;
+
         if (!IsActive || _loopTask is { IsCompleted: false })
             return;
 
@@ -114,6 +123,14 @@ public sealed class PeriodicSyncService : IDisposable
 
     private async Task RunTickAsync()
     {
+        if (_centralMode != null && !_centralMode.IsOnlineMode)
+        {
+            LastRunMessage = "Skipped: Central mode is Offline.";
+            LastRunSucceeded = null;
+            RaiseStatusChanged();
+            return;
+        }
+
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(Math.Max(IntervalMinutes * 2, 5)));

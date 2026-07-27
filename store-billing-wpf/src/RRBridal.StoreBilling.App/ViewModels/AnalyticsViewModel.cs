@@ -36,6 +36,7 @@ public partial class AnalyticsViewModel : ObservableObject
     public AnalyticsViewModel(AppServices services)
     {
         _analyticsService = new StoreAnalyticsService(services.LocalDb);
+        _analyticsService.ConfigureOnline(services.CentralMode, services.DashboardApi);
         _storeContext = services.StoreContext;
     }
 

@@ -48,6 +48,25 @@ export class PromotionSchemesService {
     return await this.model.find({ deletedAt: { $exists: false } }).sort({ priority: 1, name: 1 }).lean();
   }
 
+  /** Active schemes for a store (all-stores + store-scoped). */
+  async listActiveForStore(storeId: string) {
+    const sid = storeId?.trim();
+    if (!sid) throw new BadRequestException('storeId is required');
+    const now = new Date();
+    return await this.model
+      .find({
+        deletedAt: { $exists: false },
+        isActive: true,
+        $and: [
+          { $or: [{ storeIds: { $size: 0 } }, { storeIds: sid }] },
+          { $or: [{ validFrom: { $exists: false } }, { validFrom: null }, { validFrom: { $lte: now } }] },
+          { $or: [{ validTo: { $exists: false } }, { validTo: null }, { validTo: { $gte: now } }] },
+        ],
+      })
+      .sort({ priority: 1, name: 1 })
+      .lean();
+  }
+
   async findById(id: string) {
     const doc = await this.model.findById(id).lean();
     if (!doc || doc.deletedAt) throw new NotFoundException('Not found');

@@ -10,6 +10,7 @@ import { StoreCreditNoteCashout, StoreCreditNoteCashoutSchema } from './schemas/
 import { StoreCreditNote, StoreCreditNoteSchema } from './schemas/store-credit-note.schema';
 import { StoreInvoice, StoreInvoiceSchema } from './schemas/store-invoice.schema';
 import { StorePaymentReceipt, StorePaymentReceiptSchema } from './schemas/store-payment-receipt.schema';
+import { StoreGatewayPayment, StoreGatewayPaymentSchema } from './schemas/store-gateway-payment.schema';
 import { StoreQuotation, StoreQuotationSchema } from './schemas/store-quotation.schema';
 import { StoreSaleReturn, StoreSaleReturnSchema } from './schemas/store-sale-return.schema';
 import { StoreSalesInventoryController } from './store-sales-inventory.controller';
@@ -31,6 +32,7 @@ import { StoreSalesSyncService } from './store-sales-sync.service';
       { name: StoreCreditNoteCashout.name, schema: StoreCreditNoteCashoutSchema },
       { name: StoreQuotation.name, schema: StoreQuotationSchema },
       { name: StorePaymentReceipt.name, schema: StorePaymentReceiptSchema },
+      { name: StoreGatewayPayment.name, schema: StoreGatewayPaymentSchema },
     ]),
   ],
   controllers: [StoreSalesInventoryController],

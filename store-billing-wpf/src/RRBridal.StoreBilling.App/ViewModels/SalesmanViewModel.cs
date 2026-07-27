@@ -32,7 +32,7 @@ public partial class SalesmanViewModel : ObservableObject
 
     public SalesmanViewModel(AppServices services)
     {
-        _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         _codeGenerator = new SalesmanCodeGenerator(services.LocalDb);
     }
 

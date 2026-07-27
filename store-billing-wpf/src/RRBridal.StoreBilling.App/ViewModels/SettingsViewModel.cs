@@ -36,6 +36,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _syncDiagnosticsText = "";
     [ObservableProperty] private string _autoSyncStatusText = "";
     [ObservableProperty] private string _mongoHealthStatusText = "";
+    [ObservableProperty] private string _centralOnlineStatusText = "";
     [ObservableProperty] private string _lastActionText = "";
 
     [ObservableProperty] private string _receiptStoreName = "";
@@ -83,6 +84,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _receiptPrinterWarningText = "";
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
+    [ObservableProperty] private bool _billingPreferCentralOnline;
     [ObservableProperty] private bool _billingConfirmDuplicateProductAdd = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
     [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
@@ -252,8 +254,10 @@ public partial class SettingsViewModel : ObservableObject
             : "Central auth: token loaded";
         _services.PeriodicSync.StatusChanged += OnPeriodicSyncStatusChanged;
         _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
+        _services.CentralMode.StatusChanged += OnCentralModeStatusChanged;
         UpdateAutoSyncStatusText();
         UpdateMongoHealthStatusText();
+        UpdateCentralModeStatusText();
         _ = RefreshStatusAsync();
     }
 
@@ -266,6 +270,11 @@ public partial class SettingsViewModel : ObservableObject
     private void OnMongoHealthStatusChanged()
     {
         UpdateMongoHealthStatusText();
+    }
+
+    private void OnCentralModeStatusChanged()
+    {
+        UpdateCentralModeStatusText();
     }
 
     private void UpdateAutoSyncStatusText()
@@ -284,6 +293,11 @@ public partial class SettingsViewModel : ObservableObject
         MongoHealthStatusText = health.StatusDescription;
         if (!string.IsNullOrWhiteSpace(health.LastError) && health.State != MongoHealthState.Connected)
             MongoHealthStatusText += Environment.NewLine + health.LastError;
+    }
+
+    private void UpdateCentralModeStatusText()
+    {
+        CentralOnlineStatusText = _services.CentralMode.StatusChipText;
     }
 
     public Task LoadReceiptSettingsAsync(bool tryPullIfLoggedIn = false, bool forcePullFromCentral = false)
@@ -768,6 +782,13 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task RunSyncOnceAsync()
     {
+        if (!_services.CentralMode.IsOnlineMode)
+        {
+            LastActionText = "Sync skipped: Central mode is Offline.";
+            await RefreshStatusAsync();
+            return;
+        }
+
         try
         {
             LastActionText = "Running sync...";
@@ -793,6 +814,13 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task ForceProductResyncAsync()
     {
+        if (!_services.CentralMode.IsOnlineMode)
+        {
+            LastActionText = "Product re-sync is available only in Central Online mode.";
+            await RefreshStatusAsync();
+            return;
+        }
+
         try
         {
             LastActionText = "Re-syncing full product catalog…";
@@ -916,6 +944,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
+        BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
         BillingConfirmDuplicateProductAdd = _services.PosBillingSettings.Current.ConfirmDuplicateProductAdd;
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
         BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
@@ -949,8 +978,10 @@ public partial class SettingsViewModel : ObservableObject
         decimal.TryParse(BillingCreditMinAdvancePercentText, out var minPct);
         decimal.TryParse(BillingCreditMinAdvanceAmountText, out var minAmt);
         decimal.TryParse(BillingCreditMaxBalancePerBillText, out var maxBal);
+        var previousOnlineMode = _services.PosBillingSettings.Current.PreferCentralOnline;
         _services.PosBillingSettings.Update(s =>
         {
+            s.PreferCentralOnline = BillingPreferCentralOnline;
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
             s.ConfirmDuplicateProductAdd = BillingConfirmDuplicateProductAdd;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
@@ -966,6 +997,9 @@ public partial class SettingsViewModel : ObservableObject
             s.CreditBillingMaxBalancePerBill = Math.Max(0m, maxBal);
         });
         await _services.PosBillingSettings.SaveAsync();
+        if (previousOnlineMode != BillingPreferCentralOnline)
+            await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+        UpdateCentralModeStatusText();
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
         await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
         {
@@ -976,6 +1010,7 @@ public partial class SettingsViewModel : ObservableObject
             ActorEmail = actorEmail,
             Metadata = new BsonDocument
             {
+                { "preferCentralOnline", BillingPreferCentralOnline },
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
                 { "confirmDuplicateProductAdd", BillingConfirmDuplicateProductAdd },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },

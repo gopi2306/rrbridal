@@ -6,6 +6,25 @@ export const STORE_INVOICE_POSTED = 'StoreInvoicePosted';
 export const STORE_INVOICE_DELETED = 'StoreInvoiceDeleted';
 export const STORE_SALE_RETURN_POSTED = 'StoreSaleReturnPosted';
 export const STORE_SALE_EXCHANGE_POSTED = 'StoreSaleExchangePosted';
+export const STORE_STOCK_EXCEPTION_APPROVED = 'StoreStockExceptionApproved';
+
+/** Pending stock-exception lines (local stock was not decremented at post). */
+export function parsePendingExceptionStockLines(payload: Record<string, unknown>): StockLine[] {
+  const raw = payload.stockExceptions;
+  if (!Array.isArray(raw)) return [];
+  const parsed: StockLine[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (row.stockDecremented === true) continue;
+    const sku = readString(row.sku);
+    if (!sku) continue;
+    const qty = readNumber(row.requestedQty);
+    if (qty <= 0) continue;
+    parsed.push({ sku, qty });
+  }
+  return aggregateBySku(parsed);
+}
 
 function readSku(line: Record<string, unknown>): string | undefined {
   return readString(line.sku) ?? readString(line.productCode);

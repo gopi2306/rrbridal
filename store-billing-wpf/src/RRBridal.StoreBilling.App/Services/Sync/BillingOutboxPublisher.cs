@@ -12,6 +12,9 @@ public sealed class BillingOutboxPublisher
 {
     private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly StoreContext _storeContext;
+    private Func<bool>? _isOnlineMode;
+    private Func<string, BsonDocument, string, CancellationToken, Task>? _onlinePostAsync;
+    private Func<CancellationToken, Task>? _pushPendingAsync;
 
     public BillingOutboxPublisher(IMongoDatabase localDb, StoreContext storeContext)
     {
@@ -25,6 +28,16 @@ public sealed class BillingOutboxPublisher
         string hash,
         CancellationToken ct = default)
     {
+        // Pure Online: post to central only — never touch local outbox_events.
+        if (_isOnlineMode?.Invoke() == true)
+        {
+            if (_onlinePostAsync == null)
+                throw new InvalidOperationException("Online mode is enabled but central write dispatch is not configured.");
+
+            await _onlinePostAsync(type, payload, hash, ct);
+            return Guid.NewGuid().ToString();
+        }
+
         var eventId = Guid.NewGuid().ToString();
         var outboxEvent = new BsonDocument
         {
@@ -40,6 +53,23 @@ public sealed class BillingOutboxPublisher
         await _outbox.InsertOneAsync(outboxEvent, cancellationToken: ct);
         return eventId;
     }
+
+    public void ConfigureOnlineDispatch(
+        Func<bool> isOnlineMode,
+        Func<CancellationToken, Task> pushPendingAsync,
+        Func<string, BsonDocument, string, CancellationToken, Task>? onlinePostAsync = null)
+    {
+        _isOnlineMode = isOnlineMode;
+        _pushPendingAsync = pushPendingAsync;
+        _onlinePostAsync = onlinePostAsync;
+    }
+
+    public Task<string> PublishCustomEventAsync(
+        string type,
+        BsonDocument payload,
+        string hash,
+        CancellationToken ct = default) =>
+        EnqueueAsync(type, payload, hash, ct);
 
     public Task<string> PublishInvoiceCreatedAsync(BsonDocument billDoc, CancellationToken ct = default)
     {
@@ -66,6 +96,9 @@ public sealed class BillingOutboxPublisher
     /// </summary>
     public async Task<long> CancelPendingInvoiceCreatedAsync(string billNo, CancellationToken ct = default)
     {
+        if (_isOnlineMode?.Invoke() == true)
+            return 0;
+
         var trimmed = billNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return 0;

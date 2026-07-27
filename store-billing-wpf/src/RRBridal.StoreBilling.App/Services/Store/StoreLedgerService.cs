@@ -2,24 +2,62 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
 public sealed class StoreLedgerService
 {
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public StoreLedgerService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _storePos != null;
+
     public async Task<IReadOnlyList<string>> GetDistinctPosCountersAsync(string storeId, CancellationToken ct = default)
     {
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i <= 3; i++)
+            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+
+        if (IsCentralOnline)
+        {
+            using var onlineJson = await _storePos!.ListBillsAsync(null, 500, ct);
+            if (onlineJson.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in onlineJson.RootElement.EnumerateArray())
+                {
+                    var doc = BillDocumentService.MapCentralBillToDoc(el);
+                    var pos = ReadString(doc, "posCounter") ?? "";
+                    if (!string.IsNullOrWhiteSpace(pos))
+                        merged.Add(pos);
+                }
+            }
+
+            return merged
+                .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+                .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
@@ -27,14 +65,9 @@ public sealed class StoreLedgerService
         var fromDb = billDocs
             .Select(d => ReadString(d, "posCounter") ?? "")
             .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
-            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
-        var merged = new HashSet<string>(fromDb, StringComparer.OrdinalIgnoreCase);
-        for (var i = 1; i <= 3; i++)
-            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+        foreach (var p in fromDb)
+            merged.Add(p);
 
         return merged
             .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
@@ -55,6 +88,11 @@ public sealed class StoreLedgerService
     {
         maxBills = Math.Clamp(maxBills, 1, 500);
         maxPayments = Math.Clamp(maxPayments, 1, 500);
+
+        if (IsCentralOnline)
+        {
+            return await LoadOnlineAsync(maxBills, scope, deviceId, posCounterFilter, dateFrom, dateTo, ct);
+        }
 
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var payColl = _db.GetCollection<BsonDocument>("local_payments");
@@ -88,6 +126,86 @@ public sealed class StoreLedgerService
             Bills = bills,
             Payments = payments,
         };
+    }
+
+    private async Task<StoreLedgerSnapshot> LoadOnlineAsync(
+        int maxBills,
+        ReportScope scope,
+        string? deviceId,
+        string? posCounterFilter,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        CancellationToken ct)
+    {
+        using var json = await _storePos!.ListBillsAsync(null, Math.Min(500, maxBills * 3), ct);
+        var billDocs = new List<BsonDocument>();
+        if (json.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in json.RootElement.EnumerateArray())
+                billDocs.Add(BillDocumentService.MapCentralBillToDoc(el));
+        }
+
+        var bills = billDocs
+            .Where(d => MatchesScope(d, deviceId, scope))
+            .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
+            .Where(d => MatchesBillDateFilter(d, dateFrom, dateTo))
+            .Select(MapBill)
+            .Where(x => x != null)
+            .Cast<LedgerBillRow>()
+            .OrderByDescending(x => x.SortUtc)
+            .Take(maxBills)
+            .ToList();
+
+        using var payJson = await _storePos.ListGatewayPaymentsAsync(500, posCounterFilter, ct);
+        var payments = new List<LedgerPaymentRow>();
+        if (payJson.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in payJson.RootElement.EnumerateArray())
+            {
+                var doc = MapCentralGatewayPaymentToDoc(el);
+                if (!MatchesPaymentPosCounterFilter(doc, posCounterFilter))
+                    continue;
+                if (!MatchesPaymentDateFilter(doc, dateFrom, dateTo))
+                    continue;
+                payments.Add(MapPayment(doc));
+            }
+        }
+
+        payments = payments
+            .OrderByDescending(x => x.SortUtc)
+            .Take(maxBills)
+            .ToList();
+
+        return new StoreLedgerSnapshot
+        {
+            Bills = bills,
+            Payments = payments,
+        };
+    }
+
+    private static BsonDocument MapCentralGatewayPaymentToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("invoiceNo", out var inv) && inv.ValueKind == JsonValueKind.String)
+            doc["invoiceNo"] = inv.GetString() ?? "";
+        if (el.TryGetProperty("posCounter", out var pos) && pos.ValueKind == JsonValueKind.String)
+            doc["posCounter"] = pos.GetString() ?? "";
+        if (el.TryGetProperty("deviceId", out var dev) && dev.ValueKind == JsonValueKind.String)
+            doc["deviceId"] = dev.GetString() ?? "";
+        if (el.TryGetProperty("createdAt", out var created))
+        {
+            if (created.ValueKind == JsonValueKind.String)
+                doc["createdAt"] = created.GetString() ?? "";
+            else if (created.ValueKind == JsonValueKind.Number || created.ValueKind != JsonValueKind.Null)
+                doc["createdAt"] = created.ToString();
+        }
+
+        return doc;
     }
 
     private static LedgerBillRow? MapBill(BsonDocument doc)

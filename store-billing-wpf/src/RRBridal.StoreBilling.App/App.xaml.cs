@@ -26,6 +26,7 @@ public partial class App : Application
     {
         _reloginRequested = true;
         Services.PeriodicSync.Stop();
+        Services.CentralMode.Stop();
         Services.MongoHealth.Stop();
         var email = Services.UserSession?.LoggedInUser.Email;
         Services.UserSession = null;
@@ -92,15 +93,18 @@ public partial class App : Application
             }
 
             string syncWarning = "";
-            try
+            if (Services.CentralMode.IsOnlineMode)
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-                await ((Services.SyncEngine as Services.Sync.SyncEngine)?.SyncStoreUsersAsync(cts.Token)
-                       ?? Task.CompletedTask).ConfigureAwait(true);
-            }
-            catch
-            {
-                syncWarning = "Could not reach the server to sync users.";
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                    await ((Services.SyncEngine as Services.Sync.SyncEngine)?.SyncStoreUsersAsync(cts.Token)
+                           ?? Task.CompletedTask).ConfigureAwait(true);
+                }
+                catch
+                {
+                    syncWarning = "Could not reach the server to sync users.";
+                }
             }
 
             try
@@ -121,6 +125,7 @@ public partial class App : Application
             {
                 if (!await TryShowLoginAsync(syncWarning).ConfigureAwait(true))
                 {
+                    Services.CentralMode.Stop();
                     Services.MongoHealth.Stop();
                     Shutdown();
                     return;
@@ -149,12 +154,14 @@ public partial class App : Application
                 }
 
                 Services.MongoHealth.Stop();
+                Services.CentralMode.Stop();
                 Shutdown();
                 return;
             }
         }
         catch (Exception ex)
         {
+            Services.CentralMode.Stop();
             Services.MongoHealth.Stop();
             AppDialog.Show(
                 $"Could not start billing: {ex.Message}",
@@ -194,6 +201,7 @@ public partial class App : Application
             mainWindow.Closed += (_, _) =>
             {
                 Services.PeriodicSync.Stop();
+                Services.CentralMode.Stop();
                 Services.MongoHealth.Stop();
                 if (!_reloginRequested)
                     _ = ReleaseCurrentUserSessionAsync();
@@ -205,6 +213,7 @@ public partial class App : Application
             mainWindow.Activate();
             mainWindow.Focus();
             Services.PeriodicSync.Start();
+            Services.CentralMode.Start();
             Services.MongoHealth.Start();
         });
 

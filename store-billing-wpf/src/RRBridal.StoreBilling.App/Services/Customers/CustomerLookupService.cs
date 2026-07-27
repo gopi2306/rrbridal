@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Customers;
 
@@ -26,6 +27,7 @@ public sealed class CustomerMatch
     public string State { get; init; } = "";
     public string Pincode { get; init; } = "";
     public string Gstin { get; init; } = "";
+    public bool IsCreditCustomer { get; init; }
 
     public string DisplayLine => string.IsNullOrWhiteSpace(Phone)
         ? Name
@@ -36,12 +38,16 @@ public sealed class CustomerLookupService
 {
     private readonly IMongoDatabase _localDb;
     private readonly HttpClient _centralApi;
+    private readonly CentralOnlineModeService? _centralMode;
 
-    public CustomerLookupService(IMongoDatabase localDb, HttpClient centralApi)
+    public CustomerLookupService(IMongoDatabase localDb, HttpClient centralApi, CentralOnlineModeService? centralMode = null)
     {
         _localDb = localDb;
         _centralApi = centralApi;
+        _centralMode = centralMode;
     }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
 
     public async Task<List<CustomerMatch>> SearchAsync(string query, CancellationToken ct = default)
     {
@@ -49,17 +55,20 @@ public sealed class CustomerLookupService
             return [];
 
         var q = query.Trim();
-        var results = new List<CustomerMatch>();
 
-        var localResults = await SearchLocalAsync(q, ct);
-        results.AddRange(localResults);
-
-        var centralResults = await SearchCentralAsync(q, ct);
-        foreach (var c in centralResults)
+        if (IsCentralOnline)
         {
-            if (!results.Any(r => r.Id == c.Id))
-                results.Add(c);
+            var centralOnly = await SearchCentralAsync(q, ct);
+            if (PhoneMatchHelper.IsPhoneLikeQuery(q))
+            {
+                var phoneMatches = centralOnly.Where(r => PhoneMatchHelper.PhoneMatches(r.Phone, q)).ToList();
+                if (phoneMatches.Count > 0)
+                    return phoneMatches;
+            }
+            return centralOnly;
         }
+
+        var results = await SearchLocalAsync(q, ct);
 
         if (PhoneMatchHelper.IsPhoneLikeQuery(q))
         {
@@ -102,6 +111,7 @@ public sealed class CustomerLookupService
             State = d.GetValue("state", "").AsString,
             Pincode = d.GetValue("pincode", "").AsString,
             Gstin = d.GetValue("gstin", "").AsString,
+            IsCreditCustomer = d.Contains("isCreditCustomer") && d["isCreditCustomer"].ToBoolean(),
         }).ToList();
     }
 
@@ -113,6 +123,10 @@ public sealed class CustomerLookupService
             var response = await _centralApi.GetAsync(url, ct);
             if (!response.IsSuccessStatusCode)
             {
+                var raw = await response.Content.ReadAsStringAsync(ct);
+                if (IsCentralOnline)
+                    throw new InvalidOperationException($"Central customer search failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
                 Trace.TraceWarning(
                     "Central customer search failed: {StatusCode} {Reason} for query '{Query}'",
                     (int)response.StatusCode,
@@ -147,13 +161,21 @@ public sealed class CustomerLookupService
                     State = el.TryGetProperty("state", out var s) ? s.GetString() ?? "" : "",
                     Pincode = el.TryGetProperty("pincode", out var pc) ? pc.GetString() ?? "" : "",
                     Gstin = el.TryGetProperty("gstin", out var g) ? g.GetString() ?? "" : "",
+                    IsCreditCustomer = el.TryGetProperty("isCreditCustomer", out var icc) && icc.ValueKind == JsonValueKind.True,
                 });
             }
 
             return results;
         }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            if (IsCentralOnline)
+                throw new InvalidOperationException("Central customer search failed: " + ex.Message, ex);
+
             Trace.TraceWarning(
                 "Central customer search error for query '{0}': {1}",
                 query,
@@ -161,6 +183,9 @@ public sealed class CustomerLookupService
             return [];
         }
     }
+
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..max] + "…";
 
     private static string ReadJsonId(JsonElement el)
     {

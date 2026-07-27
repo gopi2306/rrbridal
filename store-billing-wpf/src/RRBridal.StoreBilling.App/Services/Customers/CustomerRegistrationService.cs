@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Customers;
 
@@ -16,6 +17,8 @@ public sealed class CustomerRegistrationService
     private readonly IMongoDatabase _localDb;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
+    private readonly CentralOnlineModeService? _centralMode;
+    private readonly CustomerLookupService _lookup;
 
     private static readonly JsonSerializerOptions JsonCamel = new()
     {
@@ -23,21 +26,70 @@ public sealed class CustomerRegistrationService
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public CustomerRegistrationService(IMongoDatabase localDb, HttpClient centralApi, StoreContext storeContext)
+    public CustomerRegistrationService(
+        IMongoDatabase localDb,
+        HttpClient centralApi,
+        StoreContext storeContext,
+        CentralOnlineModeService? centralMode = null,
+        CustomerLookupService? lookup = null)
     {
         _localDb = localDb;
         _centralApi = centralApi;
         _storeContext = storeContext;
+        _centralMode = centralMode;
+        _lookup = lookup ?? new CustomerLookupService(localDb, centralApi, centralMode);
     }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
+    private bool IsCentralOffline => _centralMode != null && !_centralMode.IsOnlineMode;
 
     public async Task<CustomerRegistrationResult> RegisterAsync(CustomerRegistrationPayload p, CancellationToken ct = default)
     {
         var storeId = _storeContext.StoreId;
-        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
-
         var phoneCombined = CombinePhone(p.Telephone, p.Mobile);
         var (addressLine1, addressLine2) = BuildCentralAddress(p);
 
+        var body = new CentralCreateCustomerBody
+        {
+            CustomerCode = string.IsNullOrWhiteSpace(p.CustomerCode) ? null : p.CustomerCode,
+            Name = p.CustomerName.Trim(),
+            Phone = string.IsNullOrWhiteSpace(phoneCombined) ? null : phoneCombined,
+            Email = string.IsNullOrWhiteSpace(p.Email) ? null : p.Email.Trim(),
+            Gstin = string.IsNullOrWhiteSpace(p.Gstin) ? null : p.Gstin.Trim(),
+            AddressLine1 = string.IsNullOrWhiteSpace(addressLine1) ? null : addressLine1,
+            AddressLine2 = string.IsNullOrWhiteSpace(addressLine2) ? null : addressLine2,
+            City = string.IsNullOrWhiteSpace(p.City) ? null : p.City.Trim(),
+            State = string.IsNullOrWhiteSpace(p.State) ? null : p.State.Trim(),
+            Pincode = string.IsNullOrWhiteSpace(p.Pincode) ? null : p.Pincode.Trim(),
+            IsActive = true,
+            IsCreditCustomer = p.IsCreditCustomer,
+        };
+
+        if (IsCentralOnline)
+        {
+            using var response = await _centralApi.PostAsJsonAsync("/api/customers", body, JsonCamel, ct);
+            var raw = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Central customer create failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
+            var centralId = TryReadCentralId(raw);
+            var centralCode = TryReadCustomerCode(raw) ?? p.CustomerCode;
+            return new CustomerRegistrationResult
+            {
+                LocalMongoId = "",
+                CentralCustomerId = centralId,
+                CentralSyncStatus = "synced",
+                CentralSyncWarning = null,
+                CustomerName = p.CustomerName.Trim(),
+                CustomerPhone = phoneCombined,
+                DoorNo = p.DoorNo.Trim(),
+                Street = p.Street.Trim(),
+                FullAddress = p.FullAddress.Trim(),
+                BillingCustomerCode = centralCode,
+            };
+        }
+
+        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
         var localDoc = new BsonDocument
         {
             { "storeId", storeId },
@@ -66,26 +118,25 @@ public sealed class CustomerRegistrationService
         await coll.InsertOneAsync(localDoc, cancellationToken: ct);
         var localId = localDoc["_id"].ToString()!;
 
-        string? centralId = null;
+        string? centralIdOffline = null;
         var syncStatus = "pending";
         string? syncWarning = null;
         var billingCustomerCode = p.CustomerCode;
 
-        var body = new CentralCreateCustomerBody
-        {
-            CustomerCode = string.IsNullOrWhiteSpace(p.CustomerCode) ? null : p.CustomerCode,
-            Name = p.CustomerName.Trim(),
-            Phone = string.IsNullOrWhiteSpace(phoneCombined) ? null : phoneCombined,
-            Email = string.IsNullOrWhiteSpace(p.Email) ? null : p.Email.Trim(),
-            Gstin = string.IsNullOrWhiteSpace(p.Gstin) ? null : p.Gstin.Trim(),
-            AddressLine1 = string.IsNullOrWhiteSpace(addressLine1) ? null : addressLine1,
-            AddressLine2 = string.IsNullOrWhiteSpace(addressLine2) ? null : addressLine2,
-            City = string.IsNullOrWhiteSpace(p.City) ? null : p.City.Trim(),
-            State = string.IsNullOrWhiteSpace(p.State) ? null : p.State.Trim(),
-            Pincode = string.IsNullOrWhiteSpace(p.Pincode) ? null : p.Pincode.Trim(),
-            IsActive = true,
-            IsCreditCustomer = p.IsCreditCustomer,
-        };
+        if (IsCentralOffline)
+            return new CustomerRegistrationResult
+            {
+                LocalMongoId = localId,
+                CentralCustomerId = null,
+                CentralSyncStatus = "pending",
+                CentralSyncWarning = "Saved locally (Central mode is Offline).",
+                CustomerName = p.CustomerName.Trim(),
+                CustomerPhone = phoneCombined,
+                DoorNo = p.DoorNo.Trim(),
+                Street = p.Street.Trim(),
+                FullAddress = p.FullAddress.Trim(),
+                BillingCustomerCode = billingCustomerCode,
+            };
 
         try
         {
@@ -94,11 +145,11 @@ public sealed class CustomerRegistrationService
 
             if (response.IsSuccessStatusCode)
             {
-                centralId = TryReadCentralId(raw);
+                centralIdOffline = TryReadCentralId(raw);
                 var centralCode = TryReadCustomerCode(raw);
                 syncStatus = "synced";
                 var update = Builders<BsonDocument>.Update
-                    .Set("centralCustomerId", centralId ?? "")
+                    .Set("centralCustomerId", centralIdOffline ?? "")
                     .Set("centralSyncStatus", "synced")
                     .Unset("lastCentralError");
                 if (!string.IsNullOrWhiteSpace(centralCode))
@@ -136,7 +187,7 @@ public sealed class CustomerRegistrationService
         return new CustomerRegistrationResult
         {
             LocalMongoId = localId,
-            CentralCustomerId = centralId,
+            CentralCustomerId = centralIdOffline,
             CentralSyncStatus = syncStatus,
             CentralSyncWarning = syncWarning,
             CustomerName = p.CustomerName.Trim(),
@@ -151,8 +202,12 @@ public sealed class CustomerRegistrationService
     public async Task<CustomerRegistrationResult> UpdateAsync(
         string localMongoId,
         CustomerRegistrationPayload p,
+        string? centralCustomerId = null,
         CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return await UpdateCentralOnlyAsync(localMongoId, centralCustomerId, p, ct);
+
         if (!ObjectId.TryParse(localMongoId, out var oid))
             throw new InvalidOperationException("Invalid customer id.");
 
@@ -190,7 +245,11 @@ public sealed class CustomerRegistrationService
         var syncStatus = existing.GetValue("centralSyncStatus", "pending").AsString;
         string? syncWarning = null;
 
-        if (!centralId.IsBsonNull && !string.IsNullOrWhiteSpace(centralId.AsString))
+        if (IsCentralOffline)
+        {
+            syncWarning = "Saved locally (Central mode is Offline).";
+        }
+        else if (!centralId.IsBsonNull && !string.IsNullOrWhiteSpace(centralId.AsString))
         {
             var body = new CentralUpdateCustomerBody
             {
@@ -226,6 +285,9 @@ public sealed class CustomerRegistrationService
                 else
                 {
                     var raw = await response.Content.ReadAsStringAsync(ct);
+                    if (IsCentralOnline)
+                        throw new InvalidOperationException($"Central customer update failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
                     syncStatus = "failed";
                     syncWarning = $"Saved locally. Central sync failed: HTTP {(int)response.StatusCode}";
                     await coll.UpdateOneAsync(
@@ -236,8 +298,15 @@ public sealed class CustomerRegistrationService
                         cancellationToken: ct);
                 }
             }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
+                if (IsCentralOnline)
+                    throw new InvalidOperationException("Central customer update failed: " + ex.Message, ex);
+
                 syncStatus = "failed";
                 syncWarning = "Saved locally. Central sync failed: " + ex.Message;
                 await coll.UpdateOneAsync(
@@ -247,6 +316,10 @@ public sealed class CustomerRegistrationService
                         .Set("lastCentralError", ex.Message),
                     cancellationToken: ct);
             }
+        }
+        else if (IsCentralOnline)
+        {
+            throw new InvalidOperationException("Customer is not linked to central. Cannot update in Online mode.");
         }
 
         return new CustomerRegistrationResult
@@ -261,6 +334,58 @@ public sealed class CustomerRegistrationService
             Street = p.Street.Trim(),
             FullAddress = p.FullAddress.Trim(),
             BillingCustomerCode = customerCode,
+        };
+    }
+
+    private async Task<CustomerRegistrationResult> UpdateCentralOnlyAsync(
+        string localMongoId,
+        string? centralCustomerId,
+        CustomerRegistrationPayload p,
+        CancellationToken ct)
+    {
+        var centralId = !string.IsNullOrWhiteSpace(centralCustomerId)
+            ? centralCustomerId.Trim()
+            : (!ObjectId.TryParse(localMongoId, out _) && !string.IsNullOrWhiteSpace(localMongoId) ? localMongoId.Trim() : null);
+
+        if (string.IsNullOrWhiteSpace(centralId))
+            throw new InvalidOperationException("Customer is not linked to central. Cannot update in Online mode.");
+
+        var phoneCombined = CombinePhone(p.Telephone, p.Mobile);
+        var (addressLine1, addressLine2) = BuildCentralAddress(p);
+
+        var body = new CentralUpdateCustomerBody
+        {
+            Name = p.CustomerName.Trim(),
+            Phone = string.IsNullOrWhiteSpace(phoneCombined) ? null : phoneCombined,
+            Email = string.IsNullOrWhiteSpace(p.Email) ? null : p.Email.Trim(),
+            Gstin = string.IsNullOrWhiteSpace(p.Gstin) ? null : p.Gstin.Trim(),
+            AddressLine1 = string.IsNullOrWhiteSpace(addressLine1) ? null : addressLine1,
+            AddressLine2 = string.IsNullOrWhiteSpace(addressLine2) ? null : addressLine2,
+            City = string.IsNullOrWhiteSpace(p.City) ? null : p.City.Trim(),
+            State = string.IsNullOrWhiteSpace(p.State) ? null : p.State.Trim(),
+            Pincode = string.IsNullOrWhiteSpace(p.Pincode) ? null : p.Pincode.Trim(),
+            IsCreditCustomer = p.IsCreditCustomer,
+        };
+
+        using var response = await _centralApi.PatchAsJsonAsync($"/api/customers/{centralId}", body, JsonCamel, ct);
+        var raw = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Central customer update failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+
+        var updatedCode = TryReadCustomerCode(raw) ?? p.CustomerCode;
+
+        return new CustomerRegistrationResult
+        {
+            LocalMongoId = "",
+            CentralCustomerId = centralId,
+            CentralSyncStatus = "synced",
+            CentralSyncWarning = null,
+            CustomerName = p.CustomerName.Trim(),
+            CustomerPhone = phoneCombined,
+            DoorNo = p.DoorNo.Trim(),
+            Street = p.Street.Trim(),
+            FullAddress = p.FullAddress.Trim(),
+            BillingCustomerCode = updatedCode,
         };
     }
 
@@ -360,10 +485,24 @@ public sealed class CustomerRegistrationService
 
     public async Task<bool> IsCreditCustomerAsync(string? customerCode, string? customerPhone, CancellationToken ct = default)
     {
-        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
-        var filters = new List<FilterDefinition<BsonDocument>>();
         var code = (customerCode ?? "").Trim();
         var phone = (customerPhone ?? "").Trim();
+
+        if (IsCentralOnline)
+        {
+            var query = !string.IsNullOrEmpty(code) ? code : phone;
+            if (string.IsNullOrEmpty(query))
+                return false;
+
+            var matches = await _lookup.SearchAsync(query, ct);
+            var match = matches.FirstOrDefault(m =>
+                (!string.IsNullOrEmpty(code) && string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(phone) && PhoneMatchHelper.PhoneMatches(m.Phone, phone)));
+            return match?.IsCreditCustomer ?? false;
+        }
+
+        var coll = _localDb.GetCollection<BsonDocument>("store_customers");
+        var filters = new List<FilterDefinition<BsonDocument>>();
         if (!string.IsNullOrEmpty(code))
             filters.Add(Builders<BsonDocument>.Filter.Eq("customerCode", code));
         if (!string.IsNullOrEmpty(phone))

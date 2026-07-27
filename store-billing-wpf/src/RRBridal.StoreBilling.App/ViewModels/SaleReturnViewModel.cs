@@ -127,8 +127,8 @@ public partial class SaleReturnViewModel : ObservableObject
     public SaleReturnViewModel(AppServices services)
     {
         _services = services;
-        _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi);
-        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext);
+        _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode);
+        _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
         _ = AssignReturnNoAsync();
         LegacyReturnLines.CollectionChanged += (_, e) =>
@@ -597,17 +597,40 @@ public partial class SaleReturnViewModel : ObservableObject
         if (string.IsNullOrEmpty(input))
             return false;
 
-        var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
         var digits = new string(input.Where(char.IsDigit).ToArray());
+        var isOnline = _services.CentralMode.IsOnlineMode;
 
         BsonDocument? doc = null;
 
         if (digits.Length is >= 3 and <= 4)
         {
-            var regex = new BsonRegularExpression($"{Regex.Escape(digits)}$", "i");
-            var filter = Builders<BsonDocument>.Filter.Regex("billNo", regex);
-            var sort = Builders<BsonDocument>.Sort.Descending("createdAtUtc");
-            var matches = await coll.Find(filter).Sort(sort).Limit(20).ToListAsync();
+            List<BsonDocument> matches;
+            if (isOnline)
+            {
+                var rows = await _services.BillDocuments.SearchBillsAsync(
+                    digits, dateFrom: null, dateTo: null, customerName: null, customerPhone: null,
+                    status: "posted", limit: 100);
+                matches = rows
+                    .Where(r => r.BillNo.EndsWith(digits, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(r => r.SortUtc)
+                    .Take(20)
+                    .Select(r => new BsonDocument
+                    {
+                        { "billNo", r.BillNo },
+                        { "billDate", r.BillDate },
+                        { "customerName", r.CustomerName },
+                        { "payable", (double)r.Payable },
+                    })
+                    .ToList();
+            }
+            else
+            {
+                var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
+                var regex = new BsonRegularExpression($"{Regex.Escape(digits)}$", "i");
+                var filter = Builders<BsonDocument>.Filter.Regex("billNo", regex);
+                var sort = Builders<BsonDocument>.Sort.Descending("createdAtUtc");
+                matches = await coll.Find(filter).Sort(sort).Limit(20).ToListAsync();
+            }
 
             if (matches.Count == 0)
             {
@@ -616,9 +639,10 @@ public partial class SaleReturnViewModel : ObservableObject
                 return false;
             }
 
+            string? chosenBillNo;
             if (matches.Count == 1)
             {
-                doc = matches[0];
+                chosenBillNo = matches[0].GetValue("billNo", "").AsString;
             }
             else if (!skipDuplicateChecks)
             {
@@ -626,18 +650,35 @@ public partial class SaleReturnViewModel : ObservableObject
                 if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
                     return false;
 
-                doc = matches.FirstOrDefault(m => m.GetValue("billNo", "").AsString == dlg.SelectedBillNo)
-                    ?? await coll.Find(new BsonDocument("billNo", dlg.SelectedBillNo)).FirstOrDefaultAsync();
+                chosenBillNo = dlg.SelectedBillNo;
             }
             else
             {
-                doc = matches.FirstOrDefault(m =>
+                chosenBillNo = matches.FirstOrDefault(m =>
                     string.Equals(m.GetValue("billNo", "").AsString, input, StringComparison.OrdinalIgnoreCase))
-                    ?? matches[0];
+                    ?.GetValue("billNo", "").AsString
+                    ?? matches[0].GetValue("billNo", "").AsString;
+            }
+
+            doc = isOnline
+                ? await _services.BillDocuments.GetByBillNoAsync(chosenBillNo!)
+                : matches.FirstOrDefault(m => m.GetValue("billNo", "").AsString == chosenBillNo)
+                    ?? await _services.LocalDb.GetCollection<BsonDocument>("store_bills")
+                        .Find(new BsonDocument("billNo", chosenBillNo)).FirstOrDefaultAsync();
+        }
+        else if (isOnline)
+        {
+            doc = await _services.BillDocuments.GetByBillNoAsync(input);
+            if (doc == null && digits.Length > 0)
+            {
+                var normalized = input.Replace(" ", "-", StringComparison.Ordinal);
+                if (!string.Equals(normalized, input, StringComparison.Ordinal))
+                    doc = await _services.BillDocuments.GetByBillNoAsync(normalized);
             }
         }
         else
         {
+            var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
             doc = await coll.Find(new BsonDocument("billNo", input)).FirstOrDefaultAsync();
             if (doc == null && digits.Length > 0)
             {
@@ -1177,7 +1218,6 @@ public partial class SaleReturnViewModel : ObservableObject
             var deviceId = _services.StoreContext.DeviceId;
             var posCounter = _services.StoreContext.PosCounter;
             var createdAt = DateTime.UtcNow.ToString("O");
-            var eventId = Guid.NewGuid().ToString();
 
             var linesArr = new BsonArray();
             foreach (var l in selected)
@@ -1324,7 +1364,8 @@ public partial class SaleReturnViewModel : ObservableObject
             };
 
             var returnsColl = _services.LocalDb.GetCollection<BsonDocument>("store_sale_returns");
-            await returnsColl.InsertOneAsync(returnDoc);
+            if (!_services.CentralMode.IsOnlineMode)
+                await returnsColl.InsertOneAsync(returnDoc);
 
             var payload = new BsonDocument
             {
@@ -1366,20 +1407,10 @@ public partial class SaleReturnViewModel : ObservableObject
                 cashRefunded,
             });
 
-            var outboxEvent = new BsonDocument
-            {
-                { "eventId", eventId },
-                { "storeId", storeId },
-                { "deviceId", deviceId },
-                { "type", exchangeLines.Count > 0 ? "SaleExchangeCreated" : "SaleReturnCreated" },
-                { "createdAt", createdAt },
-                { "payload", payload },
-                { "hash", hash },
-                { "status", "pending" },
-            };
-
-            var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
-            await outbox.InsertOneAsync(outboxEvent);
+            await _services.BillingOutbox.PublishCustomEventAsync(
+                exchangeLines.Count > 0 ? "SaleExchangeCreated" : "SaleReturnCreated",
+                payload,
+                hash);
 
             var stockOk = 0;
             var stockFailed = new List<string>();
@@ -1423,9 +1454,12 @@ public partial class SaleReturnViewModel : ObservableObject
 
                 if (!string.IsNullOrEmpty(createdCreditNoteNo))
                 {
-                    await returnsColl.UpdateOneAsync(
-                        Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
-                        Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                    if (!_services.CentralMode.IsOnlineMode)
+                    {
+                        await returnsColl.UpdateOneAsync(
+                            Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
+                            Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                    }
                 }
                 else
                 {
@@ -1563,7 +1597,6 @@ public partial class SaleReturnViewModel : ObservableObject
             var deviceId = _services.StoreContext.DeviceId;
             var posCounter = _services.StoreContext.PosCounter;
             var createdAt = DateTime.UtcNow.ToString("O");
-            var eventId = Guid.NewGuid().ToString();
             var billDateIso = OriginalBillDate.Value.ToString("yyyy-MM-dd");
             var billDateDisplay = OriginalBillDate.Value.ToString("dd-MMM-yyyy", InCulture);
 
@@ -1622,7 +1655,8 @@ public partial class SaleReturnViewModel : ObservableObject
             };
 
             var returnsColl = _services.LocalDb.GetCollection<BsonDocument>("store_sale_returns");
-            await returnsColl.InsertOneAsync(returnDoc);
+            if (!_services.CentralMode.IsOnlineMode)
+                await returnsColl.InsertOneAsync(returnDoc);
 
             var payload = (BsonDocument)returnDoc.DeepClone();
             payload.Remove("_id");
@@ -1641,18 +1675,7 @@ public partial class SaleReturnViewModel : ObservableObject
                 cashRefunded,
             });
 
-            var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
-            await outbox.InsertOneAsync(new BsonDocument
-            {
-                { "eventId", eventId },
-                { "storeId", storeId },
-                { "deviceId", deviceId },
-                { "type", "SaleReturnCreated" },
-                { "createdAt", createdAt },
-                { "payload", payload },
-                { "hash", hash },
-                { "status", "pending" },
-            });
+            await _services.BillingOutbox.PublishCustomEventAsync("SaleReturnCreated", payload, hash);
 
             var stockFailed = new List<string>();
             var stockOk = 0;
@@ -1681,9 +1704,12 @@ public partial class SaleReturnViewModel : ObservableObject
 
                 if (!string.IsNullOrEmpty(createdCreditNoteNo))
                 {
-                    await returnsColl.UpdateOneAsync(
-                        Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
-                        Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                    if (!_services.CentralMode.IsOnlineMode)
+                    {
+                        await returnsColl.UpdateOneAsync(
+                            Builders<BsonDocument>.Filter.Eq("returnNo", ReturnNo),
+                            Builders<BsonDocument>.Update.Set("creditNoteNo", createdCreditNoteNo));
+                    }
                 }
                 else
                 {

@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -13,12 +15,22 @@ public sealed class BillNumberGenerator
 
     private readonly IMongoCollection<BsonDocument> _counters;
     private readonly StoreContext _store;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public BillNumberGenerator(IMongoDatabase localDb, StoreContext store)
     {
         _counters = localDb.GetCollection<BsonDocument>(CounterCollectionName);
         _store = store;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _storePos != null;
 
     public Task<string> NextBillAsync(CancellationToken ct = default) =>
         NextAsync("billNo", "", ct);
@@ -46,6 +58,9 @@ public sealed class BillNumberGenerator
 
     public async Task<string> NextAsync(string counterKind, string prefix, CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return await _storePos!.NextNumberAsync(counterKind, ct);
+
         var counterKey = $"{counterKind}:{_store.StoreId}:{_store.DeviceId}";
         var filter = Builders<BsonDocument>.Filter.Eq("_id", counterKey);
         var update = Builders<BsonDocument>.Update.Inc("seq", 1);

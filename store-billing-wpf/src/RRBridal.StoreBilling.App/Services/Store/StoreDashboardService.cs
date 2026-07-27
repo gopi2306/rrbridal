@@ -2,24 +2,59 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
 public sealed class StoreDashboardService
 {
+    private static readonly JsonElement EmptyJson = JsonDocument.Parse("{}").RootElement;
+
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public StoreDashboardService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    public bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
+
     public async Task<IReadOnlyList<string>> GetDistinctPosCountersAsync(string storeId, CancellationToken ct = default)
     {
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i <= 3; i++)
+            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+
+        if (IsCentralOnline)
+        {
+            var businessDate = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            using var dayCloseJson = await _dashboardApi!.GetStoreDayCloseAsync(businessDate, null, ct);
+            foreach (var counter in StoreDayCloseDashboardReader.ReadCounters(dayCloseJson.RootElement))
+            {
+                if (!string.IsNullOrWhiteSpace(counter.PosCounter))
+                    merged.Add(counter.PosCounter.Trim());
+            }
+
+            return merged
+                .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
+                .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
         var billDocs = await billsColl.Find(storeFilter).ToListAsync(ct);
@@ -27,14 +62,10 @@ public sealed class StoreDashboardService
         var fromDb = billDocs
             .Select(ReadPosCounter)
             .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
-            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
-        var merged = new HashSet<string>(fromDb, StringComparer.OrdinalIgnoreCase);
-        for (var i = 1; i <= 3; i++)
-            merged.Add(i.ToString(CultureInfo.InvariantCulture));
+        foreach (var p in fromDb)
+            merged.Add(p!);
 
         return merged
             .OrderBy(p => int.TryParse(p, out var n) ? n : int.MaxValue)
@@ -42,12 +73,109 @@ public sealed class StoreDashboardService
             .ToList();
     }
 
-    public async Task<StoreDashboardSnapshot> LoadAsync(
+    public Task<StoreDashboardSnapshot> LoadAsync(
         string storeId,
         ReportScope scope = ReportScope.ThisCounter,
         string? deviceId = null,
         string? posCounterFilter = null,
         CancellationToken ct = default)
+    {
+        return IsCentralOnline
+            ? LoadOnlineAsync(storeId, posCounterFilter, ct)
+            : LoadOfflineAsync(storeId, scope, deviceId, posCounterFilter, ct);
+    }
+
+    /// <summary>Central dashboard is fail-closed: any API failure propagates so the caller shows an error.</summary>
+    private async Task<StoreDashboardSnapshot> LoadOnlineAsync(
+        string storeId,
+        string? posCounterFilter,
+        CancellationToken ct)
+    {
+        using var todayDoc = await _dashboardApi!.GetStoreSalesAsync("today", billLimit: 10, ct: ct);
+        using var weekDoc = await _dashboardApi.GetStoreSalesAsync("week", ct: ct);
+        using var opsDoc = await _dashboardApi.GetStoreOpsAsync(ct);
+
+        var todayRoot = todayDoc.RootElement;
+        var weekRoot = weekDoc.RootElement;
+        var opsRoot = opsDoc.RootElement;
+
+        var todaySummary = todayRoot.TryGetProperty("summary", out var ts) ? ts : EmptyJson;
+        var weekSummary = weekRoot.TryGetProperty("summary", out var ws) ? ws : EmptyJson;
+
+        var billsTodayCount = CentralDashboardClient.ReadInt(todaySummary, "invoices");
+        var billsTodayRevenue = CentralDashboardClient.ReadDecimal(
+            todaySummary, "netSales", CentralDashboardClient.ReadDecimal(todaySummary, "totalBillAmount"));
+
+        var billsWeekCount = CentralDashboardClient.ReadInt(weekSummary, "invoices");
+        var billsWeekRevenue = CentralDashboardClient.ReadDecimal(
+            weekSummary, "netSales", CentralDashboardClient.ReadDecimal(weekSummary, "totalBillAmount"));
+
+        var productCacheCount = 0L;
+        var totalAvailableQty = 0m;
+        if (opsRoot.TryGetProperty("metrics", out var metrics))
+        {
+            productCacheCount = CentralDashboardClient.ReadLong(metrics, "totalSkus");
+            totalAvailableQty = CentralDashboardClient.ReadDecimal(metrics, "onShelfUnits");
+        }
+
+        var recentBills = new List<DashboardRecentBill>();
+        if (todayRoot.TryGetProperty("bills", out var billsEl)
+            && billsEl.TryGetProperty("data", out var billsData)
+            && billsData.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var billEl in billsData.EnumerateArray())
+            {
+                var pos = CentralDashboardClient.ReadString(billEl, "posCounter");
+                if (!string.IsNullOrWhiteSpace(posCounterFilter)
+                    && !string.Equals(pos, posCounterFilter.Trim(), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var occurredAtRaw = CentralDashboardClient.ReadString(billEl, "occurredAt");
+                recentBills.Add(new DashboardRecentBill
+                {
+                    BillNo = CentralDashboardClient.ReadString(billEl, "billNo"),
+                    CreatedAtDisplay = FormatOccurredAtLocal(occurredAtRaw),
+                    Payable = CentralDashboardClient.ReadDecimal(billEl, "payable"),
+                    CounterDisplay = CounterDisplayFormatter.Format(pos, null),
+                });
+
+                if (recentBills.Count >= 10)
+                    break;
+            }
+        }
+
+        return new StoreDashboardSnapshot
+        {
+            StoreId = storeId,
+            Scope = ReportScope.StoreWide,
+            BillsTodayCount = billsTodayCount,
+            BillsTodayRevenue = billsTodayRevenue,
+            BillsLast7DaysCount = billsWeekCount,
+            BillsLast7DaysRevenue = billsWeekRevenue,
+            StoreWideBillsTodayCount = null,
+            StoreWideBillsTodayRevenue = null,
+            ProductCacheCount = productCacheCount,
+            TotalAvailableQty = totalAvailableQty,
+            RecentBills = recentBills,
+        };
+    }
+
+    private static string FormatOccurredAtLocal(string occurredAtRaw)
+    {
+        if (string.IsNullOrWhiteSpace(occurredAtRaw))
+            return "";
+        if (!DateTime.TryParse(occurredAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            return occurredAtRaw;
+        var local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+        return local.ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private async Task<StoreDashboardSnapshot> LoadOfflineAsync(
+        string storeId,
+        ReportScope scope,
+        string? deviceId,
+        string? posCounterFilter,
+        CancellationToken ct)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var productsColl = _db.GetCollection<BsonDocument>("local_products_cache");

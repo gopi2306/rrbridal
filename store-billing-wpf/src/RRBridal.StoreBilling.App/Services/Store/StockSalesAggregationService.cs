@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -82,11 +85,21 @@ public sealed class StockSalesAggregationService
     private const string UnknownBrandId = "__unknown__";
 
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public StockSalesAggregationService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
 
     public async Task<StockSalesAggregationResult> AggregateAsync(
         string storeId,
@@ -101,6 +114,14 @@ public sealed class StockSalesAggregationService
         StockAvailabilityFilter availabilityFilter = StockAvailabilityFilter.All,
         CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+        {
+            // Central vendor sales has no POS / product / availability filters — ignore them
+            // (do not fall back to local Mongo). Brand filters still apply client-side.
+            return await AggregateOnlineAsync(
+                businessDate, useDateRange, dateFrom, dateTo, brandIdFilter, brandNameFilter, ct);
+        }
+
         var query = new StoreBillListQuery
         {
             PosCounterFilter = posCounterFilter,
@@ -270,6 +291,68 @@ public sealed class StockSalesAggregationService
                 ? brandRows.Sum(r => r.TotalAmount)
                 : productRows.Sum(r => r.TotalAmount),
             BillCount = touchedBills.Count,
+        };
+    }
+
+    private async Task<StockSalesAggregationResult> AggregateOnlineAsync(
+        DateTime? businessDate,
+        bool useDateRange,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        string? brandIdFilter,
+        string? brandNameFilter,
+        CancellationToken ct)
+    {
+        var (period, from, to) = OnlineSalesPeriodMapper.Resolve(businessDate, useDateRange, dateFrom, dateTo);
+        using var json = await _dashboardApi!.GetVendorSalesAsync(period, from, to, ct);
+        var root = json.RootElement;
+
+        var billCount = root.TryGetProperty("summary", out var summaryEl)
+            ? CentralDashboardClient.ReadInt(summaryEl, "invoices")
+            : 0;
+
+        if (!root.TryGetProperty("vendors", out var vendorsEl) || vendorsEl.ValueKind != JsonValueKind.Array)
+        {
+            return new StockSalesAggregationResult { BillCount = billCount };
+        }
+
+        var brandId = string.IsNullOrWhiteSpace(brandIdFilter) ? null : brandIdFilter.Trim();
+        var brandNameTerm = string.IsNullOrWhiteSpace(brandNameFilter) ? null : brandNameFilter.Trim();
+
+        var brandRows = new List<BrandSalesSummaryRow>();
+        foreach (var el in vendorsEl.EnumerateArray())
+        {
+            var supplierId = CentralDashboardClient.ReadString(el, "supplierId");
+            var vendorName = CentralDashboardClient.ReadString(el, "vendorName");
+            if (!MatchesBrandFilter(brandId, brandNameTerm, supplierId, vendorName))
+                continue;
+
+            brandRows.Add(new BrandSalesSummaryRow
+            {
+                BrandId = supplierId,
+                BrandCode = "",
+                BrandName = vendorName,
+                ProductCount = 0,
+                BillCount = 0,
+                TotalQty = CentralDashboardClient.ReadDecimal(el, "salesQty"),
+                AvailableQty = 0m,
+                TotalAmount = CentralDashboardClient.ReadDecimal(el, "totalSellingValue"),
+            });
+        }
+
+        brandRows = brandRows
+            .OrderByDescending(r => r.TotalQty)
+            .ThenBy(r => r.BrandName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new StockSalesAggregationResult
+        {
+            BrandRows = brandRows,
+            ProductRows = Array.Empty<ProductSalesSummaryRow>(),
+            TotalQty = brandRows.Sum(r => r.TotalQty),
+            TotalAvailableQty = 0m,
+            TotalAmount = brandRows.Sum(r => r.TotalAmount),
+            BillCount = billCount,
         };
     }
 

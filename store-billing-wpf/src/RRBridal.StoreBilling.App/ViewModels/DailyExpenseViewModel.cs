@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using RRBridal.StoreBilling.App.Services.Ui;
@@ -64,11 +66,27 @@ public partial class DailyExpenseViewModel : ObservableObject
         {
             var storeId = _services.StoreContext.StoreId;
             var businessDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var filter = Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-                Builders<BsonDocument>.Filter.Eq("businessDate", businessDate));
 
-            var docs = await _expenses.Find(filter).ToListAsync();
+            List<BsonDocument> docs;
+            if (_services.CentralMode.IsOnlineMode)
+            {
+                using var json = await _services.StorePos.ListDailyExpensesAsync(businessDate, 200);
+                docs = new List<BsonDocument>();
+                if (json.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var el in json.RootElement.EnumerateArray())
+                        docs.Add(MapCentralExpenseToDoc(el));
+                }
+            }
+            else
+            {
+                var filter = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                    Builders<BsonDocument>.Filter.Eq("businessDate", businessDate));
+
+                docs = await _expenses.Find(filter).ToListAsync();
+            }
+
             docs.Sort((a, b) =>
             {
                 var aUtc = a.GetValue("createdAtUtc", "").AsString;
@@ -159,7 +177,8 @@ public partial class DailyExpenseViewModel : ObservableObject
                 { "createdAtUtc", createdAt },
             };
 
-            await _expenses.InsertOneAsync(doc);
+            if (!_services.CentralMode.IsOnlineMode)
+                await _expenses.InsertOneAsync(doc);
             await _services.BillingOutbox.PublishDailyExpenseCreatedAsync(doc);
 
             Description = "";
@@ -180,6 +199,24 @@ public partial class DailyExpenseViewModel : ObservableObject
         Description = "";
         AmountText = "";
         StatusMessage = "Enter a new expense.";
+    }
+
+    private static BsonDocument MapCentralExpenseToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("expenseNo", out var noEl) && noEl.ValueKind == JsonValueKind.String)
+            doc["expenseNo"] = noEl.GetString() ?? "";
+        if (el.TryGetProperty("storeId", out var storeIdEl) && storeIdEl.ValueKind == JsonValueKind.String)
+            doc["storeId"] = storeIdEl.GetString() ?? "";
+        if (!doc.Contains("status"))
+            doc["status"] = "posted";
+
+        return doc;
     }
 
     private static decimal ReadDecimal(BsonDocument doc, string field)

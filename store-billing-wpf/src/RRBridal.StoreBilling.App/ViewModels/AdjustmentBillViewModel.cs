@@ -150,8 +150,17 @@ public partial class AdjustmentBillViewModel : ObservableObject
         if (string.IsNullOrEmpty(billNo))
             return false;
 
-        var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
-        var doc = await coll.Find(new BsonDocument("billNo", billNo)).FirstOrDefaultAsync();
+        BsonDocument? doc;
+        if (_services.CentralMode.IsOnlineMode)
+        {
+            doc = await _services.BillDocuments.GetByBillNoAsync(billNo);
+        }
+        else
+        {
+            var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
+            doc = await coll.Find(new BsonDocument("billNo", billNo)).FirstOrDefaultAsync();
+        }
+
         if (doc == null)
         {
             AppDialog.Show($"Bill '{billNo}' not found.", "Adjustment Bill", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -259,7 +268,6 @@ public partial class AdjustmentBillViewModel : ObservableObject
             var deviceId = _services.StoreContext.DeviceId;
             var posCounter = _services.StoreContext.PosCounter;
             var createdAt = DateTime.UtcNow.ToString("O");
-            var eventId = Guid.NewGuid().ToString();
 
             var linesArr = new BsonArray();
             foreach (var l in AdjustmentLines)
@@ -315,7 +323,8 @@ public partial class AdjustmentBillViewModel : ObservableObject
             };
 
             var adjColl = _services.LocalDb.GetCollection<BsonDocument>("store_adjustments");
-            await adjColl.InsertOneAsync(adjDoc);
+            if (!_services.CentralMode.IsOnlineMode)
+                await adjColl.InsertOneAsync(adjDoc);
 
             var payload = new BsonDocument
             {
@@ -336,20 +345,7 @@ public partial class AdjustmentBillViewModel : ObservableObject
                 diffPayable,
             });
 
-            var outboxEvent = new BsonDocument
-            {
-                { "eventId", eventId },
-                { "storeId", storeId },
-                { "deviceId", deviceId },
-                { "type", "AdjustmentBillCreated" },
-                { "createdAt", createdAt },
-                { "payload", payload },
-                { "hash", hash },
-                { "status", "pending" },
-            };
-
-            var outbox = _services.LocalDb.GetCollection<BsonDocument>("outbox_events");
-            await outbox.InsertOneAsync(outboxEvent);
+            await _services.BillingOutbox.PublishCustomEventAsync("AdjustmentBillCreated", payload, hash);
 
             AppDialog.Show(
                 $"Adjustment {AdjustmentNo} posted.",

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Products;
 using RRBridal.StoreBilling.App.Services.Sync;
 
@@ -21,6 +22,8 @@ public sealed class InventoryAdjustmentService
     private readonly ProductCatalogService _productCatalog;
     private readonly BillingOutboxPublisher _outbox;
     private readonly StoreContext _storeContext;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public InventoryAdjustmentService(
         IMongoDatabase localDb,
@@ -33,6 +36,14 @@ public sealed class InventoryAdjustmentService
         _outbox = outbox;
         _storeContext = storeContext;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
 
     public async Task<(bool Success, string Message)> AdjustAsync(
         string sku,
@@ -70,6 +81,14 @@ public sealed class InventoryAdjustmentService
         var qtyAfter = currentQty + qtyDelta;
         if (qtyAfter < 0)
             return (false, $"Resulting quantity cannot be negative (current {currentQty:N2}, change {qtyDelta:N2}).");
+
+        if (IsCentralOnline)
+        {
+            // Fail-closed: central adjustment failures propagate so the caller shows an error
+            // instead of silently falling back to a local (offline) stock mutation.
+            await _dashboardApi!.PostInventoryAdjustmentAsync(trimmedSku, qtyDelta, trimmedReason, ct);
+            return (true, "Stock adjusted centrally.");
+        }
 
         if (qtyDelta > 0)
         {

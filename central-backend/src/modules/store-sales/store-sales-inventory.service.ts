@@ -12,11 +12,13 @@ import { StoreSyncEventMeta } from './store-sales-sync.service';
 import {
   parseExchangeStockLines,
   parseInvoiceStockLines,
+  parsePendingExceptionStockLines,
   parseReturnStockLines,
   STORE_INVOICE_DELETED,
   STORE_INVOICE_POSTED,
   STORE_SALE_EXCHANGE_POSTED,
   STORE_SALE_RETURN_POSTED,
+  STORE_STOCK_EXCEPTION_APPROVED,
   StockLine,
 } from './store-sales-inventory.util';
 
@@ -53,6 +55,30 @@ export class StoreSalesInventoryService {
       meta.eventId;
 
     return await this.postStoreLedger(meta.storeId, meta.eventId, STORE_INVOICE_POSTED, note, lines, -1);
+  }
+
+  async postStockExceptionApproveLedger(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<number> {
+    if (await this.hasLedgerForEvent(meta.eventId, STORE_STOCK_EXCEPTION_APPROVED)) return 0;
+
+    const lines = parsePendingExceptionStockLines(payload);
+    if (lines.length === 0) return 0;
+
+    const note =
+      (typeof payload.billNo === 'string' && payload.billNo.trim()) ||
+      (typeof payload.invoiceNo === 'string' && payload.invoiceNo.trim()) ||
+      meta.eventId;
+
+    return await this.postStoreLedger(
+      meta.storeId,
+      meta.eventId,
+      STORE_STOCK_EXCEPTION_APPROVED,
+      note,
+      lines,
+      -1,
+    );
   }
 
   async postInvoiceDeletedLedger(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<number> {

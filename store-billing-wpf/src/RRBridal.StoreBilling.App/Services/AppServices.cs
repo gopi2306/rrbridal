@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Auth;
 using RRBridal.StoreBilling.App.Services.Inventory;
@@ -66,6 +67,9 @@ public sealed class AppServices
     public required StoreInfoClient StoreInfo { get; init; }
     public required StoreSyncRunner StoreSyncRunner { get; init; }
     public required PeriodicSyncService PeriodicSync { get; init; }
+    public required CentralOnlineModeService CentralMode { get; init; }
+    public required CentralStorePosClient StorePos { get; init; }
+    public required CentralDashboardClient DashboardApi { get; init; }
     public required OutboxNotificationService OutboxNotifications { get; init; }
     public required StoreAuditLogService StoreAuditLog { get; init; }
     public required StoreBillListService StoreBillList { get; init; }
@@ -123,7 +127,10 @@ public sealed class AppServices
         var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var storeAuditLog = new StoreAuditLogService(localDb, storeContext);
+        var posBillingSettings = new PosBillingSettingsStore();
         var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
+        var storePos = new CentralStorePosClient(http, storeContext);
+        var dashboardApi = new CentralDashboardClient(http, storeContext);
         var productCatalog = new ProductCatalogService(localDb, http, storeAuditLog);
         var inventoryGrid = new InventoryGridClient(localDb);
         var inventoryAdjustments = new InventoryAdjustmentService(localDb, productCatalog, billingOutbox, storeContext);
@@ -163,7 +170,6 @@ public sealed class AppServices
             storeAuditLog,
             inventoryAdjustments);
         var billNumberGenerator = new BillNumberGenerator(localDb, storeContext);
-        var posBillingSettings = new PosBillingSettingsStore();
         var shellUiSettings = new ShellUiSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
@@ -190,8 +196,27 @@ public sealed class AppServices
             receiptConfigSync,
             shellBranding,
             localAuth,
-            () => servicesRef?.UserSession);
-        var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding);
+            () => servicesRef?.UserSession,
+            () => servicesRef?.CentralMode.IsOnlineMode ?? posBillingSettings.Current.PreferCentralOnline);
+        var centralMode = new CentralOnlineModeService(posBillingSettings, http, storeSyncRunner);
+        productCatalog.ConfigureOnline(centralMode, storePos);
+        inventoryGrid.ConfigureOnline(centralMode, dashboardApi);
+        inventoryAdjustments.ConfigureOnline(centralMode, dashboardApi);
+        billNumberGenerator.ConfigureOnline(centralMode, storePos);
+        billDocuments.ConfigureOnline(centralMode, storePos);
+        heldBills.ConfigureOnline(centralMode, storePos);
+        quotations.ConfigureOnline(centralMode, storePos);
+        billDelete.ConfigureOnline(centralMode);
+        daySessions.ConfigureOnline(centralMode, storePos, dashboardApi);
+        dayCloseReports.ConfigureOnline(centralMode, dashboardApi, storePos);
+        cashMovements.ConfigureOnline(centralMode, storePos);
+        onlineCodBills.ConfigureOnline(centralMode, billDocuments, storePos);
+        creditBills.ConfigureOnline(centralMode, billDocuments, storePos);
+        customerCreditNotes.ConfigureOnline(centralMode, storePos);
+        saleReturnHistory.ConfigureOnline(centralMode, storePos);
+        storeBillList.ConfigureOnline(centralMode, storePos);
+        paymentRouter.ConfigureOnline(centralMode, storePos);
+        var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding, centralMode);
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 
         try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
@@ -234,6 +259,9 @@ public sealed class AppServices
             StoreInfo = storeInfoClient,
             StoreSyncRunner = storeSyncRunner,
             PeriodicSync = periodicSync,
+            CentralMode = centralMode,
+            StorePos = storePos,
+            DashboardApi = dashboardApi,
             OutboxNotifications = outboxNotifications,
             StoreAuditLog = storeAuditLog,
             StoreBillList = storeBillList,
@@ -247,7 +275,90 @@ public sealed class AppServices
             WhatsAppPreferences = whatsappPrefs,
             WhatsAppClient = whatsappClient,
         };
+        billingOutbox.ConfigureOnlineDispatch(
+            () => servicesRef.CentralMode.IsOnlineMode,
+            ct => syncEngine.PushPendingAsync(ct),
+            async (type, payload, hash, ct) =>
+            {
+                var mapped = BsonTypeMapper.MapToDotNetValue(payload);
+                var storePos = servicesRef.StorePos;
+                switch (type)
+                {
+                    case "InvoiceCreated":
+                        await storePos.PostBillAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "InvoiceDeleted":
+                    {
+                        var billNo = ReadPayloadString(payload, "billNo")
+                                     ?? ReadPayloadString(payload, "invoiceNo")
+                                     ?? "";
+                        await storePos.DeleteBillAsync(billNo, mapped, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "SaleReturnCreated":
+                        await storePos.PostSaleReturnAsync(mapped!, exchange: false, ct).ConfigureAwait(false);
+                        break;
+                    case "SaleExchangeCreated":
+                        await storePos.PostSaleReturnAsync(mapped!, exchange: true, ct).ConfigureAwait(false);
+                        break;
+                    case "QuotationUpserted":
+                        await storePos.PostQuotationAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "QuotationConverted":
+                        await storePos.ConvertQuotationAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "QuotationCancelled":
+                        await storePos.CancelQuotationAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "CreditNoteCreated":
+                        await storePos.PostCreditNoteAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "CreditNoteApplied":
+                        await storePos.ApplyCreditNoteAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "CreditNoteCashedOut":
+                        await storePos.CashoutCreditNoteAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "DaySessionOpened":
+                        await storePos.OpenDaySessionAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "DaySessionClosed":
+                        await storePos.CloseDaySessionAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "CashMovementCreated":
+                        await storePos.PostCashMovementAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "DailyExpenseCreated":
+                        await storePos.PostDailyExpenseAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "InvoiceCodPaymentReceived":
+                    {
+                        var billNo = ReadPayloadString(payload, "billNo") ?? "";
+                        await storePos.PostCodPaymentAsync(billNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "InvoiceCreditPaymentReceived":
+                    {
+                        var billNo = ReadPayloadString(payload, "billNo") ?? "";
+                        await storePos.PostCreditPaymentAsync(billNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "AdjustmentBillCreated":
+                        await storePos.PostAdjustmentBillAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    default:
+                        await storePos.PostEventAsync(type, mapped!, ct).ConfigureAwait(false);
+                        break;
+                }
+            });
         return servicesRef;
+    }
+
+    private static string? ReadPayloadString(BsonDocument payload, string field)
+    {
+        if (!payload.Contains(field) || payload[field].IsBsonNull)
+            return null;
+        return payload[field].ToString();
     }
 }
 

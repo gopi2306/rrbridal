@@ -50,7 +50,7 @@ public partial class DashboardViewModel : ObservableObject
 
     private readonly AppServices _services;
     private readonly StoreDashboardService _dashboardService;
-    private readonly DayBillingCloseService _dayCloseService;
+    private readonly DaySessionService _dayCloseService;
     private readonly InventoryGridClient _inventoryClient;
     private readonly StoreContext _storeContext;
     private readonly ShellBrandingService _shellBranding;
@@ -143,7 +143,7 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty] private InventoryStockFilter _inventoryStockFilter = InventoryStockFilter.All;
 
-    [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in local store inventory.";
+    [ObservableProperty] private string _inventoryHint = "Search SKU, barcode, or product name in store inventory.";
 
     [ObservableProperty] private PosCounterFilterOption? _selectedPosCounterFilter;
 
@@ -274,13 +274,17 @@ public partial class DashboardViewModel : ObservableObject
     {
         _services = services;
         _dashboardService = new StoreDashboardService(services.LocalDb);
-        _dayCloseService = new DayBillingCloseService(services.LocalDb, services.ProductCatalog, services.StoreAuditLog);
+        _dashboardService.ConfigureOnline(services.CentralMode, services.DashboardApi);
+        _dayCloseService = services.DaySessions;
         _inventoryClient = services.InventoryGrid;
         _storeContext = services.StoreContext;
         _shellBranding = services.ShellBranding;
         _salesmanAggregation = new SalesmanSalesAggregationService(services.LocalDb);
         _stockSalesAggregation = new StockSalesAggregationService(services.LocalDb);
         _billMarginAggregation = new BillMarginAggregationService(services.LocalDb);
+        _salesmanAggregation.ConfigureOnline(services.CentralMode, services.DashboardApi);
+        _stockSalesAggregation.ConfigureOnline(services.CentralMode, services.DashboardApi);
+        _billMarginAggregation.ConfigureOnline(services.CentralMode, services.DashboardApi);
         PosCounterFilterOptions.Add(new PosCounterFilterOption(null, "All counters"));
         SelectedPosCounterFilter = PosCounterFilterOptions[0];
         SalesmanFilterOptions.Add(SalesmanFilterOption.All);
@@ -778,7 +782,7 @@ public partial class DashboardViewModel : ObservableObject
 
             if (result.Total == 0)
             {
-                InventoryHint = "No local inventory rows. Sync products/transfers or try another search.";
+                InventoryHint = "No inventory rows. Sync products/transfers or try another search.";
                 InventoryPagerLabel = "";
             }
             else
@@ -790,7 +794,7 @@ public partial class DashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            InventoryHint = "Could not read local store inventory. " + ex.Message;
+            InventoryHint = "Could not read store inventory. " + ex.Message;
             InventoryPagerLabel = "";
         }
     }

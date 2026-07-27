@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.Sync;
@@ -37,6 +39,8 @@ public sealed class QuotationService
     private readonly StoreContext _store;
     private readonly BillNumberGenerator _billNumbers;
     private readonly BillingOutboxPublisher _outbox;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public QuotationService(
         IMongoDatabase localDb,
@@ -48,6 +52,12 @@ public sealed class QuotationService
         _store = store;
         _billNumbers = billNumbers;
         _outbox = outbox;
+    }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
     }
 
     public async Task<string> UpsertAsync(BsonDocument payload, string? existingQuotationNo = null, CancellationToken ct = default)
@@ -69,11 +79,15 @@ public sealed class QuotationService
         if (!doc.Contains("quotationDate") || string.IsNullOrWhiteSpace(doc.GetValue("quotationDate", "").AsString))
             doc["quotationDate"] = doc.GetValue("billDate", DateTime.Today.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture)).AsString;
 
-        var filter = Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
-            Builders<BsonDocument>.Filter.Eq("quotationNo", quotationNo));
+        if (_centralMode?.IsOnlineMode != true)
+        {
+            var filter = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
+                Builders<BsonDocument>.Filter.Eq("quotationNo", quotationNo));
 
-        await _quotations.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
+            await _quotations.ReplaceOneAsync(filter, doc, new ReplaceOptions { IsUpsert = true }, ct);
+        }
+
         await _outbox.PublishQuotationUpsertedAsync(doc, ct);
         return quotationNo;
     }
@@ -83,6 +97,26 @@ public sealed class QuotationService
         var trimmed = quotationNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return null;
+
+        if (_centralMode?.IsOnlineMode == true && _storePos != null)
+        {
+            using var json = await _storePos.GetQuotationAsync(trimmed, ct);
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var el = json.RootElement;
+            BsonDocument doc;
+            if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+                doc = BsonDocument.Parse(payload.GetRawText());
+            else
+                doc = BsonDocument.Parse(el.GetRawText());
+
+            doc["quotationNo"] = trimmed;
+            if (el.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String)
+                doc["status"] = st.GetString() ?? StatusOpen;
+
+            return doc;
+        }
 
         return await _quotations.Find(Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
@@ -97,12 +131,38 @@ public sealed class QuotationService
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
-        var filter = Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId);
-        var docs = await _quotations
-            .Find(filter)
-            .Sort(Builders<BsonDocument>.Sort.Descending("updatedAtUtc"))
-            .Limit(500)
-            .ToListAsync(ct);
+
+        List<BsonDocument> docs;
+        if (_centralMode?.IsOnlineMode == true && _storePos != null)
+        {
+            using var json = await _storePos.ListQuotationsAsync(limit: 500, ct: ct);
+            docs = new List<BsonDocument>();
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in json.RootElement.EnumerateArray())
+                {
+                    BsonDocument doc;
+                    if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+                        doc = BsonDocument.Parse(payload.GetRawText());
+                    else
+                        doc = BsonDocument.Parse(el.GetRawText());
+                    if (el.TryGetProperty("quotationNo", out var qn))
+                        doc["quotationNo"] = qn.GetString() ?? "";
+                    if (el.TryGetProperty("status", out var st))
+                        doc["status"] = st.GetString() ?? StatusOpen;
+                    docs.Add(doc);
+                }
+            }
+        }
+        else
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId);
+            docs = await _quotations
+                .Find(filter)
+                .Sort(Builders<BsonDocument>.Sort.Descending("updatedAtUtc"))
+                .Limit(500)
+                .ToListAsync(ct);
+        }
 
         IEnumerable<BsonDocument> query = docs;
         if (!string.IsNullOrWhiteSpace(quotationNo))
@@ -143,6 +203,15 @@ public sealed class QuotationService
         if (string.IsNullOrEmpty(trimmed))
             return false;
 
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            var existing = await GetByQuotationNoAsync(trimmed, ct) ?? new BsonDocument { { "quotationNo", trimmed } };
+            existing["status"] = StatusConverted;
+            existing["convertedBillNo"] = billNo.Trim();
+            await _outbox.PublishQuotationConvertedAsync(trimmed, billNo.Trim(), existing, ct);
+            return true;
+        }
+
         var update = Builders<BsonDocument>.Update
             .Set("status", StatusConverted)
             .Set("convertedBillNo", billNo.Trim())
@@ -172,6 +241,14 @@ public sealed class QuotationService
         var trimmed = quotationNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return false;
+
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            var existing = await GetByQuotationNoAsync(trimmed, ct) ?? new BsonDocument { { "quotationNo", trimmed } };
+            existing["status"] = StatusCancelled;
+            await _outbox.PublishQuotationCancelledAsync(trimmed, existing, ct);
+            return true;
+        }
 
         var update = Builders<BsonDocument>.Update
             .Set("status", StatusCancelled)

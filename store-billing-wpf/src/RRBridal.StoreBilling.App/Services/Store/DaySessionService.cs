@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Products;
@@ -19,6 +22,9 @@ public sealed class DaySessionService
     private readonly BillingOutboxPublisher _outbox;
     private readonly StoreContext _storeContext;
     private readonly StoreAuditLogService? _auditLog;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
+    private CentralDashboardClient? _dashboardApi;
 
     public DaySessionService(
         IMongoDatabase localDb,
@@ -34,6 +40,15 @@ public sealed class DaySessionService
         _auditLog = auditLog;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos, CentralDashboardClient? dashboardApi)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+        _dashboardApi = dashboardApi;
+        if (dashboardApi != null)
+            _dayClose.ConfigureOnline(centralMode, dashboardApi, storePos);
+    }
+
     public static string FormatBusinessDate(DateTime localDate) =>
         localDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -43,9 +58,24 @@ public sealed class DaySessionService
         string posCounter,
         CancellationToken ct = default)
     {
+        if (_centralMode?.IsOnlineMode == true && _storePos != null)
+        {
+            using var json = await _storePos.GetDaySessionAsync(businessDate, ct);
+            if (json.RootElement.ValueKind == JsonValueKind.Null
+                || json.RootElement.ValueKind == JsonValueKind.Undefined)
+                return null;
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+            if (!json.RootElement.TryGetProperty("payload", out var payload)
+                || payload.ValueKind != JsonValueKind.Object)
+                return null;
+            var doc = BsonDocument.Parse(payload.GetRawText());
+            return DaySessionDocumentMapper.ToRecord(doc);
+        }
+
         var filter = SessionFilter(storeId, businessDate, posCounter);
-        var doc = await _sessions.Find(filter).FirstOrDefaultAsync(ct);
-        return DaySessionDocumentMapper.ToRecord(doc);
+        var local = await _sessions.Find(filter).FirstOrDefaultAsync(ct);
+        return DaySessionDocumentMapper.ToRecord(local);
     }
 
     public Task<bool> IsDayOpenAsync(string storeId, string businessDate, string posCounter, CancellationToken ct = default) =>
@@ -94,7 +124,8 @@ public sealed class DaySessionService
 
         try
         {
-            await _sessions.InsertOneAsync(doc, cancellationToken: ct);
+            if (_centralMode?.IsOnlineMode != true)
+                await _sessions.InsertOneAsync(doc, cancellationToken: ct);
         }
         catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
@@ -102,9 +133,10 @@ public sealed class DaySessionService
             return (false, "Day session already exists for this counter.", again);
         }
 
-        try { await _outbox.PublishDaySessionOpenedAsync(doc, ct); } catch { /* best-effort */ }
+        await _outbox.PublishDaySessionOpenedAsync(doc, ct);
 
-        if (_auditLog != null)
+        // Online: no local Mongo domain writes (including audit). Offline keeps local audit trail.
+        if (_centralMode?.IsOnlineMode != true && _auditLog != null)
         {
             await _auditLog.LogEventAsync(new StoreAuditEvent
             {
@@ -148,13 +180,58 @@ public sealed class DaySessionService
         if (string.Equals(session.Status, DaySessionStatus.Closed, StringComparison.OrdinalIgnoreCase))
             return (false, "Day is already closed.", session);
 
-        var snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, posCounter, session, ct);
-        if (snapshot.StockExceptions.Any(e => e.CanApprove))
-            return (false, "Approve or resolve stock exceptions before closing the day.", session);
+        decimal expectedCash;
+        DayBillingCloseSnapshot? snapshot = null;
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            if (_dashboardApi == null)
+                return (false, "Central dashboard is not configured for online day close.", session);
 
-        var expectedCash = snapshot.ExpectedCash;
+            // Same gate as Offline: pending stock exceptions must be approved on central first.
+            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, posCounter, session, ct);
+            if (snapshot.StockExceptions.Any(e => e.CanApprove))
+                return (false, "Approve or resolve stock exceptions before closing the day.", session);
+
+            // Prefer computed expected cash from the day-close report (payload expectedCash is often 0 while open).
+            using var reportJson = await _dashboardApi.GetStoreDayCloseReportAsync(businessDate, posCounter, ct);
+            expectedCash = StoreDayCloseDashboardReader.ReadReportExpectedCash(reportJson.RootElement);
+            if (expectedCash <= 0 && snapshot.ExpectedCash > 0)
+                expectedCash = snapshot.ExpectedCash;
+        }
+        else
+        {
+            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, posCounter, session, ct);
+            if (snapshot.StockExceptions.Any(e => e.CanApprove))
+                return (false, "Approve or resolve stock exceptions before closing the day.", session);
+            expectedCash = snapshot.ExpectedCash;
+        }
+
         var cashDifference = actualCashCounted - expectedCash;
         var closedAtUtc = DateTime.UtcNow.ToString("O");
+
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            var closedDoc = new BsonDocument
+            {
+                { "sessionId", session.SessionId },
+                { "storeId", storeId },
+                { "posCounter", posCounter },
+                { "deviceId", _storeContext.DeviceId },
+                { "businessDate", businessDate },
+                { "status", DaySessionStatus.Closed },
+                { "openingCash", (double)session.OpeningCash },
+                { "expectedCash", (double)expectedCash },
+                { "actualCashCounted", (double)actualCashCounted },
+                { "cashDifference", (double)cashDifference },
+                { "cashDenominations", DaySessionDocumentMapper.ToDenominationArray(denominations) },
+                { "closedBy", closedBy.Trim() },
+                { "closedAtUtc", closedAtUtc },
+                { "notes", string.IsNullOrWhiteSpace(notes) ? (BsonValue)BsonNull.Value : notes.Trim() },
+                { "cashTaken", string.IsNullOrWhiteSpace(cashTaken) ? (BsonValue)BsonNull.Value : cashTaken.Trim() },
+            };
+            await _outbox.PublishDaySessionClosedAsync(closedDoc, ct);
+            return (true, "Day closed on central.", DaySessionDocumentMapper.ToRecord(closedDoc));
+        }
 
         var update = Builders<BsonDocument>.Update
             .Set("status", DaySessionStatus.Closed)
@@ -162,7 +239,7 @@ public sealed class DaySessionService
             .Set("actualCashCounted", (double)actualCashCounted)
             .Set("cashDifference", (double)cashDifference)
             .Set("cashDenominations", DaySessionDocumentMapper.ToDenominationArray(denominations))
-            .Set("closeSnapshot", DaySessionDocumentMapper.ToCloseSnapshotDocument(snapshot))
+            .Set("closeSnapshot", DaySessionDocumentMapper.ToCloseSnapshotDocument(snapshot!))
             .Set("closedBy", closedBy.Trim())
             .Set("closedAtUtc", closedAtUtc)
             .Set("notes", string.IsNullOrWhiteSpace(notes) ? (BsonValue)BsonNull.Value : notes.Trim())
@@ -170,8 +247,8 @@ public sealed class DaySessionService
 
         await _sessions.UpdateOneAsync(SessionFilter(storeId, businessDate, posCounter), update, cancellationToken: ct);
 
-        var closedDoc = await _sessions.Find(SessionFilter(storeId, businessDate, posCounter)).FirstAsync(ct);
-        try { await _outbox.PublishDaySessionClosedAsync(closedDoc, ct); } catch { /* best-effort */ }
+        var closedLocal = await _sessions.Find(SessionFilter(storeId, businessDate, posCounter)).FirstAsync(ct);
+        await _outbox.PublishDaySessionClosedAsync(closedLocal, ct);
 
         if (_auditLog != null)
         {
@@ -191,7 +268,7 @@ public sealed class DaySessionService
             }, ct);
         }
 
-        return (true, "Day closed successfully.", DaySessionDocumentMapper.ToRecord(closedDoc));
+        return (true, "Day closed successfully.", DaySessionDocumentMapper.ToRecord(closedLocal));
     }
 
     public async Task MarkCashHandOverPrintedAsync(
@@ -200,6 +277,20 @@ public sealed class DaySessionService
         string posCounter,
         CancellationToken ct = default)
     {
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            if (_storePos == null)
+                throw new InvalidOperationException("Central store-pos is not configured for online mode.");
+
+            await _storePos.MarkCashHandOverPrintedAsync(new
+            {
+                businessDate = businessDate.Trim(),
+                posCounter = posCounter.Trim(),
+                cashHandOverPrintedAtUtc = DateTime.UtcNow.ToString("O"),
+            }, ct);
+            return;
+        }
+
         var printedAt = DateTime.UtcNow.ToString("O");
         await _sessions.UpdateOneAsync(
             SessionFilter(storeId, businessDate, posCounter),
@@ -212,12 +303,44 @@ public sealed class DaySessionService
         string businessDate,
         CancellationToken ct = default)
     {
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            if (_dashboardApi == null)
+                throw new InvalidOperationException("Central dashboard is not configured for online mode.");
+
+            using var doc = await _dashboardApi.GetStoreDayCloseAsync(businessDate, null, ct);
+            var rows = StoreDayCloseDashboardReader.ReadCounters(doc.RootElement)
+                .OrderBy(c => c.PosCounter, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new DaySessionRollupRow
+                {
+                    PosCounter = c.PosCounter ?? "",
+                    Status = c.Status ?? "",
+                    OpeningCash = c.OpeningCash,
+                    ExpectedCash = c.ExpectedCash,
+                    ActualCashCounted = c.ActualCashCounted,
+                    CashDifference = c.CashDifference,
+                    ClosedBy = c.ClosedBy,
+                    ClosedAtUtc = c.ClosedAtUtc,
+                })
+                .ToList();
+
+            return new StoreDaySessionRollup
+            {
+                BusinessDate = businessDate,
+                Counters = rows,
+                TotalOpeningCash = rows.Sum(r => r.OpeningCash),
+                TotalExpectedCash = rows.Sum(r => r.ExpectedCash),
+                TotalActualCashCounted = rows.Sum(r => r.ActualCashCounted),
+                TotalCashDifference = rows.Sum(r => r.CashDifference),
+            };
+        }
+
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId),
             Builders<BsonDocument>.Filter.Eq("businessDate", businessDate));
 
         var docs = await _sessions.Find(filter).ToListAsync(ct);
-        var rows = docs
+        var localRows = docs
             .Select(d => DaySessionDocumentMapper.ToRecord(d)!)
             .OrderBy(s => s.PosCounter, StringComparer.OrdinalIgnoreCase)
             .Select(s => new DaySessionRollupRow
@@ -236,11 +359,11 @@ public sealed class DaySessionService
         return new StoreDaySessionRollup
         {
             BusinessDate = businessDate,
-            Counters = rows,
-            TotalOpeningCash = rows.Sum(r => r.OpeningCash),
-            TotalExpectedCash = rows.Sum(r => r.ExpectedCash),
-            TotalActualCashCounted = rows.Sum(r => r.ActualCashCounted),
-            TotalCashDifference = rows.Sum(r => r.CashDifference),
+            Counters = localRows,
+            TotalOpeningCash = localRows.Sum(r => r.OpeningCash),
+            TotalExpectedCash = localRows.Sum(r => r.ExpectedCash),
+            TotalActualCashCounted = localRows.Sum(r => r.ActualCashCounted),
+            TotalCashDifference = localRows.Sum(r => r.CashDifference),
         };
     }
 
@@ -259,6 +382,13 @@ public sealed class DaySessionService
 
         return await _dayClose.LoadDayCloseAsync(storeId, localDate, posCounterFilter, session, ct);
     }
+
+    public Task<(bool Success, string Message)> ApproveStockExceptionsAsync(
+        string storeId,
+        string billNo,
+        string approvedByUser,
+        CancellationToken ct = default) =>
+        _dayClose.ApproveStockExceptionsAsync(storeId, billNo, approvedByUser, ct);
 
     private async Task<bool> HasStatusAsync(
         string storeId,

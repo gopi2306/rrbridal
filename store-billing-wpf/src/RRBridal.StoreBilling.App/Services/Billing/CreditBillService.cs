@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.Sync;
@@ -64,6 +66,9 @@ public sealed class CreditBillService
     private readonly IMongoCollection<BsonDocument> _receipts;
     private readonly BillingOutboxPublisher _outbox;
     private readonly BillNumberGenerator _billNumbers;
+    private CentralOnlineModeService? _centralMode;
+    private BillDocumentService? _billDocuments;
+    private CentralStorePosClient? _storePos;
 
     public CreditBillService(
         IMongoDatabase localDb,
@@ -75,6 +80,18 @@ public sealed class CreditBillService
         _outbox = outbox;
         _billNumbers = billNumbers;
     }
+
+    public void ConfigureOnline(
+        CentralOnlineModeService centralMode,
+        BillDocumentService billDocuments,
+        CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _billDocuments = billDocuments;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
 
     public async Task<CreditBillPendingBalance> GetPendingBalanceAsync(string storeId, CancellationToken ct = default)
     {
@@ -173,10 +190,14 @@ public sealed class CreditBillService
         if (string.IsNullOrWhiteSpace(billNo) || amount <= 0)
             return new CreditPaymentResult { Success = false, Error = "Invalid amount or bill." };
 
-        var doc = await _bills.Find(Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-            Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
+        BsonDocument? doc;
+        if (IsCentralOnline && _billDocuments != null)
+            doc = await _billDocuments.GetByBillNoAsync(billNo.Trim(), ct);
+        else
+            doc = await _bills.Find(Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+                Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
 
         if (doc == null || !CreditBillDocumentReader.IsOpen(doc))
             return new CreditPaymentResult { Success = false, Error = "Open credit bill not found." };
@@ -267,21 +288,6 @@ public sealed class CreditBillService
             ? modeLabel
             : "Credit";
 
-        var update = Builders<BsonDocument>.Update
-            .Set("creditBilling", creditBilling)
-            .Set("payments", newTop)
-            .Set("paymentMode", paymentModeLabel);
-
-        var result = await _bills.UpdateOneAsync(
-            Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-                Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
-            update,
-            cancellationToken: ct);
-
-        if (result.ModifiedCount == 0)
-            return new CreditPaymentResult { Success = false, Error = "Could not update bill." };
-
         var receiptDoc = new BsonDocument
         {
             { "receiptNo", receiptNo },
@@ -298,6 +304,37 @@ public sealed class CreditBillService
             { "receivedBy", receivedBy?.Trim() ?? "" },
             { "createdAtUtc", receivedAt },
         };
+
+        var update = Builders<BsonDocument>.Update
+            .Set("creditBilling", creditBilling)
+            .Set("payments", newTop)
+            .Set("paymentMode", paymentModeLabel);
+
+        if (IsCentralOnline)
+        {
+            doc["creditBilling"] = creditBilling;
+            doc["payments"] = newTop;
+            doc["paymentMode"] = paymentModeLabel;
+            await _outbox.PublishInvoiceCreditPaymentReceivedAsync(doc, receiptDoc, ct);
+            return new CreditPaymentResult
+            {
+                Success = true,
+                ReceiptNo = receiptNo,
+                AmountPaid = payAmount,
+                BalanceDue = newBalance,
+            };
+        }
+
+        var result = await _bills.UpdateOneAsync(
+            Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+                Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
+            update,
+            cancellationToken: ct);
+
+        if (result.ModifiedCount == 0)
+            return new CreditPaymentResult { Success = false, Error = "Could not update bill." };
+
         await _receipts.InsertOneAsync(receiptDoc, cancellationToken: ct);
 
         var updated = await _bills.Find(Builders<BsonDocument>.Filter.And(
@@ -324,6 +361,9 @@ public sealed class CreditBillService
         if (string.IsNullOrWhiteSpace(billNo))
             return null;
 
+        if (IsCentralOnline && _billDocuments != null)
+            return await _billDocuments.GetByBillNoAsync(billNo.Trim(), ct);
+
         return await _bills.Find(Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
@@ -338,6 +378,30 @@ public sealed class CreditBillService
         if (string.IsNullOrWhiteSpace(receiptNo))
             return null;
 
+        if (IsCentralOnline)
+        {
+            if (_storePos == null)
+                return null;
+
+            using var json = await _storePos.GetPaymentReceiptAsync(receiptNo.Trim(), ct);
+            if (json.RootElement.ValueKind == JsonValueKind.Null)
+                return null;
+
+            BsonDocument doc;
+            if (json.RootElement.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+                doc = BsonDocument.Parse(payload.GetRawText());
+            else
+                doc = BsonDocument.Parse(json.RootElement.GetRawText());
+
+            if (json.RootElement.TryGetProperty("receiptNo", out var rn) && rn.ValueKind == JsonValueKind.String)
+                doc["receiptNo"] = rn.GetString() ?? "";
+            if (json.RootElement.TryGetProperty("billNo", out var bn) && bn.ValueKind == JsonValueKind.String)
+                doc["billNo"] = bn.GetString() ?? "";
+            if (json.RootElement.TryGetProperty("storeId", out var sid) && sid.ValueKind == JsonValueKind.String)
+                doc["storeId"] = sid.GetString() ?? "";
+            return doc;
+        }
+
         return await _receipts.Find(Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("receiptNo", receiptNo.Trim()))).FirstOrDefaultAsync(ct);
@@ -345,6 +409,23 @@ public sealed class CreditBillService
 
     private async Task<List<BsonDocument>> FindCreditBillsAsync(string storeId, CancellationToken ct)
     {
+        if (IsCentralOnline && _storePos != null)
+        {
+            using var json = await _storePos.ListBillsAsync(null, 200, ct);
+            var docs = new List<BsonDocument>();
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in json.RootElement.EnumerateArray())
+                {
+                    var doc = BillDocumentService.MapCentralBillToDoc(el);
+                    if (doc.Contains("creditBilling"))
+                        docs.Add(doc);
+                }
+            }
+
+            return docs;
+        }
+
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("status", "posted"),

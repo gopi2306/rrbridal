@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Payments;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.Sync;
@@ -49,6 +50,9 @@ public sealed class OnlineCodBillService
 {
     private readonly IMongoCollection<BsonDocument> _bills;
     private readonly BillingOutboxPublisher _outbox;
+    private CentralOnlineModeService? _centralMode;
+    private BillDocumentService? _billDocuments;
+    private CentralStorePosClient? _storePos;
 
     public OnlineCodBillService(IMongoDatabase localDb, BillingOutboxPublisher outbox)
     {
@@ -56,14 +60,48 @@ public sealed class OnlineCodBillService
         _outbox = outbox;
     }
 
-    public async Task<OnlineCodPendingBalance> GetPendingBalanceAsync(string storeId, CancellationToken ct = default)
+    public void ConfigureOnline(
+        CentralOnlineModeService centralMode,
+        BillDocumentService billDocuments,
+        CentralStorePosClient storePos)
     {
-        var filter = Builders<BsonDocument>.Filter.And(
+        _centralMode = centralMode;
+        _billDocuments = billDocuments;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
+
+    private async Task<List<BsonDocument>> FindOnlineCodBillsAsync(string storeId, CancellationToken ct)
+    {
+        if (IsCentralOnline && _storePos != null)
+        {
+            using var json = await _storePos.ListBillsAsync(null, 200, ct);
+            var docs = new List<BsonDocument>();
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in json.RootElement.EnumerateArray())
+                {
+                    var doc = BillDocumentService.MapCentralBillToDoc(el);
+                    if (OnlineCodDocumentReader.IsOnlineCodBill(doc))
+                        docs.Add(doc);
+                }
+            }
+
+            return docs;
+        }
+
+        var localFilter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
             Builders<BsonDocument>.Filter.Eq("status", "posted"),
             Builders<BsonDocument>.Filter.Eq("salesChannel", OnlineCodDocumentReader.SalesChannelOnline));
 
-        var docs = await _bills.Find(filter).ToListAsync(ct);
+        return await _bills.Find(localFilter).ToListAsync(ct);
+    }
+
+    public async Task<OnlineCodPendingBalance> GetPendingBalanceAsync(string storeId, CancellationToken ct = default)
+    {
+        var docs = await FindOnlineCodBillsAsync(storeId, ct);
         var todayLocal = DateTime.Today;
 
         decimal balanceTill = 0m;
@@ -114,12 +152,7 @@ public sealed class OnlineCodBillService
         DateTime localDate,
         CancellationToken ct = default)
     {
-        var filter = Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"),
-            Builders<BsonDocument>.Filter.Eq("salesChannel", OnlineCodDocumentReader.SalesChannelOnline));
-
-        var docs = await _bills.Find(filter).ToListAsync(ct);
+        var docs = await FindOnlineCodBillsAsync(storeId, ct);
         return docs
             .Where(d => OnlineCodDocumentReader.IsOnlineCodPending(d))
             .Where(d => OnlineCodDocumentReader.ReadSortUtc(d).ToLocalTime().Date == localDate.Date)
@@ -137,32 +170,22 @@ public sealed class OnlineCodBillService
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
-        var filters = new List<FilterDefinition<BsonDocument>>
-        {
-            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"),
-            Builders<BsonDocument>.Filter.Eq("salesChannel", OnlineCodDocumentReader.SalesChannelOnline),
-        };
+        var docs = await FindOnlineCodBillsAsync(storeId, ct);
+        IEnumerable<BsonDocument> query = docs;
 
         if (!string.IsNullOrWhiteSpace(billNo))
         {
-            var safe = Regex.Escape(billNo.Trim());
-            filters.Add(Builders<BsonDocument>.Filter.Regex("billNo", new BsonRegularExpression(safe, "i")));
+            var q = billNo.Trim();
+            query = query.Where(d => (ReadString(d, "billNo") ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
         }
 
         if (!string.IsNullOrWhiteSpace(customerName))
         {
-            var safe = Regex.Escape(customerName.Trim());
-            filters.Add(Builders<BsonDocument>.Filter.Regex("customerName", new BsonRegularExpression(safe, "i")));
+            var n = customerName.Trim();
+            query = query.Where(d => (ReadString(d, "customerName") ?? "").Contains(n, StringComparison.OrdinalIgnoreCase));
         }
 
-        var docs = await _bills
-            .Find(Builders<BsonDocument>.Filter.And(filters))
-            .Sort(Builders<BsonDocument>.Sort.Descending("createdAtUtc"))
-            .Limit(limit * 3)
-            .ToListAsync(ct);
-
-        return docs
+        return query
             .Select(MapSearchRow)
             .Where(r => r != null)
             .Cast<OnlineCodSearchRow>()
@@ -183,10 +206,14 @@ public sealed class OnlineCodBillService
         if (string.IsNullOrWhiteSpace(billNo) || string.IsNullOrWhiteSpace(transactionNo))
             return false;
 
-        var doc = await _bills.Find(Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
-            Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
-            Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
+        BsonDocument? doc;
+        if (IsCentralOnline && _billDocuments != null)
+            doc = await _billDocuments.GetByBillNoAsync(billNo.Trim(), ct);
+        else
+            doc = await _bills.Find(Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("storeId", storeId?.Trim() ?? ""),
+                Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim()),
+                Builders<BsonDocument>.Filter.Eq("status", "posted"))).FirstOrDefaultAsync(ct);
 
         if (doc == null || !OnlineCodDocumentReader.IsOnlineCodPending(doc))
             return false;
@@ -215,6 +242,15 @@ public sealed class OnlineCodBillService
             { "receivedBy", receivedBy?.Trim() ?? "" },
             { "receivedPaymentMode", modeLabel },
         };
+
+        if (IsCentralOnline)
+        {
+            doc["onlineCod"] = onlineCod;
+            doc["payments"] = paymentsArr;
+            doc["paymentMode"] = modeLabel;
+            await _outbox.PublishInvoiceCodPaymentReceivedAsync(doc, ct);
+            return true;
+        }
 
         var update = Builders<BsonDocument>.Update
             .Set("onlineCod", onlineCod)

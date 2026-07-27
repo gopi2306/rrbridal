@@ -2,12 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Audit;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Products;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -16,6 +20,9 @@ public sealed class DayBillingCloseService
     private readonly IMongoDatabase _db;
     private readonly ProductCatalogService _productCatalog;
     private readonly StoreAuditLogService? _auditLog;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
+    private CentralStorePosClient? _storePos;
 
     public DayBillingCloseService(
         IMongoDatabase localDb,
@@ -27,12 +34,35 @@ public sealed class DayBillingCloseService
         _auditLog = auditLog;
     }
 
-    public async Task<DayBillingCloseSnapshot> LoadDayCloseAsync(
+    public void ConfigureOnline(
+        CentralOnlineModeService centralMode,
+        CentralDashboardClient dashboardApi,
+        CentralStorePosClient? storePos = null)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+        _storePos = storePos;
+    }
+
+    public Task<DayBillingCloseSnapshot> LoadDayCloseAsync(
         string storeId,
         DateTime localDate,
         string? posCounterFilter = null,
         DaySessionRecord? session = null,
         CancellationToken ct = default)
+    {
+        if (_centralMode?.IsOnlineMode == true)
+            return LoadDayCloseOnlineAsync(storeId, localDate, posCounterFilter, session, ct);
+
+        return LoadDayCloseOfflineAsync(storeId, localDate, posCounterFilter, session, ct);
+    }
+
+    private async Task<DayBillingCloseSnapshot> LoadDayCloseOfflineAsync(
+        string storeId,
+        DateTime localDate,
+        string? posCounterFilter,
+        DaySessionRecord? session,
+        CancellationToken ct)
     {
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
@@ -227,6 +257,207 @@ public sealed class DayBillingCloseService
         };
     }
 
+    private async Task<DayBillingCloseSnapshot> LoadDayCloseOnlineAsync(
+        string storeId,
+        DateTime localDate,
+        string? posCounterFilter,
+        DaySessionRecord? session,
+        CancellationToken ct)
+    {
+        if (_dashboardApi == null || _storePos == null)
+            throw new InvalidOperationException("Central APIs are not configured for online day close.");
+
+        var businessDate = localDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        using var dayCloseJson = await _dashboardApi.GetStoreDayCloseAsync(businessDate, posCounterFilter, ct);
+        var counterFigures = string.IsNullOrWhiteSpace(posCounterFilter)
+            ? null
+            : StoreDayCloseDashboardReader.FindCounter(dayCloseJson.RootElement, posCounterFilter);
+        var cashFigures = counterFigures ?? StoreDayCloseDashboardReader.ReadTotals(dayCloseJson.RootElement);
+
+        // Prefer computed expected cash from the day-close report (open sessions store expectedCash=0 in payload).
+        decimal expectedCash = cashFigures.ExpectedCash;
+        using (var reportJson = await _dashboardApi.GetStoreDayCloseReportAsync(businessDate, posCounterFilter, ct))
+        {
+            var reportExpected = StoreDayCloseDashboardReader.ReadReportExpectedCash(reportJson.RootElement);
+            if (reportExpected > 0 || expectedCash <= 0)
+                expectedCash = reportExpected;
+        }
+
+        using var salesJson = await _dashboardApi.GetStoreSalesAsync("custom", businessDate, businessDate, 1, 1, ct);
+        if (!salesJson.RootElement.TryGetProperty("summary", out var summary))
+            throw new InvalidOperationException("Central sales summary response missing 'summary'.");
+
+        var netCash = CentralDashboardClient.ReadDecimal(summary, "cashInHand");
+        var cardTotal = CentralDashboardClient.ReadDecimal(summary, "cardTotalAmount");
+        var upiTotal = CentralDashboardClient.ReadDecimal(summary, "upiTotalAmount");
+        var returnCashRefundTotal = CentralDashboardClient.ReadDecimal(summary, "returnCashRefundTotal");
+        var creditNoteCashoutTotal = CentralDashboardClient.ReadDecimal(summary, "creditNoteCashoutTotal");
+        var cashRefundTotal = returnCashRefundTotal + creditNoteCashoutTotal;
+        var dailyExpensesTotal = CentralDashboardClient.ReadDecimal(summary, "dailyExpensesTotal");
+        var cashTotal = netCash + cashRefundTotal + dailyExpensesTotal;
+
+        using var movementsJson = await _storePos.ListCashMovementsAsync(businessDate, 200, ct);
+        var movementDocs = ExtractDocs(movementsJson, MapCentralMovementToDoc);
+        var (depositsTotal, withdrawalsTotal) = DayBillingCloseDocumentReader.SumCashMovementsForBusinessDate(
+            movementDocs, businessDate, posCounterFilter);
+
+        using var billsJson = await _storePos.ListBillsAsync(null, 200, ct);
+        var billDocs = ExtractDocs(billsJson, BillDocumentService.MapCentralBillToDoc);
+        var dayBills = billDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedBill)
+            .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
+            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
+
+        var invoices = new List<DayCloseInvoiceRow>();
+        var stockExceptions = new List<DayCloseStockExceptionRow>();
+        foreach (var doc in dayBills)
+        {
+            DayBillingCloseDocumentReader.TryGetUtcDate(doc, "createdAtUtc", out var sortUtc);
+            var postedLocal = sortUtc == default
+                ? "—"
+                : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+            var pos = DayBillingCloseDocumentReader.ReadString(doc, "posCounter") ?? "";
+            var dev = DayBillingCloseDocumentReader.ReadString(doc, "deviceId") ?? "";
+            var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+
+            invoices.Add(new DayCloseInvoiceRow
+            {
+                BillNo = billNo,
+                CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
+                PostedAtLocal = postedLocal,
+                TotalQty = DayBillingCloseDocumentReader.SumBillLineQty(doc),
+                Payable = DayBillingCloseDocumentReader.ReadDecimal(doc, "payable"),
+                PaymentMode = DayBillingCloseDocumentReader.ReadString(doc, "paymentMode") ?? "",
+                SyncStatus = "Synced",
+                SortUtc = sortUtc,
+            });
+
+            AppendStockExceptionRows(doc, billNo, pos, dev, postedLocal, stockExceptions);
+        }
+        invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
+
+        using var returnsJson = await _storePos.ListSaleReturnsAsync(null, 200, ct);
+        var returnDocs = ExtractDocs(returnsJson, MapCentralReturnToDoc);
+        var dayReturns = returnDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedReturn)
+            .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
+            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
+
+        var returnRows = new List<DayCloseReturnRow>();
+        foreach (var doc in dayReturns)
+        {
+            DayBillingCloseDocumentReader.TryGetUtcDate(doc, "createdAtUtc", out var sortUtc);
+            var postedLocal = sortUtc == default
+                ? "—"
+                : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+            var pos = DayBillingCloseDocumentReader.ReadString(doc, "posCounter") ?? "";
+            var dev = DayBillingCloseDocumentReader.ReadString(doc, "deviceId") ?? "";
+
+            returnRows.Add(new DayCloseReturnRow
+            {
+                ReturnNo = DayBillingCloseDocumentReader.ReadString(doc, "returnNo") ?? "",
+                OriginalBillNo = DayBillingCloseDocumentReader.ReadString(doc, "originalBillNo") ?? "",
+                CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
+                PostedAtLocal = postedLocal,
+                ReturnTotal = DayBillingCloseDocumentReader.ReadDecimal(doc, "returnTotal"),
+                ReturnMode = DayBillingCloseDocumentReader.ReadString(doc, "returnMode") ?? "",
+                CreditBalance = DayBillingCloseDocumentReader.ReadDecimal(doc, "creditBalance"),
+                CashRefunded = DayBillingCloseDocumentReader.ReadDecimal(doc, "cashRefunded"),
+                AmountCollected = DayBillingCloseDocumentReader.ReadDecimal(doc, "amountCollected"),
+                PaymentSummary = DayBillingCloseDocumentReader.FormatReturnPaymentSummary(doc),
+                SortUtc = sortUtc,
+            });
+        }
+        returnRows.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
+
+        var netCard = cardTotal;
+        var netUpi = upiTotal;
+
+        return new DayBillingCloseSnapshot
+        {
+            LocalDate = localDate.Date,
+            BillCount = CentralDashboardClient.ReadInt(summary, "invoices"),
+            TotalQty = CentralDashboardClient.ReadDecimal(summary, "itemsSold"),
+            TotalAmount = CentralDashboardClient.ReadDecimal(summary, "totalBillAmount"),
+            CashTotal = cashTotal,
+            CardTotal = cardTotal,
+            UpiTotal = upiTotal,
+            CreditNoteTotal = CentralDashboardClient.ReadDecimal(summary, "creditAppliedOnBills"),
+            ReturnCount = CentralDashboardClient.ReadInt(summary, "returnsCount"),
+            ReturnTotalAmount = CentralDashboardClient.ReadDecimal(summary, "returnValue"),
+            ReturnCashRefundTotal = returnCashRefundTotal,
+            CreditNoteCashoutTotal = creditNoteCashoutTotal,
+            CashRefundTotal = cashRefundTotal,
+            CreditNoteIssuedTotal = CentralDashboardClient.ReadDecimal(summary, "creditNotesIssuedAmount"),
+            NetCashInHand = netCash,
+            NetCardInHand = netCard,
+            NetUpiInHand = netUpi,
+            ActualHandInTotal = netCash + netCard + netUpi,
+            DailyExpensesTotal = dailyExpensesTotal,
+            DepositsTotal = depositsTotal,
+            WithdrawalsTotal = withdrawalsTotal,
+            OpeningCash = cashFigures.OpeningCash,
+            ExpectedCash = expectedCash,
+            ActualCashCounted = cashFigures.ActualCashCounted,
+            CashDifference = cashFigures.CashDifference,
+            SessionStatus = counterFigures?.Status ?? session?.Status,
+            Invoices = invoices,
+            Returns = returnRows,
+            StockExceptions = stockExceptions,
+        };
+    }
+
+    private static List<BsonDocument> ExtractDocs(JsonDocument json, Func<JsonElement, BsonDocument> mapper)
+    {
+        var docs = new List<BsonDocument>();
+        if (json.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in json.RootElement.EnumerateArray())
+                docs.Add(mapper(el));
+        }
+
+        return docs;
+    }
+
+    private static BsonDocument MapCentralReturnToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("returnNo", out var returnNoEl) && returnNoEl.ValueKind == JsonValueKind.String)
+            doc["returnNo"] = returnNoEl.GetString() ?? "";
+        if (el.TryGetProperty("storeId", out var storeIdEl) && storeIdEl.ValueKind == JsonValueKind.String)
+            doc["storeId"] = storeIdEl.GetString() ?? "";
+        if (!doc.Contains("status"))
+            doc["status"] = "posted";
+
+        return doc;
+    }
+
+    private static BsonDocument MapCentralMovementToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("movementNo", out var noEl) && noEl.ValueKind == JsonValueKind.String)
+            doc["movementNo"] = noEl.GetString() ?? "";
+        if (el.TryGetProperty("storeId", out var storeIdEl) && storeIdEl.ValueKind == JsonValueKind.String)
+            doc["storeId"] = storeIdEl.GetString() ?? "";
+        if (!doc.Contains("status"))
+            doc["status"] = "posted";
+
+        return doc;
+    }
+
     public async Task<(bool Success, string Message)> ApproveStockExceptionsAsync(
         string storeId,
         string billNo,
@@ -235,6 +466,25 @@ public sealed class DayBillingCloseService
     {
         if (string.IsNullOrWhiteSpace(billNo))
             return (false, "Bill number is required.");
+
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            if (_storePos == null)
+                return (false, "Central store-pos is not configured for online mode.");
+
+            try
+            {
+                await _storePos.ApproveStockExceptionsAsync(
+                    billNo.Trim(),
+                    new { approvedBy = approvedByUser.Trim(), approvedByUser = approvedByUser.Trim() },
+                    ct);
+                return (true, $"Stock decremented for exception line(s) on bill {billNo.Trim()}.");
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        }
 
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var filter = Builders<BsonDocument>.Filter.And(

@@ -1,14 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Store;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
@@ -30,6 +33,8 @@ public sealed class BillDocumentService
     private readonly IMongoCollection<BsonDocument> _bills;
     private readonly StoreContext _store;
     private readonly ReceiptConfigStore _receiptConfig;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public BillDocumentService(IMongoDatabase localDb, StoreContext store, ReceiptConfigStore receiptConfig)
     {
@@ -38,11 +43,33 @@ public sealed class BillDocumentService
         _receiptConfig = receiptConfig;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _storePos != null;
+
     public async Task<BsonDocument?> GetByBillNoAsync(string billNo, CancellationToken ct = default)
     {
         var trimmed = billNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return null;
+
+        if (IsCentralOnline)
+        {
+            try
+            {
+                using var json = await _storePos!.GetBillAsync(trimmed, ct);
+                return MapCentralBillToDoc(json.RootElement);
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+        }
+
         return await _bills.Find(Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
             Builders<BsonDocument>.Filter.Eq("billNo", trimmed))).FirstOrDefaultAsync(ct);
@@ -59,6 +86,66 @@ public sealed class BillDocumentService
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
+
+        if (IsCentralOnline)
+        {
+            var search = !string.IsNullOrWhiteSpace(invoiceNo)
+                ? invoiceNo
+                : !string.IsNullOrWhiteSpace(customerName)
+                    ? customerName
+                    : !string.IsNullOrWhiteSpace(customerPhone)
+                        ? customerPhone
+                        : null;
+
+            using var json = await _storePos!.ListBillsAsync(search, Math.Min(200, limit * 3), ct);
+            var docs = new List<BsonDocument>();
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in json.RootElement.EnumerateArray())
+                    docs.Add(MapCentralBillToDoc(el));
+            }
+
+            IEnumerable<BsonDocument> query = docs;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var st = status.Trim();
+                query = query.Where(d =>
+                    string.Equals(ReadString(d, "status") ?? "posted", st, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(invoiceNo))
+            {
+                var q = invoiceNo.Trim();
+                query = query.Where(d =>
+                    (ReadString(d, "billNo") ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(customerName))
+            {
+                var n = customerName.Trim();
+                query = query.Where(d =>
+                    (ReadString(d, "customerName") ?? "").Contains(n, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(customerPhone))
+            {
+                var digits = new string(customerPhone.Trim().Where(char.IsDigit).ToArray());
+                if (digits.Length > 0)
+                {
+                    query = query.Where(d =>
+                        (ReadString(d, "customerPhone") ?? "").Contains(digits, StringComparison.Ordinal));
+                }
+            }
+
+            return query
+                .Select(MapSearchRow)
+                .Where(r => r != null)
+                .Cast<BillSearchRow>()
+                .Where(r => InDateRange(r.SortUtc, dateFrom, dateTo))
+                .Take(limit)
+                .ToList();
+        }
+
         var filters = new List<FilterDefinition<BsonDocument>>
         {
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
@@ -89,13 +176,13 @@ public sealed class BillDocumentService
             }
         }
 
-        var docs = await _bills
+        var localDocs = await _bills
             .Find(Builders<BsonDocument>.Filter.And(filters))
             .Sort(Builders<BsonDocument>.Sort.Descending("createdAtUtc"))
             .Limit(limit * 3)
             .ToListAsync(ct);
 
-        var rows = docs
+        var rows = localDocs
             .Select(MapSearchRow)
             .Where(r => r != null)
             .Cast<BillSearchRow>()
@@ -111,6 +198,16 @@ public sealed class BillDocumentService
         var trimmed = billNo.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return false;
+
+        if (IsCentralOnline)
+        {
+            if (!string.IsNullOrWhiteSpace(excludeBillNo)
+                && string.Equals(trimmed, excludeBillNo.Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+            var doc = await GetByBillNoAsync(trimmed, ct);
+            return doc != null;
+        }
+
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
             Builders<BsonDocument>.Filter.Eq("billNo", trimmed));
@@ -148,12 +245,63 @@ public sealed class BillDocumentService
             { "posCounter", _store.PosCounter },
         };
 
+        if (IsCentralOnline)
+        {
+            await _storePos!.AppendBillPrintAuditAsync(
+                billNo.Trim(),
+                new
+                {
+                    kind,
+                    printedBy,
+                    printedAtUtc = entry["printedAtUtc"].AsString,
+                    posCounter = _store.PosCounter,
+                },
+                ct);
+            return;
+        }
+
         await _bills.UpdateOneAsync(
             Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
                 Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
             Builders<BsonDocument>.Update.Push("printAudit", entry),
             cancellationToken: ct);
+    }
+
+    internal static BsonDocument MapCentralBillToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+
+        if (el.TryGetProperty("billNo", out var billNoEl) && billNoEl.ValueKind == JsonValueKind.String)
+            doc["billNo"] = billNoEl.GetString() ?? "";
+        if (el.TryGetProperty("storeId", out var storeIdEl) && storeIdEl.ValueKind == JsonValueKind.String)
+            doc["storeId"] = storeIdEl.GetString() ?? "";
+        if (el.TryGetProperty("posCounter", out var posEl) && posEl.ValueKind == JsonValueKind.String)
+            doc["posCounter"] = posEl.GetString() ?? "";
+        if (el.TryGetProperty("status", out var statusEl) && statusEl.ValueKind == JsonValueKind.String)
+            doc["status"] = statusEl.GetString() ?? "posted";
+        else if (!doc.Contains("status"))
+            doc["status"] = "posted";
+
+        if (el.TryGetProperty("deviceId", out var deviceEl) && deviceEl.ValueKind == JsonValueKind.String)
+            doc["deviceId"] = deviceEl.GetString() ?? "";
+
+        if (!doc.Contains("createdAtUtc")
+            && el.TryGetProperty("createdAt", out var createdEl)
+            && createdEl.ValueKind != JsonValueKind.Null
+            && createdEl.ValueKind != JsonValueKind.Undefined)
+        {
+            if (createdEl.ValueKind == JsonValueKind.String)
+                doc["createdAtUtc"] = createdEl.GetString() ?? "";
+            else if (createdEl.TryGetDateTime(out var dt))
+                doc["createdAtUtc"] = dt.ToUniversalTime().ToString("O");
+        }
+
+        return doc;
     }
 
     private static bool InDateRange(DateTime utc, DateTime? from, DateTime? to)

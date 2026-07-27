@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -15,17 +18,30 @@ public sealed class BillMarginAggregationService
     public const int DefaultLimit = 500;
 
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public BillMarginAggregationService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
 
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
+
     public async Task<BillMarginSnapshot> LoadAsync(
         string storeId,
         BillMarginQuery query,
         CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+            return await LoadOnlineAsync(query, ct);
+
         var limit = Math.Clamp(query.Limit, 1, DefaultLimit);
         var billsColl = _db.GetCollection<BsonDocument>("store_bills");
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
@@ -82,6 +98,154 @@ public sealed class BillMarginAggregationService
             TotalDiscount = totalDiscount,
             TotalMargin = totalMargin,
             TotalMarginPercent = ComputeMarginPercent(totalMargin, totalCost),
+        };
+    }
+
+    private async Task<BillMarginSnapshot> LoadOnlineAsync(BillMarginQuery query, CancellationToken ct)
+    {
+        var limit = Math.Clamp(query.Limit, 1, DefaultLimit);
+        var (period, from, to) = OnlineSalesPeriodMapper.Resolve(
+            query.BusinessDate, query.UseDateRange, query.DateFrom, query.DateTo);
+
+        using var json = await _dashboardApi!.GetBillMarginAsync(period, from, to, ct);
+        var root = json.RootElement;
+        if (!root.TryGetProperty("rows", out var rowsEl) || rowsEl.ValueKind != JsonValueKind.Array)
+        {
+            return new BillMarginSnapshot
+            {
+                Rows = Array.Empty<BillMarginRow>(),
+            };
+        }
+
+        var allRows = new List<(BillMarginRow Row, string PosCounter)>();
+        foreach (var el in rowsEl.EnumerateArray())
+            allRows.Add(MapOnlineRow(el));
+
+        IEnumerable<(BillMarginRow Row, string PosCounter)> filtered = allRows;
+        if (!string.IsNullOrWhiteSpace(query.PosCounterFilter))
+        {
+            var pos = query.PosCounterFilter.Trim();
+            filtered = filtered.Where(r => string.Equals(r.PosCounter, pos, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.InvoiceNo))
+        {
+            var q = query.InvoiceNo.Trim();
+            filtered = filtered.Where(r => r.Row.BillNo.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SalesmanGroupKey))
+        {
+            if (query.SalesmanGroupKey.StartsWith("id:", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Salesman-ID based filtering is not available for bill margin in Online mode.");
+
+            var key = query.SalesmanGroupKey.Trim();
+            filtered = filtered.Where(r => MatchesOnlineSalesmanGroupKey(r.Row, key));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.SalesmanCode))
+        {
+            var code = query.SalesmanCode.Trim();
+            filtered = filtered.Where(r =>
+                string.Equals(r.Row.SalesmanCode, code, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Row.SalesmanName, code, StringComparison.OrdinalIgnoreCase)
+                || r.Row.SalesmanName.Contains(code, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var orderedRows = filtered.Select(r => r.Row).OrderByDescending(r => r.SortUtc).ToList();
+        var totalMatched = orderedRows.Count;
+        var rows = orderedRows.Take(limit).ToList();
+
+        var totalCost = rows.Sum(r => r.CostPrice);
+        var totalSelling = rows.Sum(r => r.SellingPrice);
+        var totalDiscount = rows.Sum(r => r.Discount);
+        var totalMargin = rows.Sum(r => r.MarginAmount);
+
+        return new BillMarginSnapshot
+        {
+            Rows = rows,
+            TotalMatched = totalMatched,
+            WasTruncated = totalMatched > limit,
+            TotalCost = totalCost,
+            TotalSelling = totalSelling,
+            TotalDiscount = totalDiscount,
+            TotalMargin = totalMargin,
+            TotalMarginPercent = ComputeMarginPercent(totalMargin, totalCost),
+        };
+    }
+
+    private static bool MatchesOnlineSalesmanGroupKey(BillMarginRow row, string groupKey)
+    {
+        if (string.Equals(groupKey, "__legacy__", StringComparison.OrdinalIgnoreCase))
+            return string.IsNullOrWhiteSpace(row.SalesmanCode) && string.IsNullOrWhiteSpace(row.SalesmanName);
+
+        if (groupKey.StartsWith("code:", StringComparison.OrdinalIgnoreCase))
+        {
+            var code = groupKey["code:".Length..];
+            return string.Equals(row.SalesmanCode, code, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (groupKey.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = groupKey["name:".Length..];
+            return string.Equals(row.SalesmanName, name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return true;
+    }
+
+    private static (BillMarginRow Row, string PosCounter) MapOnlineRow(JsonElement el)
+    {
+        var postedAtRaw = CentralDashboardClient.ReadString(el, "postedAt");
+        var sortUtc = DateTime.MinValue;
+        if (!string.IsNullOrWhiteSpace(postedAtRaw)
+            && DateTime.TryParse(postedAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            sortUtc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+
+        var postedLocal = sortUtc == DateTime.MinValue
+            ? "—"
+            : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+
+        var pos = CentralDashboardClient.ReadString(el, "posCounter");
+        var costPrice = CentralDashboardClient.ReadDecimal(el, "costPrice");
+        var sellingPrice = CentralDashboardClient.ReadDecimal(el, "sellingPrice");
+        var marginAmount = CentralDashboardClient.ReadDecimal(el, "marginAmount");
+
+        var row = new BillMarginRow
+        {
+            BillNo = CentralDashboardClient.ReadString(el, "billNo"),
+            BillDate = CentralDashboardClient.ReadString(el, "billDate"),
+            CustomerName = CentralDashboardClient.ReadString(el, "customerName"),
+            SalesmanCode = CentralDashboardClient.ReadString(el, "salesmanCode"),
+            SalesmanName = CentralDashboardClient.ReadString(el, "salesmanName"),
+            CounterDisplay = CounterDisplayFormatter.Format(pos, ""),
+            PostedAtLocal = postedLocal,
+            TotalQty = CentralDashboardClient.ReadDecimal(el, "qty"),
+            CostPrice = costPrice,
+            SellingPrice = sellingPrice,
+            Discount = CentralDashboardClient.ReadDecimal(el, "discount"),
+            MarginAmount = marginAmount,
+            MarginPercent = CentralDashboardClient.ReadDecimal(el, "marginPercentage"),
+            HasReturn = ReadBool(el, "hasReturn"),
+            ReturnNo = CentralDashboardClient.ReadString(el, "returnNo"),
+            HasAdjustment = ReadBool(el, "hasAdjustment"),
+            AdjustmentNo = CentralDashboardClient.ReadString(el, "adjustmentNo"),
+            SortUtc = sortUtc,
+        };
+
+        return (row, pos);
+    }
+
+    private static bool ReadBool(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var p))
+            return false;
+        return p.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => bool.TryParse(p.GetString(), out var b) && b,
+            _ => false,
         };
     }
 

@@ -132,12 +132,40 @@ public sealed class WhatsAppBillService
 
         if (!string.IsNullOrWhiteSpace(billNo))
         {
-            await _bills.UpdateOneAsync(
-                Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
-                    Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
-                Builders<BsonDocument>.Update.Set("whatsapp", whatsapp),
-                cancellationToken: ct);
+            var services = _getServices();
+            if (services.CentralMode.IsOnlineMode)
+            {
+                try
+                {
+                    await services.StorePos.UpdateBillWhatsAppAsync(
+                        billNo.Trim(),
+                        new
+                        {
+                            whatsapp = new
+                            {
+                                status = status.ToString().ToLowerInvariant(),
+                                sentAtUtc = DateTime.UtcNow.ToString("O"),
+                                phone = phoneE164,
+                                messageId = result?.MessageId,
+                                error = string.IsNullOrWhiteSpace(error) ? null : error.Trim(),
+                            },
+                        },
+                        ct);
+                }
+                catch
+                {
+                    // Fail closed for persistence: still return outcome to caller.
+                }
+            }
+            else
+            {
+                await _bills.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("storeId", _store.StoreId),
+                        Builders<BsonDocument>.Filter.Eq("billNo", billNo.Trim())),
+                    Builders<BsonDocument>.Update.Set("whatsapp", whatsapp),
+                    cancellationToken: ct);
+            }
         }
 
         return new WhatsAppSendOutcome

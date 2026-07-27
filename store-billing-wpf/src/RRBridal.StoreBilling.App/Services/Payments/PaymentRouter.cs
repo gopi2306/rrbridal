@@ -6,6 +6,8 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Payments;
 
@@ -41,6 +43,8 @@ public sealed class PaymentRouter : IPaymentRouter
     private readonly IMongoCollection<LocalPaymentDoc> _payments;
     private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly StoreContext _storeContext;
+    private CentralOnlineModeService? _centralMode;
+    private CentralStorePosClient? _storePos;
 
     public PaymentRouter(IPaymentProvider pineLabs, IPaymentProvider razorpay, IMongoDatabase localDb, StoreContext storeContext)
     {
@@ -49,6 +53,12 @@ public sealed class PaymentRouter : IPaymentRouter
         _payments = localDb.GetCollection<LocalPaymentDoc>("local_payments");
         _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _storeContext = storeContext;
+    }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
+    {
+        _centralMode = centralMode;
+        _storePos = storePos;
     }
 
     public async Task<PaymentResult> PayAndRecordAsync(
@@ -105,6 +115,28 @@ public sealed class PaymentRouter : IPaymentRouter
             result = await impl.PayAsync(request, ct);
         }
 
+        var createdAt = DateTime.UtcNow;
+        var payload = new
+        {
+            invoiceNo = request.InvoiceNo,
+            provider = result.Provider.ToString(),
+            amount = request.Amount,
+            currency = request.Currency,
+            status = result.Status,
+            providerReference = result.ProviderReference,
+            posCounter = _storeContext.PosCounter,
+            deviceId = _storeContext.DeviceId,
+            createdAt = createdAt.ToString("O"),
+        };
+
+        if (_centralMode?.IsOnlineMode == true)
+        {
+            if (_storePos == null)
+                throw new InvalidOperationException("Central store-pos is not configured for online payments.");
+            await _storePos.PostGatewayPaymentAsync(payload, ct);
+            return result;
+        }
+
         var paymentDoc = new LocalPaymentDoc
         {
             InvoiceNo = request.InvoiceNo,
@@ -114,7 +146,7 @@ public sealed class PaymentRouter : IPaymentRouter
             Status = result.Status,
             ProviderReference = result.ProviderReference,
             RawResponseJson = result.RawResponseJson,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = createdAt,
             StoreId = _storeContext.StoreId,
             DeviceId = _storeContext.DeviceId,
             PosCounter = _storeContext.PosCounter,
@@ -131,7 +163,7 @@ public sealed class PaymentRouter : IPaymentRouter
             { "storeId", _storeContext.StoreId },
             { "deviceId", _storeContext.DeviceId },
             { "type", "PaymentRecorded" },
-            { "createdAt", DateTime.UtcNow.ToString("O") },
+            { "createdAt", createdAt.ToString("O") },
             {
                 "payload",
                 new BsonDocument
@@ -142,6 +174,7 @@ public sealed class PaymentRouter : IPaymentRouter
                     { "currency", request.Currency },
                     { "status", result.Status },
                     { "providerReference", result.ProviderReference },
+                    { "posCounter", _storeContext.PosCounter },
                 }
             },
             { "hash", JsonSerializer.Serialize(new { request.InvoiceNo, request.Amount, request.Currency, result.Provider, result.ProviderReference }) },
@@ -153,4 +186,3 @@ public sealed class PaymentRouter : IPaymentRouter
         return result;
     }
 }
-

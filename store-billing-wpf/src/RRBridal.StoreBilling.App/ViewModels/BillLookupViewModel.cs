@@ -260,52 +260,89 @@ public partial class BillLookupViewModel : ObservableObject
 
     private async Task<string?> ResolveBillNoAsync(string input)
     {
-        var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
-        var storeId = _services.StoreContext.StoreId;
         var digits = new string(input.Where(char.IsDigit).ToArray());
-
-        BsonDocument? doc = null;
 
         if (digits.Length is >= 3 and <= 4)
         {
-            var regex = new BsonRegularExpression($"{Regex.Escape(digits)}$", "i");
-            var filter = Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-                Builders<BsonDocument>.Filter.Regex("billNo", regex));
-            var sort = Builders<BsonDocument>.Sort.Descending("createdAtUtc");
-            var matches = await coll.Find(filter).Sort(sort).Limit(20).ToListAsync();
-
-            if (matches.Count == 0)
-                return null;
-
-            if (matches.Count == 1)
-            {
-                doc = matches[0];
-            }
-            else
-            {
-                var dlg = new BillPickDialog(matches) { Owner = Application.Current.MainWindow };
-                if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
-                    return null;
-
-                doc = matches.FirstOrDefault(m => m.GetValue("billNo", "").AsString == dlg.SelectedBillNo)
-                    ?? await coll.Find(Builders<BsonDocument>.Filter.And(
-                        Builders<BsonDocument>.Filter.Eq("storeId", storeId),
-                        Builders<BsonDocument>.Filter.Eq("billNo", dlg.SelectedBillNo))).FirstOrDefaultAsync();
-            }
+            return _services.CentralMode.IsOnlineMode
+                ? await ResolveBillNoBySuffixOnlineAsync(digits)
+                : await ResolveBillNoBySuffixLocalAsync(digits);
         }
-        else
+
+        var doc = await _services.BillDocuments.GetByBillNoAsync(input);
+        if (doc == null && digits.Length > 0)
         {
-            doc = await _services.BillDocuments.GetByBillNoAsync(input);
-            if (doc == null && digits.Length > 0)
-            {
-                var normalized = input.Replace(" ", "-", StringComparison.Ordinal);
-                if (!string.Equals(normalized, input, StringComparison.Ordinal))
-                    doc = await _services.BillDocuments.GetByBillNoAsync(normalized);
-            }
+            var normalized = input.Replace(" ", "-", StringComparison.Ordinal);
+            if (!string.Equals(normalized, input, StringComparison.Ordinal))
+                doc = await _services.BillDocuments.GetByBillNoAsync(normalized);
         }
 
         return doc?.GetValue("billNo", "").AsString;
+    }
+
+    private async Task<string?> ResolveBillNoBySuffixLocalAsync(string digits)
+    {
+        var coll = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
+        var storeId = _services.StoreContext.StoreId;
+
+        var regex = new BsonRegularExpression($"{Regex.Escape(digits)}$", "i");
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+            Builders<BsonDocument>.Filter.Regex("billNo", regex));
+        var sort = Builders<BsonDocument>.Sort.Descending("createdAtUtc");
+        var matches = await coll.Find(filter).Sort(sort).Limit(20).ToListAsync();
+
+        if (matches.Count == 0)
+            return null;
+
+        if (matches.Count == 1)
+            return matches[0].GetValue("billNo", "").AsString;
+
+        var dlg = new BillPickDialog(matches) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
+            return null;
+
+        return dlg.SelectedBillNo;
+    }
+
+    private async Task<string?> ResolveBillNoBySuffixOnlineAsync(string digits)
+    {
+        // Online mode: never hit the local store_bills collection — search central via
+        // BillDocuments.SearchBillsAsync (which itself talks to CentralStorePosClient).
+        var rows = await _services.BillDocuments.SearchBillsAsync(
+            invoiceNo: digits,
+            dateFrom: null,
+            dateTo: null,
+            customerName: null,
+            customerPhone: null,
+            status: null,
+            limit: 100);
+
+        var matches = rows
+            .Where(r => r.BillNo.EndsWith(digits, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(r => r.SortUtc)
+            .Take(20)
+            .ToList();
+
+        if (matches.Count == 0)
+            return null;
+
+        if (matches.Count == 1)
+            return matches[0].BillNo;
+
+        var pickDocs = matches.Select(r => new BsonDocument
+        {
+            { "billNo", r.BillNo },
+            { "billDate", r.BillDate },
+            { "customerName", r.CustomerName },
+            { "payable", r.Payable },
+        });
+
+        var dlg = new BillPickDialog(pickDocs) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.SelectedBillNo))
+            return null;
+
+        return dlg.SelectedBillNo;
     }
 
     private bool CanStartReturn() => Detail.IsLoaded && HasRemainingReturnableQty;

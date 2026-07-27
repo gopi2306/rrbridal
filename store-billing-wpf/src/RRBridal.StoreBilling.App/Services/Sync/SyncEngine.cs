@@ -138,7 +138,7 @@ public sealed class SyncEngine : ISyncEngine
         }
     }
 
-    private async Task PushPendingAsync(CancellationToken ct)
+    public async Task PushPendingAsync(CancellationToken ct)
     {
         var pending = await _outbox
             .Find(new BsonDocument("status", "pending"))

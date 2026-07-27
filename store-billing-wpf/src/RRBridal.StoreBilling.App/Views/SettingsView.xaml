@@ -71,7 +71,14 @@
                                     <TextBlock Text="Store sync" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                     <TextBlock Text="Push local bills and pull master data from central."
                                                Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <CheckBox Content="Central Online mode (Online = direct central API calls; Offline = local only)"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingPreferCentralOnline}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Offline changes stay local and sync to central when Online mode is enabled again."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                     <WrapPanel Margin="0,0,0,14">
+                                        <Button Content="Save mode" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
+                                                Command="{Binding SaveBillingSettingsCommand}" MinWidth="96"/>
                                         <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,8"
                                                 Command="{Binding RefreshStatusCommand}" MinWidth="88"/>
                                         <Button Content="Re-sync products" Style="{StaticResource OutlineButton}" Margin="0,0,8,8"
@@ -92,6 +99,7 @@
                                             <TextBlock Text="{Binding SyncDiagnosticsText}" Style="{StaticResource TextCaption}"
                                                        TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6"/>
                                             <TextBlock Text="{Binding AutoSyncStatusText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding CentralOnlineStatusText}" Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                                             <TextBlock Text="{Binding MongoHealthStatusText}" Style="{StaticResource TextCaption}"
                                                        TextWrapping="Wrap" Margin="0,8,0,0"/>
                                         </StackPanel>

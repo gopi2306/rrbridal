@@ -271,6 +271,12 @@
                                        VerticalAlignment="Center" Margin="8,4"/>
                         </Border>
                         <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
+                                ToolTip="{Binding CentralOnlineStatusChip}">
+                            <TextBlock Text="{Binding CentralOnlineStatusChip}" Style="{StaticResource TextCaption}"
+                                       FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"
+                                       VerticalAlignment="Center" Margin="8,4"/>
+                        </Border>
+                        <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
                                 ToolTip="Business day status — click to open Day Close (Ctrl+W)">
                             <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
                                     Command="{Binding NavigateDayCloseCommand}">

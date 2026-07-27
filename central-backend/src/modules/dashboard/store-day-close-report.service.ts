@@ -144,6 +144,11 @@ export class StoreDayCloseReportService {
     private readonly dayCloseDashboardService: StoreDayCloseDashboardService,
   ) {}
 
+  /** JSON report for Online POS (same payload used by CSV/XLSX export). */
+  async getReport(options: Omit<StoreDayCloseReportOptions, 'format'>): Promise<StoreDayCloseReportData> {
+    return await this.loadReportData({ ...options, format: 'csv' });
+  }
+
   async buildExport(options: StoreDayCloseReportOptions): Promise<StoreDayCloseReportExportResult> {
     const data = await this.loadReportData(options);
     const scope = options.posCounter?.trim()

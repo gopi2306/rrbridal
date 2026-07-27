@@ -2,9 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -31,12 +36,24 @@ public sealed class SalesmanSalesSummaryRow
 
 public sealed class SalesmanSalesAggregationService
 {
+    private const string CentralLegacySalesmanId = "__legacy__";
+
     private readonly IMongoDatabase _db;
+    private CentralOnlineModeService? _centralMode;
+    private CentralDashboardClient? _dashboardApi;
 
     public SalesmanSalesAggregationService(IMongoDatabase localDb)
     {
         _db = localDb;
     }
+
+    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    {
+        _centralMode = centralMode;
+        _dashboardApi = dashboardApi;
+    }
+
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
 
     public async Task<IReadOnlyList<SalesmanSalesSummaryRow>> AggregateAsync(
         string storeId,
@@ -47,6 +64,15 @@ public sealed class SalesmanSalesAggregationService
         DateTime? dateTo,
         CancellationToken ct = default)
     {
+        if (IsCentralOnline)
+        {
+            if (!string.IsNullOrWhiteSpace(posCounterFilter))
+                throw new InvalidOperationException(
+                    "POS counter filtering for salesman sales is not available in Online mode.");
+
+            return await AggregateOnlineAsync(businessDate, useDateRange, dateFrom, dateTo, ct);
+        }
+
         var query = new StoreBillListQuery
         {
             PosCounterFilter = posCounterFilter,
@@ -104,6 +130,47 @@ public sealed class SalesmanSalesAggregationService
                 TotalPayable = kv.Value.Payable,
                 TotalCash = kv.Value.Cash,
             })
+            .OrderByDescending(r => r.TotalPayable)
+            .ThenBy(r => r.SalesmanName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<SalesmanSalesSummaryRow>> AggregateOnlineAsync(
+        DateTime? businessDate,
+        bool useDateRange,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        CancellationToken ct)
+    {
+        var (period, from, to) = OnlineSalesPeriodMapper.Resolve(businessDate, useDateRange, dateFrom, dateTo);
+        using var json = await _dashboardApi!.GetSalesmenAsync(period, from, to, ct);
+        var root = json.RootElement;
+        if (!root.TryGetProperty("salesmen", out var salesmenEl) || salesmenEl.ValueKind != JsonValueKind.Array)
+            return Array.Empty<SalesmanSalesSummaryRow>();
+
+        var rows = new List<SalesmanSalesSummaryRow>();
+        foreach (var el in salesmenEl.EnumerateArray())
+        {
+            var rawId = CentralDashboardClient.ReadString(el, "salesmanId");
+            var id = string.Equals(rawId, CentralLegacySalesmanId, StringComparison.OrdinalIgnoreCase) ? "" : rawId;
+            var code = CentralDashboardClient.ReadString(el, "salesmanCode");
+            var name = CentralDashboardClient.ReadString(el, "salesmanName");
+            var groupKey = ResolveSalesmanGroupKey(id, code, name);
+
+            rows.Add(new SalesmanSalesSummaryRow
+            {
+                GroupKey = groupKey,
+                SalesmanCode = code,
+                SalesmanName = groupKey == "__legacy__" ? "(Legacy bills)" : name,
+                SalesmanId = id,
+                BillCount = CentralDashboardClient.ReadInt(el, "invoices"),
+                TotalQty = CentralDashboardClient.ReadDecimal(el, "itemsSold"),
+                TotalPayable = CentralDashboardClient.ReadDecimal(el, "totalBillAmount"),
+                TotalCash = 0m,
+            });
+        }
+
+        return rows
             .OrderByDescending(r => r.TotalPayable)
             .ThenBy(r => r.SalesmanName, StringComparer.OrdinalIgnoreCase)
             .ToList();
