@@ -126,6 +126,10 @@ public partial class MainWindow : Window, IFocusSearchService
                 vm.NavigateCommand.Execute(ShellPage.DailyExpenses);
                 e.Handled = true;
                 break;
+            case Key.V when !shift:
+                vm.NavigateCommand.Execute(ShellPage.Vouchers);
+                e.Handled = true;
+                break;
             case Key.OemComma when !shift:
                 vm.NavigateCommand.Execute(ShellPage.Settings);
                 e.Handled = true;

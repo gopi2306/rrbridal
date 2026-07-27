@@ -49,6 +49,9 @@ public sealed class BillDeleteService
 
     public async Task<BillDeleteResult> DeleteAsync(string billNo, CancellationToken ct = default)
     {
+        if (!_store.IsPrimaryCounter)
+            return BillDeleteResult.Fail("Only POS 1 (admin) can delete bills.");
+
         var trimmed = billNo?.Trim() ?? "";
         if (string.IsNullOrEmpty(trimmed))
             return BillDeleteResult.Fail("Bill number is required.");

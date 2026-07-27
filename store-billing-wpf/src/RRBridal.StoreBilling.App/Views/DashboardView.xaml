@@ -796,7 +796,8 @@
                                         Foreground="{StaticResource BrushNegative}"
                                         BorderBrush="{StaticResource BrushNegative}"
                                         Command="{Binding DeleteSelectedBillsCommand}"
-                                        ToolTip="Delete checked bills (restores stock and syncs to central). Bills with return/adjustment cannot be deleted."/>
+                                        Visibility="{Binding ShowDeleteBills, Converter={StaticResource BoolToVis}}"
+                                        ToolTip="Delete checked bills (restores stock and syncs to central). Bills with return/adjustment cannot be deleted. Admin (POS 1) only."/>
                                 <Button Content="Download report" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
                                         Command="{Binding DownloadBillListReportCommand}"/>
                                 <Button Content="Search" Style="{StaticResource PrimaryButton}" Width="100"
@@ -820,7 +821,8 @@
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="" Width="36" CanUserResize="False">
+                                <DataGridTemplateColumn Header="" Width="36" CanUserResize="False"
+                                                        Visibility="{Binding DataContext.ShowDeleteBills, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource BoolToVis}}">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"

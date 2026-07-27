@@ -52,6 +52,8 @@ public partial class ShellViewModel : ObservableObject
 
     public DayCloseViewModel DayClose { get; }
 
+    public VoucherGatewayViewModel Vouchers { get; }
+
     public SettingsViewModel Settings { get; }
 
     private ShellPage _lastPage = ShellPage.Billing;
@@ -139,17 +141,41 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsPrimaryCounter => _services.StoreContext.IsPrimaryCounter;
 
-    public bool ShowDashboardNav => IsPrimaryCounter;
+    public bool ShowBillingNav => CanAccess(ShellPage.Billing);
 
-    public bool ShowAnalyticsNav => IsPrimaryCounter;
+    public bool ShowVouchersNav => CanAccess(ShellPage.Vouchers);
 
-    public bool ShowOnlineSalesNav => IsPrimaryCounter;
+    public bool ShowQuotationsNav => CanAccess(ShellPage.QuotationManagement);
 
-    public bool ShowCreditBillsNav => IsPrimaryCounter;
+    public bool ShowBarcodesNav => CanAccess(ShellPage.Barcodes);
 
-    public bool ShowLedgerNav => IsPrimaryCounter;
+    public bool ShowDashboardNav => CanAccess(ShellPage.Dashboard);
 
-    public bool ShowSettingsNav => IsPrimaryCounter;
+    public bool ShowAnalyticsNav => CanAccess(ShellPage.Analytics);
+
+    public bool ShowOnlineSalesNav => CanAccess(ShellPage.OnlineSales);
+
+    public bool ShowCreditBillsNav => CanAccess(ShellPage.CreditBills);
+
+    public bool ShowCustomersNav => CanAccess(ShellPage.Customers);
+
+    public bool ShowSalesmanNav => CanAccess(ShellPage.Salesmen);
+
+    public bool ShowLedgerNav => CanAccess(ShellPage.Ledger);
+
+    public bool ShowReturnsNav => CanAccess(ShellPage.SaleReturn);
+
+    public bool ShowBillLookupNav => CanAccess(ShellPage.BillLookup);
+
+    public bool ShowDayCloseNav => CanAccess(ShellPage.DayClose);
+
+    public bool ShowDuplicateNav => CanAccess(ShellPage.DuplicateBill);
+
+    public bool ShowAdjustmentsNav => CanAccess(ShellPage.Adjustments);
+
+    public bool ShowDailyExpensesNav => CanAccess(ShellPage.DailyExpenses);
+
+    public bool ShowSettingsNav => CanAccess(ShellPage.Settings);
 
     public bool HasPendingNotifications => PendingNotificationCount > 0;
 
@@ -190,8 +216,16 @@ public partial class ShellViewModel : ObservableObject
             AdjustmentBill.OriginalBillNo = billNo ?? "";
             _ = AdjustmentBill.LoadBillByNoAsync(billNo ?? "");
         };
-        Dashboard.NavigateToOnlineSales = () => CurrentPage = ShellPage.OnlineSales;
-        Dashboard.NavigateToCreditBills = () => CurrentPage = ShellPage.CreditBills;
+        Dashboard.NavigateToOnlineSales = () =>
+        {
+            if (CanAccess(ShellPage.OnlineSales))
+                CurrentPage = ShellPage.OnlineSales;
+        };
+        Dashboard.NavigateToCreditBills = () =>
+        {
+            if (CanAccess(ShellPage.CreditBills))
+                CurrentPage = ShellPage.CreditBills;
+        };
         Analytics = new AnalyticsViewModel(services);
         OnlineSales = new OnlineSalesViewModel(services);
         Quotation = new QuotationViewModel(services);
@@ -222,11 +256,22 @@ public partial class ShellViewModel : ObservableObject
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
         DayClose = new DayCloseViewModel(services);
+        Vouchers = new VoucherGatewayViewModel
+        {
+            OpenVoucher = OpenVoucherFromGateway,
+            OpenCodReceipt = () =>
+            {
+                if (CanAccess(ShellPage.OnlineSales))
+                    CurrentPage = ShellPage.OnlineSales;
+            },
+        };
         Settings = new SettingsViewModel(services);
 
         services.NotifyDaySessionChanged = () => _ = RefreshDaySessionStatusAsync();
         services.ShellUiSettings.Changed += () =>
             Application.Current.Dispatcher.Invoke(ApplyShellUiSettings);
+        services.PosBillingSettings.Changed += () =>
+            Application.Current.Dispatcher.Invoke(RefreshScreenAccessNav);
 
         ApplyShellUiSettings();
         NotifyPageVisibility();
@@ -235,8 +280,8 @@ public partial class ShellViewModel : ObservableObject
         _services.CentralMode.StatusChanged += OnCentralModeStatusChanged;
         MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
         CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
-        if (!IsPrimaryCounter && IsRestrictedPage(CurrentPage))
-            CurrentPage = ShellPage.Billing;
+        if (!CanAccess(CurrentPage))
+            CurrentPage = FirstAccessiblePage();
 
         _ = RefreshBrandingAsync();
         _ = RefreshNotificationCountAsync();
@@ -253,9 +298,95 @@ public partial class ShellViewModel : ObservableObject
         CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
     }
 
-    private static bool IsRestrictedPage(ShellPage page) =>
-        page is ShellPage.Dashboard or ShellPage.Analytics or ShellPage.OnlineSales or ShellPage.CreditBills
-            or ShellPage.Ledger or ShellPage.DailyExpenses or ShellPage.Settings;
+    public bool CanAccess(ShellPage page)
+    {
+        var counter = _services.StoreContext.PosCounter?.Trim() ?? "1";
+
+        // Settings is always admin (counter 1) only.
+        if (page == ShellPage.Settings)
+            return string.Equals(counter, "1", StringComparison.OrdinalIgnoreCase);
+
+        var access = _services.PosBillingSettings.Current.ScreenAccess
+                     ?? CounterScreenAccessSettings.CreateDefaults();
+
+        return page switch
+        {
+            ShellPage.Billing => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Billing), counter),
+            ShellPage.Vouchers => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Vouchers), counter),
+            ShellPage.Quotation or ShellPage.QuotationManagement =>
+                access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Quotations), counter),
+            ShellPage.Barcodes => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Barcodes), counter),
+            ShellPage.Dashboard => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Dashboard), counter),
+            ShellPage.Analytics => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Analytics), counter),
+            ShellPage.OnlineSales => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OnlineSales), counter),
+            ShellPage.CreditBills => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CreditBills), counter),
+            ShellPage.Customers => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Customers), counter),
+            ShellPage.Salesmen => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Salesman), counter),
+            ShellPage.Ledger => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Ledger), counter),
+            ShellPage.SaleReturn => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Returns), counter),
+            ShellPage.BillLookup => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.BillLookup), counter),
+            ShellPage.DayClose => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DayClose), counter),
+            ShellPage.DuplicateBill => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Duplicate), counter),
+            ShellPage.Adjustments => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Adjustments), counter),
+            ShellPage.DailyExpenses => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DailyExpenses), counter),
+            _ => true,
+        };
+    }
+
+    public void RefreshScreenAccessNav()
+    {
+        OnPropertyChanged(nameof(ShowBillingNav));
+        OnPropertyChanged(nameof(ShowVouchersNav));
+        OnPropertyChanged(nameof(ShowQuotationsNav));
+        OnPropertyChanged(nameof(ShowBarcodesNav));
+        OnPropertyChanged(nameof(ShowDashboardNav));
+        OnPropertyChanged(nameof(ShowAnalyticsNav));
+        OnPropertyChanged(nameof(ShowOnlineSalesNav));
+        OnPropertyChanged(nameof(ShowCreditBillsNav));
+        OnPropertyChanged(nameof(ShowCustomersNav));
+        OnPropertyChanged(nameof(ShowSalesmanNav));
+        OnPropertyChanged(nameof(ShowLedgerNav));
+        OnPropertyChanged(nameof(ShowReturnsNav));
+        OnPropertyChanged(nameof(ShowBillLookupNav));
+        OnPropertyChanged(nameof(ShowDayCloseNav));
+        OnPropertyChanged(nameof(ShowDuplicateNav));
+        OnPropertyChanged(nameof(ShowAdjustmentsNav));
+        OnPropertyChanged(nameof(ShowDailyExpensesNav));
+        OnPropertyChanged(nameof(ShowSettingsNav));
+        if (!CanAccess(CurrentPage))
+            CurrentPage = FirstAccessiblePage();
+    }
+
+    private ShellPage FirstAccessiblePage()
+    {
+        foreach (var page in new[]
+                 {
+                     ShellPage.Billing,
+                     ShellPage.Vouchers,
+                     ShellPage.QuotationManagement,
+                     ShellPage.Barcodes,
+                     ShellPage.Dashboard,
+                     ShellPage.Analytics,
+                     ShellPage.OnlineSales,
+                     ShellPage.CreditBills,
+                     ShellPage.Customers,
+                     ShellPage.Salesmen,
+                     ShellPage.Ledger,
+                     ShellPage.SaleReturn,
+                     ShellPage.BillLookup,
+                     ShellPage.DayClose,
+                     ShellPage.DuplicateBill,
+                     ShellPage.Adjustments,
+                     ShellPage.DailyExpenses,
+                     ShellPage.Settings,
+                 })
+        {
+            if (CanAccess(page))
+                return page;
+        }
+
+        return ShellPage.Billing;
+    }
 
     private void OnBrandingChanged()
     {
@@ -300,6 +431,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBarcodesPage));
         OnPropertyChanged(nameof(IsDayClosePage));
         OnPropertyChanged(nameof(IsDailyExpensesPage));
+        OnPropertyChanged(nameof(IsVouchersPage));
         OnPropertyChanged(nameof(IsSettingsPage));
     }
 
@@ -382,6 +514,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsDailyExpensesPage => CurrentPage == ShellPage.DailyExpenses;
 
+    public bool IsVouchersPage => CurrentPage == ShellPage.Vouchers;
+
     public bool IsDayClosePage => CurrentPage == ShellPage.DayClose;
 
     public bool IsSettingsPage => CurrentPage == ShellPage.Settings;
@@ -433,6 +567,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBarcodesPage));
         OnPropertyChanged(nameof(IsDayClosePage));
         OnPropertyChanged(nameof(IsDailyExpensesPage));
+        OnPropertyChanged(nameof(IsVouchersPage));
         OnPropertyChanged(nameof(IsSettingsPage));
 
         if (value == ShellPage.Settings)
@@ -480,7 +615,7 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void Navigate(ShellPage page)
     {
-        if (!IsPrimaryCounter && IsRestrictedPage(page))
+        if (!CanAccess(page))
             return;
         CurrentPage = page;
     }
@@ -507,7 +642,111 @@ public partial class ShellViewModel : ObservableObject
     private void CloseNavDrawer() => IsNavDrawerOpen = false;
 
     [RelayCommand]
-    private void NavigateDayClose() => CurrentPage = ShellPage.DayClose;
+    private void NavigateDayClose()
+    {
+        if (!CanAccess(ShellPage.DayClose))
+            return;
+        CurrentPage = ShellPage.DayClose;
+    }
+
+    private void OpenVoucherFromGateway(VoucherKind kind)
+    {
+        switch (kind)
+        {
+            case VoucherKind.Sales:
+                if (!CanAccess(ShellPage.Billing))
+                    return;
+                CurrentPage = ShellPage.Billing;
+                RequestBillingSearchFocus();
+                break;
+            case VoucherKind.Receipt:
+                if (!CanAccess(ShellPage.CreditBills))
+                    return;
+                CurrentPage = ShellPage.CreditBills;
+                break;
+            case VoucherKind.Payment:
+                _ = PostPaymentVoucherAsync();
+                break;
+            case VoucherKind.CreditNote:
+                if (!CanAccess(ShellPage.SaleReturn))
+                    return;
+                OpenCreditNoteVoucher();
+                break;
+            case VoucherKind.Journal:
+                if (!CanAccess(ShellPage.Adjustments))
+                    return;
+                CurrentPage = ShellPage.Adjustments;
+                break;
+            case VoucherKind.DailyExpense:
+                if (!CanAccess(ShellPage.DailyExpenses))
+                    return;
+                CurrentPage = ShellPage.DailyExpenses;
+                break;
+        }
+    }
+
+    private void OpenCreditNoteVoucher()
+    {
+        var owner = Application.Current?.MainWindow;
+        if (owner == null)
+            return;
+
+        if (!CreditNoteChooserDialog.TryShow(owner, out var path))
+            return;
+
+        if (path == CreditNoteVoucherPath.BillReturn)
+        {
+            SaleReturn.SourceMode = SaleReturnSourceMode.SystemBill;
+            SaleReturn.ReturnMode = ReturnMode.CreditNote;
+            CurrentPage = ShellPage.SaleReturn;
+            return;
+        }
+
+        _ = OpenDirectCustomerCreditNoteAsync(owner);
+    }
+
+    private async Task OpenDirectCustomerCreditNoteAsync(Window owner)
+    {
+        var created = await DirectCustomerCreditNoteDialog.TryShowAndPostAsync(owner, _services);
+        if (created == null)
+            return;
+
+        AppDialog.Show(
+            $"Credit note {created} created for the customer.\nIt can be applied on Billing / Credit Bills.",
+            "Direct Customer Credit Note",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private async Task PostPaymentVoucherAsync()
+    {
+        var owner = Application.Current?.MainWindow;
+        if (owner == null)
+            return;
+
+        if (!CashMovementDialog.TryShow(owner, out var amount, out var description))
+            return;
+
+        var businessDate = DaySessionService.FormatBusinessDate(DateTime.Today);
+        var (success, message) = await _services.CashMovements.PostMovementAsync(
+            CashMovementType.CashWithdrawal,
+            description,
+            amount,
+            businessDate);
+
+        AppDialog.Show(
+            message,
+            "Payment voucher",
+            MessageBoxButton.OK,
+            success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+
+        if (success)
+        {
+            _services.NotifyDaySessionChanged?.Invoke();
+            CurrentPage = ShellPage.DayClose;
+            _ = DayClose.RefreshCommand.ExecuteAsync(null);
+        }
+    }
 
     private static string GetPageLabel(ShellPage page) => page switch
     {
@@ -528,6 +767,7 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Adjustments => "Adjustments",
         ShellPage.Barcodes => "Barcodes",
         ShellPage.DailyExpenses => "Expenses",
+        ShellPage.Vouchers => "Vouchers",
         ShellPage.Settings => "Settings",
         _ => "Billing",
     };
@@ -541,7 +781,8 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.SaleReturn => "Returns · Ctrl+R · F2 clear · F3 search exchange · F1 shortcuts",
         ShellPage.DayClose => "Day Close · Ctrl+W · F2 refresh · F1 shortcuts",
         ShellPage.Dashboard => "Dashboard · Ctrl+D · F2 refresh · F1 shortcuts",
-        _ => "Ctrl+G Go To · Ctrl+A Billing · Ctrl+U Customers · F1 all shortcuts",
+        ShellPage.Vouchers => "Vouchers · Ctrl+V · 1–6 select · Enter create · F1 shortcuts",
+        _ => "Ctrl+G Go To · Ctrl+V Vouchers · Ctrl+A Billing · Ctrl+U Customers · F1 all shortcuts",
     };
 
     [RelayCommand]
@@ -563,7 +804,7 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings()
     {
-        if (!IsPrimaryCounter)
+        if (!CanAccess(ShellPage.Settings))
             return;
         CurrentPage = ShellPage.Settings;
     }
@@ -595,12 +836,15 @@ public partial class ShellViewModel : ObservableObject
         AppDialog.Show(
             "GO TO (navigation)\n" +
             "• Ctrl+G — show / hide Go To menu\n" +
-            "• Ctrl+A Billing · Ctrl+Q Quotations · Ctrl+B Barcodes\n" +
+            "• Ctrl+V Vouchers · Ctrl+A Billing · Ctrl+Q Quotations · Ctrl+B Barcodes\n" +
             "• Ctrl+R Returns · Ctrl+T Adjustments · Ctrl+J Duplicate\n" +
             "• Ctrl+O Online Sales · Ctrl+I Credit Bills\n" +
             "• Ctrl+U Customers · Ctrl+M Salesman\n" +
             "• Ctrl+D Dashboard · Ctrl+Y Analytics · Ctrl+L Ledger · Ctrl+K Bill Lookup\n" +
             "• Ctrl+W Day Close · Ctrl+E Expenses · Ctrl+, Settings\n\n" +
+            "VOUCHERS (Ctrl+V)\n" +
+            "• 1 Sales · 2 Receipt · 3 Payment · 4 Credit Note · 5 Journal · 6 Daily Expense\n" +
+            "• Enter — open selected voucher screen\n\n" +
             "ACTIONS\n" +
             "• F2 / Ctrl+N — new / clear / refresh (page-aware)\n" +
             "• F3 / Ctrl+F — focus search / product code\n" +
@@ -709,6 +953,8 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenDuplicateBill()
     {
+        if (!CanAccess(ShellPage.DuplicateBill))
+            return;
         CurrentPage = ShellPage.DuplicateBill;
         await DuplicatePrint.OnPageOpenedAsync();
     }

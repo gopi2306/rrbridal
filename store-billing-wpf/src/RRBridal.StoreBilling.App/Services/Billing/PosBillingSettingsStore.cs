@@ -42,6 +42,9 @@ public sealed class PosBillingSettingsStore
         }
     }
 
+    /// <summary>Raised after a successful SaveAsync so Shell can refresh nav visibility.</summary>
+    public event Action? Changed;
+
     public void Load()
     {
         lock (_lock)
@@ -58,6 +61,7 @@ public sealed class PosBillingSettingsStore
                 _current = string.IsNullOrWhiteSpace(json)
                     ? new PosBillingSettingsDocument()
                     : JsonSerializer.Deserialize<PosBillingSettingsDocument>(json, JsonOpts) ?? new PosBillingSettingsDocument();
+                _current.ScreenAccess ??= CounterScreenAccessSettings.CreateDefaults();
             }
             catch
             {
@@ -71,6 +75,7 @@ public sealed class PosBillingSettingsStore
         string json;
         lock (_lock)
         {
+            _current.ScreenAccess ??= CounterScreenAccessSettings.CreateDefaults();
             json = JsonSerializer.Serialize(_current, JsonOpts);
         }
 
@@ -82,6 +87,8 @@ public sealed class PosBillingSettingsStore
             else
                 File.Move(_tempFilePath, _filePath);
         }
+
+        Changed?.Invoke();
     }
 
     public void Update(Action<PosBillingSettingsDocument> mutate)

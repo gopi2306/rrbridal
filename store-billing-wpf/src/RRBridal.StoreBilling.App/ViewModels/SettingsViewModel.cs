@@ -100,6 +100,12 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _uiShowSidebarMenu;
 
+    [ObservableProperty] private bool _showCounterScreenAccessEditor;
+
+    [ObservableProperty] private string _newCounterIdText = "";
+
+    public ObservableCollection<CounterScreenAccessRow> CounterScreenAccessRows { get; } = new();
+
     [ObservableProperty] private bool _razorpayPosEnabled;
     [ObservableProperty] private string _razorpayPosUsername = "";
     [ObservableProperty] private string _razorpayPosAppKey = "";
@@ -958,8 +964,131 @@ public partial class SettingsViewModel : ObservableObject
         BillingCreditAllowPartialCollection = _services.PosBillingSettings.Current.CreditBillingAllowPartialCollection;
         BillingCreditMaxBalancePerBillText = _services.PosBillingSettings.Current.CreditBillingMaxBalancePerBill.ToString("0.##");
 
+        LoadCounterScreenAccessEditor();
+
         _services.ShellUiSettings.Load();
         UiShowSidebarMenu = _services.ShellUiSettings.Current.ShowSidebarMenu;
+    }
+
+    private void LoadCounterScreenAccessEditor()
+    {
+        ShowCounterScreenAccessEditor = _services.StoreContext.IsPrimaryCounter;
+        CounterScreenAccessRows.Clear();
+        if (!ShowCounterScreenAccessEditor)
+            return;
+
+        var access = _services.PosBillingSettings.Current.ScreenAccess
+                     ?? CounterScreenAccessSettings.CreateDefaults();
+        var known = access.KnownCounters is { Count: > 0 }
+            ? access.KnownCounters
+            : new List<string> { "1", "2", "3" };
+
+        foreach (var counter in known
+                     .Select(c => (c ?? "").Trim())
+                     .Where(c => !string.IsNullOrEmpty(c))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(c => int.TryParse(c, out var n) ? n : int.MaxValue)
+                     .ThenBy(c => c, StringComparer.OrdinalIgnoreCase))
+        {
+            CounterScreenAccessRows.Add(new CounterScreenAccessRow(counter)
+            {
+                Billing = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Billing), counter),
+                Vouchers = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Vouchers), counter),
+                Quotations = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Quotations), counter),
+                Barcodes = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Barcodes), counter),
+                Dashboard = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Dashboard), counter),
+                Analytics = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Analytics), counter),
+                OnlineSales = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OnlineSales), counter),
+                CreditBills = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CreditBills), counter),
+                Customers = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Customers), counter),
+                Salesman = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Salesman), counter),
+                Ledger = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Ledger), counter),
+                Returns = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Returns), counter),
+                BillLookup = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.BillLookup), counter),
+                DayClose = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DayClose), counter),
+                Duplicate = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Duplicate), counter),
+                Adjustments = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Adjustments), counter),
+                DailyExpenses = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DailyExpenses), counter),
+                Settings = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Settings), counter),
+            });
+        }
+    }
+
+    [RelayCommand]
+    private void AddCounterToScreenAccess()
+    {
+        var id = (NewCounterIdText ?? "").Trim();
+        if (string.IsNullOrEmpty(id))
+        {
+            LastActionText = "Enter a counter number to add (e.g. 4).";
+            return;
+        }
+
+        if (CounterScreenAccessRows.Any(r =>
+                string.Equals(r.PosCounter, id, StringComparison.OrdinalIgnoreCase)))
+        {
+            LastActionText = $"Counter {id} is already in the list.";
+            return;
+        }
+
+        CounterScreenAccessRows.Add(new CounterScreenAccessRow(id)
+        {
+            Billing = true,
+            Vouchers = true,
+            Quotations = true,
+            Barcodes = true,
+            Customers = true,
+            Salesman = true,
+            Returns = true,
+            BillLookup = true,
+            DayClose = true,
+            Duplicate = true,
+            Adjustments = true,
+        });
+        NewCounterIdText = "";
+        LastActionText = $"Counter {id} added — tick screens then Save billing settings.";
+    }
+
+    private void ApplyCounterScreenAccessToDocument(PosBillingSettingsDocument doc)
+    {
+        var access = doc.ScreenAccess ?? new CounterScreenAccessSettings();
+        access.KnownCounters = CounterScreenAccessRows.Select(r => r.PosCounter).ToList();
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Billing),
+            CounterScreenAccessRows.Where(r => r.Billing).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Vouchers),
+            CounterScreenAccessRows.Where(r => r.Vouchers).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Quotations),
+            CounterScreenAccessRows.Where(r => r.Quotations).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Barcodes),
+            CounterScreenAccessRows.Where(r => r.Barcodes).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Dashboard),
+            CounterScreenAccessRows.Where(r => r.Dashboard).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Analytics),
+            CounterScreenAccessRows.Where(r => r.Analytics).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.OnlineSales),
+            CounterScreenAccessRows.Where(r => r.OnlineSales).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.CreditBills),
+            CounterScreenAccessRows.Where(r => r.CreditBills).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Customers),
+            CounterScreenAccessRows.Where(r => r.Customers).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Salesman),
+            CounterScreenAccessRows.Where(r => r.Salesman).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Ledger),
+            CounterScreenAccessRows.Where(r => r.Ledger).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Returns),
+            CounterScreenAccessRows.Where(r => r.Returns).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.BillLookup),
+            CounterScreenAccessRows.Where(r => r.BillLookup).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.DayClose),
+            CounterScreenAccessRows.Where(r => r.DayClose).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Duplicate),
+            CounterScreenAccessRows.Where(r => r.Duplicate).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Adjustments),
+            CounterScreenAccessRows.Where(r => r.Adjustments).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.DailyExpenses),
+            CounterScreenAccessRows.Where(r => r.DailyExpenses).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Settings), new[] { "1" });
+        doc.ScreenAccess = access;
     }
 
     [RelayCommand]
@@ -995,6 +1124,8 @@ public partial class SettingsViewModel : ObservableObject
             s.CreditBillingAllowZeroAdvance = BillingCreditAllowZeroAdvance;
             s.CreditBillingAllowPartialCollection = BillingCreditAllowPartialCollection;
             s.CreditBillingMaxBalancePerBill = Math.Max(0m, maxBal);
+            if (ShowCounterScreenAccessEditor)
+                ApplyCounterScreenAccessToDocument(s);
         });
         await _services.PosBillingSettings.SaveAsync();
         if (previousOnlineMode != BillingPreferCentralOnline)

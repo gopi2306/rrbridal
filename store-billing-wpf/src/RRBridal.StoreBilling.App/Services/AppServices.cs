@@ -213,6 +213,7 @@ public sealed class AppServices
         onlineCodBills.ConfigureOnline(centralMode, billDocuments, storePos);
         creditBills.ConfigureOnline(centralMode, billDocuments, storePos);
         customerCreditNotes.ConfigureOnline(centralMode, storePos);
+        customerCreditNotes.ConfigureNumberGenerator(billNumberGenerator);
         saleReturnHistory.ConfigureOnline(centralMode, storePos);
         storeBillList.ConfigureOnline(centralMode, storePos);
         paymentRouter.ConfigureOnline(centralMode, storePos);

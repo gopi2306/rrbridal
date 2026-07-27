@@ -10,6 +10,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Customers;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
@@ -36,6 +37,7 @@ public sealed class CustomerCreditNoteService
     private readonly IMongoCollection<BsonDocument> _notes;
     private readonly IMongoCollection<BsonDocument> _cashouts;
     private readonly BillingOutboxPublisher? _outbox;
+    private BillNumberGenerator? _numbers;
     private CentralOnlineModeService? _centralMode;
     private CentralStorePosClient? _storePos;
 
@@ -45,6 +47,8 @@ public sealed class CustomerCreditNoteService
         _cashouts = localDb.GetCollection<BsonDocument>("store_credit_note_cashouts");
         _outbox = outbox;
     }
+
+    public void ConfigureNumberGenerator(BillNumberGenerator numbers) => _numbers = numbers;
 
     public void ConfigureOnline(CentralOnlineModeService centralMode, CentralStorePosClient storePos)
     {
@@ -166,6 +170,94 @@ public sealed class CustomerCreditNoteService
         if (_outbox != null)
             await _outbox.PublishCreditNoteCreatedAsync(doc, ct);
         return creditNoteNo;
+    }
+
+    /// <summary>
+    /// Issue a customer credit note with amount only (no bill / return). Used by Vouchers → Direct CN.
+    /// </summary>
+    public async Task<(bool Success, string Message, string? CreditNoteNo)> CreateDirectAsync(
+        string customerCode,
+        string customerName,
+        string customerPhone,
+        decimal amount,
+        string storeId,
+        string? reason = null,
+        CancellationToken ct = default)
+    {
+        if (amount <= 0)
+            return (false, "Amount must be greater than zero.", null);
+
+        var phoneNorm = PhoneMatchHelper.NormalizePhone(customerPhone);
+        if (string.IsNullOrEmpty(phoneNorm) || phoneNorm.Length < 10)
+            return (false, "Enter a valid 10-digit customer mobile.", null);
+
+        if (string.IsNullOrWhiteSpace(customerName))
+            return (false, "Customer name is required.", null);
+
+        if (_numbers == null)
+            return (false, "Credit note number generator is not configured.", null);
+
+        if (IsCentralOnline && _storePos == null)
+            return (false, "Central store-pos is not configured for online mode.", null);
+
+        string creditNoteNo;
+        try
+        {
+            creditNoteNo = await _numbers.NextCreditNoteAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            return (false, "Could not allocate credit note number: " + ex.Message, null);
+        }
+
+        if (IsCentralOnline)
+        {
+            using var existingDoc = await _storePos!.GetCreditNoteAsync(creditNoteNo, ct);
+            if (existingDoc.RootElement.ValueKind != JsonValueKind.Null)
+                return (false, $"Credit note {creditNoteNo} already exists.", null);
+        }
+        else
+        {
+            var existing = await _notes.Find(
+                Builders<BsonDocument>.Filter.Eq("creditNoteNo", creditNoteNo)).FirstOrDefaultAsync(ct);
+            if (existing != null)
+                return (false, $"Credit note {creditNoteNo} already exists.", null);
+        }
+
+        var doc = new BsonDocument
+        {
+            { "creditNoteNo", creditNoteNo },
+            { "returnNo", "" },
+            { "originalBillNo", "" },
+            { "customerCode", customerCode?.Trim() ?? "" },
+            { "customerName", customerName.Trim() },
+            { "customerPhone", customerPhone?.Trim() ?? "" },
+            { "customerPhoneNorm", phoneNorm },
+            { "amount", (double)amount },
+            { "remainingAmount", (double)amount },
+            { "totalApplied", 0 },
+            { "status", StatusAvailable },
+            { "storeId", storeId?.Trim() ?? "" },
+            { "source", "direct_voucher" },
+            { "createdAtUtc", DateTime.UtcNow.ToString("O") },
+        };
+
+        if (!string.IsNullOrWhiteSpace(reason))
+            doc["reason"] = reason.Trim();
+
+        try
+        {
+            if (!IsCentralOnline)
+                await _notes.InsertOneAsync(doc, cancellationToken: ct);
+            if (_outbox != null)
+                await _outbox.PublishCreditNoteCreatedAsync(doc, ct);
+        }
+        catch (Exception ex)
+        {
+            return (false, "Failed to create credit note: " + ex.Message, null);
+        }
+
+        return (true, $"Credit note {creditNoteNo} created.", creditNoteNo);
     }
 
     public async Task<string?> AddCreditFromReturnAsync(

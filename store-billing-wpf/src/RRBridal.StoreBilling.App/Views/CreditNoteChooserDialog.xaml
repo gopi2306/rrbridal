@@ -1,0 +1,44 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.CreditNoteChooserDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Credit Note voucher"
+        Width="460"
+        SizeToContent="Height"
+        MinWidth="400"
+        MaxWidth="520"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="{StaticResource FontFamilyPrimary}"
+        Background="{StaticResource BrushBackground}">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+        <StackPanel>
+            <TextBlock Text="Credit Note" Style="{StaticResource TextSectionTitle}"/>
+            <TextBlock Text="Choose how to create the credit note."
+                       Foreground="{StaticResource BrushTextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+            <Button x:Name="BillReturnButton" Style="{StaticResource OutlineButton}"
+                    HorizontalContentAlignment="Left" Padding="14,12" Margin="0,0,0,8"
+                    Click="BillReturn_OnClick">
+                <StackPanel>
+                    <TextBlock Text="1.  Bill Return" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <TextBlock Text="Return against a system bill → credit note for the customer"
+                               FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="DirectButton" Style="{StaticResource OutlineButton}"
+                    HorizontalContentAlignment="Left" Padding="14,12" Margin="0,0,0,16"
+                    Click="Direct_OnClick">
+                <StackPanel>
+                    <TextBlock Text="2.  Direct Customer Credit Note" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                    <TextBlock Text="Issue credit on a customer with amount only — no bill required"
+                               FontSize="12" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Button>
+
+            <Button Content="Cancel" Style="{StaticResource GhostNavButton}" HorizontalAlignment="Right"
+                    IsCancel="True" Click="Cancel_OnClick"/>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
 public sealed class PosBillingSettingsDocument
@@ -42,4 +46,156 @@ public sealed class PosBillingSettingsDocument
 
     /// <summary>Max balance due per bill (0 = no limit).</summary>
     public decimal CreditBillingMaxBalancePerBill { get; set; }
+
+    /// <summary>Admin (counter 1) matrix: which counters may open which screens.</summary>
+    public CounterScreenAccessSettings ScreenAccess { get; set; } = new();
+}
+
+/// <summary>
+/// Allowed POS counter ids per Go To screen. Empty/null list falls back to defaults.
+/// Settings is always counter "1" only (enforced in CanAccess / UI).
+/// </summary>
+public sealed class CounterScreenAccessSettings
+{
+    public static readonly string[] AllScreenKeys =
+    [
+        nameof(Billing),
+        nameof(Vouchers),
+        nameof(Quotations),
+        nameof(Barcodes),
+        nameof(Dashboard),
+        nameof(Analytics),
+        nameof(OnlineSales),
+        nameof(CreditBills),
+        nameof(Customers),
+        nameof(Salesman),
+        nameof(Ledger),
+        nameof(Returns),
+        nameof(BillLookup),
+        nameof(DayClose),
+        nameof(Duplicate),
+        nameof(Adjustments),
+        nameof(DailyExpenses),
+        nameof(Settings),
+    ];
+
+    public List<string> KnownCounters { get; set; } = new() { "1", "2", "3" };
+
+    public List<string> Billing { get; set; } = new() { "1", "2", "3" };
+    public List<string> Vouchers { get; set; } = new() { "1", "2", "3" };
+    public List<string> Quotations { get; set; } = new() { "1", "2", "3" };
+    public List<string> Barcodes { get; set; } = new() { "1", "2", "3" };
+    public List<string> Dashboard { get; set; } = new() { "1" };
+    public List<string> Analytics { get; set; } = new() { "1" };
+    public List<string> OnlineSales { get; set; } = new() { "1" };
+    public List<string> CreditBills { get; set; } = new() { "1" };
+    public List<string> Customers { get; set; } = new() { "1", "2", "3" };
+    public List<string> Salesman { get; set; } = new() { "1", "2", "3" };
+    public List<string> Ledger { get; set; } = new() { "1" };
+    public List<string> Returns { get; set; } = new() { "1", "2", "3" };
+    public List<string> BillLookup { get; set; } = new() { "1", "2", "3" };
+    public List<string> DayClose { get; set; } = new() { "1", "2", "3" };
+    public List<string> Duplicate { get; set; } = new() { "1", "2", "3" };
+    public List<string> Adjustments { get; set; } = new() { "1", "2", "3" };
+    public List<string> DailyExpenses { get; set; } = new() { "1" };
+    /// <summary>Stored for display; runtime always forces counter 1 only.</summary>
+    public List<string> Settings { get; set; } = new() { "1" };
+
+    public static CounterScreenAccessSettings CreateDefaults() => new();
+
+    public IReadOnlyList<string> AllowedFor(string screenKey)
+    {
+        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
+            return new[] { "1" };
+
+        var list = GetList(screenKey);
+        if (list == null || list.Count == 0)
+            return DefaultAllowed(screenKey);
+
+        return Normalize(list);
+    }
+
+    public bool IsCounterAllowed(string screenKey, string posCounter)
+    {
+        var counter = (posCounter ?? "").Trim();
+        if (string.IsNullOrEmpty(counter))
+            counter = "1";
+
+        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
+            return string.Equals(counter, "1", StringComparison.OrdinalIgnoreCase);
+
+        return AllowedFor(screenKey).Any(c =>
+            string.Equals(c, counter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void SetAllowed(string screenKey, IEnumerable<string> counters)
+    {
+        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
+        {
+            Settings = new List<string> { "1" };
+            return;
+        }
+
+        var normalized = Normalize(counters).ToList();
+        switch (screenKey)
+        {
+            case nameof(Billing): Billing = normalized; break;
+            case nameof(Vouchers): Vouchers = normalized; break;
+            case nameof(Quotations): Quotations = normalized; break;
+            case nameof(Barcodes): Barcodes = normalized; break;
+            case nameof(Dashboard): Dashboard = normalized; break;
+            case nameof(Analytics): Analytics = normalized; break;
+            case nameof(OnlineSales): OnlineSales = normalized; break;
+            case nameof(CreditBills): CreditBills = normalized; break;
+            case nameof(Customers): Customers = normalized; break;
+            case nameof(Salesman): Salesman = normalized; break;
+            case nameof(Ledger): Ledger = normalized; break;
+            case nameof(Returns): Returns = normalized; break;
+            case nameof(BillLookup): BillLookup = normalized; break;
+            case nameof(DayClose): DayClose = normalized; break;
+            case nameof(Duplicate): Duplicate = normalized; break;
+            case nameof(Adjustments): Adjustments = normalized; break;
+            case nameof(DailyExpenses): DailyExpenses = normalized; break;
+        }
+    }
+
+    private List<string>? GetList(string screenKey) => screenKey switch
+    {
+        nameof(Billing) => Billing,
+        nameof(Vouchers) => Vouchers,
+        nameof(Quotations) => Quotations,
+        nameof(Barcodes) => Barcodes,
+        nameof(Dashboard) => Dashboard,
+        nameof(Analytics) => Analytics,
+        nameof(OnlineSales) => OnlineSales,
+        nameof(CreditBills) => CreditBills,
+        nameof(Customers) => Customers,
+        nameof(Salesman) => Salesman,
+        nameof(Ledger) => Ledger,
+        nameof(Returns) => Returns,
+        nameof(BillLookup) => BillLookup,
+        nameof(DayClose) => DayClose,
+        nameof(Duplicate) => Duplicate,
+        nameof(Adjustments) => Adjustments,
+        nameof(DailyExpenses) => DailyExpenses,
+        nameof(Settings) => Settings,
+        _ => null,
+    };
+
+    private static IReadOnlyList<string> DefaultAllowed(string screenKey) =>
+        screenKey switch
+        {
+            nameof(Dashboard) or nameof(Analytics) or nameof(OnlineSales) or nameof(CreditBills)
+                or nameof(Ledger) or nameof(DailyExpenses) or nameof(Settings) => new[] { "1" },
+            _ => new[] { "1", "2", "3" },
+        };
+
+    private static List<string> Normalize(IEnumerable<string> counters) =>
+        counters
+            .Select(c => (c ?? "").Trim())
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => int.TryParse(c, out var n) ? n : int.MaxValue)
+            .ThenBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 }

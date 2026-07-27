@@ -1,0 +1,80 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.DirectCustomerCreditNoteDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Direct Customer Credit Note"
+        Width="480"
+        SizeToContent="Height"
+        MinWidth="420"
+        MaxWidth="560"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="{StaticResource FontFamilyPrimary}"
+        Background="{StaticResource BrushBackground}">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Direct Customer Credit Note" Style="{StaticResource TextSectionTitle}"/>
+            <TextBlock Grid.Row="1" Text="Issue credit on a customer with amount only — no bill required."
+                       Foreground="{StaticResource BrushTextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,14"/>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                <TextBlock Text="Customer" Style="{StaticResource FormFieldLabel}"/>
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Search…" Style="{StaticResource OutlineButton}"
+                            MinWidth="90" Margin="8,0,0,0" Click="SearchCustomer_OnClick"/>
+                    <TextBox x:Name="CustomerDisplayBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"
+                             Text="{Binding CustomerDisplay, Mode=OneWay}"/>
+                </DockPanel>
+            </StackPanel>
+
+            <UniformGrid Grid.Row="3" Columns="2" Margin="0,0,0,10">
+                <StackPanel Margin="0,0,8,0">
+                    <TextBlock Text="Mobile" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox x:Name="PhoneBox" Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Margin="8,0,0,0">
+                    <TextBlock Text="Customer code" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}" IsReadOnly="True"
+                             Text="{Binding CustomerCode, Mode=OneWay}"/>
+                </StackPanel>
+            </UniformGrid>
+
+            <StackPanel Grid.Row="4" Margin="0,0,0,10">
+                <TextBlock Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
+                <TextBox Style="{StaticResource RoundedTextBox}"
+                         Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+
+            <UniformGrid Grid.Row="5" Columns="2" Margin="0,0,0,16">
+                <StackPanel Margin="0,0,8,0">
+                    <TextBlock Text="Amount (₹)" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Margin="8,0,0,0">
+                    <TextBlock Text="Reason (optional)" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+            </UniformGrid>
+
+            <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
+                        IsCancel="True" Click="Cancel_OnClick"/>
+                <Button Content="Create credit note" Style="{StaticResource PrimaryButton}" MinWidth="150"
+                        IsDefault="True" Click="Post_OnClick"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

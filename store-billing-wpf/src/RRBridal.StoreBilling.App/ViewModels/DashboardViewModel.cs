@@ -182,6 +182,9 @@ public partial class DashboardViewModel : ObservableObject
 
     public ObservableCollection<StoreBillListRow> BillListRows { get; } = new();
 
+    /// <summary>Same as Bill Lookup: only POS 1 (admin) may delete bills.</summary>
+    public bool ShowDeleteBills => _storeContext.IsPrimaryCounter;
+
     public ObservableCollection<SalesmanSalesSummaryRow> SalesmanSummaryRows { get; } = new();
 
     public ObservableCollection<StoreBillListRow> SalesmanBillRows { get; } = new();
@@ -865,11 +868,21 @@ public partial class DashboardViewModel : ObservableObject
     }
 
     private bool CanDeleteSelectedBills() =>
-        BillListRows.Any(r => r.IsSelected && r.CanDelete);
+        ShowDeleteBills && BillListRows.Any(r => r.IsSelected && r.CanDelete);
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedBills))]
     private async Task DeleteSelectedBills()
     {
+        if (!ShowDeleteBills)
+        {
+            AppDialog.Show(
+                "Only POS 1 (admin) can delete bills. Use Bill Lookup to view bills on this counter.",
+                "Delete bills",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         var selected = BillListRows.Where(r => r.IsSelected && r.CanDelete).ToList();
         if (selected.Count == 0)
         {

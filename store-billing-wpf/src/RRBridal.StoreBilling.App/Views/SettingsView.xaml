@@ -1081,6 +1081,53 @@
                             </Border>
                         </UniformGrid>
 
+                        <Border Style="{StaticResource SettingsGridCard}" Margin="0,8,12,8"
+                                Visibility="{Binding ShowCounterScreenAccessEditor, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock Text="Counter screen access" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Admin (POS 1) only. Tick which counters may open each screen. Settings always stays on POS 1. Save with billing settings below. Copy billing_settings.json to other PCs if needed."
+                                           Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <DataGrid ItemsSource="{Binding CounterScreenAccessRows}"
+                                          Style="{StaticResource ThemedDataGrid}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          HeadersVisibility="Column"
+                                          MinHeight="120"
+                                          MaxHeight="320"
+                                          HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Counter" Binding="{Binding CounterLabel}" IsReadOnly="True" Width="80" MinWidth="70"/>
+                                        <DataGridCheckBoxColumn Header="Billing" Binding="{Binding Billing, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
+                                        <DataGridCheckBoxColumn Header="Vouchers" Binding="{Binding Vouchers, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
+                                        <DataGridCheckBoxColumn Header="Quotations" Binding="{Binding Quotations, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="70"/>
+                                        <DataGridCheckBoxColumn Header="Barcodes" Binding="{Binding Barcodes, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
+                                        <DataGridCheckBoxColumn Header="Dashboard" Binding="{Binding Dashboard, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="70"/>
+                                        <DataGridCheckBoxColumn Header="Analytics" Binding="{Binding Analytics, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Online Sales" Binding="{Binding OnlineSales, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>
+                                        <DataGridCheckBoxColumn Header="Credit Bills" Binding="{Binding CreditBills, UpdateSourceTrigger=PropertyChanged}" Width="85" MinWidth="75"/>
+                                        <DataGridCheckBoxColumn Header="Customers" Binding="{Binding Customers, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="70"/>
+                                        <DataGridCheckBoxColumn Header="Salesman" Binding="{Binding Salesman, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Ledger" Binding="{Binding Ledger, UpdateSourceTrigger=PropertyChanged}" Width="65" MinWidth="55"/>
+                                        <DataGridCheckBoxColumn Header="Returns" Binding="{Binding Returns, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
+                                        <DataGridCheckBoxColumn Header="Bill Lookup" Binding="{Binding BillLookup, UpdateSourceTrigger=PropertyChanged}" Width="85" MinWidth="75"/>
+                                        <DataGridCheckBoxColumn Header="Day Close" Binding="{Binding DayClose, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Duplicate" Binding="{Binding Duplicate, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Adjustments" Binding="{Binding Adjustments, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>
+                                        <DataGridCheckBoxColumn Header="Expenses" Binding="{Binding DailyExpenses, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Settings" Binding="{Binding Settings, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60" IsReadOnly="True"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <DockPanel Margin="0,12,0,0" LastChildFill="False">
+                                    <TextBlock Text="Add counter" Style="{StaticResource FormFieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding NewCounterIdText, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource RoundedTextBox}" Width="80" Margin="0,0,8,0"/>
+                                    <Button Content="Add" Style="{StaticResource OutlineButton}" MinWidth="72"
+                                            Command="{Binding AddCounterToScreenAccessCommand}"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource ActionFooterCard}" Margin="0,4,12,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>

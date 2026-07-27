@@ -19,5 +19,6 @@ public enum ShellPage
     Barcodes,
     DayClose,
     DailyExpenses,
+    Vouchers,
     Settings,
 }
