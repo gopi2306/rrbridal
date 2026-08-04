@@ -16,7 +16,7 @@ public partial class LoginWindow : Window
     public LoginWindow(AppServices services, string syncWarning = "")
     {
         InitializeComponent();
-        _vm = new LoginViewModel(services.LocalAuth, services.ShellBranding);
+        _vm = new LoginViewModel(services);
         if (!string.IsNullOrEmpty(syncWarning))
             _vm.SyncWarning = syncWarning;
         DataContext = _vm;

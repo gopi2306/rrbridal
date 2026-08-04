@@ -9,6 +9,7 @@ public partial class CounterScreenAccessRow : ObservableObject
     {
         PosCounter = posCounter;
         IsAdminCounter = string.Equals(posCounter, "1", System.StringComparison.OrdinalIgnoreCase);
+        // POS 1 always has Settings; other counters follow the saved matrix.
         Settings = IsAdminCounter;
     }
 
@@ -16,10 +17,11 @@ public partial class CounterScreenAccessRow : ObservableObject
 
     public string CounterLabel => $"POS {PosCounter}";
 
-    /// <summary>Settings column is forced on for POS 1 and off/disabled for others.</summary>
+    /// <summary>POS 1 — Settings access cannot be removed for this row.</summary>
     public bool IsAdminCounter { get; }
 
-    public bool CanEditSettings => IsAdminCounter;
+    /// <summary>Settings may be enabled for any counter; POS 1 checkbox stays locked on.</summary>
+    public bool CanEditSettings => !IsAdminCounter;
 
     [ObservableProperty] private bool _billing = true;
     [ObservableProperty] private bool _vouchers = true;

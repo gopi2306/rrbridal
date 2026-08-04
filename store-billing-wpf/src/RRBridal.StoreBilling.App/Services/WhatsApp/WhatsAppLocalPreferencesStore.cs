@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 
 namespace RRBridal.StoreBilling.App.Services.WhatsApp;
 
@@ -11,7 +12,11 @@ public sealed class WhatsAppLocalPreferencesDocument
 {
     public bool AutoSendAfterPost { get; set; } = true;
 
+    /// <summary>Central attachment channel mirrored for display: image | document.</summary>
     public string AttachmentFormat { get; set; } = "image";
+
+    /// <summary>Local invoice layout for WhatsApp PDF: Thermal | A4 | A5 | A4Commercial.</summary>
+    public string InvoiceFormat { get; set; } = "";
 }
 
 public sealed class WhatsAppLocalPreferencesStore
@@ -97,5 +102,29 @@ public sealed class WhatsAppLocalPreferencesStore
         {
             mutate(_current);
         }
+    }
+
+    /// <summary>
+    /// Resolves local WhatsApp invoice layout. Empty/invalid values fall back to <paramref name="seedFromPrint"/>.
+    /// </summary>
+    public InvoicePrintFormat ResolveInvoiceFormat(InvoicePrintFormat seedFromPrint = InvoicePrintFormat.Thermal)
+    {
+        lock (_lock)
+        {
+            if (TryParseInvoiceFormat(_current.InvoiceFormat, out var parsed))
+                return parsed;
+
+            _current.InvoiceFormat = seedFromPrint.ToString();
+            return seedFromPrint;
+        }
+    }
+
+    public static bool TryParseInvoiceFormat(string? value, out InvoicePrintFormat format)
+    {
+        format = InvoicePrintFormat.Thermal;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        return Enum.TryParse(value.Trim(), ignoreCase: true, out format)
+               && Enum.IsDefined(typeof(InvoicePrintFormat), format);
     }
 }

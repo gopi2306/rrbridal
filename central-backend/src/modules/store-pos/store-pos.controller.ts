@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { StorePosQueryService } from './store-pos-query.service';
 import { StorePosService } from './store-pos.service';
@@ -15,6 +25,16 @@ type StorePosWriteBody = {
 type StorePosEventBody = StorePosWriteBody & {
   type: string;
 };
+
+function requireWriteBody<T extends StorePosWriteBody>(body: T | undefined): T {
+  if (!body || typeof body !== 'object') {
+    throw new BadRequestException('Request body is required');
+  }
+  if (!body.storeId?.trim() || !body.deviceId?.trim()) {
+    throw new BadRequestException('storeId and deviceId are required');
+  }
+  return body;
+}
 
 @ApiTags('store-pos')
 @Controller('store-pos')
@@ -189,11 +209,12 @@ export class StorePosController {
       kind: string;
     },
   ) {
+    const write = requireWriteBody(body);
     return await this.storePosQuery.nextNumber({
-      storeId: body.storeId,
-      deviceId: body.deviceId,
-      posCounter: body.posCounter ?? '1',
-      kind: body.kind,
+      storeId: write.storeId,
+      deviceId: write.deviceId,
+      posCounter: write.posCounter ?? '1',
+      kind: write.kind,
     });
   }
 
@@ -209,11 +230,12 @@ export class StorePosController {
     @Param('holdNo') holdNo: string,
     @Body() body: { storeId: string; deviceId: string; payload: Record<string, unknown> },
   ) {
+    const write = requireWriteBody(body);
     return await this.storePosQuery.upsertHeldBill(
-      body.storeId,
-      body.deviceId,
+      write.storeId,
+      write.deviceId,
       holdNo,
-      body.payload ?? {},
+      write.payload ?? {},
     );
   }
 
@@ -225,105 +247,125 @@ export class StorePosController {
 
   @Post('events')
   async applyEvent(@Body() body: StorePosEventBody) {
+    const write = requireWriteBody(body);
+    if (!write.type?.trim()) {
+      throw new BadRequestException('type is required');
+    }
     return await this.storePos.applyEvent({
-      type: body.type,
-      storeId: body.storeId,
-      deviceId: body.deviceId,
-      payload: body.payload ?? {},
-      ...(body.eventId ? { eventId: body.eventId } : {}),
-      ...(body.hash ? { hash: body.hash } : {}),
-      ...(body.createdAt ? { createdAt: body.createdAt } : {}),
+      type: write.type,
+      storeId: write.storeId,
+      deviceId: write.deviceId,
+      payload: write.payload ?? {},
+      ...(write.eventId ? { eventId: write.eventId } : {}),
+      ...(write.hash ? { hash: write.hash } : {}),
+      ...(write.createdAt ? { createdAt: write.createdAt } : {}),
     });
   }
 
   @Post('bills')
   async createBill(@Body() body: StorePosWriteBody) {
-    return await this.storePos.createBill(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.createBill(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Delete('bills/:billNo')
   async deleteBill(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
-    return await this.storePos.deleteBill(body.storeId, body.deviceId, billNo, body.payload);
+    const write = requireWriteBody(body);
+    return await this.storePos.deleteBill(write.storeId, write.deviceId, billNo, write.payload);
   }
 
   @Post('sale-returns')
   async createSaleReturn(@Body() body: StorePosWriteBody & { exchange?: boolean }) {
+    const write = requireWriteBody(body);
     return await this.storePos.createSaleReturn(
-      body.storeId,
-      body.deviceId,
-      body.payload ?? {},
-      body.exchange === true,
+      write.storeId,
+      write.deviceId,
+      write.payload ?? {},
+      write.exchange === true,
     );
   }
 
   @Post('quotations')
   async upsertQuotation(@Body() body: StorePosWriteBody) {
-    return await this.storePos.upsertQuotation(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.upsertQuotation(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('quotations/convert')
   async convertQuotation(@Body() body: StorePosWriteBody) {
-    return await this.storePos.convertQuotation(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.convertQuotation(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('quotations/cancel')
   async cancelQuotation(@Body() body: StorePosWriteBody) {
-    return await this.storePos.cancelQuotation(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.cancelQuotation(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('credit-notes')
   async createCreditNote(@Body() body: StorePosWriteBody) {
-    return await this.storePos.createCreditNote(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.createCreditNote(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('credit-notes/apply')
   async applyCreditNote(@Body() body: StorePosWriteBody) {
-    return await this.storePos.applyCreditNote(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.applyCreditNote(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('credit-notes/cashout')
   async cashoutCreditNote(@Body() body: StorePosWriteBody) {
-    return await this.storePos.cashoutCreditNote(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.cashoutCreditNote(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('day-sessions/open')
   async openDaySession(@Body() body: StorePosWriteBody) {
-    return await this.storePos.openDaySession(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.openDaySession(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('day-sessions/close')
   async closeDaySession(@Body() body: StorePosWriteBody) {
-    return await this.storePos.closeDaySession(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.closeDaySession(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('cash-movements')
   async createCashMovement(@Body() body: StorePosWriteBody) {
-    return await this.storePos.createCashMovement(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.createCashMovement(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('daily-expenses')
   async createDailyExpense(@Body() body: StorePosWriteBody) {
-    return await this.storePos.createDailyExpense(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.createDailyExpense(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Post('bills/:billNo/cod-payment')
   async receiveCodPayment(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
-    return await this.storePos.receiveCodPayment(body.storeId, body.deviceId, billNo, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.receiveCodPayment(write.storeId, write.deviceId, billNo, write.payload ?? {});
   }
 
   @Post('bills/:billNo/credit-payment')
   async receiveCreditPayment(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
+    const write = requireWriteBody(body);
     return await this.storePos.receiveCreditPayment(
-      body.storeId,
-      body.deviceId,
+      write.storeId,
+      write.deviceId,
       billNo,
-      body.payload ?? {},
+      write.payload ?? {},
     );
   }
 
   @Post('adjustment-bills')
   async createAdjustmentBill(@Body() body: StorePosWriteBody) {
-    return await this.storePos.createAdjustmentBill(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.createAdjustmentBill(write.storeId, write.deviceId, write.payload ?? {});
   }
 
   @Get('payment-receipts/:receiptNo')
@@ -404,36 +446,50 @@ export class StorePosController {
 
   @Post('bills/:billNo/stock-exceptions/approve')
   async approveStockExceptions(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
+    const write = requireWriteBody(body);
     return await this.storePos.approveStockExceptions(
-      body.storeId,
-      body.deviceId,
+      write.storeId,
+      write.deviceId,
       billNo,
-      body.payload ?? {},
+      write.payload ?? {},
     );
   }
 
   @Post('bills/:billNo/whatsapp')
   async updateBillWhatsApp(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
-    return await this.storePos.updateBillWhatsApp(body.storeId, body.deviceId, billNo, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.updateBillWhatsApp(
+      write.storeId,
+      write.deviceId,
+      billNo,
+      write.payload ?? {},
+    );
   }
 
   @Post('bills/:billNo/print-audit')
   async appendBillPrintAudit(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
+    const write = requireWriteBody(body);
     return await this.storePos.appendBillPrintAudit(
-      body.storeId,
-      body.deviceId,
+      write.storeId,
+      write.deviceId,
       billNo,
-      body.payload ?? {},
+      write.payload ?? {},
     );
   }
 
   @Post('day-sessions/cash-handover-printed')
   async markCashHandOverPrinted(@Body() body: StorePosWriteBody) {
-    return await this.storePos.markCashHandOverPrinted(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.markCashHandOverPrinted(
+      write.storeId,
+      write.deviceId,
+      write.payload ?? {},
+    );
   }
 
   @Post('gateway-payments')
   async recordGatewayPayment(@Body() body: StorePosWriteBody) {
-    return await this.storePos.recordGatewayPayment(body.storeId, body.deviceId, body.payload ?? {});
+    const write = requireWriteBody(body);
+    return await this.storePos.recordGatewayPayment(write.storeId, write.deviceId, write.payload ?? {});
   }
 }

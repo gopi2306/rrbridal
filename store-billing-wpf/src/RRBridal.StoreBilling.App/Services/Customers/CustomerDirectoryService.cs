@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Customers;
 
-public sealed class CustomerListRow
+public partial class CustomerListRow : ObservableObject
 {
     public string? LocalMongoId { get; init; }
     public string? CentralCustomerId { get; init; }
@@ -22,6 +23,8 @@ public sealed class CustomerListRow
     public bool IsCreditCustomer { get; init; }
     public string SyncStatus { get; init; } = "";
     public DateTime SortUtc { get; init; }
+
+    [ObservableProperty] private bool _isSelected;
 }
 
 public sealed class CustomerDirectoryService
@@ -54,10 +57,12 @@ public sealed class CustomerDirectoryService
         {
             var onlineQuery = string.Join(" ",
                 new[] { customerCode, customerName, customerPhone }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            if (string.IsNullOrWhiteSpace(onlineQuery))
-                return [];
 
-            var onlineMatches = await _lookup.SearchAsync(onlineQuery, ct);
+            // Empty Search → list all recent customers from Central (up to API limit).
+            var onlineMatches = string.IsNullOrWhiteSpace(onlineQuery)
+                ? await _lookup.ListCentralAsync(ct)
+                : await _lookup.SearchAsync(onlineQuery, ct);
+
             return onlineMatches
                 .Where(m => m.Source == "Central")
                 .Select(m => new CustomerListRow

@@ -85,6 +85,9 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
     [ObservableProperty] private bool _billingPreferCentralOnline;
+    [ObservableProperty] private bool _canEditPreferCentralOnline = true;
+    [ObservableProperty] private string _preferCentralOnlineHint =
+        "Online is saved to the store on central so every counter inherits it. Offline keeps local Mongo + outbox sync.";
     [ObservableProperty] private bool _billingConfirmDuplicateProductAdd = true;
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
     [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
@@ -135,6 +138,56 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _whatsAppTemplateSummary = "—";
 
     [ObservableProperty] private string _whatsAppTestPhone = "";
+
+    [ObservableProperty] private InvoicePrintFormat _whatsAppInvoiceFormat = InvoicePrintFormat.Thermal;
+
+    public bool IsWhatsAppThermalFormat
+    {
+        get => WhatsAppInvoiceFormat == InvoicePrintFormat.Thermal;
+        set
+        {
+            if (value)
+                WhatsAppInvoiceFormat = InvoicePrintFormat.Thermal;
+        }
+    }
+
+    public bool IsWhatsAppA4Format
+    {
+        get => WhatsAppInvoiceFormat == InvoicePrintFormat.A4;
+        set
+        {
+            if (value)
+                WhatsAppInvoiceFormat = InvoicePrintFormat.A4;
+        }
+    }
+
+    public bool IsWhatsAppA5Format
+    {
+        get => WhatsAppInvoiceFormat == InvoicePrintFormat.A5;
+        set
+        {
+            if (value)
+                WhatsAppInvoiceFormat = InvoicePrintFormat.A5;
+        }
+    }
+
+    public bool IsWhatsAppA4CommercialFormat
+    {
+        get => WhatsAppInvoiceFormat == InvoicePrintFormat.A4Commercial;
+        set
+        {
+            if (value)
+                WhatsAppInvoiceFormat = InvoicePrintFormat.A4Commercial;
+        }
+    }
+
+    partial void OnWhatsAppInvoiceFormatChanged(InvoicePrintFormat value)
+    {
+        OnPropertyChanged(nameof(IsWhatsAppThermalFormat));
+        OnPropertyChanged(nameof(IsWhatsAppA4Format));
+        OnPropertyChanged(nameof(IsWhatsAppA5Format));
+        OnPropertyChanged(nameof(IsWhatsAppA4CommercialFormat));
+    }
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
 
@@ -295,6 +348,13 @@ public partial class SettingsViewModel : ObservableObject
 
     private void UpdateMongoHealthStatusText()
     {
+        if (_services.CentralMode.IsOnlineMode)
+        {
+            MongoHealthStatusText =
+                "Mongo: not required (Central Online — counters use central API only; no ZeroTier / parent Mongo).";
+            return;
+        }
+
         var health = _services.MongoHealth;
         MongoHealthStatusText = health.StatusDescription;
         if (!string.IsNullOrWhiteSpace(health.LastError) && health.State != MongoHealthState.Connected)
@@ -410,14 +470,44 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void PullReceiptFromCentral()
+    public async Task PullReceiptFromCentralAsync()
     {
-        _services.ReceiptConfig.Reload();
-        ApplyReceiptFieldsFromConfig();
-        LastActionText = "Loaded saved receipt settings. Company master updates only via Run sync once.";
-        ReceiptCentralSyncText = _services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc.HasValue
-            ? $"Last synced via store sync: {_services.ReceiptConfig.Current.Store.StoreName} at {_services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc!.Value.ToLocalTime():g}"
-            : "Not synced yet — use Run sync once (after Central login).";
+        LastActionText = "Pulling printing settings from central…";
+        try
+        {
+            var (ok, message) = await _services.ReceiptConfigSync.SyncFromCentralAsync(CancellationToken.None);
+            if (!ok)
+            {
+                // Fallback: public store-pos-mode print settings (no company profile JWT required).
+                var (mode, modeErr) = await _services.StoreInfo.GetStorePosModeAsync(
+                    _services.StoreContext.StoreId,
+                    CancellationToken.None);
+                if (mode?.ReceiptPrintSettingsJson != null)
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(mode.ReceiptPrintSettingsJson);
+                    _services.ReceiptConfigSync.ApplyStorePrintSettings(doc.RootElement);
+                    _services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc = DateTime.UtcNow;
+                    await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
+                    ok = true;
+                    message = "Loaded store-wide print settings from central (company header needs Central login + sync).";
+                }
+                else if (!string.IsNullOrWhiteSpace(modeErr))
+                {
+                    message = $"{message} ({modeErr})";
+                }
+            }
+
+            ApplyReceiptFieldsFromConfig();
+            UpdatePrinterWarning();
+            ReceiptCentralSyncText = _services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc.HasValue
+                ? $"Last synced: {_services.ReceiptConfig.Current.Store.StoreName} at {_services.ReceiptConfig.Current.LastReceiptSettingsSyncUtc!.Value.ToLocalTime():g}"
+                : "Not synced yet.";
+            LastActionText = ok ? message : $"Reload failed: {message}";
+        }
+        catch (Exception ex)
+        {
+            LastActionText = $"Reload failed: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -462,6 +552,13 @@ public partial class SettingsViewModel : ObservableObject
         c.Print.A4PrePrintedLayout = A4Layout.ToSettings();
         c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
         await _services.ReceiptConfig.SaveAsync(CancellationToken.None);
+
+        var payload = ReceiptConfigSyncService.BuildCentralReceiptPrintPayload(c.Print);
+        var (pushOk, pushErr) = await _services.StoreInfo.SetReceiptPrintSettingsAsync(
+            _services.StoreContext.StoreId,
+            payload,
+            CancellationToken.None);
+
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
         await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
         {
@@ -478,10 +575,25 @@ public partial class SettingsViewModel : ObservableObject
                 { "a5PrePrintedEnabled", A5PrePrintedEnabled },
                 { "thermalPrinter", SelectedThermalPrinterFullName ?? "" },
                 { "officePrinter", SelectedOfficePrinterFullName ?? "" },
+                { "pushedToCentral", pushOk },
             },
         });
         UpdatePrinterWarning();
-        LastActionText = "Receipt and printer settings saved.";
+        if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))
+        {
+            LastActionText =
+                "Receipt settings saved locally. Could not push to central (Central connection login required): "
+                + pushErr;
+        }
+        else if (pushOk)
+        {
+            LastActionText =
+                "Receipt print settings saved to central — formats/layouts sync to all counters (printer queues stay per PC).";
+        }
+        else
+        {
+            LastActionText = "Receipt and printer settings saved.";
+        }
     }
 
     partial void OnSelectedThermalPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
@@ -951,6 +1063,10 @@ public partial class SettingsViewModel : ObservableObject
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
         BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
+        CanEditPreferCentralOnline = !_services.PosBillingSettings.IsEnvOnlineOverride;
+        PreferCentralOnlineHint = _services.PosBillingSettings.IsEnvOnlineOverride
+            ? "Controlled by .env PREFER_CENTRAL_ONLINE (or STORE_POS_MODE=online|offline). Online = direct CENTRAL_API_BASE; no ZeroTier / parent Mongo."
+            : "Online is saved to the store on central so every counter inherits it. Or set PREFER_CENTRAL_ONLINE=true in .env for direct central on this till.";
         BillingConfirmDuplicateProductAdd = _services.PosBillingSettings.Current.ConfirmDuplicateProductAdd;
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
         BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
@@ -972,10 +1088,8 @@ public partial class SettingsViewModel : ObservableObject
 
     private void LoadCounterScreenAccessEditor()
     {
-        ShowCounterScreenAccessEditor = _services.StoreContext.IsPrimaryCounter;
+        ShowCounterScreenAccessEditor = true;
         CounterScreenAccessRows.Clear();
-        if (!ShowCounterScreenAccessEditor)
-            return;
 
         var access = _services.PosBillingSettings.Current.ScreenAccess
                      ?? CounterScreenAccessSettings.CreateDefaults();
@@ -1087,7 +1201,9 @@ public partial class SettingsViewModel : ObservableObject
             CounterScreenAccessRows.Where(r => r.Adjustments).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.DailyExpenses),
             CounterScreenAccessRows.Where(r => r.DailyExpenses).Select(r => r.PosCounter));
-        access.SetAllowed(nameof(CounterScreenAccessSettings.Settings), new[] { "1" });
+        // Include every ticked Settings counter; POS 1 is always kept by SetAllowed.
+        access.SetAllowed(nameof(CounterScreenAccessSettings.Settings),
+            CounterScreenAccessRows.Where(r => r.Settings || r.IsAdminCounter).Select(r => r.PosCounter));
         doc.ScreenAccess = access;
     }
 
@@ -1110,7 +1226,8 @@ public partial class SettingsViewModel : ObservableObject
         var previousOnlineMode = _services.PosBillingSettings.Current.PreferCentralOnline;
         _services.PosBillingSettings.Update(s =>
         {
-            s.PreferCentralOnline = BillingPreferCentralOnline;
+            if (!_services.PosBillingSettings.IsEnvOnlineOverride)
+                s.PreferCentralOnline = BillingPreferCentralOnline;
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
             s.ConfirmDuplicateProductAdd = BillingConfirmDuplicateProductAdd;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
@@ -1127,10 +1244,23 @@ public partial class SettingsViewModel : ObservableObject
             if (ShowCounterScreenAccessEditor)
                 ApplyCounterScreenAccessToDocument(s);
         });
+        _services.PosBillingSettings.ReapplyEnvOnlineModeOverride();
         await _services.PosBillingSettings.SaveAsync();
-        if (previousOnlineMode != BillingPreferCentralOnline)
+        BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
+        if (!_services.PosBillingSettings.IsEnvOnlineOverride
+            && previousOnlineMode != BillingPreferCentralOnline)
             await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+        else if (_services.PosBillingSettings.IsEnvOnlineOverride)
+            await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+
+        // Push full billing settings to central so all counters inherit the same config.
+        var snapshot = _services.PosBillingSettings.Current;
+        var (pushOk, pushErr) = await _services.StoreInfo.SetPosBillingSettingsAsync(
+            _services.StoreContext.StoreId,
+            snapshot,
+            CancellationToken.None);
         UpdateCentralModeStatusText();
+
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
         await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
         {
@@ -1142,6 +1272,8 @@ public partial class SettingsViewModel : ObservableObject
             Metadata = new BsonDocument
             {
                 { "preferCentralOnline", BillingPreferCentralOnline },
+                { "preferCentralOnlineFromEnv", _services.PosBillingSettings.IsEnvOnlineOverride },
+                { "billingSettingsPushedToCentral", pushOk },
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
                 { "confirmDuplicateProductAdd", BillingConfirmDuplicateProductAdd },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
@@ -1157,13 +1289,34 @@ public partial class SettingsViewModel : ObservableObject
                 { "creditBillingMaxBalancePerBill", (double)Math.Max(0m, maxBal) },
             },
         });
-        LastActionText = "Billing settings saved.";
+        if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))
+        {
+            LastActionText =
+                "Billing settings saved locally. Could not push to central (use Central connection login first): "
+                + pushErr;
+        }
+        else if (pushOk)
+        {
+            LastActionText =
+                "All billing settings saved to central — every counter inherits the same settings"
+                + (_services.PosBillingSettings.IsEnvOnlineOverride
+                    ? $" (.env Online/Offline: {(BillingPreferCentralOnline ? "Online" : "Offline")})."
+                    : ".");
+        }
+        else
+        {
+            LastActionText = "Billing settings saved.";
+        }
     }
 
     [RelayCommand]
     public async Task SaveWhatsAppSettingsAsync()
     {
-        _services.WhatsAppPreferences.Update(s => s.AutoSendAfterPost = WhatsAppAutoSendAfterPost);
+        _services.WhatsAppPreferences.Update(s =>
+        {
+            s.AutoSendAfterPost = WhatsAppAutoSendAfterPost;
+            s.InvoiceFormat = WhatsAppInvoiceFormat.ToString();
+        });
         await _services.WhatsAppPreferences.SaveAsync();
         LastActionText = "WhatsApp settings saved.";
     }
@@ -1215,13 +1368,18 @@ public partial class SettingsViewModel : ObservableObject
             }
 
             var input = BuildWhatsAppSampleInput();
-            var (png, _, fileName) = await InvoiceAttachmentExporter.ExportThermalPngAsync(_services, input);
+            var (bytes, mimeType, fileName) = await InvoiceAttachmentExporter.ExportInvoiceAttachmentAsync(
+                _services,
+                input,
+                WhatsAppInvoiceFormat,
+                settings.AttachmentType);
             var (result, err) = await _services.WhatsAppClient.SendTestAsync(
                 _services.StoreContext.StoreId,
                 WhatsAppTestPhone.Trim(),
                 input.CustomerName,
-                png,
-                fileName);
+                bytes,
+                fileName,
+                mimeType);
 
             if (result == null)
             {
@@ -1244,6 +1402,11 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.WhatsAppPreferences.Load();
         WhatsAppAutoSendAfterPost = _services.WhatsAppPreferences.Current.AutoSendAfterPost;
+        var seed = _services.ReceiptConfig.Current.Print.PrintFormat;
+        var hadFormat = !string.IsNullOrWhiteSpace(_services.WhatsAppPreferences.Current.InvoiceFormat);
+        WhatsAppInvoiceFormat = _services.WhatsAppPreferences.ResolveInvoiceFormat(seed);
+        if (!hadFormat)
+            _ = _services.WhatsAppPreferences.SaveAsync();
     }
 
     private async Task LoadWhatsAppCentralStatusAsync()
@@ -1281,9 +1444,25 @@ public partial class SettingsViewModel : ObservableObject
                 ? "Configured and enabled on central."
                 : "Configured on central but disabled — enable in Central admin.";
 
+        var attachmentLabel = string.Equals(settings.AttachmentType, "document", StringComparison.OrdinalIgnoreCase)
+            ? "PDF document"
+            : "image (thermal only)";
+        var formatLabel = WhatsAppInvoiceFormat switch
+        {
+            InvoicePrintFormat.A4 => "A4",
+            InvoicePrintFormat.A5 => "A5",
+            InvoicePrintFormat.A4Commercial => "A4 commercial",
+            _ => "Thermal",
+        };
         WhatsAppTemplateSummary = string.IsNullOrWhiteSpace(settings.TemplateName)
-            ? "—"
-            : $"{settings.TemplateName} ({settings.TemplateLanguage})";
+            ? $"Local format: {formatLabel}"
+            : $"{settings.TemplateName} ({settings.TemplateLanguage}) · {attachmentLabel} · send as {formatLabel}";
+
+        _services.WhatsAppPreferences.Update(s =>
+            s.AttachmentFormat = string.IsNullOrWhiteSpace(settings.AttachmentType)
+                ? "image"
+                : settings.AttachmentType.Trim().ToLowerInvariant());
+        _ = _services.WhatsAppPreferences.SaveAsync();
     }
 
     private ThermalInvoiceInput BuildWhatsAppSampleInput()

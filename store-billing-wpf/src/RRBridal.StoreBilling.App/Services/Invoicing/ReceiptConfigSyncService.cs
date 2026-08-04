@@ -169,7 +169,11 @@ public sealed class ReceiptConfigSyncService
             store.ShowBillBarcode = ebc.GetBoolean();
     }
 
-    private void ApplyStorePrintSettings(JsonElement settings)
+    /// <summary>
+    /// Apply store-wide receipt print settings from central (JSON). Does not clear local
+    /// Windows printer queue full names unless empty and a matching queue can be resolved.
+    /// </summary>
+    public void ApplyStorePrintSettings(JsonElement settings)
     {
         var print = _config.Current.Print;
         if (TryGetProperty(settings, "receiptCharWidth", out var w) && w.TryGetInt32(out var cw) && cw is >= 32 and <= 56)
@@ -185,16 +189,82 @@ public sealed class ReceiptConfigSyncService
         if (!string.IsNullOrWhiteSpace(modelHint))
             print.CentralPrinterModel = modelHint;
 
+        var format = GetString(settings, "printFormat");
+        if (!string.IsNullOrWhiteSpace(format)
+            && Enum.TryParse<InvoicePrintFormat>(format, ignoreCase: true, out var pf))
+            print.PrintFormat = pf;
+
+        var creditFormat = GetString(settings, "creditPrintFormat");
+        if (!string.IsNullOrWhiteSpace(creditFormat)
+            && Enum.TryParse<CreditPrintFormat>(creditFormat, ignoreCase: true, out var cpf))
+            print.CreditPrintFormat = cpf;
+
+        if (TryGetProperty(settings, "a4PrePrintedEnabled", out var a4en)
+            && (a4en.ValueKind == JsonValueKind.True || a4en.ValueKind == JsonValueKind.False))
+            print.A4PrePrintedEnabled = a4en.GetBoolean();
+        if (TryGetProperty(settings, "a5PrePrintedEnabled", out var a5en)
+            && (a5en.ValueKind == JsonValueKind.True || a5en.ValueKind == JsonValueKind.False))
+            print.A5PrePrintedEnabled = a5en.GetBoolean();
+        if (TryGetProperty(settings, "alsoPrintThermalFirst", out var also)
+            && (also.ValueKind == JsonValueKind.True || also.ValueKind == JsonValueKind.False))
+            print.AlsoPrintThermalFirst = also.GetBoolean();
+
+        if (TryGetProperty(settings, "a4PrePrintedLayout", out var a4layout)
+            && a4layout.ValueKind == JsonValueKind.Object)
+        {
+            var parsed = JsonSerializer.Deserialize<A4PrePrintedLayoutSettings>(
+                a4layout.GetRawText(),
+                LayoutJsonOpts);
+            if (parsed != null)
+                print.A4PrePrintedLayout = parsed;
+        }
+
+        if (TryGetProperty(settings, "a5PrePrintedLayout", out var a5layout)
+            && a5layout.ValueKind == JsonValueKind.Object)
+        {
+            var parsed = JsonSerializer.Deserialize<A5PrePrintedLayoutSettings>(
+                a5layout.GetRawText(),
+                LayoutJsonOpts);
+            if (parsed != null)
+                print.A5PrePrintedLayout = parsed;
+        }
+
         var resolved = PrinterQueueResolver.ResolveFullName(queueHint, modelHint);
         if (!string.IsNullOrWhiteSpace(resolved))
         {
-            print.BillPrinterFullName = resolved;
+            if (string.IsNullOrWhiteSpace(print.BillPrinterFullName))
+                print.BillPrinterFullName = resolved;
             if (string.IsNullOrWhiteSpace(print.ThermalPrinterFullName))
                 print.ThermalPrinterFullName = resolved;
             if (string.IsNullOrWhiteSpace(print.OfficeInvoicePrinterFullName))
                 print.OfficeInvoicePrinterFullName = resolved;
         }
     }
+
+    /// <summary>Store-wide print payload for central (excludes PC-specific Windows queue full names).</summary>
+    public static object BuildCentralReceiptPrintPayload(ReceiptPrintSettings print)
+    {
+        return new
+        {
+            printerModel = print.CentralPrinterModel,
+            billPrinterQueueName = print.CentralPrinterHint,
+            receiptCharWidth = print.ReceiptCharWidth,
+            alwaysUsePrintDialog = print.AlwaysUsePrintDialog,
+            printFormat = print.PrintFormat.ToString(),
+            creditPrintFormat = print.CreditPrintFormat.ToString(),
+            a4PrePrintedEnabled = print.A4PrePrintedEnabled,
+            a5PrePrintedEnabled = print.A5PrePrintedEnabled,
+            alsoPrintThermalFirst = print.AlsoPrintThermalFirst,
+            a4PrePrintedLayout = print.A4PrePrintedLayout,
+            a5PrePrintedLayout = print.A5PrePrintedLayout,
+        };
+    }
+
+    private static readonly JsonSerializerOptions LayoutJsonOpts = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
 
     private static List<string> ParsePolicyLines(JsonElement profile)
     {

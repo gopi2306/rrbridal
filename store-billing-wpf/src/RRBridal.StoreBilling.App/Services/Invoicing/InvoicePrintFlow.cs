@@ -55,15 +55,9 @@ public static class InvoicePrintFlow
             {
                 doc = A5PrePrintedInvoiceDocumentBuilder.Create(input, printSettings.A5PrePrintedLayout);
             }
-            else if (isOfficeFormat)
-            {
-                doc = BuildInvoiceDocument(input, assets, printFormat, isA4PrePrinted, isA5PrePrinted,
-                    printSettings.A4PrePrintedLayout, printSettings.A5PrePrintedLayout);
-            }
             else
             {
-                var fontSize = input.CharWidth >= 48 ? 9.0 : 10.0;
-                doc = BillPrintService.CreateReceiptDocument(text, assets, fontSize);
+                doc = InvoiceDocumentFactory.CreateFullDocument(input, assets, printFormat, text);
             }
 
             var isA5 = printFormat == InvoicePrintFormat.A5;

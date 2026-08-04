@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Mail;
@@ -347,6 +348,73 @@ public partial class CustomersViewModel : ObservableObject
         Landmark = Landmark,
         IsCreditCustomer = IsCreditCustomer,
     };
+
+    [RelayCommand]
+    private void SelectAllCustomers()
+    {
+        foreach (var row in Results)
+            row.IsSelected = true;
+        StatusMessage = $"{Results.Count} customer(s) selected.";
+    }
+
+    [RelayCommand]
+    private void ClearCustomerSelection()
+    {
+        foreach (var row in Results)
+            row.IsSelected = false;
+        StatusMessage = "Selection cleared.";
+    }
+
+    [RelayCommand]
+    private async Task BroadcastWhatsApp()
+    {
+        var selected = Results.Where(r => r.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            AppDialog.Show("Select one or more customers first (or Select all).", "Broadcast", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_services.CentralAuthSession.AccessToken))
+        {
+            AppDialog.Show("Log in to Central on Settings → Connection & sync first.", "Broadcast", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _services.CentralAuthSession.ApplyTo(_services.CentralApi);
+        var (settings, settingsErr) = await _services.WhatsAppClient.GetSettingsAsync(_services.StoreContext.StoreId);
+        if (settings == null)
+        {
+            AppDialog.Show(settingsErr ?? "Could not load WhatsApp settings.", "Broadcast", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!settings.Enabled)
+        {
+            AppDialog.Show("WhatsApp is disabled for this store on Central.", "Broadcast", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var recipients = new List<(string Name, string Phone)>();
+        foreach (var row in selected)
+        {
+            if (!PhoneE164Helper.CanSendWhatsApp(row.Phone, settings.DefaultCountryCode))
+                continue;
+            recipients.Add((row.Name, row.Phone));
+        }
+
+        if (recipients.Count == 0)
+        {
+            AppDialog.Show("None of the selected customers have a valid mobile number.", "Broadcast", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var owner = Application.Current?.MainWindow;
+        var dlg = new WhatsAppBroadcastDialog(_services, settings, recipients)
+        {
+            Owner = owner,
+        };
+        dlg.ShowDialog();
+    }
 
     private void ClearDetailForm()
     {

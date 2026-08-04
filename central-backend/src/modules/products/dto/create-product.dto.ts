@@ -323,6 +323,11 @@ export class CreateProductDto {
 
   // ── Status ──
 
+  @ApiProperty({ required: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  isAddedInB2B?: boolean;
+
   @ApiProperty({ required: false, default: true })
   @IsBoolean()
   @IsOptional()

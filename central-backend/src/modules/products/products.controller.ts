@@ -10,6 +10,7 @@ import { FilterProductDto } from './dto/filter-product.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductB2BVisibilityDto } from './dto/update-product-b2b-visibility.dto';
 
 import { ProductsService, ProductListFilterParams } from './products.service';
 
@@ -65,6 +66,8 @@ export class ProductsController {
 
   @ApiQuery({ name: 'supplierId', required: false, description: 'Alias for supplierNameId' })
 
+  @ApiQuery({ name: 'isAddedInB2B', required: false, type: Boolean })
+
   async list(@Query() query: ListProductsQueryDto) {
 
     return await this.productsService.list(this.toListParams(query));
@@ -99,6 +102,15 @@ export class ProductsController {
     return await this.productsService.update(id, dto, req.user);
   }
 
+  @Patch(':id/b2b-visibility')
+  async updateB2BVisibility(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductB2BVisibilityDto,
+    @Req() req: { user?: JwtPayload },
+  ) {
+    return await this.productsService.update(id, { isAddedInB2B: dto.isAddedInB2B }, req.user);
+  }
+
 
 
   private toListParams(query: ListProductsQueryDto): ProductListFilterParams & {
@@ -117,6 +129,7 @@ export class ProductsController {
     if (query.categoryId) params.categoryId = query.categoryId;
     const supplierNameId = query.supplierNameId || query.supplierId;
     if (supplierNameId) params.supplierNameId = supplierNameId;
+    if (query.isAddedInB2B !== undefined) params.isAddedInB2B = query.isAddedInB2B;
     if (query.skip !== undefined) params.skip = query.skip;
     if (query.limit !== undefined) params.limit = query.limit;
     return params;

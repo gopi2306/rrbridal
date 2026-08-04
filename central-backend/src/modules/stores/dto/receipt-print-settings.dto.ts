@@ -1,6 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class ReceiptPrintSettingsDto {
   @ApiProperty({ required: false })
@@ -31,6 +40,41 @@ export class ReceiptPrintSettingsDto {
   @Max(120)
   @IsOptional()
   paperWidthMm?: number;
+
+  @ApiProperty({ required: false, example: 'Thermal' })
+  @IsString()
+  @IsOptional()
+  printFormat?: string;
+
+  @ApiProperty({ required: false, example: 'Thermal' })
+  @IsString()
+  @IsOptional()
+  creditPrintFormat?: string;
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  a4PrePrintedEnabled?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  a5PrePrintedEnabled?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  alsoPrintThermalFirst?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsObject()
+  @IsOptional()
+  a4PrePrintedLayout?: Record<string, unknown>;
+
+  @ApiProperty({ required: false })
+  @IsObject()
+  @IsOptional()
+  a5PrePrintedLayout?: Record<string, unknown>;
 }
 
 export class ReceiptPrintSettingsOptionalDto {

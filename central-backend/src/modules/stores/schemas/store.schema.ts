@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument } from 'mongoose';
+import { Schema as MongooseSchema } from 'mongoose';
 import { ReceiptPrintSettings, ReceiptPrintSettingsSchema } from './receipt-print-settings.schema';
 import { WhatsAppSettings, WhatsAppSettingsSchema } from './whatsapp-settings.schema';
 
@@ -28,6 +29,29 @@ export class Store {
   @ApiProperty({ enum: ['active', 'inactive'], default: 'active' })
   @Prop({ required: true, default: 'active', index: true })
   status!: StoreStatus;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'When true, all POS counters use Central Online mode (direct central API; no shared parent Mongo / ZeroTier).',
+  })
+  @Prop({ required: true, default: false, index: true })
+  preferCentralOnline!: boolean;
+
+  @ApiProperty({
+    required: false,
+    description: 'Store-wide POS billing settings (duplicate print, credit rules, screen access, etc.).',
+  })
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  posBillingSettings?: Record<string, unknown>;
+
+  @ApiProperty({
+    required: false,
+    description: 'Store-wide POS counter screen-access matrix (same on every till).',
+  })
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  posScreenAccess?: Record<string, unknown>;
 
   @ApiProperty({ required: false, type: ReceiptPrintSettings })
   @Prop({ type: ReceiptPrintSettingsSchema })

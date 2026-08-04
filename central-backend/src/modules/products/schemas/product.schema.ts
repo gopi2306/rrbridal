@@ -246,6 +246,10 @@ export class Product {
 
   // ── Status ──
 
+  @ApiProperty({ required: false, default: false })
+  @Prop({ default: false, index: true })
+  isAddedInB2B!: boolean;
+
   @ApiProperty({ required: false })
   @Prop({ default: true, index: true })
   isActive!: boolean;

@@ -27,11 +27,18 @@ export function buildTemplateBodyParams(input: {
   storeName: string;
   billNo: string;
   amountLabel: string;
+  attachmentType?: string;
 }): string[] {
+  const customerName = input.customerName.trim() || 'Customer';
+  const billNo = input.billNo.trim();
+  // Document templates (e.g. invoice_send): {{1}} name, {{2}} invoice number
+  if ((input.attachmentType ?? 'image').trim().toLowerCase() === 'document') {
+    return [customerName, billNo];
+  }
   return [
-    input.customerName.trim() || 'Customer',
+    customerName,
     input.storeName.trim() || 'Store',
-    input.billNo.trim(),
+    billNo,
     input.amountLabel.trim(),
   ];
 }
@@ -46,6 +53,12 @@ export type WhatsAppSettingsPublic = {
   templateLanguage?: string;
   defaultCountryCode: string;
   attachmentType: string;
+  promoTemplateName?: string;
+  promoTemplateLanguage: string;
+  promoHeaderType: string;
+  promoBodyParamMode: string;
+  promoHasUrlButton: boolean;
+  promoConfigured: boolean;
 };
 
 export function toPublicWhatsAppSettings(
@@ -58,12 +71,19 @@ export function toPublicWhatsAppSettings(
   const envToken = process.env.WHATSAPP_DEFAULT_ACCESS_TOKEN?.trim();
   const effectiveToken = accessToken || envToken || '';
   const configured = Boolean(phoneNumberId && effectiveToken && templateName);
+  const promoTemplateName = readString(s.promoTemplateName);
+  const promoConfigured = Boolean(phoneNumberId && effectiveToken && promoTemplateName);
   const result: WhatsAppSettingsPublic = {
     enabled: Boolean(s.enabled),
     configured,
     templateLanguage: readString(s.templateLanguage) || 'en',
     defaultCountryCode: readString(s.defaultCountryCode) || '91',
     attachmentType: readString(s.attachmentType) || 'image',
+    promoTemplateLanguage: readString(s.promoTemplateLanguage) || 'en',
+    promoHeaderType: readString(s.promoHeaderType) || 'none',
+    promoBodyParamMode: readString(s.promoBodyParamMode) || 'name_offer_scope_date',
+    promoHasUrlButton: s.promoHasUrlButton === true,
+    promoConfigured,
   };
   if (phoneNumberId) result.phoneNumberId = phoneNumberId;
   const businessAccountId = readString(s.businessAccountId);
@@ -73,6 +93,7 @@ export function toPublicWhatsAppSettings(
     if (masked) result.accessTokenMasked = masked;
   }
   if (templateName) result.templateName = templateName;
+  if (promoTemplateName) result.promoTemplateName = promoTemplateName;
   return result;
 }
 

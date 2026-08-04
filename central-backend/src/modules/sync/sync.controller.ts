@@ -1,12 +1,16 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { StoresService } from '../stores/stores.service';
 import { SyncPushDto } from './dto/sync-push.dto';
 import { SyncService } from './sync.service';
 
 @ApiTags('sync')
 @Controller('sync')
 export class SyncController {
-  constructor(private readonly syncService: SyncService) {}
+  constructor(
+    private readonly syncService: SyncService,
+    private readonly storesService: StoresService,
+  ) {}
 
   @Post('push')
   async push(@Body() dto: SyncPushDto) {
@@ -62,5 +66,21 @@ export class SyncController {
   health() {
     return { ok: true };
   }
-}
 
+  /** Public: counters inherit Online mode + screen access before/after login (no JWT). */
+  @Get('store-pos-mode')
+  @ApiQuery({ name: 'storeId', required: true })
+  async storePosMode(@Query('storeId') storeId: string) {
+    if (!storeId?.trim()) {
+      throw new NotFoundException('storeId is required');
+    }
+    const mode = await this.storesService.getPosConnectionMode(storeId);
+    return {
+      storeId: storeId.trim().toLowerCase(),
+      preferCentralOnline: mode.preferCentralOnline,
+      posBillingSettings: mode.posBillingSettings ?? null,
+      posScreenAccess: mode.posScreenAccess ?? null,
+      receiptPrintSettings: mode.receiptPrintSettings ?? null,
+    };
+  }
+}

@@ -230,6 +230,7 @@ export class ProductImportService {
     if (row.minStock !== undefined) dto.minStock = row.minStock;
     if (row.reorderLevel !== undefined) dto.reorderLevel = row.reorderLevel;
     if (row.unit) dto.unit = row.unit;
+    if (row.isAddedInB2B !== undefined) dto.isAddedInB2B = row.isAddedInB2B;
     if (row.isActive !== undefined) dto.isActive = row.isActive;
     if (row.itemDiscountAllowed !== undefined) dto.itemDiscountAllowed = row.itemDiscountAllowed;
     if (row.isWeighable !== undefined) dto.isWeighable = row.isWeighable;

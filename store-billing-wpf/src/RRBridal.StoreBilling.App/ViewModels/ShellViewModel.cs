@@ -278,8 +278,7 @@ public partial class ShellViewModel : ObservableObject
         _services.ShellBranding.BrandingChanged += OnBrandingChanged;
         _services.MongoHealth.StatusChanged += OnMongoHealthStatusChanged;
         _services.CentralMode.StatusChanged += OnCentralModeStatusChanged;
-        MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
-        CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
+        RefreshConnectionStatusChips();
         if (!CanAccess(CurrentPage))
             CurrentPage = FirstAccessiblePage();
 
@@ -290,21 +289,25 @@ public partial class ShellViewModel : ObservableObject
 
     private void OnMongoHealthStatusChanged()
     {
-        MongoHealthStatusChip = _services.MongoHealth.StatusDescription;
+        RefreshConnectionStatusChips();
     }
 
     private void OnCentralModeStatusChanged()
     {
+        RefreshConnectionStatusChips();
+    }
+
+    private void RefreshConnectionStatusChips()
+    {
         CentralOnlineStatusChip = _services.CentralMode.StatusChipText;
+        MongoHealthStatusChip = _services.CentralMode.IsOnlineMode
+            ? "Mongo: not required (Online)"
+            : _services.MongoHealth.StatusDescription;
     }
 
     public bool CanAccess(ShellPage page)
     {
         var counter = _services.StoreContext.PosCounter?.Trim() ?? "1";
-
-        // Settings is always admin (counter 1) only.
-        if (page == ShellPage.Settings)
-            return string.Equals(counter, "1", StringComparison.OrdinalIgnoreCase);
 
         var access = _services.PosBillingSettings.Current.ScreenAccess
                      ?? CounterScreenAccessSettings.CreateDefaults();
@@ -329,6 +332,7 @@ public partial class ShellViewModel : ObservableObject
             ShellPage.DuplicateBill => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Duplicate), counter),
             ShellPage.Adjustments => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Adjustments), counter),
             ShellPage.DailyExpenses => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DailyExpenses), counter),
+            ShellPage.Settings => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Settings), counter),
             _ => true,
         };
     }

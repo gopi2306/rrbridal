@@ -85,15 +85,22 @@ public sealed class WhatsAppBillService
 
         try
         {
-            var (png, _, fileName) = await InvoiceAttachmentExporter.ExportThermalPngAsync(services, input, ct);
+            var invoiceFormat = _prefs.ResolveInvoiceFormat(services.ReceiptConfig.Current.Print.PrintFormat);
+            var (bytes, mimeType, fileName) = await InvoiceAttachmentExporter.ExportInvoiceAttachmentAsync(
+                services,
+                input,
+                invoiceFormat,
+                settings.AttachmentType,
+                ct);
             var (result, sendErr) = await _client.SendInvoiceAsync(
                 _store.StoreId,
                 billNo,
                 input.CustomerName,
                 phone,
                 input.Payable,
-                png,
+                bytes,
                 fileName,
+                mimeType,
                 ct);
 
             if (result == null)

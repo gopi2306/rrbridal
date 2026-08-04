@@ -75,7 +75,15 @@ Returns `{ deleted: true, id, poNo }`.
 - `400` — invalid id or status not deletable
 - `409` — goods receipt exists with `poId` referencing this PO
 
+## Excel import (sku + qty)
+
+See [purchase-order-import.md](./purchase-order-import.md) for:
+
+- `POST /purchase-orders/import/excel` — create one PO from spreadsheet (no stock move)
+- `POST /purchase-orders/import/excel/receive` — PO + goods receipt + warehouse post
+
 ## Related
 
 - [inventory.md](./inventory.md) — stock movements after goods receipt
 - [document-numbers.md](./document-numbers.md) — PO number allocation
+- [purchase-order-import.md](./purchase-order-import.md) — Excel sku/qty import

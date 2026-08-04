@@ -1,0 +1,42 @@
+[
+  {
+    "i": 0,
+    "alt": "BLUSH PINK PALAZZO SET",
+    "articleRadius": "12px",
+    "articleBg": "rgb(35, 24, 28)",
+    "articleShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+    "imgRadius": "0px"
+  },
+  {
+    "i": 1,
+    "alt": "LAVENDER PRINTED SUIT",
+    "articleRadius": "12px",
+    "articleBg": "rgb(35, 24, 28)",
+    "articleShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+    "imgRadius": "0px"
+  },
+  {
+    "i": 2,
+    "alt": "GREY PRINTED SUIT",
+    "articleRadius": "12px",
+    "articleBg": "rgb(35, 24, 28)",
+    "articleShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+    "imgRadius": "0px"
+  },
+  {
+    "i": 3,
+    "alt": "PRINTED COTTON SALWAR SUIT",
+    "articleRadius": "12px",
+    "articleBg": "rgb(35, 24, 28)",
+    "articleShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+    "imgRadius": "0px"
+  },
+  {
+    "i": 4,
+    "alt": "COTTON FLORAL SALWAR KAMEEZ",
+    "articleRadius": "12px",
+    "articleBg": "rgb(35, 24, 28)",
+    "articleShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+    "imgRadius": "0px"
+  }
+]

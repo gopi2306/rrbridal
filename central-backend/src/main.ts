@@ -19,6 +19,14 @@ async function bootstrap() {
     exclude: ['/'],
   });
 
+  // Browser POS (store-billing-react on Vite) calls this API cross-origin.
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

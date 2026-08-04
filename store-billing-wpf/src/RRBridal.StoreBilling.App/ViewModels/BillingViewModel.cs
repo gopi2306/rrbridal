@@ -1655,7 +1655,9 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
-        if (_services.StoreMongoOptions.RequireReady && !_services.MongoHealth.IsOnline)
+        if (_services.StoreMongoOptions.RequireReady
+            && !_services.CentralMode.IsOnlineMode
+            && !_services.MongoHealth.IsOnline)
         {
             var stillOffline = !await _services.MongoHealth.PingAsync().ConfigureAwait(true);
             if (stillOffline)

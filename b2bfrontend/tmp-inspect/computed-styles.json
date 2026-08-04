@@ -1,0 +1,207 @@
+[
+  {
+    "index": 0,
+    "alt": "BLUSH PINK PALAZZO SET",
+    "src": "http://localhost:5173/images/dresses/pro-11.webp",
+    "inlineStyle": "opacity: 1; transform: none;",
+    "article": {
+      "borderRadius": "12px",
+      "overflow": "hidden",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+      "backgroundColor": "rgb(35, 24, 28)",
+      "transform": "none",
+      "filter": "none",
+      "backdropFilter": "none",
+      "clipPath": "none",
+      "border": "0px solid rgb(250, 247, 242)"
+    },
+    "picture": {
+      "borderRadius": "0px",
+      "overflow": "hidden",
+      "transform": "none"
+    },
+    "img": {
+      "borderRadius": "0px",
+      "objectFit": "cover",
+      "transform": "none",
+      "width": "249.594px",
+      "height": "332.781px"
+    },
+    "overlay": {
+      "backgroundImage": "linear-gradient(to top, rgb(35, 24, 28) 0%, oklab(0.224453 0.0189329 -0.00162999 / 0.85) 45%, rgba(0, 0, 0, 0) 100%)",
+      "borderRadius": "0px",
+      "height": "132px"
+    },
+    "badge": {
+      "backdropFilter": "blur(8px)",
+      "borderRadius": "3.35544e+07px"
+    },
+    "link": {
+      "borderRadius": "12px"
+    }
+  },
+  {
+    "index": 1,
+    "alt": "LAVENDER PRINTED SUIT",
+    "src": "http://localhost:5173/images/dresses/pro-12.webp",
+    "inlineStyle": "opacity: 1; transform: none;",
+    "article": {
+      "borderRadius": "12px",
+      "overflow": "hidden",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+      "backgroundColor": "rgb(35, 24, 28)",
+      "transform": "none",
+      "filter": "none",
+      "backdropFilter": "none",
+      "clipPath": "none",
+      "border": "0px solid rgb(250, 247, 242)"
+    },
+    "picture": {
+      "borderRadius": "0px",
+      "overflow": "hidden",
+      "transform": "none"
+    },
+    "img": {
+      "borderRadius": "0px",
+      "objectFit": "cover",
+      "transform": "none",
+      "width": "249.594px",
+      "height": "332.781px"
+    },
+    "overlay": {
+      "backgroundImage": "linear-gradient(to top, rgb(35, 24, 28) 0%, oklab(0.224453 0.0189329 -0.00162999 / 0.85) 45%, rgba(0, 0, 0, 0) 100%)",
+      "borderRadius": "0px",
+      "height": "132px"
+    },
+    "badge": {
+      "backdropFilter": "blur(8px)",
+      "borderRadius": "3.35544e+07px"
+    },
+    "link": {
+      "borderRadius": "12px"
+    }
+  },
+  {
+    "index": 2,
+    "alt": "GREY PRINTED SUIT",
+    "src": "http://localhost:5173/images/dresses/pro-1.webp",
+    "inlineStyle": "opacity: 1; transform: none;",
+    "article": {
+      "borderRadius": "12px",
+      "overflow": "hidden",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+      "backgroundColor": "rgb(35, 24, 28)",
+      "transform": "none",
+      "filter": "none",
+      "backdropFilter": "none",
+      "clipPath": "none",
+      "border": "0px solid rgb(250, 247, 242)"
+    },
+    "picture": {
+      "borderRadius": "0px",
+      "overflow": "hidden",
+      "transform": "none"
+    },
+    "img": {
+      "borderRadius": "0px",
+      "objectFit": "cover",
+      "transform": "none",
+      "width": "249.609px",
+      "height": "332.812px"
+    },
+    "overlay": {
+      "backgroundImage": "linear-gradient(to top, rgb(35, 24, 28) 0%, oklab(0.224453 0.0189329 -0.00162999 / 0.85) 45%, rgba(0, 0, 0, 0) 100%)",
+      "borderRadius": "0px",
+      "height": "132px"
+    },
+    "badge": {
+      "backdropFilter": "blur(8px)",
+      "borderRadius": "3.35544e+07px"
+    },
+    "link": {
+      "borderRadius": "12px"
+    }
+  },
+  {
+    "index": 3,
+    "alt": "PRINTED COTTON SALWAR SUIT",
+    "src": "http://localhost:5173/images/dresses/pro-2.webp",
+    "inlineStyle": "opacity: 1; transform: none;",
+    "article": {
+      "borderRadius": "12px",
+      "overflow": "hidden",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+      "backgroundColor": "rgb(35, 24, 28)",
+      "transform": "none",
+      "filter": "none",
+      "backdropFilter": "none",
+      "clipPath": "none",
+      "border": "0px solid rgb(250, 247, 242)"
+    },
+    "picture": {
+      "borderRadius": "0px",
+      "overflow": "hidden",
+      "transform": "none"
+    },
+    "img": {
+      "borderRadius": "0px",
+      "objectFit": "cover",
+      "transform": "none",
+      "width": "249.594px",
+      "height": "332.781px"
+    },
+    "overlay": {
+      "backgroundImage": "linear-gradient(to top, rgb(35, 24, 28) 0%, oklab(0.224453 0.0189329 -0.00162999 / 0.85) 45%, rgba(0, 0, 0, 0) 100%)",
+      "borderRadius": "0px",
+      "height": "132px"
+    },
+    "badge": {
+      "backdropFilter": "blur(8px)",
+      "borderRadius": "3.35544e+07px"
+    },
+    "link": {
+      "borderRadius": "12px"
+    }
+  },
+  {
+    "index": 4,
+    "alt": "COTTON FLORAL SALWAR KAMEEZ",
+    "src": "http://localhost:5173/images/dresses/pro-3.webp",
+    "inlineStyle": "opacity: 1; transform: none;",
+    "article": {
+      "borderRadius": "12px",
+      "overflow": "hidden",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.55) 0px 16px 48px -24px",
+      "backgroundColor": "rgb(35, 24, 28)",
+      "transform": "none",
+      "filter": "none",
+      "backdropFilter": "none",
+      "clipPath": "none",
+      "border": "0px solid rgb(250, 247, 242)"
+    },
+    "picture": {
+      "borderRadius": "0px",
+      "overflow": "hidden",
+      "transform": "none"
+    },
+    "img": {
+      "borderRadius": "0px",
+      "objectFit": "cover",
+      "transform": "none",
+      "width": "249.609px",
+      "height": "332.812px"
+    },
+    "overlay": {
+      "backgroundImage": "linear-gradient(to top, rgb(35, 24, 28) 0%, oklab(0.224453 0.0189329 -0.00162999 / 0.85) 45%, rgba(0, 0, 0, 0) 100%)",
+      "borderRadius": "0px",
+      "height": "132px"
+    },
+    "badge": {
+      "backdropFilter": "blur(8px)",
+      "borderRadius": "3.35544e+07px"
+    },
+    "link": {
+      "borderRadius": "12px"
+    }
+  }
+]

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,6 +9,7 @@ namespace RRBridal.StoreBilling.App.ViewModels;
 
 public partial class LoginViewModel : ObservableObject
 {
+    private readonly AppServices _services;
     private readonly LocalAuthService _authService;
     private readonly ShellBrandingService _shellBranding;
 
@@ -24,10 +26,11 @@ public partial class LoginViewModel : ObservableObject
 
     public string Password { private get; set; } = "";
 
-    public LoginViewModel(LocalAuthService authService, ShellBrandingService shellBranding)
+    public LoginViewModel(AppServices services)
     {
-        _authService = authService;
-        _shellBranding = shellBranding;
+        _services = services;
+        _authService = services.LocalAuth;
+        _shellBranding = services.ShellBranding;
     }
 
     public async Task RefreshBrandingAsync()
@@ -63,16 +66,32 @@ public partial class LoginViewModel : ObservableObject
         IsLoggingIn = true;
         try
         {
-            var (user, error) = await _authService.TryLoginAsync(Email, Password);
-            if (user is null)
+            if (_services.CentralMode.IsOnlineMode)
             {
-                ErrorMessage = string.IsNullOrEmpty(error)
-                    ? "Invalid email or password."
-                    : error;
-                return;
-            }
+                var (ok, error, user) = await _services.CentralAuthClient.LoginWithUserAsync(Email, Password, default);
+                if (!ok || user is null)
+                {
+                    ErrorMessage = string.IsNullOrWhiteSpace(error)
+                        ? "Invalid email or password."
+                        : error;
+                    return;
+                }
 
-            AuthenticatedUser = user;
+                AuthenticatedUser = user;
+            }
+            else
+            {
+                var (user, error) = await _authService.TryLoginAsync(Email, Password);
+                if (user is null)
+                {
+                    ErrorMessage = string.IsNullOrEmpty(error)
+                        ? "Invalid email or password."
+                        : error;
+                    return;
+                }
+
+                AuthenticatedUser = user;
+            }
             // Invoke after IsLoggingIn clears so the window can close cleanly on the UI thread.
         }
         finally
@@ -83,5 +102,5 @@ public partial class LoginViewModel : ObservableObject
         }
     }
 
-    public event System.Action? LoginSucceeded;
+    public event Action? LoginSucceeded;
 }

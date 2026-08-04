@@ -37,8 +37,33 @@ export class WhatsAppSettingsDto {
   @IsOptional()
   defaultCountryCode?: string;
 
-  @ApiProperty({ required: false, enum: ['image'] })
-  @IsIn(['image'])
+  @ApiProperty({ required: false, enum: ['image', 'document'] })
+  @IsIn(['image', 'document'])
   @IsOptional()
-  attachmentType?: 'image';
+  attachmentType?: 'image' | 'document';
+
+  @ApiProperty({ required: false, example: 'promo_broadcast', description: 'Separate from billing invoice templateName' })
+  @IsString()
+  @IsOptional()
+  promoTemplateName?: string;
+
+  @ApiProperty({ required: false, example: 'en' })
+  @IsString()
+  @IsOptional()
+  promoTemplateLanguage?: string;
+
+  @ApiProperty({ required: false, enum: ['none', 'image', 'document'] })
+  @IsIn(['none', 'image', 'document'])
+  @IsOptional()
+  promoHeaderType?: 'none' | 'image' | 'document';
+
+  @ApiProperty({ required: false, enum: ['none', 'name_offer', 'name_offer_date', 'name_offer_scope_date'] })
+  @IsIn(['none', 'name_offer', 'name_offer_date', 'name_offer_scope_date'])
+  @IsOptional()
+  promoBodyParamMode?: 'none' | 'name_offer' | 'name_offer_date' | 'name_offer_scope_date';
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  promoHasUrlButton?: boolean;
 }

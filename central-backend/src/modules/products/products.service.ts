@@ -38,10 +38,19 @@ export type ProductListFilterParams = {
   upcEanCode?: string;
   categoryId?: string;
   supplierNameId?: string;
+  isAddedInB2B?: boolean;
 };
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function applyB2BProductFilter(
+  filter: FilterQuery<ProductDocument>,
+  isAddedInB2B: boolean | undefined,
+): void {
+  if (isAddedInB2B === undefined) return;
+  filter.isAddedInB2B = isAddedInB2B ? true : { $ne: true };
 }
 
 @Injectable()
@@ -57,6 +66,7 @@ export class ProductsService {
     const payload = this.normalizeProductWritePayload({
       ...dto,
       sku,
+      isAddedInB2B: dto.isAddedInB2B ?? false,
       isActive: dto.isActive ?? true,
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
@@ -83,6 +93,7 @@ export class ProductsService {
     private withNormalizedMediaItems<T extends object>(doc: T): T & {
       mediaItems: ProductMediaItemValue[];
       colourIds?: unknown;
+      isAddedInB2B: boolean;
     } {
       const origin = this.apiPublicOrigin();
       const migrated = this.migrateLegacyColourIds(doc as Record<string, unknown>);
@@ -102,6 +113,7 @@ export class ProductsService {
       return {
         ...(rest as T),
         mediaItems,
+        isAddedInB2B: migrated.isAddedInB2B === true,
       };
     }
 
@@ -389,6 +401,7 @@ export class ProductsService {
 
     applyObjectIdRefFilter(filter, 'categoryId', params.categoryId);
     applyObjectIdRefFilter(filter, 'supplierNameId', params.supplierNameId);
+    applyB2BProductFilter(filter, params.isAddedInB2B);
 
     const search = params.search?.trim();
     if (search) {
@@ -459,6 +472,7 @@ export class ProductsService {
     if (dto.isActive !== undefined && dto.isActive !== null) {
       filter.isActive = dto.isActive;
     }
+    applyB2BProductFilter(filter, dto.isAddedInB2B);
 
     if (dto.mrpMin !== undefined || dto.mrpMax !== undefined) {
       filter.mrp = {};

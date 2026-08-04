@@ -1,0 +1,72 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.WhatsAppBroadcastDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Broadcast WhatsApp promotion"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Width="520"
+        SizeToContent="Height"
+        FontFamily="{StaticResource FontFamilyPrimary}"
+        Background="{StaticResource BrushBackground}">
+    <Border Padding="20" Background="{StaticResource BrushSurface}"
+            BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Margin="12"
+            CornerRadius="12">
+        <StackPanel>
+            <TextBlock Text="Broadcast WhatsApp promotion" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <TextBlock x:Name="SummaryText" TextWrapping="Wrap" Style="{StaticResource TextCaption}" Margin="0,0,0,12"/>
+
+            <TextBlock Text="Mode" Style="{StaticResource FilterFieldLabel}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <RadioButton x:Name="ModeTemplate" Content="Marketing template (recommended)" IsChecked="True" Margin="0,0,16,0"
+                             GroupName="BroadcastMode" Checked="Mode_Changed"/>
+                <RadioButton x:Name="ModeSession" Content="Session free-text"
+                             GroupName="BroadcastMode" Checked="Mode_Changed"/>
+            </StackPanel>
+            <TextBlock x:Name="ModeHintText" TextWrapping="Wrap" Style="{StaticResource TextCaption}" Margin="0,0,0,12"
+                       Text="Uses approved promo_offer: name, offer, scope, date + URL button."/>
+
+            <StackPanel x:Name="TemplateFieldsPanel">
+                <TextBlock Text="Offer {{2}} e.g. 20" Style="{StaticResource FilterFieldLabel}"/>
+                <TextBox x:Name="OfferTextBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
+                         Text="20"/>
+
+                <TextBlock Text="Scope {{3}} e.g. All Products" Style="{StaticResource FilterFieldLabel}"/>
+                <TextBox x:Name="OfferScopeBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
+                         Text="All Products"/>
+
+                <TextBlock Text="Valid until {{4}} e.g. 31 July 2026" Style="{StaticResource FilterFieldLabel}"/>
+                <TextBox x:Name="OfferDateBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="UrlLabel" Text="URL button (only if Meta URL is dynamic)" Style="{StaticResource FilterFieldLabel}"/>
+                <TextBox x:Name="UrlSuffixBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
+                         Text="https://yourdomain.com/offers"/>
+            </StackPanel>
+
+            <StackPanel x:Name="SessionFieldsPanel" Visibility="Collapsed">
+                <TextBlock Text="Free-text message" Style="{StaticResource FilterFieldLabel}"/>
+                <TextBox x:Name="SessionTextBox" Style="{StaticResource RoundedTextBox}"
+                         AcceptsReturn="True" TextWrapping="Wrap" Height="88" Margin="0,0,0,12"
+                         VerticalScrollBarVisibility="Auto"/>
+            </StackPanel>
+
+            <StackPanel x:Name="MediaPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                <TextBlock Text="Header media (when promoHeaderType is image/document)" Style="{StaticResource FilterFieldLabel}"/>
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" MinWidth="88"
+                            Style="{StaticResource OutlineButton}" Click="BrowseMedia_Click"/>
+                    <TextBox x:Name="MediaPathBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+                </DockPanel>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="88" Margin="0,0,8,0"
+                        IsCancel="True" Click="Cancel_Click"/>
+                <Button x:Name="SendButton" Content="Send broadcast" Style="{StaticResource PrimaryButton}" MinWidth="120"
+                        IsDefault="True" Click="Send_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

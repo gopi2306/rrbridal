@@ -27,6 +27,12 @@
                            Style="{StaticResource PageSubtitle}"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="Select all" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0"
+                        Command="{Binding SelectAllCustomersCommand}"/>
+                <Button Content="Clear selection" Style="{StaticResource OutlineButton}" MinWidth="110" Margin="0,0,8,0"
+                        Command="{Binding ClearCustomerSelectionCommand}"/>
+                <Button Content="Broadcast WhatsApp" Style="{StaticResource OutlineButton}" MinWidth="140" Margin="0,0,8,0"
+                        Command="{Binding BroadcastWhatsAppCommand}"/>
                 <Button Content="New customer" Style="{StaticResource OutlineButton}" MinWidth="120" Margin="0,0,8,0"
                         Command="{Binding NewCustomerCommand}"/>
                 <Button Content="Save (F4)" Style="{StaticResource PrimaryButton}" MinWidth="100" Margin="0,0,8,0"
@@ -104,15 +110,17 @@
                               SelectedItem="{Binding SelectedCustomer}"
                               Style="{StaticResource ThemedDataGrid}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
+                              IsReadOnly="False"
                               CanUserAddRows="False"
                               MinHeight="200">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Code" Binding="{Binding CustomerCode}" Width="88"/>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
-                            <DataGridTextColumn Header="Mobile" Binding="{Binding Phone}" Width="108"/>
-                            <DataGridCheckBoxColumn Header="Credit" Binding="{Binding IsCreditCustomer}" Width="56"/>
-                            <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="64"/>
+                            <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="36"
+                                                    IsReadOnly="False"/>
+                            <DataGridTextColumn Header="Code" Binding="{Binding CustomerCode}" Width="88" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Mobile" Binding="{Binding Phone}" Width="108" IsReadOnly="True"/>
+                            <DataGridCheckBoxColumn Header="Credit" Binding="{Binding IsCreditCustomer}" Width="56" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Sync" Binding="{Binding SyncStatus}" Width="64" IsReadOnly="True"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

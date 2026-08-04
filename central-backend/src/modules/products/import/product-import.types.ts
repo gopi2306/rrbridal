@@ -72,6 +72,7 @@ export interface ParsedProductImportRow {
   minStock?: number;
   reorderLevel?: number;
   unit?: string;
+  isAddedInB2B?: boolean;
   isActive?: boolean;
   itemDiscountAllowed?: boolean;
   isWeighable?: boolean;

@@ -105,14 +105,19 @@ public sealed class CounterScreenAccessSettings
 
     public IReadOnlyList<string> AllowedFor(string screenKey)
     {
-        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
-            return new[] { "1" };
-
         var list = GetList(screenKey);
         if (list == null || list.Count == 0)
             return DefaultAllowed(screenKey);
 
-        return Normalize(list);
+        var normalized = Normalize(list);
+        // POS 1 always retains Settings access.
+        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal)
+            && !normalized.Any(c => string.Equals(c, "1", StringComparison.OrdinalIgnoreCase)))
+        {
+            normalized = normalized.Prepend("1").ToList();
+        }
+
+        return normalized;
     }
 
     public bool IsCounterAllowed(string screenKey, string posCounter)
@@ -121,22 +126,19 @@ public sealed class CounterScreenAccessSettings
         if (string.IsNullOrEmpty(counter))
             counter = "1";
 
-        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
-            return string.Equals(counter, "1", StringComparison.OrdinalIgnoreCase);
-
         return AllowedFor(screenKey).Any(c =>
             string.Equals(c, counter, StringComparison.OrdinalIgnoreCase));
     }
 
     public void SetAllowed(string screenKey, IEnumerable<string> counters)
     {
-        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal))
+        var normalized = Normalize(counters).ToList();
+        if (string.Equals(screenKey, nameof(Settings), StringComparison.Ordinal)
+            && !normalized.Any(c => string.Equals(c, "1", StringComparison.OrdinalIgnoreCase)))
         {
-            Settings = new List<string> { "1" };
-            return;
+            normalized.Insert(0, "1");
         }
 
-        var normalized = Normalize(counters).ToList();
         switch (screenKey)
         {
             case nameof(Billing): Billing = normalized; break;
@@ -156,6 +158,7 @@ public sealed class CounterScreenAccessSettings
             case nameof(Duplicate): Duplicate = normalized; break;
             case nameof(Adjustments): Adjustments = normalized; break;
             case nameof(DailyExpenses): DailyExpenses = normalized; break;
+            case nameof(Settings): Settings = normalized; break;
         }
     }
 

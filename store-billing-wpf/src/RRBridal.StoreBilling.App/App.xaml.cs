@@ -81,9 +81,29 @@ public partial class App : Application
     {
         try
         {
-            // ZeroTier / parent-Mongo gate: STORE_MONGO_REQUIRE_READY=true (default).
-            // Set STORE_MONGO_REQUIRE_READY=false to skip and allow start without Mongo up.
-            if (Services.StoreMongoOptions.RequireReady)
+            // If this till is already Online locally, skip Mongo/ZeroTier gate immediately.
+            // Do not wait on central inherit first — inherit must never re-enable the gate.
+            var skipMongoGate = Services.CentralMode.IsOnlineMode
+                                || !Services.StoreMongoOptions.RequireReady;
+
+            // Inherit store-wide Online from central (public endpoint). Only promotes to Online.
+            try
+            {
+                using var inheritCts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                await Services.CentralMode.SyncFromCentralStoreAsync(inheritCts.Token).ConfigureAwait(true);
+            }
+            catch
+            {
+                /* use local PreferCentralOnline */
+            }
+
+            skipMongoGate = skipMongoGate
+                            || Services.CentralMode.IsOnlineMode
+                            || !Services.StoreMongoOptions.RequireReady;
+
+            // ZeroTier / parent-Mongo gate: Offline stores with STORE_MONGO_REQUIRE_READY=true.
+            // Central Online (local or inherited) skips — counters talk only to CENTRAL_API_BASE.
+            if (!skipMongoGate)
             {
                 if (!await Services.MongoHealth.WaitUntilReadyAsync().ConfigureAwait(true))
                 {
@@ -95,6 +115,21 @@ public partial class App : Application
             string syncWarning = "";
             if (Services.CentralMode.IsOnlineMode)
             {
+                // Online login uses central auth — no local store_users / Mongo required.
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                    await Services.CentralMode.ProbeHealthAsync(cts.Token).ConfigureAwait(true);
+                    if (!Services.CentralMode.IsCentralReachable)
+                        syncWarning = "Central API unreachable. Login requires CENTRAL_API_BASE.";
+                }
+                catch
+                {
+                    syncWarning = "Could not reach the central server.";
+                }
+            }
+            else
+            {
                 try
                 {
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -105,20 +140,38 @@ public partial class App : Application
                 {
                     syncWarning = "Could not reach the server to sync users.";
                 }
+
+                try
+                {
+                    await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
+                }
+                catch { /* best-effort before login */ }
+
+                try
+                {
+                    var localUsers = await Services.LocalAuth.GetAllUsersAsync().ConfigureAwait(true);
+                    if (localUsers.Count == 0)
+                    {
+                        syncWarning = string.IsNullOrEmpty(syncWarning)
+                            ? $"No users found for store '{Services.StoreContext.StoreId}'. Check STORE_ID and backend."
+                            : $"{syncWarning} No cached users found for store '{Services.StoreContext.StoreId}'.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    syncWarning = string.IsNullOrEmpty(syncWarning)
+                        ? $"Store MongoDB unavailable: {ex.Message}"
+                        : $"{syncWarning} Store MongoDB unavailable: {ex.Message}";
+                }
             }
 
-            try
+            if (Services.CentralMode.IsOnlineMode)
             {
-                await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
-            }
-            catch { /* best-effort before login */ }
-
-            var localUsers = await Services.LocalAuth.GetAllUsersAsync().ConfigureAwait(true);
-            if (localUsers.Count == 0)
-            {
-                syncWarning = string.IsNullOrEmpty(syncWarning)
-                    ? $"No users found for store '{Services.StoreContext.StoreId}'. Check STORE_ID and backend."
-                    : $"{syncWarning} No cached users found for store '{Services.StoreContext.StoreId}'.";
+                try
+                {
+                    await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
+                }
+                catch { /* best-effort before login */ }
             }
 
             while (true)
@@ -143,6 +196,20 @@ public partial class App : Application
                     await Services.ShellBranding.RefreshAsync().ConfigureAwait(true);
                 }
                 catch { /* best-effort after login */ }
+
+                // After central JWT login, ensure store-wide Online is published and re-synced.
+                if (Services.CentralMode.IsOnlineMode)
+                {
+                    try
+                    {
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                        await Services.StoreInfo
+                            .SetPreferCentralOnlineAsync(Services.StoreContext.StoreId, true, cts.Token)
+                            .ConfigureAwait(true);
+                        await Services.CentralMode.SyncFromCentralStoreAsync(cts.Token).ConfigureAwait(true);
+                    }
+                    catch { /* ignore */ }
+                }
 
                 _reloginRequested = false;
                 await ShowMainWindowAsync().ConfigureAwait(true);
@@ -233,6 +300,12 @@ public partial class App : Application
     {
         try
         {
+            if (Services.CentralMode.IsOnlineMode)
+            {
+                Services.CentralAuthClient.Logout();
+                return;
+            }
+
             await Services.LocalAuth.ReleaseSessionAsync(email).ConfigureAwait(false);
         }
         catch

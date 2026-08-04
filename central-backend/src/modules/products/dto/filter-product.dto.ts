@@ -207,6 +207,11 @@ export class FilterProductDto {
 
   // ── Status ──
 
+  @ApiProperty({ required: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  isAddedInB2B?: boolean;
+
   @ApiProperty({ required: false })
   @IsBoolean()
   @IsOptional()

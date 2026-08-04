@@ -71,10 +71,11 @@
                                     <TextBlock Text="Store sync" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
                                     <TextBlock Text="Push local bills and pull master data from central."
                                                Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                    <CheckBox Content="Central Online mode (Online = direct central API calls; Offline = local only)"
+                                    <CheckBox Content="Central Online mode (store-wide: all counters → central API; no ZeroTier / parent Mongo)"
                                               Style="{StaticResource ThemedCheckBox}"
-                                              IsChecked="{Binding BillingPreferCentralOnline}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Offline changes stay local and sync to central when Online mode is enabled again."
+                                              IsChecked="{Binding BillingPreferCentralOnline}" Margin="0,0,0,4"
+                                              IsEnabled="{Binding CanEditPreferCentralOnline}"/>
+                                    <TextBlock Text="{Binding PreferCentralOnlineHint}"
                                                Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                     <WrapPanel Margin="0,0,0,14">
                                         <Button Content="Save mode" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
@@ -159,7 +160,7 @@
                                 <TextBlock Text="Printed bill header, footer, and company details on receipts."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
                                 <TextBlock Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,16"
-                                           Text="Saved locally in %LocalAppData%\RRBridal\StoreBilling\receipt_config.json. Company profile syncs from central on Run sync."/>
+                                           Text="Store-wide print formats and layouts sync to central on Save. Printer queues stay per PC. Company header/footer still sync from company profile on Run sync / Reload from central."/>
 
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -892,20 +893,31 @@
                         <Border Style="{StaticResource SettingsGridCard}">
                             <StackPanel>
                                 <TextBlock Text="WhatsApp bill delivery" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Sends thermal bill image via WhatsApp Business API after billing (when enabled). API credentials are configured in Central admin."
+                                <TextBlock Text="Sends the selected bill layout via WhatsApp after posting (when enabled). Central attachment type must be document for PDF (A4/A5/commercial). Image mode always sends a thermal PNG. Credentials are configured in Central admin."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <TextBlock Text="Connection status" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
                                 <TextBlock Text="{Binding WhatsAppConnectionStatus}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                 <TextBlock Text="Template" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                                <TextBlock Text="{Binding WhatsAppTemplateSummary}" Margin="0,0,0,12"/>
+                                <TextBlock Text="{Binding WhatsAppTemplateSummary}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <TextBlock Text="Bill format to send" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
+                                <StackPanel Margin="0,0,0,12">
+                                    <RadioButton Content="Thermal receipt" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsWhatsAppThermalFormat, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 tax invoice" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsWhatsAppA4Format, Mode=TwoWay}"/>
+                                    <RadioButton Content="A5 tax invoice" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsWhatsAppA5Format, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 commercial invoice" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsWhatsAppA4CommercialFormat, Mode=TwoWay}"/>
+                                </StackPanel>
                                 <CheckBox Content="Auto-send bill on post (when customer phone is present)"
                                           Style="{StaticResource ThemedCheckBox}"
                                           IsChecked="{Binding WhatsAppAutoSendAfterPost}" Margin="0,0,0,12"/>
                                 <WrapPanel>
                                     <Button Content="Save WhatsApp settings" Style="{StaticResource PrimaryButton}"
-                                            Command="{Binding SaveWhatsAppSettingsAsync}" Margin="0,0,8,8"/>
+                                            Command="{Binding SaveWhatsAppSettingsCommand}" Margin="0,0,8,8"/>
                                     <Button Content="Refresh status" Style="{StaticResource OutlineButton}" Margin="0,0,0,8"
-                                            Command="{Binding RefreshWhatsAppStatusAsync}"/>
+                                            Command="{Binding RefreshWhatsAppStatusCommand}"/>
                                 </WrapPanel>
                             </StackPanel>
                         </Border>
@@ -913,13 +925,13 @@
                         <Border Style="{StaticResource SettingsGridCard}">
                             <StackPanel>
                                 <TextBlock Text="Test send" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Send a sample bill image to verify Meta template and credentials."
+                                <TextBlock Text="Send a sample bill using the selected format (PDF when Central is document, thermal image when Central is image)."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <TextBlock Text="Test mobile" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource SettingsFieldInput}"
                                          Text="{Binding WhatsAppTestPhone, UpdateSourceTrigger=PropertyChanged}" MaxWidth="280" HorizontalAlignment="Left"/>
                                 <Button Content="Send test WhatsApp bill" Style="{StaticResource OutlineButton}"
-                                        HorizontalAlignment="Left" Command="{Binding TestWhatsAppSendAsync}"/>
+                                        HorizontalAlignment="Left" Command="{Binding TestWhatsAppSendCommand}"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -1085,7 +1097,7 @@
                                 Visibility="{Binding ShowCounterScreenAccessEditor, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <TextBlock Text="Counter screen access" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Admin (POS 1) only. Tick which counters may open each screen. Settings always stays on POS 1. Save with billing settings below. Copy billing_settings.json to other PCs if needed."
+                                <TextBlock Text="Tick which counters may open each screen. POS 1 always keeps Settings. Save billing settings to push this matrix to central — all counters inherit the same access."
                                            Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <DataGrid ItemsSource="{Binding CounterScreenAccessRows}"
                                           Style="{StaticResource ThemedDataGrid}"
@@ -1115,7 +1127,16 @@
                                         <DataGridCheckBoxColumn Header="Duplicate" Binding="{Binding Duplicate, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
                                         <DataGridCheckBoxColumn Header="Adjustments" Binding="{Binding Adjustments, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>
                                         <DataGridCheckBoxColumn Header="Expenses" Binding="{Binding DailyExpenses, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
-                                        <DataGridCheckBoxColumn Header="Settings" Binding="{Binding Settings, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60" IsReadOnly="True"/>
+                                        <DataGridTemplateColumn Header="Settings" Width="70" MinWidth="60">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding Settings, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                                              IsEnabled="{Binding CanEditSettings}"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <DockPanel Margin="0,12,0,0" LastChildFill="False">

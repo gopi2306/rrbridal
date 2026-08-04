@@ -198,7 +198,14 @@ public sealed class AppServices
             localAuth,
             () => servicesRef?.UserSession,
             () => servicesRef?.CentralMode.IsOnlineMode ?? posBillingSettings.Current.PreferCentralOnline);
-        var centralMode = new CentralOnlineModeService(posBillingSettings, http, storeSyncRunner);
+        var centralMode = new CentralOnlineModeService(
+            posBillingSettings,
+            http,
+            storeSyncRunner,
+            storeInfoClient,
+            receiptConfig,
+            receiptConfigSync,
+            storeContext.StoreId);
         productCatalog.ConfigureOnline(centralMode, storePos);
         inventoryGrid.ConfigureOnline(centralMode, dashboardApi);
         inventoryAdjustments.ConfigureOnline(centralMode, dashboardApi);

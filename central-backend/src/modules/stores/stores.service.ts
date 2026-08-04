@@ -27,6 +27,7 @@ export class StoresService {
       address: dto.address?.trim(),
       phone: dto.phone?.trim(),
       status: 'active',
+      preferCentralOnline: dto.preferCentralOnline === true,
       receiptPrintSettings: dto.receiptPrintSettings,
     });
   }
@@ -39,6 +40,46 @@ export class StoresService {
     const doc = await this.storeModel.findOne({ code: code.trim().toLowerCase() }).lean();
     if (!doc) throw new NotFoundException(`Store '${code}' not found`);
     return doc;
+  }
+
+  async getPreferCentralOnline(code: string): Promise<boolean> {
+    const doc = await this.storeModel
+      .findOne({ code: code.trim().toLowerCase() })
+      .select({ preferCentralOnline: 1 })
+      .lean();
+    if (!doc) throw new NotFoundException(`Store '${code}' not found`);
+    return doc.preferCentralOnline === true;
+  }
+
+  async getPosConnectionMode(code: string): Promise<{
+    preferCentralOnline: boolean;
+    posBillingSettings?: Record<string, unknown>;
+    posScreenAccess?: Record<string, unknown>;
+    receiptPrintSettings?: Record<string, unknown>;
+  }> {
+    const doc = await this.storeModel
+      .findOne({ code: code.trim().toLowerCase() })
+      .select({ preferCentralOnline: 1, posBillingSettings: 1, posScreenAccess: 1, receiptPrintSettings: 1 })
+      .lean();
+    if (!doc) throw new NotFoundException(`Store '${code}' not found`);
+    const result: {
+      preferCentralOnline: boolean;
+      posBillingSettings?: Record<string, unknown>;
+      posScreenAccess?: Record<string, unknown>;
+      receiptPrintSettings?: Record<string, unknown>;
+    } = {
+      preferCentralOnline: doc.preferCentralOnline === true,
+    };
+    if (doc.posBillingSettings && typeof doc.posBillingSettings === 'object') {
+      result.posBillingSettings = doc.posBillingSettings as Record<string, unknown>;
+    }
+    if (doc.posScreenAccess && typeof doc.posScreenAccess === 'object') {
+      result.posScreenAccess = doc.posScreenAccess as Record<string, unknown>;
+    }
+    if (doc.receiptPrintSettings && typeof doc.receiptPrintSettings === 'object') {
+      result.receiptPrintSettings = doc.receiptPrintSettings as Record<string, unknown>;
+    }
+    return result;
   }
 
   async update(code: string, dto: UpdateStoreDto) {
@@ -57,6 +98,21 @@ export class StoresService {
     if (dto.address !== undefined) set.address = dto.address.trim();
     if (dto.phone !== undefined) set.phone = dto.phone.trim();
     if (dto.status !== undefined) set.status = dto.status;
+    if (dto.preferCentralOnline !== undefined) set.preferCentralOnline = dto.preferCentralOnline === true;
+    if (dto.posBillingSettings !== undefined) {
+      set.posBillingSettings = dto.posBillingSettings;
+      // Keep flat Online + screen-access mirrors in sync for older clients.
+      const billing = dto.posBillingSettings;
+      if (billing && typeof billing === 'object') {
+        if (typeof billing.preferCentralOnline === 'boolean') {
+          set.preferCentralOnline = billing.preferCentralOnline === true;
+        }
+        if (billing.screenAccess && typeof billing.screenAccess === 'object') {
+          set.posScreenAccess = billing.screenAccess as Record<string, unknown>;
+        }
+      }
+    }
+    if (dto.posScreenAccess !== undefined) set.posScreenAccess = dto.posScreenAccess;
     if (dto.receiptPrintSettings !== undefined) set.receiptPrintSettings = dto.receiptPrintSettings;
     if (Object.keys(set).length === 0) {
       return await this.findByCode(code);
@@ -103,6 +159,11 @@ export class StoresService {
     if (dto.templateLanguage !== undefined) next.templateLanguage = dto.templateLanguage.trim();
     if (dto.defaultCountryCode !== undefined) next.defaultCountryCode = dto.defaultCountryCode.trim();
     if (dto.attachmentType !== undefined) next.attachmentType = dto.attachmentType;
+    if (dto.promoTemplateName !== undefined) next.promoTemplateName = dto.promoTemplateName.trim();
+    if (dto.promoTemplateLanguage !== undefined) next.promoTemplateLanguage = dto.promoTemplateLanguage.trim();
+    if (dto.promoHeaderType !== undefined) next.promoHeaderType = dto.promoHeaderType;
+    if (dto.promoBodyParamMode !== undefined) next.promoBodyParamMode = dto.promoBodyParamMode;
+    if (dto.promoHasUrlButton !== undefined) next.promoHasUrlButton = dto.promoHasUrlButton;
     if (shouldReplaceAccessToken(dto.accessToken)) next.accessToken = dto.accessToken!.trim();
 
     const doc = await this.storeModel
@@ -116,13 +177,24 @@ export class StoresService {
     const s = settings ?? {};
     const phoneNumberId = typeof s.phoneNumberId === 'string' ? s.phoneNumberId.trim() : '';
     const accessToken =
-      (typeof s.accessToken === 'string' ? s.accessToken.trim() : '') ||
-      process.env.WHATSAPP_DEFAULT_ACCESS_TOKEN?.trim() ||
+      (typeof s.accessToken === 'string' ? s.accessToken.trim().replace(/^Bearer\s+/i, '').trim() : '') ||
+      process.env.WHATSAPP_DEFAULT_ACCESS_TOKEN?.trim().replace(/^Bearer\s+/i, '').trim() ||
       '';
     const templateName = typeof s.templateName === 'string' ? s.templateName.trim() : '';
     const templateLanguage = typeof s.templateLanguage === 'string' ? s.templateLanguage.trim() : 'en';
     const defaultCountryCode = typeof s.defaultCountryCode === 'string' ? s.defaultCountryCode.trim() : '91';
     const enabled = Boolean(s.enabled);
+    const promoTemplateName =
+      typeof s.promoTemplateName === 'string' ? s.promoTemplateName.trim() : '';
+    const promoTemplateLanguage =
+      typeof s.promoTemplateLanguage === 'string' ? s.promoTemplateLanguage.trim() : 'en';
+    const promoHeaderType =
+      typeof s.promoHeaderType === 'string' ? s.promoHeaderType.trim() : 'none';
+    const promoBodyParamMode =
+      typeof s.promoBodyParamMode === 'string' ? s.promoBodyParamMode.trim() : 'name_offer_scope_date';
+    const promoHasUrlButton = s.promoHasUrlButton === true;
+    const businessAccountId =
+      typeof s.businessAccountId === 'string' ? s.businessAccountId.trim() : '';
     return {
       enabled,
       phoneNumberId,
@@ -131,6 +203,12 @@ export class StoresService {
       templateLanguage,
       defaultCountryCode,
       attachmentType: typeof s.attachmentType === 'string' ? s.attachmentType.trim() : 'image',
+      promoTemplateName,
+      promoTemplateLanguage,
+      promoHeaderType,
+      promoBodyParamMode,
+      promoHasUrlButton,
+      businessAccountId,
     };
   }
 

@@ -52,6 +52,7 @@ export const PRODUCT_IMPORT_HEADERS: readonly string[] = [
   'minStock',
   'reorderLevel',
   'unit',
+  'isAddedInB2B',
   'isActive',
   'itemDiscountAllowed',
   'isWeighable',
@@ -107,6 +108,7 @@ export const PRODUCT_IMPORT_EXAMPLE_ROW: Record<string, string | number | boolea
   minStock: 1,
   reorderLevel: 2,
   unit: 'PCS',
+  isAddedInB2B: false,
   isActive: true,
   itemDiscountAllowed: true,
   isWeighable: false,
@@ -219,6 +221,8 @@ const HEADER_ALIASES: Record<string, keyof ParsedProductImportRow> = {
   minstock: 'minStock',
   reorderlevel: 'reorderLevel',
   unit: 'unit',
+  isaddedinb2b: 'isAddedInB2B',
+  'is added in b2b': 'isAddedInB2B',
   isactive: 'isActive',
   itemdiscountallowed: 'itemDiscountAllowed',
   isweighable: 'isWeighable',
@@ -241,7 +245,12 @@ const NUMERIC_FIELDS = new Set<keyof ParsedProductImportRow>([
   'reorderLevel',
 ]);
 
-const BOOLEAN_FIELDS = new Set<keyof ParsedProductImportRow>(['isActive', 'itemDiscountAllowed', 'isWeighable']);
+const BOOLEAN_FIELDS = new Set<keyof ParsedProductImportRow>([
+  'isAddedInB2B',
+  'isActive',
+  'itemDiscountAllowed',
+  'isWeighable',
+]);
 
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/[_-]+/g, ' ');

@@ -80,6 +80,14 @@ public sealed class CustomerLookupService
         return results;
     }
 
+    /// <summary>List recent customers from Central (no filter). Used by Customers page empty Search.</summary>
+    public async Task<List<CustomerMatch>> ListCentralAsync(CancellationToken ct = default)
+    {
+        if (!IsCentralOnline)
+            return [];
+        return await FetchCentralAsync("/api/customers", ct);
+    }
+
     private async Task<List<CustomerMatch>> SearchLocalAsync(string query, CancellationToken ct)
     {
         var coll = _localDb.GetCollection<BsonDocument>("store_customers");
@@ -115,11 +123,13 @@ public sealed class CustomerLookupService
         }).ToList();
     }
 
-    private async Task<List<CustomerMatch>> SearchCentralAsync(string query, CancellationToken ct)
+    private Task<List<CustomerMatch>> SearchCentralAsync(string query, CancellationToken ct) =>
+        FetchCentralAsync($"/api/customers?search={Uri.EscapeDataString(query)}", ct);
+
+    private async Task<List<CustomerMatch>> FetchCentralAsync(string url, CancellationToken ct)
     {
         try
         {
-            var url = $"/api/customers?search={Uri.EscapeDataString(query)}";
             var response = await _centralApi.GetAsync(url, ct);
             if (!response.IsSuccessStatusCode)
             {
@@ -128,10 +138,10 @@ public sealed class CustomerLookupService
                     throw new InvalidOperationException($"Central customer search failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
 
                 Trace.TraceWarning(
-                    "Central customer search failed: {StatusCode} {Reason} for query '{Query}'",
+                    "Central customer search failed: {StatusCode} {Reason} for '{Url}'",
                     (int)response.StatusCode,
                     response.ReasonPhrase,
-                    query);
+                    url);
                 return [];
             }
 
@@ -176,10 +186,7 @@ public sealed class CustomerLookupService
             if (IsCentralOnline)
                 throw new InvalidOperationException("Central customer search failed: " + ex.Message, ex);
 
-            Trace.TraceWarning(
-                "Central customer search error for query '{0}': {1}",
-                query,
-                ex.Message);
+            Trace.TraceWarning("Central customer search error for '{0}': {1}", url, ex.Message);
             return [];
         }
     }

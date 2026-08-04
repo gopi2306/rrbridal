@@ -34,12 +34,12 @@ export class SendWhatsAppInvoiceFieldsDto {
 }
 
 export class WhatsAppTestSendDto {
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Store code; defaults to first active store' })
   @IsString()
   @IsOptional()
   storeId?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Destination mobile (10-digit or E.164)' })
   @IsString()
   customerPhone!: string;
 
@@ -47,4 +47,14 @@ export class WhatsAppTestSendDto {
   @IsString()
   @IsOptional()
   customerName?: string;
+
+  @ApiProperty({
+    required: false,
+    type: 'string',
+    format: 'binary',
+    description:
+      'Optional PDF or PNG. If omitted, a sample file is generated from the store attachmentType.',
+  })
+  @IsOptional()
+  attachment?: unknown;
 }

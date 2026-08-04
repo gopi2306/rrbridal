@@ -1,10 +1,13 @@
 using System;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Invoicing;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
@@ -13,6 +16,10 @@ public sealed class CentralOnlineModeService : IDisposable
     private readonly PosBillingSettingsStore _settings;
     private readonly HttpClient _centralApi;
     private readonly StoreSyncRunner _syncRunner;
+    private readonly StoreInfoClient _storeInfo;
+    private readonly ReceiptConfigStore _receiptConfig;
+    private readonly ReceiptConfigSyncService _receiptSync;
+    private readonly string _storeId;
     private readonly object _gate = new();
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
@@ -21,11 +28,19 @@ public sealed class CentralOnlineModeService : IDisposable
     public CentralOnlineModeService(
         PosBillingSettingsStore settings,
         HttpClient centralApi,
-        StoreSyncRunner syncRunner)
+        StoreSyncRunner syncRunner,
+        StoreInfoClient storeInfo,
+        ReceiptConfigStore receiptConfig,
+        ReceiptConfigSyncService receiptSync,
+        string storeId)
     {
         _settings = settings;
         _centralApi = centralApi;
         _syncRunner = syncRunner;
+        _storeInfo = storeInfo;
+        _receiptConfig = receiptConfig;
+        _receiptSync = receiptSync;
+        _storeId = storeId?.Trim() ?? "";
     }
 
     public event Action? StatusChanged;
@@ -62,11 +77,104 @@ public sealed class CentralOnlineModeService : IDisposable
         _loopTask = null;
     }
 
+    /// <summary>
+    /// Pull store-wide Online flag from central (public endpoint) and apply locally.
+    /// Only promotes to Online when central says true — never demotes a local Online till
+    /// (turning Offline is Settings → Save or .env PREFER_CENTRAL_ONLINE=false).
+    /// .env override always wins and skips central inherit.
+    /// </summary>
+    public async Task SyncFromCentralStoreAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_storeId))
+            return;
+
+        var (mode, _) = await _storeInfo.GetStorePosModeAsync(_storeId, ct).ConfigureAwait(false);
+        if (mode is null)
+            return;
+
+        var changed = false;
+
+        if (mode.BillingSettings != null)
+        {
+            _settings.ApplyFromCentral(mode.BillingSettings);
+            changed = true;
+        }
+        else if (mode.ScreenAccess != null)
+        {
+            // Legacy: only screen-access mirror present.
+            _settings.Update(s => s.ScreenAccess = mode.ScreenAccess);
+            changed = true;
+        }
+
+        // .env Online/Offline wins; otherwise only promote to Online when central says true.
+        if (!_settings.IsEnvOnlineOverride && mode.PreferCentralOnline && !IsOnlineMode)
+        {
+            _settings.Update(s => s.PreferCentralOnline = true);
+            changed = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mode.ReceiptPrintSettingsJson))
+        {
+            try
+            {
+                using var receiptDoc = JsonDocument.Parse(mode.ReceiptPrintSettingsJson);
+                _receiptSync.ApplyStorePrintSettings(receiptDoc.RootElement);
+                _receiptConfig.Current.LastReceiptSettingsSyncUtc = DateTime.UtcNow;
+                await _receiptConfig.SaveAsync(ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                /* best-effort print inherit */
+            }
+        }
+
+        if (!changed)
+        {
+            if (IsOnlineMode)
+                IsCentralReachable = await ProbeHealthAsync(ct).ConfigureAwait(false);
+            RaiseStatusChanged();
+            return;
+        }
+
+        await _settings.SaveAsync(ct).ConfigureAwait(false);
+        _settings.ReapplyEnvOnlineModeOverride();
+
+        if (IsOnlineMode)
+            IsCentralReachable = await ProbeHealthAsync(ct).ConfigureAwait(false);
+
+        RaiseStatusChanged();
+    }
+
     public async Task SetOnlineModeAsync(bool enabled, CancellationToken ct = default)
     {
+        if (_settings.IsEnvOnlineOverride)
+        {
+            // .env is source of truth — keep PreferCentralOnline aligned and skip UI flip.
+            _settings.ReapplyEnvOnlineModeOverride();
+            if (IsOnlineMode)
+                IsCentralReachable = await ProbeHealthAsync(ct).ConfigureAwait(false);
+            else
+                IsCentralReachable = false;
+            RaiseStatusChanged();
+            return;
+        }
+
         var previous = IsOnlineMode;
         _settings.Update(s => s.PreferCentralOnline = enabled);
         await _settings.SaveAsync(ct).ConfigureAwait(false);
+
+        // Propagate store-wide so other counters inherit (requires central JWT when available).
+        if (!string.IsNullOrWhiteSpace(_storeId))
+        {
+            var (ok, err) = await _storeInfo
+                .SetPreferCentralOnlineAsync(_storeId, enabled, ct)
+                .ConfigureAwait(false);
+            if (!ok && !string.IsNullOrWhiteSpace(err))
+            {
+                // Local mode still applied; counters pick up after central auth + next save/poll.
+                System.Diagnostics.Debug.WriteLine($"SetPreferCentralOnline failed: {err}");
+            }
+        }
 
         if (!enabled)
         {
@@ -104,6 +212,15 @@ public sealed class CentralOnlineModeService : IDisposable
     {
         while (!ct.IsCancellationRequested)
         {
+            try
+            {
+                await SyncFromCentralStoreAsync(ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                /* best-effort inherit */
+            }
+
             if (IsOnlineMode)
                 await ProbeHealthAsync(ct).ConfigureAwait(false);
             else

@@ -14,6 +14,7 @@ Lightweight product list (default limit 200, max 500 via `skip`/`limit` on servi
 | `supplierNameId` | `507f1f77bcf86cd799439011` | Products for that supplier only (24-char hex ObjectId) |
 | `categoryId` | `...` | Products in that category |
 | `upcEanCode` | `890...` | Exact barcode |
+| `isAddedInB2B` | `true` | Explicitly published B2B products; `false` also includes legacy documents without the field |
 
 All provided filters are combined with **AND**.
 
@@ -43,6 +44,16 @@ GET /api/products?supplierNameId=<id>&sku=SKU-001
 
 With seed data (`SEED_TEST_DATA=true`), **Sharma Textiles** supplies lehengas including **SKU-001** (Bridal Red Lehenga).
 
+### B2B publication
+
+New products default to `isAddedInB2B: false`. Publish or unpublish a product through create/update:
+
+```json
+{ "isAddedInB2B": true }
+```
+
+The public multi-database storefront additionally requires `isActive: true`. The product import template accepts an `isAddedInB2B` boolean column.
+
 ## POST `/api/products/filter`
 
 Paginated filter with populated master refs. Supports the same text/SKU/supplier ideas:
@@ -54,6 +65,7 @@ Paginated filter with populated master refs. Supports the same text/SKU/supplier
 | `skuContains` | Partial (ignored when `sku` set) |
 | `supplierNameId` | ObjectId (24-char hex); invalid values return **400** |
 | `supplierId` | GET only — alias for `supplierNameId` |
+| `isAddedInB2B` | Boolean; `true` matches only explicit publication |
 
 See `FilterProductDto` for full filter surface (category, brand, price ranges, etc.).
 
