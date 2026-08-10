@@ -59,11 +59,12 @@ With Central Online, the app starts even if Mongo is down (chip shows **Mongo: n
 4. From each counter, `ping <parent-zerotier-ip>` succeeds.
 5. From each counter, `mongosh "mongodb://<parent-zerotier-ip>:27017/rr_bridal_store01"` (or Compass) connects.
 6. Prefer a **Stable** ZeroTier managed IP so `.env` does not change after restarts.
-7. Keep **POS counter 1** online — only it runs scheduled central sync.
+7. Keep **POS counter 1** online — only it runs scheduled Offline Mongo sync and store-wide Online transfer completion.
 
 ## App behavior
 
-- **Online:** skip Mongo ready gate; login via central; bills via `/api/store-pos/*`; store flag `preferCentralOnline` shared by all counters.
+- **Online:** skip Mongo ready gate; login via central; writes and Sync All use `/api/store-pos/*`; every till refreshes PC-local print/master configuration, while POS1 periodically completes awaiting transfers in both directions.
+- **Offline → Online:** the app performs one final Offline sync before saving the Online flag. A failed flush leaves the till Offline.
 - **Offline:** startup waits for Mongo `ping` when `STORE_MONGO_REQUIRE_READY=true`. Header chip shows `Mongo: Connected / Reconnecting / Offline`.
 - Settings → Sync status includes Central Online + Mongo lines; Refresh re-pings.
 - Offline bill post is blocked while Mongo is offline when `STORE_MONGO_REQUIRE_READY=true`.

@@ -47,6 +47,19 @@ public sealed class DayCloseReportExpenseRow
     public string CounterDisplay { get; init; } = "";
     public required string BusinessDate { get; init; }
     public string Description { get; init; } = "";
+    public string SupplierName { get; init; } = "";
+    public string SupplierGstin { get; init; } = "";
+    public string SupplierInvoiceNo { get; init; } = "";
+    public string SupplierInvoiceDate { get; init; } = "";
+    public string Category { get; init; } = "";
+    public string GstMode { get; init; } = "";
+    public decimal GstRate { get; init; }
+    public decimal TaxableAmount { get; init; }
+    public decimal CgstAmount { get; init; }
+    public decimal SgstAmount { get; init; }
+    public decimal IgstAmount { get; init; }
+    public string PaymentSummary { get; init; } = "";
+    public string PostedAtLocal { get; init; } = "";
     public decimal Amount { get; init; }
 }
 

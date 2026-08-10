@@ -6,8 +6,12 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
-             Background="{StaticResource BrushBackground}">
+             Background="{StaticResource BrushBackground}"
+             AutomationProperties.AutomationId="billing-view"
+             AutomationProperties.Name="Billing">
     <Grid x:Name="MasterDetailGrid" Background="{StaticResource BrushBackground}"
+          AutomationProperties.AutomationId="billing-master-detail-grid"
+          AutomationProperties.Name="Bill entry and invoice totals"
           ui:MasterDetailLayoutBehavior.IsEnabled="True">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
@@ -26,23 +30,33 @@
                             <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
                                 <TextBlock Style="{StaticResource TextSectionTitle}" Text="Customer" VerticalAlignment="Center"/>
                                 <Button Content="Find Customer" Style="{StaticResource OutlineButton}" Margin="12,0,0,0"
+                                        AutomationProperties.AutomationId="billing-find-customer-button"
+                                        AutomationProperties.Name="Find customer"
                                         Padding="10,4" FontSize="12" Command="{Binding SearchCustomerCommand}"/>
                                 <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
+                                        AutomationProperties.AutomationId="billing-resume-held-button"
+                                        AutomationProperties.Name="Resume held bill"
                                         Padding="10,4" FontSize="12" Command="{Binding ResumeHeldBillsCommand}"/>
                             </StackPanel>
                             <WrapPanel Grid.Row="1">
-                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,4" VerticalAlignment="Center"/>
-                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,4" VerticalAlignment="Center"/>
-                                <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}" Margin="0,0,12,4" VerticalAlignment="Center"/>
-                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}" Margin="0,0,12,4" VerticalAlignment="Center"/>
-                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" Margin="0,0,0,4" VerticalAlignment="Center"/>
+                                <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,4" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="billing-hold-bill-checkbox" AutomationProperties.Name="Hold bill"/>
+                                <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,4" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="billing-door-delivery-checkbox" AutomationProperties.Name="Door delivery"/>
+                                <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}" Margin="0,0,12,4" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="billing-online-cod-checkbox" AutomationProperties.Name="Online cash on delivery"/>
+                                <CheckBox Content="Stitching" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding Stitching}" Margin="0,0,12,4" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="billing-stitching-checkbox" AutomationProperties.Name="Stitching"/>
+                                <CheckBox Content="Print invoice" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding PrintInvoice}" Margin="0,0,0,4" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="billing-print-invoice-checkbox" AutomationProperties.Name="Print invoice"/>
                             </WrapPanel>
                         </Grid>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
                                     Margin="0,0,0,6"
                                     Visibility="{Binding Stitching, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="Delivery date" Style="{StaticResource FormFieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28"/>
+                            <DatePicker Style="{StaticResource RoundedDatePicker}" SelectedDate="{Binding DeliveryDate}" MinWidth="140" Height="28"
+                                        AutomationProperties.AutomationId="billing-delivery-date-input" AutomationProperties.Name="Delivery date"/>
                         </StackPanel>
                         <Grid Grid.Row="2" ui:ResponsiveFormGridBehavior.IsEnabled="True">
                             <Grid.ColumnDefinitions>
@@ -58,10 +72,13 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"
+                                     AutomationProperties.AutomationId="billing-customer-code-input" AutomationProperties.Name="Customer code"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                             <ComboBox Grid.Row="0" Grid.Column="4" Style="{StaticResource RoundedComboBox}"
+                                      AutomationProperties.AutomationId="billing-salesman-input"
+                                      AutomationProperties.Name="Salesman"
                                       ItemsSource="{Binding ActiveSalesmen}"
                                       SelectedItem="{Binding SelectedSalesman}"
                                       DisplayMemberPath="DisplayLabel"
@@ -98,6 +115,8 @@
                                     </Style>
                                 </Border.Style>
                                 <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource RoundedTextBoxCompact}"
+                                         AutomationProperties.AutomationId="billing-customer-phone-input"
+                                         AutomationProperties.Name="Customer phone"
                                          Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                          MaxLength="10"
                                          KeyDown="CustomerPhoneBox_OnKeyDown"
@@ -106,6 +125,8 @@
 
                             <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
                             <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="4"
+                                     AutomationProperties.AutomationId="billing-customer-name-input"
+                                     AutomationProperties.Name="Customer name"
                                      Style="{StaticResource RoundedTextBoxCompact}"
                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="CustomerNameBox_OnKeyDown"/>
@@ -124,11 +145,17 @@
                         <Grid Grid.Row="0" Margin="0,0,0,10">
                             <TextBlock Style="{StaticResource TextSectionTitle}" Text="Line items" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="Import CSV" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding ImportCsvCommand}"/>
-                                <Button Content="Add manual" Style="{StaticResource PrimaryButton}" Command="{Binding AddManualLineCommand}"/>
+                                <Button Content="Import CSV" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Command="{Binding ImportCsvCommand}"
+                                        AutomationProperties.AutomationId="billing-import-csv-button"
+                                        AutomationProperties.Name="Import bill lines from CSV"/>
+                                <Button Content="Add manual" Style="{StaticResource PrimaryButton}" Command="{Binding AddManualLineCommand}"
+                                        AutomationProperties.AutomationId="billing-add-manual-line-button"
+                                        AutomationProperties.Name="Add manual line"/>
                             </StackPanel>
                         </Grid>
                         <DataGrid x:Name="LinesGrid"
+                                  AutomationProperties.AutomationId="billing-lines-grid"
+                                  AutomationProperties.Name="Bill line items"
                                   Grid.Row="1"
                                   ItemsSource="{Binding Lines}"
                                   Style="{StaticResource ThemedDataGrid}"
@@ -242,7 +269,9 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Style="{StaticResource TotalsSidebarPanel}">
+        <Border Style="{StaticResource TotalsSidebarPanel}"
+                AutomationProperties.AutomationId="billing-totals-panel"
+                AutomationProperties.Name="Invoice totals">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -439,6 +468,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Item discount (%)" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     AutomationProperties.AutomationId="billing-item-discount-input"
+                                     AutomationProperties.Name="Item discount percent"
                                      Text="{Binding ItemDiscountPercentText, UpdateSourceTrigger=PropertyChanged}"
                                      GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
@@ -449,6 +480,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Cash disc amt" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     AutomationProperties.AutomationId="billing-cash-discount-input"
+                                     AutomationProperties.Name="Cash discount amount"
                                      Text="{Binding CashDiscAmountText, UpdateSourceTrigger=PropertyChanged}"
                                      GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
@@ -459,6 +492,8 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Round off" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}"
+                                     AutomationProperties.AutomationId="billing-round-off-input"
+                                     AutomationProperties.Name="Round off amount"
                                      Text="{Binding RoundOffText, UpdateSourceTrigger=PropertyChanged}"
                                      GotFocus="EditableAmountBox_OnGotFocus"/>
                         </Grid>
@@ -468,7 +503,9 @@
                 <Border Grid.Row="2" Background="{StaticResource BrushAccent}" CornerRadius="0,0,12,12" Padding="14,14">
                     <Grid>
                         <TextBlock Text="Payable" Foreground="White" Opacity="0.9" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding PayableTotalFormatted}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"
+                                   AutomationProperties.AutomationId="billing-payable-total-text"
+                                   AutomationProperties.Name="{Binding PayableTotalFormatted, StringFormat=Payable {0}}"/>
                     </Grid>
                 </Border>
             </Grid>

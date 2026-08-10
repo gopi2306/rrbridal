@@ -5,6 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
+             AutomationProperties.AutomationId="vouchers-page"
+             AutomationProperties.Name="Voucher gateway"
              Background="{StaticResource BrushBackground}"
              Focusable="True"
              Loaded="VoucherGatewayView_OnLoaded"

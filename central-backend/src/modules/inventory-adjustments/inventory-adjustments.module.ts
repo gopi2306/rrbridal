@@ -11,6 +11,8 @@ import {
   InventoryAdjustmentSchema,
 } from './schemas/inventory-adjustment.schema';
 import { InventoryAdjustmentsService } from './inventory-adjustments.service';
+import { PhysicalInventoryImportController } from './import/physical-inventory-import.controller';
+import { PhysicalInventoryImportService } from './import/physical-inventory-import.service';
 
 @Module({
   imports: [
@@ -23,8 +25,8 @@ import { InventoryAdjustmentsService } from './inventory-adjustments.service';
       { name: Location.name, schema: LocationSchema },
     ]),
   ],
-  controllers: [InventoryAdjustmentsController],
-  providers: [InventoryAdjustmentsService],
+  controllers: [InventoryAdjustmentsController, PhysicalInventoryImportController],
+  providers: [InventoryAdjustmentsService, PhysicalInventoryImportService],
   exports: [InventoryAdjustmentsService],
 })
 export class InventoryAdjustmentsModule {}

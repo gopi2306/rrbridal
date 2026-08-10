@@ -8,7 +8,9 @@
         MinWidth="540"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="customer-search-dialog"
+        AutomationProperties.Name="Find Customer">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
     <Grid>
         <Grid.RowDefinitions>
@@ -28,8 +30,8 @@
             <TextBox x:Name="SearchBox" Grid.Column="0" Style="{StaticResource RoundedTextBox}"
                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                      KeyDown="SearchBox_OnKeyDown"
-                     Margin="0,0,8,0"/>
-            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Click="Search_OnClick" Width="100"/>
+                     Margin="0,0,8,0" AutomationProperties.AutomationId="customer-search-search-input" AutomationProperties.Name="Search"/>
+            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Click="Search_OnClick" Width="100" AutomationProperties.AutomationId="customer-search-search-button" AutomationProperties.Name="Search"/>
         </Grid>
 
         <ListView Grid.Row="2"
@@ -38,7 +40,7 @@
                   SelectedItem="{Binding SelectedItem}"
                   MouseDoubleClick="Results_OnMouseDoubleClick"
                   BorderBrush="{StaticResource BrushBorder}"
-                  Background="{StaticResource BrushSurface}">
+                  Background="{StaticResource BrushSurface}" AutomationProperties.AutomationId="customer-search-results-list" AutomationProperties.Name="Results List">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Source" DisplayMemberBinding="{Binding Source}" Width="60"/>
@@ -57,9 +59,9 @@
             </Grid.RowDefinitions>
             <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Register New Customer" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Click="RegisterNew_OnClick"/>
-                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="80" IsCancel="True" Click="Cancel_OnClick"/>
-                <Button Content="Select" Style="{StaticResource PrimaryButton}" Width="100" Click="Select_OnClick"/>
+                <Button Content="Register New Customer" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Click="RegisterNew_OnClick" AutomationProperties.AutomationId="customer-search-register-new-customer-button" AutomationProperties.Name="Register New Customer"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="80" IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="customer-search-cancel-button" AutomationProperties.Name="Cancel"/>
+                <Button Content="Select" Style="{StaticResource PrimaryButton}" Width="100" Click="Select_OnClick" AutomationProperties.AutomationId="customer-search-select-button" AutomationProperties.Name="Select"/>
             </StackPanel>
         </Grid>
     </Grid>

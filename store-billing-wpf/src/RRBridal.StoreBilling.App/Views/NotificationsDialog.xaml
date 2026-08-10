@@ -6,7 +6,9 @@
         Height="480"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="notifications-dialog"
+        AutomationProperties.Name="Notifications">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -30,7 +32,7 @@
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserAddRows="False"
-                      HeadersVisibility="Column">
+                      HeadersVisibility="Column" AutomationProperties.AutomationId="notifications-items-grid" AutomationProperties.Name="Items">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140"/>
                     <DataGridTextColumn Header="When" Binding="{Binding CreatedAtDisplay}" Width="130"/>
@@ -44,10 +46,10 @@
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Refresh" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                    Command="{Binding RefreshCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}"/>
+                    Command="{Binding RefreshCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" AutomationProperties.AutomationId="notifications-refresh-button" AutomationProperties.Name="Refresh"/>
             <Button Content="Sync now" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
-                    Command="{Binding SyncNowCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}"/>
-            <Button Content="Close" Style="{StaticResource OutlineButton}" Click="Close_Click"/>
+                    Command="{Binding SyncNowCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" AutomationProperties.AutomationId="notifications-sync-now-button" AutomationProperties.Name="Sync now"/>
+            <Button Content="Close" Style="{StaticResource OutlineButton}" Click="Close_Click" AutomationProperties.AutomationId="notifications-close-button" AutomationProperties.Name="Close"/>
         </StackPanel>
     </Grid>
 </Window>

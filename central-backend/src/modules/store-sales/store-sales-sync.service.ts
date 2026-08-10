@@ -14,6 +14,7 @@ import { StoreQuotation, StoreQuotationDocument } from './schemas/store-quotatio
 import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-return.schema';
 import { StoreSalesInventoryService } from './store-sales-inventory.service';
 import { readNumber } from '../dashboard/store-sales-payload.util';
+import { normalizeDailyExpensePayload } from './daily-expense-payload';
 
 export type StoreSyncEventMeta = {
   eventId: string;
@@ -289,15 +290,8 @@ export class StoreSalesSyncService {
     const existing = await this.dailyExpenseModel.findOne({ sourceEventId: meta.eventId }).lean();
     if (existing) return;
 
-    const expenseNo = this.requireString(payload, 'expenseNo');
-    const description = this.requireString(payload, 'description');
-    const businessDate = this.requireString(payload, 'businessDate');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
-      throw new BadRequestException('businessDate must be YYYY-MM-DD');
-    }
-
-    const amount = this.requireNumber(payload, 'amount');
-    if (amount <= 0) throw new BadRequestException('amount must be positive');
+    const normalized = normalizeDailyExpensePayload(payload);
+    const expenseNo = String(normalized.expenseNo);
 
     const duplicate = await this.dailyExpenseModel
       .findOne({ storeId: meta.storeId, expenseNo })
@@ -314,14 +308,8 @@ export class StoreSalesSyncService {
         expenseNo,
         sourceEventId: meta.eventId,
         deviceId: meta.deviceId,
-        payload: {
-          ...payload,
-          expenseNo,
-          description,
-          businessDate,
-          amount,
-          status: this.optionalString(payload, 'status') ?? 'posted',
-        },
+        appliedEventIds: [meta.eventId],
+        payload: normalized,
       });
     } catch (err: unknown) {
       const dup =
@@ -335,6 +323,105 @@ export class StoreSalesSyncService {
       }
       throw err;
     }
+  }
+
+  async applyDailyExpenseUpdated(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const expenseNo = this.requireString(payload, 'expenseNo');
+    const existing = await this.dailyExpenseModel.findOne({ storeId: meta.storeId, expenseNo }).lean();
+    if (!existing) {
+      throw new BadRequestException(`Expense '${expenseNo}' not found for store '${meta.storeId}'`);
+    }
+    if ((existing.appliedEventIds ?? []).includes(meta.eventId)) return;
+
+    const currentPayload = (existing.payload ?? {}) as Record<string, unknown>;
+    const currentStatus = (this.optionalString(currentPayload, 'status') ?? 'posted').toLowerCase();
+    if (currentStatus === 'void' || currentStatus === 'cancelled') {
+      throw new BadRequestException(`Expense '${expenseNo}' is void and cannot be updated`);
+    }
+
+    const currentVersion = Math.max(
+      1,
+      readNumber(currentPayload.version) || readNumber(currentPayload.revision),
+    );
+    const requestedVersion = readNumber(payload.version) || readNumber(payload.revision);
+    if (requestedVersion > 0 && requestedVersion <= currentVersion) {
+      await this.dailyExpenseModel.updateOne(
+        { storeId: meta.storeId, expenseNo },
+        { $addToSet: { appliedEventIds: meta.eventId } },
+      );
+      return;
+    }
+
+    const normalized = normalizeDailyExpensePayload({
+      ...currentPayload,
+      ...payload,
+      expenseNo,
+      version: requestedVersion > 0 ? requestedVersion : currentVersion + 1,
+      revision: requestedVersion > 0 ? requestedVersion : currentVersion + 1,
+      status: currentStatus,
+      updatedBy: payload.updatedBy ?? currentPayload.updatedBy,
+      updatedAtUtc: payload.updatedAtUtc ?? new Date().toISOString(),
+    });
+
+    await this.dailyExpenseModel.updateOne(
+      { storeId: meta.storeId, expenseNo, appliedEventIds: { $ne: meta.eventId } },
+      {
+        $set: {
+          deviceId: meta.deviceId,
+          payload: normalized,
+        },
+        $addToSet: { appliedEventIds: meta.eventId },
+      },
+    );
+  }
+
+  async applyDailyExpenseVoided(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
+    const expenseNo = this.requireString(payload, 'expenseNo');
+    const voidReason =
+      this.optionalString(payload, 'voidReason') ?? this.optionalString(payload, 'reason');
+    if (!voidReason) throw new BadRequestException('voidReason is required');
+
+    const existing = await this.dailyExpenseModel.findOne({ storeId: meta.storeId, expenseNo }).lean();
+    if (!existing) {
+      throw new BadRequestException(`Expense '${expenseNo}' not found for store '${meta.storeId}'`);
+    }
+    if ((existing.appliedEventIds ?? []).includes(meta.eventId)) return;
+
+    const currentPayload = (existing.payload ?? {}) as Record<string, unknown>;
+    const currentStatus = (this.optionalString(currentPayload, 'status') ?? 'posted').toLowerCase();
+    if (currentStatus === 'void' || currentStatus === 'cancelled') {
+      await this.dailyExpenseModel.updateOne(
+        { storeId: meta.storeId, expenseNo },
+        { $addToSet: { appliedEventIds: meta.eventId } },
+      );
+      return;
+    }
+
+    const currentVersion = Math.max(
+      1,
+      readNumber(currentPayload.version) || readNumber(currentPayload.revision),
+    );
+    const requestedVersion = readNumber(payload.version) || readNumber(payload.revision);
+    await this.dailyExpenseModel.updateOne(
+      { storeId: meta.storeId, expenseNo, appliedEventIds: { $ne: meta.eventId } },
+      {
+        $set: {
+          deviceId: meta.deviceId,
+          payload: {
+            ...currentPayload,
+            ...payload,
+            expenseNo,
+            status: 'void',
+            version: requestedVersion > currentVersion ? requestedVersion : currentVersion + 1,
+            revision: requestedVersion > currentVersion ? requestedVersion : currentVersion + 1,
+            voidReason,
+            voidedBy: payload.voidedBy ?? payload.updatedBy ?? currentPayload.voidedBy,
+            voidedAtUtc: payload.voidedAtUtc ?? new Date().toISOString(),
+          },
+        },
+        $addToSet: { appliedEventIds: meta.eventId },
+      },
+    );
   }
 
   async applyCreditNoteCashedOut(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {

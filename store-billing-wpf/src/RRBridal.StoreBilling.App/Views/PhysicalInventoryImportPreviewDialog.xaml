@@ -1,0 +1,61 @@
+<Window x:Class="RRBridal.StoreBilling.App.Views.PhysicalInventoryImportPreviewDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Physical inventory import preview"
+        Width="920" Height="620"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        AutomationProperties.AutomationId="physical-inventory-import-preview-dialog"
+        AutomationProperties.Name="Physical inventory import preview">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Review physical stock corrections" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock x:Name="SummaryText" Margin="0,4,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <DataGrid x:Name="PreviewGrid"
+                  Grid.Row="1"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  HeadersVisibility="Column" AutomationProperties.AutomationId="physical-inventory-import-preview-preview-grid" AutomationProperties.Name="Preview">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Row" Binding="{Binding RowNumber}" Width="55"/>
+                <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110"/>
+                <DataGridTextColumn Header="Item Name" Binding="{Binding ItemName}" Width="*"/>
+                <DataGridTextColumn Header="Current" Binding="{Binding QtyBefore, StringFormat={}{0:N2}}" Width="90"/>
+                <DataGridTextColumn Header="Phy Qty" Binding="{Binding NewQty, StringFormat={}{0:N2}}" Width="90"/>
+                <DataGridTextColumn Header="Variance" Binding="{Binding QtyDelta, StringFormat={}{0:+0.##;-0.##;0}}" Width="90"/>
+                <DataGridTextColumn Header="Warning" Binding="{Binding Warning}" Width="180"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock x:Name="ErrorsText"
+                   Grid.Row="2"
+                   Margin="0,10,0,0"
+                   Foreground="#B91C1C"
+                   TextWrapping="Wrap"
+                   MaxHeight="80"/>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Text="Reason" FontWeight="SemiBold"/>
+            <TextBox x:Name="ReasonBox"
+                     Margin="0,4,0,0"
+                     Text="Physical stock count import"
+                     MaxLength="500" AutomationProperties.AutomationId="physical-inventory-import-preview-reason-input" AutomationProperties.Name="Reason"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Cancel" Width="90" Margin="0,0,8,0" Click="Cancel_OnClick" AutomationProperties.AutomationId="physical-inventory-import-preview-cancel-button" AutomationProperties.Name="Cancel"/>
+            <Button x:Name="ApplyButton" Content="Apply corrections" Width="140" Click="Apply_OnClick" AutomationProperties.AutomationId="physical-inventory-import-preview-apply-button" AutomationProperties.Name="Apply corrections"/>
+        </StackPanel>
+    </Grid>
+</Window>

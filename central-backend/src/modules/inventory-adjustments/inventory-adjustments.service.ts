@@ -38,6 +38,26 @@ type LineInput = {
 
 type ResolvedLine = InventoryAdjustmentLine;
 
+export type PhysicalInventorySetToLine = {
+  sku: string;
+  newQty: number;
+  note?: string;
+};
+
+export type PhysicalInventoryPreviewLine = {
+  sku: string;
+  itemName: string;
+  qtyBefore: number;
+  newQty: number;
+  qtyDelta: number;
+  qtyAfter: number;
+  unchanged: boolean;
+};
+
+export function physicalInventoryImportEventId(storeCode: string, batchId: string): string {
+  return `physical-inventory-import:${storeCode.trim().toLowerCase()}:${batchId.trim()}`;
+}
+
 @Injectable()
 export class InventoryAdjustmentsService {
   constructor(
@@ -100,6 +120,107 @@ export class InventoryAdjustmentsService {
       if (err instanceof ConflictException) {
         const again = await this.adjustmentModel.findOne({ sourceEventId: meta.eventId }).lean();
         if (again) return again;
+      }
+      throw err;
+    }
+  }
+
+  async previewStorePhysicalCount(
+    storeCode: string,
+    inputs: PhysicalInventorySetToLine[],
+  ): Promise<{ storeId: string; lines: PhysicalInventoryPreviewLine[] }> {
+    if (inputs.length === 0) {
+      throw new BadRequestException('At least one physical inventory line is required');
+    }
+    const storeId = await this.resolveStoreCode(storeCode);
+    const bySku = new Map<string, PhysicalInventorySetToLine>();
+    for (const input of inputs) {
+      const sku = input.sku?.trim() ?? '';
+      if (!sku) continue;
+      if (!Number.isFinite(input.newQty) || input.newQty < 0) {
+        throw new BadRequestException(`Physical quantity for SKU '${sku}' must be zero or greater`);
+      }
+      bySku.set(sku, { ...input, sku });
+    }
+    if (bySku.size === 0) {
+      throw new BadRequestException('At least one line with a valid SKU is required');
+    }
+
+    const skus = [...bySku.keys()];
+    const products = await this.productsService.findPhysicalInventoryProductsBySkus(skus);
+    const productBySku = new Map(
+      products.map((product) => [
+        typeof product.sku === 'string' ? product.sku : '',
+        typeof product.itemName === 'string' ? product.itemName : '',
+      ]),
+    );
+    const missing = skus.filter((sku) => !productBySku.has(sku));
+    if (missing.length > 0) {
+      throw new NotFoundException(`No active product found for SKU '${missing[0]}'`);
+    }
+
+    const qtyMap = await this.inventoryService.getStoreQtyBySkus(storeId, skus);
+    return {
+      storeId,
+      lines: skus.map((sku) => {
+        const newQty = Number(bySku.get(sku)!.newQty);
+        const qtyBefore = qtyMap.get(sku) ?? 0;
+        const qtyDelta = newQty - qtyBefore;
+        return {
+          sku,
+          itemName: productBySku.get(sku) ?? '',
+          qtyBefore,
+          newQty,
+          qtyDelta,
+          qtyAfter: newQty,
+          unchanged: qtyDelta === 0,
+        };
+      }),
+    };
+  }
+
+  async validateStoreCode(storeCode: string): Promise<string> {
+    return await this.resolveStoreCode(storeCode);
+  }
+
+  async createStorePhysicalImport(input: {
+    storeCode: string;
+    reason: string;
+    batchId: string;
+    lines: PhysicalInventorySetToLine[];
+  }) {
+    const batchId = input.batchId?.trim();
+    if (!batchId) throw new BadRequestException('batchId is required');
+    const storeCode = input.storeCode.trim().toLowerCase();
+    const sourceEventId = physicalInventoryImportEventId(storeCode, batchId);
+    const existing = await this.adjustmentModel.findOne({ sourceEventId }).lean();
+    if (existing) return this.toResponse(existing as unknown as Record<string, unknown>);
+
+    const preview = await this.previewStorePhysicalCount(input.storeCode, input.lines);
+    const changed = preview.lines.filter((line) => !line.unchanged);
+    if (changed.length === 0) return null;
+    const adjustmentNo = await this.allocateAdjustmentNo();
+
+    try {
+      const doc = await this.persistAndPostLedger({
+        adjustmentNo,
+        locationKind: 'store',
+        storeId: preview.storeId,
+        source: 'central_admin',
+        sourceEventId,
+        reason: input.reason.trim(),
+        lines: changed.map((line) => ({
+          sku: line.sku,
+          qtyBefore: line.qtyBefore,
+          qtyDelta: line.qtyDelta,
+          qtyAfter: line.qtyAfter,
+        })),
+      });
+      return this.toResponse(doc.toObject() as unknown as Record<string, unknown>);
+    } catch (err) {
+      if (err instanceof ConflictException) {
+        const again = await this.adjustmentModel.findOne({ sourceEventId }).lean();
+        if (again) return this.toResponse(again as unknown as Record<string, unknown>);
       }
       throw err;
     }

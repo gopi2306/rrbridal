@@ -8,6 +8,24 @@ This document defines the offline-first sync protocol used by the **store client
 - **Idempotent processing**: central never duplicates records if an event is resent.
 - **Auditable**: central keeps an immutable record of accepted events.
 
+## Central Online direct-API parity
+
+Central Online mode does not run the local Mongo pull/push engine. Business writes are sent immediately through `/api/store-pos/*`; generic writes use `/api/store-pos/events`, which calls the same `SyncService.applyOne` domain handlers as offline `/api/sync/push`.
+
+| Offline operation | Central Online equivalent |
+|---|---|
+| Outbox business events | Immediate Store POS API/event call with the same payload |
+| `PurchaseIntentCreated` | Immediate `/api/store-pos/events` call |
+| `InventoryAdjustmentCreated` | Immediate event call using the same `wpf_sync` adjustment path |
+| Stock transfer receipt (both directions) | List awaiting transfers, then deterministic `StockTransferReceived` event |
+| 22 master-data pulls | Direct central reads cached in memory for five minutes |
+| Promotions, receipt profile, barcode design | Direct refresh during Sync All and periodic online maintenance |
+| Product and inventory pull | Live catalog/inventory APIs; no local product cache mutation |
+
+Manual **Sync All** runs these online direct operations. Periodically, every online till refreshes PC-local receipt/barcode/branding data; POS 1 additionally processes store-wide pending transfers in both directions. Independent refresh failures do not block the other steps.
+
+When switching Offline → Online, the client first performs one final offline sync. The mode remains Offline if pending work cannot be flushed, preventing local outbox events from being stranded.
+
 ## Terms
 - **Outbox**: local store collection that persists events to be sent to central.
 - **Event**: immutable record describing a business action (invoice created, payment recorded, stock adjusted).
@@ -37,7 +55,7 @@ Endpoint: `POST /api/sync/push`
 
 Payload shape (batch):
 - `events[]` where each event contains:
-  - `eventId`: UUID (unique)
+- `eventId`: unique string (offline clients normally use a UUID; scheduled Online operations may use a deterministic business-scoped ID)
   - `storeId`, `deviceId`
   - `type`: string (e.g. `InvoiceCreated`, `PaymentRecorded`, `PurchaseIntentCreated`)
   - `createdAt`: ISO timestamp string
@@ -91,7 +109,7 @@ Store rules:
 
 ### Event: `StockTransferReceived`
 
-Raised by the store client after it receives a central stock transfer into the local MongoDB inventory cache.
+Raised by the store client after intake. Offline sync applies the transfer to the local MongoDB inventory cache first; Central Online posts the same event directly and uses central inventory as authoritative.
 
 `payload` shape:
 
@@ -116,7 +134,7 @@ Rules:
 - Central treats a transfer that is already `completed` as applied and does not post inventory ledger entries again.
 - For a transfer in `awaiting_intake`, central moves it to `completed`:
   - **In:** in_transit −, store + (central ledger).
-  - **Out:** in_transit −, warehouse + (central ledger). The store client has already decremented local stock on pull.
+  - **Out:** in_transit −, warehouse + (central ledger). Offline has already decremented local stock on pull; Online performs no local stock mutation.
 
 ### Store billing document numbers
 
@@ -172,11 +190,18 @@ Rules:
 - Central creates `inventory_adjustments` with `source: wpf_sync`, posts `InventoryAdjustmentPosted` ledger rows, idempotent by `eventId` (`sourceEventId`).
 - Duplicate `eventId` → `duplicate`.
 
-### Event: `DailyExpenseCreated`
+### Events: `DailyExpenseCreated`, `DailyExpenseUpdated`, `DailyExpenseVoided`
 
-Raised when a **daily cash expense slip** is posted locally (`store_daily_expenses`). Simple fields: `expenseNo`, `storeId`, `deviceId`, `posCounter`, `businessDate` (`YYYY-MM-DD` IST calendar date), `description`, `amount` (cash, > 0), `status: posted`, `createdAtUtc`.
+Raised when a GST expense voucher is created, edited, or voided in `store_daily_expenses`. The backward-compatible payload keeps `amount` as the gross payable and adds:
 
-Central: `store_daily_expenses`, idempotent by `sourceEventId` (`eventId`). Duplicate `expenseNo` for the same store → `rejected`.
+- supplier name, GSTIN/state code, supplier invoice number/date, category, and description
+- `gstMode` (`none|inclusive|exclusive`), `gstRate`, `supplyType`, taxable amount, and CGST/SGST/IGST amounts
+- balanced `payments[]` legs using Cash, Card, UPI, or Bank Transfer, each with amount and optional reference
+- `revision`, status, audit history, update/void timestamps, and a mandatory void reason
+
+For GST vouchers, the supplier GSTIN and invoice details are required. The GSTIN state code determines intra-state CGST+SGST versus inter-state IGST against the store GST state code. Payment legs must equal `amount`.
+
+Central stores one row per `(storeId, expenseNo)`. Create is idempotent by `sourceEventId`; update and void events are idempotent through `appliedEventIds` and revision checks. Voiding preserves the voucher for audit and excludes it from totals. Legacy payloads without `payments[]` remain valid and are treated as fully Cash.
 
 ### Event: `DaySessionOpened`
 

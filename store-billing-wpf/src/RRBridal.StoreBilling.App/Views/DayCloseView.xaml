@@ -6,8 +6,12 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
-             Background="{StaticResource BrushBackground}">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+             Background="{StaticResource BrushBackground}"
+             AutomationProperties.AutomationId="day-close-view"
+             AutomationProperties.Name="Day close">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  AutomationProperties.AutomationId="day-close-root"
+                  AutomationProperties.Name="Day close form">
         <StackPanel Margin="0,0,0,16">
             <StackPanel Margin="0,0,0,14">
                 <TextBlock Text="Day Close" Style="{StaticResource TextPageTitleAccent}"/>
@@ -22,16 +26,24 @@
                     <Border Background="{StaticResource BrushAccentSoft}" BorderBrush="{StaticResource BrushAccent}"
                             BorderThickness="1" CornerRadius="10" Padding="14,10">
                         <TextBlock Text="{Binding SessionStatusBanner}" FontWeight="Bold" FontSize="15"
+                                   AutomationProperties.AutomationId="day-close-session-status-text"
+                                   AutomationProperties.Name="{Binding SessionStatusBanner}"
                                    Foreground="{StaticResource BrushAccent}" TextWrapping="Wrap"/>
                     </Border>
                     <WrapPanel Margin="0,12,0,0">
                         <StackPanel Margin="0,0,10,4" VerticalAlignment="Center">
                             <TextBlock Text="BUSINESS DATE" Style="{StaticResource FilterFieldLabel}"/>
-                            <DatePicker SelectedDate="{Binding SelectedDate}" Width="150" Style="{StaticResource RoundedDatePicker}"/>
+                            <DatePicker SelectedDate="{Binding SelectedDate}" Width="150" Style="{StaticResource RoundedDatePicker}"
+                                        AutomationProperties.AutomationId="day-close-business-date-input"
+                                        AutomationProperties.Name="Business date"/>
                         </StackPanel>
                         <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="100" Margin="0,20,8,4"
+                                AutomationProperties.AutomationId="day-close-refresh-button"
+                                AutomationProperties.Name="Refresh day close"
                                 Command="{Binding RefreshCommand}"/>
                         <Button Content="Download full report" Style="{StaticResource OutlineButton}" MinWidth="170" Margin="0,20,0,4"
+                                AutomationProperties.AutomationId="day-close-download-report-button"
+                                AutomationProperties.Name="Download full day close report"
                                 Command="{Binding DownloadReportCommand}"/>
                     </WrapPanel>
                 </StackPanel>
@@ -45,9 +57,13 @@
                         <StackPanel Margin="0,0,10,4">
                             <TextBlock Text="OPENING CASH (₹)" Style="{StaticResource FilterFieldLabel}"/>
                             <TextBox Width="140" Style="{StaticResource RoundedTextBox}"
+                                     AutomationProperties.AutomationId="day-close-opening-cash-input"
+                                     AutomationProperties.Name="Opening cash"
                                      Text="{Binding OpeningCashText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                         <Button Content="Open day" Style="{StaticResource PrimaryButton}" MinWidth="110" Margin="0,20,0,4"
+                                AutomationProperties.AutomationId="day-close-open-day-button"
+                                AutomationProperties.Name="Open day"
                                 Command="{Binding OpenDayCommand}"/>
                     </WrapPanel>
                 </StackPanel>
@@ -57,6 +73,8 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource TextSectionTitle}" Text="Day summary" Margin="0,0,0,12"/>
                     <UniformGrid ui:UniformGridColumnsBehavior.IsEnabled="True"
+                                 AutomationProperties.AutomationId="day-close-summary-grid"
+                                 AutomationProperties.Name="Day summary"
                                  ui:UniformGridColumnsBehavior.CompactColumns="1"
                                  ui:UniformGridColumnsBehavior.MediumColumns="2"
                                  ui:UniformGridColumnsBehavior.WideColumns="4">
@@ -129,19 +147,29 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
+                                 AutomationProperties.AutomationId="day-close-movement-description-input"
+                                 AutomationProperties.Name="Cash movement description"
                                  Text="{Binding MovementDescription, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="Description"/>
                         <TextBox Grid.Column="1" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,0"
+                                 AutomationProperties.AutomationId="day-close-movement-amount-input"
+                                 AutomationProperties.Name="Cash movement amount"
                                  Text="{Binding MovementAmountText, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="Amount"/>
                         <Button Grid.Column="2" Content="Deposit" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
+                                AutomationProperties.AutomationId="day-close-deposit-button"
+                                AutomationProperties.Name="Post cash deposit"
                                 Command="{Binding PostDepositCommand}" MinWidth="90"
                                 IsEnabled="{Binding CanPostMovements}"/>
                         <Button Grid.Column="3" Content="Withdraw" Style="{StaticResource OutlineButton}" MinWidth="90"
+                                AutomationProperties.AutomationId="day-close-withdraw-button"
+                                AutomationProperties.Name="Post cash withdrawal"
                                 Command="{Binding PostWithdrawalCommand}"
                                 IsEnabled="{Binding CanPostMovements}"/>
                     </Grid>
                     <DataGrid ItemsSource="{Binding CashMovements}" Style="{StaticResource ThemedDataGrid}"
+                              AutomationProperties.AutomationId="day-close-cash-movements-grid"
+                              AutomationProperties.Name="Cash movements"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="160">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="No" Binding="{Binding MovementNo}" Width="160"/>
@@ -159,11 +187,15 @@
                     <TextBlock Text="Count physical cash by denomination, print hand-over slip (F3), then close the day."
                                Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                     <Button Content="Cash Hand Over…" Style="{StaticResource PrimaryButton}" MinWidth="170" HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="day-close-cash-hand-over-button"
+                            AutomationProperties.Name="Cash hand over and close"
                             Command="{Binding OpenCashHandOverCommand}"/>
                 </StackPanel>
             </Border>
 
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" Margin="0,12,0,0" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="day-close-status-text"
+                       AutomationProperties.Name="{Binding StatusMessage}"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

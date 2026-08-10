@@ -9,7 +9,9 @@
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="customer-quick-capture-dialog"
+        AutomationProperties.Name="Customer">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -37,11 +39,11 @@
             <TextBlock Text="Mobile no" VerticalAlignment="Center" Margin="0,0,0,8"/>
             <TextBox x:Name="MobileBox" Grid.Column="1" Style="{StaticResource RoundedTextBox}"
                      Text="{Binding MobileNo, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,0,8"/>
+                     Margin="0,0,0,8" AutomationProperties.AutomationId="customer-quick-capture-mobile-input" AutomationProperties.Name="Mobile"/>
 
             <TextBlock Grid.Row="1" Text="Customer name" VerticalAlignment="Center"/>
             <TextBox x:Name="NameBox" Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="customer-quick-capture-name-input" AutomationProperties.Name="Name"/>
         </Grid>
 
         <TextBlock x:Name="ValidationBlock" Grid.Row="3" Foreground="{StaticResource BrushNegative}"
@@ -49,11 +51,11 @@
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Content="Advanced search" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                    Click="AdvancedSearch_OnClick" Visibility="{Binding ShowAdvancedSearch}"/>
+                    Click="AdvancedSearch_OnClick" Visibility="{Binding ShowAdvancedSearch}" AutomationProperties.AutomationId="customer-quick-capture-advanced-search-button" AutomationProperties.Name="Advanced search"/>
             <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="80"
-                    IsCancel="True" Click="Cancel_OnClick"/>
+                    IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="customer-quick-capture-cancel-button" AutomationProperties.Name="Cancel"/>
             <Button Content="Save" Style="{StaticResource PrimaryButton}" Width="90" IsDefault="True"
-                    Click="Save_OnClick"/>
+                    Click="Save_OnClick" AutomationProperties.AutomationId="customer-quick-capture-save-button" AutomationProperties.Name="Save"/>
         </StackPanel>
     </Grid>
 </Window>

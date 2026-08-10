@@ -10,6 +10,7 @@ using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services.Api;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
+using RRBridal.StoreBilling.App.Services.Expenses;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -510,11 +511,42 @@ public sealed class DayCloseReportService
                 CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
                 BusinessDate = DayBillingCloseDocumentReader.ReadString(doc, "businessDate") ?? businessDate,
                 Description = DayBillingCloseDocumentReader.ReadString(doc, "description") ?? "",
+                SupplierName = DayBillingCloseDocumentReader.ReadString(doc, "supplierName") ?? "",
+                SupplierGstin = DayBillingCloseDocumentReader.ReadString(doc, "supplierGstin") ?? "",
+                SupplierInvoiceNo = DayBillingCloseDocumentReader.ReadString(doc, "supplierInvoiceNo") ?? "",
+                SupplierInvoiceDate = DayBillingCloseDocumentReader.ReadString(doc, "supplierInvoiceDate") ?? "",
+                Category = DayBillingCloseDocumentReader.ReadString(doc, "category") ?? "",
+                GstMode = DayBillingCloseDocumentReader.ReadString(doc, "gstMode") ?? ExpenseGstMode.None,
+                GstRate = DayBillingCloseDocumentReader.ReadDecimal(doc, "gstRate"),
+                TaxableAmount = ReadExpenseTaxable(doc),
+                CgstAmount = DayBillingCloseDocumentReader.ReadDecimal(doc, "cgstAmount"),
+                SgstAmount = DayBillingCloseDocumentReader.ReadDecimal(doc, "sgstAmount"),
+                IgstAmount = DayBillingCloseDocumentReader.ReadDecimal(doc, "igstAmount"),
+                PaymentSummary = FormatExpensePayments(doc),
+                PostedAtLocal = DayBillingCloseDocumentReader.FormatUtcLocal(
+                    DayBillingCloseDocumentReader.ReadString(doc, "createdAtUtc")),
                 Amount = DayBillingCloseDocumentReader.ReadDecimal(doc, "amount"),
             });
         }
 
         return rows;
+    }
+
+    private static decimal ReadExpenseTaxable(BsonDocument doc)
+    {
+        var taxable = DayBillingCloseDocumentReader.ReadDecimal(doc, "taxableAmount");
+        return taxable > 0 ? taxable : DayBillingCloseDocumentReader.ReadDecimal(doc, "amount");
+    }
+
+    private static string FormatExpensePayments(BsonDocument doc)
+    {
+        if (!doc.TryGetValue("payments", out var payments) || !payments.IsBsonArray || payments.AsBsonArray.Count == 0)
+            return $"Cash {DayBillingCloseDocumentReader.ReadDecimal(doc, "amount"):0.00}";
+        return string.Join(", ", payments.AsBsonArray.OfType<BsonDocument>()
+            .Where(p => DayBillingCloseDocumentReader.ReadDecimal(p, "amount") > 0)
+            .Select(p =>
+                $"{DayBillingCloseDocumentReader.ReadString(p, "mode") ?? DayBillingCloseDocumentReader.ReadString(p, "provider") ?? "Other"} " +
+                $"{DayBillingCloseDocumentReader.ReadDecimal(p, "amount"):0.00}"));
     }
 
     private static List<DayCloseReportCashMovementRow> MapCashMovements(

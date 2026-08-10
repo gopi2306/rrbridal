@@ -124,7 +124,7 @@ Same status machine for **in** and **out**:
 | `draft` | Admin | `POST /stock-transfers` or `PATCH` |
 | `in_transit` | Admin | `POST /stock-transfers/:id/status` |
 | `awaiting_intake` | Store | `POST /stock-transfers/:id/receive` (full line match) |
-| `completed` | Store sync | `StockTransferReceived` push |
+| `completed` | Store client | Offline sync push or Online direct `StockTransferReceived` event |
 | `cancelled` | Admin | `POST /:id/status` from `draft` or `in_transit` |
 
 `in_transit` → `awaiting_intake` only via **receive**, not via status.
@@ -134,14 +134,18 @@ Same status machine for **in** and **out**:
 1. Admin creates → `draft`.
 2. Admin dispatch → `in_transit` (warehouse −, in_transit +).
 3. Store receive → `awaiting_intake`.
-4. Store sync → `completed` (in_transit −, store +; local `stockQty` **increases**).
+4. Store completion → `completed` (in_transit −, store +):
+   - **Offline:** Sync All increases local `stockQty` and pushes `StockTransferReceived`.
+   - **Central Online:** Sync All or POS 1 periodic processing posts the same event; the live central catalog immediately reflects the increased store stock.
 
 ### Transfer out (store → warehouse)
 
 1. Admin creates with `direction: store_to_warehouse`, `fromStoreId` → `draft`.
 2. Admin dispatch → `in_transit` (store − on central ledger, in_transit +). Fails if central store stock insufficient.
 3. Store confirms dispatch qty → `awaiting_intake` (`storeId` = `fromStoreId`).
-4. Store sync → `completed` (in_transit −, warehouse +; local `stockQty` **decreases**, clamped at 0).
+4. Store completion → `completed` (in_transit −, warehouse +):
+   - **Offline:** Sync All pulls the transfer, decrements local `stockQty` (clamped at 0), and pushes `StockTransferReceived`.
+   - **Central Online:** Sync All or the POS 1 periodic direct-operation run posts `StockTransferReceived`; no local stock is changed because the central ledger is authoritative.
 
 ```mermaid
 sequenceDiagram
@@ -159,6 +163,18 @@ sequenceDiagram
   Note over Central: completed warehouse plus
 ```
 
+### Central Online completion
+
+Online tills do not run the local Mongo sync engine. They use:
+
+1. `GET /api/store-pos/transfers/awaiting-intake?storeId=...` to list store-scoped Transfer In and Transfer Out payloads.
+2. `POST /api/store-pos/events` with type `StockTransferReceived` and a deterministic event ID.
+3. The same central `SyncService.applyOne` → `StockTransfersService.receiveFromSync` domain path as offline sync.
+
+Manual **Sync All** runs this direct flow from any till. Periodic processing runs store-wide transfer completion only on POS 1; every till may refresh its PC-local central configuration. Duplicate attempts are safe.
+
+This flow handles only `awaiting_intake` → `completed`. Physical confirmation from `in_transit` → `awaiting_intake` remains `POST /stock-transfers/:id/receive`.
+
 ## HTTP API summary
 
 | Method | Path | Purpose |
@@ -171,6 +187,8 @@ sequenceDiagram
 | `PATCH` | `/stock-transfers/:id` | Update **draft** only |
 | `POST` | `/stock-transfers/:id/status` | Admin status change |
 | `POST` | `/stock-transfers/:id/receive` | Store confirm qty → `awaiting_intake` |
+| `GET` | `/api/store-pos/transfers/awaiting-intake` | Online POS list of pending receipts in both directions |
+| `POST` | `/api/store-pos/events` | Online POS posts `StockTransferReceived` |
 
 ### Example: transfer in create
 

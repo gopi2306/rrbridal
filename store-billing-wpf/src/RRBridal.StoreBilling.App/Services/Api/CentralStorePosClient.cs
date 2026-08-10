@@ -119,6 +119,12 @@ public sealed class CentralStorePosClient
     public Task PostDailyExpenseAsync(object payload, CancellationToken ct = default) =>
         PostWriteAsync("/api/store-pos/daily-expenses", payload, ct);
 
+    public Task UpdateDailyExpenseAsync(string expenseNo, object payload, CancellationToken ct = default) =>
+        PutWriteAsync($"/api/store-pos/daily-expenses/{Uri.EscapeDataString(expenseNo.Trim())}", payload, ct);
+
+    public Task VoidDailyExpenseAsync(string expenseNo, object payload, CancellationToken ct = default) =>
+        PostWriteAsync($"/api/store-pos/daily-expenses/{Uri.EscapeDataString(expenseNo.Trim())}/void", payload, ct);
+
     public Task PostCodPaymentAsync(string billNo, object payload, CancellationToken ct = default) =>
         PostWriteAsync($"/api/store-pos/bills/{Uri.EscapeDataString(billNo)}/cod-payment", payload, ct);
 
@@ -128,14 +134,33 @@ public sealed class CentralStorePosClient
     public Task PostAdjustmentBillAsync(object payload, CancellationToken ct = default) =>
         PostWriteAsync("/api/store-pos/adjustment-bills", payload, ct);
 
-    public Task PostEventAsync(string type, object payload, CancellationToken ct = default) =>
+    public Task PostEventAsync(
+        string type,
+        object payload,
+        CancellationToken ct = default,
+        string? eventId = null) =>
         PostAsync("/api/store-pos/events", new
         {
             type,
             storeId = _storeContext.StoreId,
             deviceId = _storeContext.DeviceId,
             payload,
+            eventId,
         }, ct);
+
+    public async Task<IReadOnlyList<StorePosTransferDto>> ListAwaitingTransfersAsync(
+        int limit = 200,
+        CancellationToken ct = default)
+    {
+        var url =
+            $"/api/store-pos/transfers/awaiting-intake?storeId={Uri.EscapeDataString(_storeContext.StoreId)}&limit={limit}";
+        using var res = await _http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Central awaiting transfer list failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
+        return JsonSerializer.Deserialize<List<StorePosTransferDto>>(raw, JsonOpts) ?? [];
+    }
 
     public async Task<string> NextNumberAsync(string kind, CancellationToken ct = default)
     {
@@ -450,6 +475,20 @@ public sealed class CentralStorePosClient
             payload,
         }, ct);
 
+    private async Task PutWriteAsync(string url, object payload, CancellationToken ct)
+    {
+        using var res = await _http.PutAsJsonAsync(url, new
+        {
+            storeId = _storeContext.StoreId,
+            deviceId = _storeContext.DeviceId,
+            payload,
+        }, ct);
+        if (res.IsSuccessStatusCode)
+            return;
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        throw new InvalidOperationException($"Central store-pos failed ({(int)res.StatusCode}): {Truncate(raw, 400)}");
+    }
+
     private async Task PostAsync(string url, object body, CancellationToken ct)
     {
         using var res = await _http.PostAsJsonAsync(url, body, ct);
@@ -523,4 +562,19 @@ public sealed class CentralStorePosClient
         public string? Url { get; set; }
         public string? Description { get; set; }
     }
+}
+
+public sealed class StorePosTransferDto
+{
+    public string TransferId { get; set; } = "";
+    public string TransferNo { get; set; } = "";
+    public string Direction { get; set; } = "";
+    public string Status { get; set; } = "";
+    public List<StorePosTransferLineDto> Lines { get; set; } = [];
+}
+
+public sealed class StorePosTransferLineDto
+{
+    public string Sku { get; set; } = "";
+    public decimal Qty { get; set; }
 }

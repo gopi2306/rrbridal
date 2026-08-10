@@ -2,6 +2,7 @@ using System.Printing;
 using System.Windows;
 using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.BarcodePrinting;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Views;
 
@@ -20,6 +21,12 @@ public partial class BarcodePrinterPickerDialog
         PrinterCombo.Items.Clear();
         var physical = new List<string>();
 
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            physical.Add("RR Bridal UI Automation Printer");
+        }
+        else
+        {
         try
         {
             using var server = new LocalPrintServer();
@@ -34,6 +41,7 @@ public partial class BarcodePrinterPickerDialog
         catch
         {
             // leave empty
+        }
         }
 
         foreach (var name in physical.OrderByDescending(BarcodePrinterPreferences.ScoreQueue))

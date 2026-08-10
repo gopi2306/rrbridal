@@ -39,7 +39,8 @@ export function buildSummaryRows(data: StoreDayCloseReportData): KeyValueRow[] {
     { label: 'Gross cash from bills', value: formatMoney(s.cashTotal) },
     { label: 'Cash refunds (returns)', value: formatMoney(-s.returnCashRefundTotal) },
     { label: 'Credit note cashouts', value: formatMoney(-s.creditNoteCashoutTotal) },
-    { label: 'Daily expenses', value: formatMoney(-s.dailyExpensesTotal) },
+    { label: 'Gross daily expenses', value: formatMoney(s.dailyExpensesTotal) },
+    { label: 'Expense cash outflow', value: formatMoney(-s.dailyExpenseCashTotal) },
     { label: 'Deposits to bank', value: formatMoney(-s.depositsTotal) },
     { label: 'Cash withdrawals', value: formatMoney(s.withdrawalsTotal) },
     { label: 'Expected cash (drawer)', value: formatMoney(s.expectedCash) },
@@ -113,8 +114,19 @@ export function buildDetailSections(data: StoreDayCloseReportData): TableSection
     },
     {
       name: 'EXPENSES',
-      headers: ['Expense no', 'Counter', 'Business date', 'Description', 'Amount'],
-      rows: data.expenses.map((e) => [cell(e.expenseNo), cell(e.counter), cell(e.businessDate), cell(e.description), cell(e.amount)]),
+      headers: [
+        'Expense no', 'Counter', 'Business date', 'Supplier', 'Supplier GSTIN',
+        'Invoice no', 'Invoice date', 'Category', 'Description', 'Taxable value',
+        'GST rate', 'CGST', 'SGST', 'IGST', 'Total tax', 'Grand total',
+        'Payments', 'Cash outflow',
+      ],
+      rows: data.expenses.map((e) => [
+        cell(e.expenseNo), cell(e.counter), cell(e.businessDate), cell(e.supplier),
+        cell(e.supplierGstin), cell(e.invoiceNo), cell(e.invoiceDate), cell(e.category),
+        cell(e.description), cell(e.taxableValue), cell(e.gstRate), cell(e.cgst),
+        cell(e.sgst), cell(e.igst), cell(e.totalTax), cell(e.amount),
+        cell(e.payments), cell(e.cashOutflow),
+      ]),
     },
     {
       name: 'CASH_MOVEMENTS',

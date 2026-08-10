@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -16,8 +17,7 @@ public sealed class ReceiptLogoCache
     public ReceiptLogoCache(HttpClient http)
     {
         _http = http;
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RRBridal", "StoreBilling");
-        Directory.CreateDirectory(dir);
+        var dir = StoreBillingDataPath.Get();
         _cachePath = Path.Combine(dir, "receipt_logo.png");
     }
 

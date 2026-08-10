@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -44,8 +45,10 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        TraceAutomationStartup("OnStartup");
         UiDensityService.EnsureDefaults();
         RegisterDefaultWindowIcon();
+        TraceAutomationStartup("UI defaults registered");
         DispatcherUnhandledException += (_, args) =>
         {
             AppDialog.Show(
@@ -57,8 +60,11 @@ public partial class App : Application
         };
 
         DotEnvLoader.Load();
+        TraceAutomationStartup("Environment loaded");
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        TraceAutomationStartup("Creating services");
         Services = AppServices.CreateDefault();
+        TraceAutomationStartup("Services created");
         CounterConfigValidator.WarnIfDefaultDevice(Services.StoreContext);
         _ = RunStartupAsync();
     }
@@ -81,6 +87,7 @@ public partial class App : Application
     {
         try
         {
+            TraceAutomationStartup("RunStartupAsync");
             // If this till is already Online locally, skip Mongo/ZeroTier gate immediately.
             // Do not wait on central inherit first — inherit must never re-enable the gate.
             var skipMongoGate = Services.CentralMode.IsOnlineMode
@@ -176,6 +183,7 @@ public partial class App : Application
 
             while (true)
             {
+                TraceAutomationStartup("Showing login");
                 if (!await TryShowLoginAsync(syncWarning).ConfigureAwait(true))
                 {
                     Services.CentralMode.Stop();
@@ -228,6 +236,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            TraceAutomationStartup($"Startup failed: {ex}");
             Services.CentralMode.Stop();
             Services.MongoHealth.Stop();
             AppDialog.Show(
@@ -236,6 +245,24 @@ public partial class App : Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown();
+        }
+    }
+
+    private static void TraceAutomationStartup(string message)
+    {
+        var path = Environment.GetEnvironmentVariable("RRBRIDAL_UI_TRACE_FILE");
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            File.AppendAllText(
+                path,
+                $"{DateTime.UtcNow:O} {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Test diagnostics must never affect production startup.
         }
     }
 

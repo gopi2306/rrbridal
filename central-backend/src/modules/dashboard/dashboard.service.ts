@@ -17,7 +17,7 @@ export interface DashboardSummary {
   pendingReceipts: number;
   transfersToday: number;
   activeSuppliers: number;
-  /** Sum of daily cash expenses across all stores for IST today */
+  /** Gross non-void daily expenses across all stores for IST today */
   dailyExpensesToday: number;
 }
 

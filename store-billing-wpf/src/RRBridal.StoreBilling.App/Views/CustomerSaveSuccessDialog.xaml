@@ -7,7 +7,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="customer-save-success-dialog"
+        AutomationProperties.Name="Customer saved successfully">
     <Border Padding="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Margin="0" Background="{StaticResource BrushSurface}">
         <Grid MinWidth="480" MaxWidth="520">
             <Grid.RowDefinitions>
@@ -19,7 +21,7 @@
                 <Grid>
                     <TextBlock Text="Customer saved successfully" Foreground="White" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
                     <Button HorizontalAlignment="Right" Content="✕" Foreground="White" Background="Transparent" BorderThickness="0"
-                            FontSize="14" Padding="8,0" Cursor="Hand" Click="CloseButton_OnClick" ToolTip="Close"/>
+                            FontSize="14" Padding="8,0" Cursor="Hand" Click="CloseButton_OnClick" ToolTip="Close" AutomationProperties.AutomationId="customer-save-success-close-button" AutomationProperties.Name="✕"/>
                 </Grid>
             </Border>
             <Grid Grid.Row="1" Margin="20,16,20,8">
@@ -38,8 +40,8 @@
                 </StackPanel>
             </Grid>
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,8,20,20">
-                <Button Content="Use later" Style="{StaticResource OutlineButton}" MinWidth="110" Margin="0,0,10,0" IsCancel="True"/>
-                <Button Content="Continue billing" Style="{StaticResource PrimaryButton}" MinWidth="140" IsDefault="True" Click="ContinueBilling_OnClick"/>
+                <Button Content="Use later" Style="{StaticResource OutlineButton}" MinWidth="110" Margin="0,0,10,0" IsCancel="True" AutomationProperties.AutomationId="customer-save-success-use-later-button" AutomationProperties.Name="Use later"/>
+                <Button Content="Continue billing" Style="{StaticResource PrimaryButton}" MinWidth="140" IsDefault="True" Click="ContinueBilling_OnClick" AutomationProperties.AutomationId="customer-save-success-continue-billing-button" AutomationProperties.Name="Continue billing"/>
             </StackPanel>
         </Grid>
     </Border>

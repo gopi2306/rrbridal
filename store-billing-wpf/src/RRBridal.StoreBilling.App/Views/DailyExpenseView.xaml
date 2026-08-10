@@ -5,7 +5,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="900"
+             d:DesignHeight="780" d:DesignWidth="1200"
+             AutomationProperties.AutomationId="daily-expense-page"
+             AutomationProperties.Name="Daily expenses"
              Background="{StaticResource BrushBackground}">
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>
@@ -14,77 +16,191 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="Daily Expenses" Style="{StaticResource TextPageTitleAccent}"/>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                <TextBlock Text="{Binding StoreDisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
-                <TextBlock Text="{Binding TillDisplayLine, Mode=OneWay}" Style="{StaticResource PageSubtitle}" Margin="8,0,0,0"/>
+                <TextBlock Text="{Binding StoreDisplayName}" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
+                <TextBlock Text="{Binding TillDisplayLine}" Style="{StaticResource PageSubtitle}" Margin="8,0,0,0"/>
             </StackPanel>
         </StackPanel>
 
-        <Border Grid.Row="1" Style="{StaticResource FilterBarCard}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="New expense slip" Margin="0,0,0,12"/>
-                    <UniformGrid
-                                 ui:UniformGridColumnsBehavior.IsEnabled="True"
-                                 ui:UniformGridColumnsBehavior.CompactColumns="1"
-                                 ui:UniformGridColumnsBehavior.MediumColumns="2"
-                                 ui:UniformGridColumnsBehavior.WideColumns="2">
-                        <StackPanel Margin="0,0,12,8">
-                            <TextBlock Text="Date" Style="{StaticResource FormFieldLabel}"/>
-                            <DatePicker SelectedDate="{Binding SelectedDate}" Style="{StaticResource RoundedDatePicker}"/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,0,8">
-                            <TextBlock Text="Amount (₹)" Style="{StaticResource FormFieldLabel}"/>
-                            <TextBox Style="{StaticResource RoundedTextBox}"
-                                     Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"/>
-                        </StackPanel>
-                    </UniformGrid>
-                    <StackPanel Margin="0,4,0,0">
-                        <TextBlock Text="Description" Style="{StaticResource FormFieldLabel}"/>
-                        <TextBox Style="{StaticResource RoundedTextBox}"
-                                 Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
+        <Border Grid.Row="1" Style="{StaticResource FilterBarCard}" Margin="0,0,0,12">
+            <StackPanel>
+                <DockPanel Margin="0,0,0,10">
+                    <TextBlock Text="{Binding FormTitle}" Style="{StaticResource TextSectionTitle}"/>
+                    <WrapPanel DockPanel.Dock="Right">
+                        <Button Content="Clear" Command="{Binding ClearEntryFormCommand}" Style="{StaticResource OutlineButton}" Margin="6,0,0,0"
+                                AutomationProperties.AutomationId="daily-expense-clear"/>
+                        <Button Content="{Binding SaveButtonText}" Command="{Binding SaveExpenseCommand}" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="6,0,0,0"
+                                AutomationProperties.AutomationId="daily-expense-save"/>
+                    </WrapPanel>
+                </DockPanel>
+
+                <UniformGrid ui:UniformGridColumnsBehavior.IsEnabled="True"
+                             ui:UniformGridColumnsBehavior.CompactColumns="1"
+                             ui:UniformGridColumnsBehavior.MediumColumns="2"
+                             ui:UniformGridColumnsBehavior.WideColumns="4">
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Expense date" Style="{StaticResource FormFieldLabel}"/>
+                        <DatePicker SelectedDate="{Binding SelectedDate}" Style="{StaticResource RoundedDatePicker}"
+                                    AutomationProperties.AutomationId="daily-expense-date"/>
                     </StackPanel>
-                </StackPanel>
-                <WrapPanel Grid.Column="1" VerticalAlignment="Bottom">
-                    <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="90" Margin="0,0,8,4"
-                            Command="{Binding RefreshCommand}"/>
-                    <Button Content="Post expense" Style="{StaticResource PrimaryButton}" MinWidth="130" Margin="0,0,0,4"
-                            Command="{Binding PostExpenseCommand}"/>
-                </WrapPanel>
-            </Grid>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Supplier" Style="{StaticResource FormFieldLabel}"/>
+                        <TextBox Text="{Binding SupplierName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}"
+                                 AutomationProperties.AutomationId="daily-expense-supplier"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Supplier GSTIN" Style="{StaticResource FormFieldLabel}"/>
+                        <TextBox Text="{Binding SupplierGstin, UpdateSourceTrigger=PropertyChanged}" MaxLength="15" Style="{StaticResource RoundedTextBox}"
+                                 AutomationProperties.AutomationId="daily-expense-supplier-gstin"/>
+                        <TextBlock Text="{Binding SupplierStateCode, StringFormat=Supplier state code: {0}, TargetNullValue=Supplier state code: —}"
+                                   Style="{StaticResource PageSubtitle}" Margin="2,3,0,0"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="Category" Style="{StaticResource FormFieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource RoundedComboBox}"
+                                  AutomationProperties.AutomationId="daily-expense-category"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Supplier invoice no" Style="{StaticResource FormFieldLabel}"/>
+                        <TextBox Text="{Binding SupplierInvoiceNo, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Supplier invoice date" Style="{StaticResource FormFieldLabel}"/>
+                        <DatePicker SelectedDate="{Binding SupplierInvoiceDate}" Style="{StaticResource RoundedDatePicker}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Amount before/including GST (₹)" Style="{StaticResource FormFieldLabel}"/>
+                        <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}"
+                                 AutomationProperties.AutomationId="daily-expense-amount"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="GST treatment" Style="{StaticResource FormFieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding GstModes}" SelectedItem="{Binding SelectedGstMode}" Style="{StaticResource RoundedComboBox}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="GST rate (%)" Style="{StaticResource FormFieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding GstRates}" SelectedItem="{Binding SelectedGstRate}" Style="{StaticResource RoundedComboBox}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,10,8">
+                        <TextBlock Text="Supply type" Style="{StaticResource FormFieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding SupplyTypes}" SelectedItem="{Binding SelectedSupplyType}"
+                                  IsEnabled="{Binding CanSelectSupplyType}" Style="{StaticResource RoundedComboBox}"/>
+                        <TextBlock Text="{Binding StoreStateCode, StringFormat=Store GST state code: {0}, TargetNullValue=Store GST state code: —}"
+                                   Style="{StaticResource PageSubtitle}" Margin="2,3,0,0"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="Description" Style="{StaticResource FormFieldLabel}"/>
+                        <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}"
+                                 AutomationProperties.AutomationId="daily-expense-description"/>
+                    </StackPanel>
+                </UniformGrid>
+
+                <TextBlock Text="{Binding TaxSummary}" Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                <TextBlock Text="Payment legs (must balance to total)" Style="{StaticResource FormFieldLabel}"/>
+                <ItemsControl ItemsSource="{Binding PaymentLegs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="230" Margin="0,0,10,6" Padding="8"
+                                    BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6">
+                                <StackPanel>
+                                    <CheckBox Content="{Binding Mode}"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              FontWeight="SemiBold"
+                                              Foreground="{StaticResource BrushText}"/>
+                                    <Grid Margin="0,7,0,0"
+                                          Visibility="{Binding IsSelected, Converter={StaticResource BoolToVis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource RoundedTextBox}" ToolTip="Amount"/>
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource RoundedTextBox}" Margin="6,0,0,0"
+                                                 ToolTip="Reference (optional)"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Style="{StaticResource StatusChip}" HorizontalAlignment="Left" Margin="0,3,0,0">
+                    <TextBlock Text="{Binding PaymentBalanceSummary}"
+                               Foreground="{StaticResource BrushAccent}" FontWeight="SemiBold"/>
+                </Border>
+            </StackPanel>
         </Border>
 
         <Border Grid.Row="2" Style="{StaticResource CardBorder}">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-                    <TextBlock Style="{StaticResource TextSectionTitle}" Text="Expenses for selected date"/>
-                    <Border Style="{StaticResource StatusChip}" Margin="12,0,0,0">
-                        <TextBlock Text="{Binding DayTotalSummary, StringFormat=Total: {0}}"
-                                   FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" FontSize="12"/>
-                    </Border>
-                </StackPanel>
-                <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}"
-                           Margin="0,10,0,0" TextWrapping="Wrap"/>
-                <DataGrid ItemsSource="{Binding Expenses}"
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel>
+                        <TextBox Width="210" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}" ToolTip="Search expense, supplier or invoice"
+                                 AutomationProperties.AutomationId="daily-expense-search"/>
+                        <ComboBox Width="150" ItemsSource="{Binding CategoryFilters}" SelectedItem="{Binding FilterCategory}" Style="{StaticResource RoundedComboBox}" Margin="8,0,0,0"/>
+                        <ComboBox Width="140" ItemsSource="{Binding PaymentFilters}" SelectedItem="{Binding FilterPaymentMode}" Style="{StaticResource RoundedComboBox}" Margin="8,0,0,0"/>
+                        <ComboBox Width="100" ItemsSource="{Binding StatusFilters}" SelectedItem="{Binding FilterStatus}" Style="{StaticResource RoundedComboBox}" Margin="8,0,0,0"/>
+                        <Button Content="Refresh" Command="{Binding RefreshCommand}" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"/>
+                    </WrapPanel>
+                    <WrapPanel Grid.Column="1">
+                        <Border Style="{StaticResource StatusChip}" Margin="6,0,0,0"><TextBlock Text="{Binding DayTotalSummary, StringFormat=Total {0}}" FontWeight="SemiBold"/></Border>
+                        <Border Style="{StaticResource StatusChip}" Margin="6,0,0,0"><TextBlock Text="{Binding GstTotalSummary}"/></Border>
+                        <Border Style="{StaticResource StatusChip}" Margin="6,0,0,0"><TextBlock Text="{Binding CashTotalSummary}"/></Border>
+                    </WrapPanel>
+                </Grid>
+
+                <DataGrid Grid.Row="1"
+                          AutomationProperties.AutomationId="daily-expense-grid"
+                          ItemsSource="{Binding Expenses}"
+                          SelectedItem="{Binding SelectedExpense}"
                           Style="{StaticResource ThemedDataGrid}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
-                          CanUserAddRows="False"
-                          HeadersVisibility="Column">
+                          SelectionMode="Single"
+                          CanUserAddRows="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Expense no" Binding="{Binding ExpenseNo}" Width="180"/>
+                        <DataGridTextColumn Header="Expense no" Binding="{Binding ExpenseNo}" Width="150"/>
+                        <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="150"/>
+                        <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNo}" Width="110"/>
+                        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="115"/>
                         <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                        <DataGridTextColumn Header="Amount" Binding="{Binding AmountDisplay}" Width="110"/>
-                        <DataGridTextColumn Header="Posted" Binding="{Binding PostedAtLocal}" Width="150"/>
+                        <DataGridTextColumn Header="GST" Binding="{Binding GstDisplay}" Width="90"/>
+                        <DataGridTextColumn Header="Payments" Binding="{Binding PaymentDisplay}" Width="190"/>
+                        <DataGridTextColumn Header="Amount" Binding="{Binding AmountDisplay}" Width="100"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="75"/>
                     </DataGrid.Columns>
                 </DataGrid>
-            </DockPanel>
+
+                <Grid Grid.Row="2" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="daily-expense-status"/>
+                    <WrapPanel Grid.Column="1">
+                        <Button Content="Edit" Command="{Binding EditSelectedCommand}" Style="{StaticResource OutlineButton}" Margin="6,0,0,0"/>
+                        <Button Content="Print receipt" Command="{Binding PrintSelectedCommand}" Style="{StaticResource OutlineButton}" Margin="6,0,0,0"/>
+                        <TextBox Width="150" Text="{Binding VoidReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RoundedTextBox}" Margin="6,0,0,0" ToolTip="Void reason"/>
+                        <Button Content="Void" Command="{Binding VoidSelectedCommand}" Style="{StaticResource OutlineButton}" Margin="6,0,0,0"/>
+                    </WrapPanel>
+                </Grid>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

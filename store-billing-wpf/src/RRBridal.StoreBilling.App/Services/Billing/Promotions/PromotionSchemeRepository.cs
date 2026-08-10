@@ -44,6 +44,17 @@ public sealed class PromotionSchemeRepository
         return local;
     }
 
+    public async Task<int> RefreshOnlineCacheAsync(CancellationToken ct = default)
+    {
+        if (_centralMode?.IsOnlineMode != true || _storePos == null)
+            return 0;
+
+        var list = await FetchCentralAsync(ct).ConfigureAwait(false);
+        lock (_cacheLock)
+            _memoryCache = list;
+        return list.Count;
+    }
+
     /// <summary>
     /// Sync path used by totals/promotions. Must never block on HTTP (WPF deadlock).
     /// Returns memory cache, else local Mongo; kicks a background refresh when Online.

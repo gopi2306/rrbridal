@@ -10,7 +10,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="add-product-code-dialog"
+        AutomationProperties.Name="Add product">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
     <Grid>
         <Grid.RowDefinitions>
@@ -24,14 +26,14 @@
         <StackPanel Grid.Row="1" Margin="0,12,0,16">
             <TextBlock Text="Product code" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
             <TextBox x:Name="ProductCodeBox" Style="{StaticResource RoundedTextBox}"
-                     KeyDown="ProductCodeBox_OnKeyDown"/>
+                     KeyDown="ProductCodeBox_OnKeyDown" AutomationProperties.AutomationId="add-product-code-product-code-input" AutomationProperties.Name="Product Code"/>
         </StackPanel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
-                    IsCancel="True" Click="Cancel_OnClick"/>
+                    IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="add-product-code-cancel-button" AutomationProperties.Name="Cancel"/>
             <Button Content="Add" Style="{StaticResource PrimaryButton}" Width="90"
-                    IsDefault="True" Click="Add_OnClick"/>
+                    IsDefault="True" Click="Add_OnClick" AutomationProperties.AutomationId="add-product-code-add-button" AutomationProperties.Name="Add"/>
         </StackPanel>
     </Grid>
     </Border>

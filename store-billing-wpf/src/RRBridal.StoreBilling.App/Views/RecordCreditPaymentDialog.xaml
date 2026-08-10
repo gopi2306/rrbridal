@@ -4,7 +4,9 @@
         Title="Receipt" SizeToContent="Height" Width="520" MinWidth="460"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="record-credit-payment-dialog"
+        AutomationProperties.Name="Receipt">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="24,20">
         <StackPanel>
             <TextBlock Text="Receipt" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
@@ -13,7 +15,7 @@
             <Border Background="{StaticResource BrushSidebarTint}" CornerRadius="8" Padding="14" Margin="0,16,0,0">
                 <StackPanel>
                     <TextBlock Text="Amount to collect (₹)" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
-                    <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}" FontSize="18" FontWeight="SemiBold" AutomationProperties.AutomationId="record-credit-payment-amount-input" AutomationProperties.Name="Amount"/>
                     <TextBlock x:Name="RemainingPreviewText" Foreground="{StaticResource BrushAccent}" FontSize="12" Margin="0,8,0,0"/>
                 </StackPanel>
             </Border>
@@ -30,16 +32,16 @@
             <!-- Single-mode reference -->
             <StackPanel x:Name="ReferencePanel" Margin="0,8,0,0">
                 <TextBlock x:Name="ReferenceLabelText" Text="Transaction / reference no" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
-                <TextBox x:Name="TransactionNoBox" Style="{StaticResource RoundedTextBox}"/>
+                <TextBox x:Name="TransactionNoBox" Style="{StaticResource RoundedTextBox}" AutomationProperties.AutomationId="record-credit-payment-transaction-no-input" AutomationProperties.Name="Transaction No"/>
             </StackPanel>
 
             <!-- Credit note panel -->
             <StackPanel x:Name="CreditNotePanel" Margin="0,8,0,0" Visibility="Collapsed">
                 <TextBlock Text="Customer credit note" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
                 <ComboBox x:Name="CreditNoteCombo" Margin="0,0,0,8"
-                          DisplayMemberPath="CreditNoteNo" SelectedValuePath="CreditNoteNo"/>
+                          DisplayMemberPath="CreditNoteNo" SelectedValuePath="CreditNoteNo" AutomationProperties.AutomationId="record-credit-payment-credit-note-selector" AutomationProperties.Name="Credit Note"/>
                 <TextBlock Text="Or enter credit note no." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,6"/>
-                <TextBox x:Name="CreditNoteRefBox" Style="{StaticResource RoundedTextBox}"/>
+                <TextBox x:Name="CreditNoteRefBox" Style="{StaticResource RoundedTextBox}" AutomationProperties.AutomationId="record-credit-payment-credit-note-ref-input" AutomationProperties.Name="Credit Note Ref"/>
             </StackPanel>
 
             <!-- Split panel -->
@@ -61,21 +63,21 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Cash" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitCashBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitCashBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8" AutomationProperties.AutomationId="record-credit-payment-split-cash-input" AutomationProperties.Name="Split Cash"/>
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Card" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitCardBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitCardBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8" AutomationProperties.AutomationId="record-credit-payment-split-card-input" AutomationProperties.Name="Split Card"/>
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="UPI" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitUpiBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" x:Name="SplitUpiBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8" AutomationProperties.AutomationId="record-credit-payment-split-upi-input" AutomationProperties.Name="Split Upi"/>
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Credit Note" FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="SplitCreditNoteAmountBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,8"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="SplitCreditNoteAmountBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,8,8" AutomationProperties.AutomationId="record-credit-payment-split-credit-note-amount-input" AutomationProperties.Name="Split Credit Note Amount"/>
                     <TextBox Grid.Row="3" Grid.Column="2" x:Name="SplitCreditNoteRefBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
-                             ToolTip="Credit note reference"/>
+                             ToolTip="Credit note reference" AutomationProperties.AutomationId="record-credit-payment-split-credit-note-ref-input" AutomationProperties.Name="Split Credit Note Ref"/>
                 </Grid>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0" Click="Cancel_Click"/>
-                <Button Content="Confirm" Style="{StaticResource PrimaryButton}" MinWidth="110" Click="Confirm_Click"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="96" Margin="0,0,8,0" Click="Cancel_Click" AutomationProperties.AutomationId="record-credit-payment-cancel-button" AutomationProperties.Name="Cancel"/>
+                <Button Content="Confirm" Style="{StaticResource PrimaryButton}" MinWidth="110" Click="Confirm_Click" AutomationProperties.AutomationId="record-credit-payment-confirm-button" AutomationProperties.Name="Confirm"/>
             </StackPanel>
         </StackPanel>
     </Border>

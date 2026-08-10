@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Products;
 
@@ -14,11 +15,7 @@ public sealed class ProductImageCache
     public ProductImageCache(HttpClient centralApi)
     {
         _centralApi = centralApi;
-        _cacheDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "RRBridal",
-            "ProductImages");
-        Directory.CreateDirectory(_cacheDir);
+        _cacheDir = StoreBillingDataPath.GetProductImages();
     }
 
     public string GetLocalPath(string productId) => Path.Combine(_cacheDir, $"{productId}.img");

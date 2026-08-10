@@ -10,7 +10,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="inventory-adjust-stock-dialog"
+        AutomationProperties.Name="Adjust stock">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
         <Grid>
             <Grid.RowDefinitions>
@@ -27,17 +29,17 @@
 
             <StackPanel Grid.Row="1" Margin="0,12,0,8">
                 <TextBlock Text="SKU" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                <TextBox x:Name="SkuBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+                <TextBox x:Name="SkuBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True" AutomationProperties.AutomationId="inventory-adjust-stock-sku-input" AutomationProperties.Name="Sku"/>
             </StackPanel>
 
             <StackPanel Grid.Row="2" Margin="0,0,0,8">
                 <TextBlock Text="Product" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                <TextBox x:Name="ProductBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+                <TextBox x:Name="ProductBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True" AutomationProperties.AutomationId="inventory-adjust-stock-product-input" AutomationProperties.Name="Product"/>
             </StackPanel>
 
             <StackPanel Grid.Row="3" Margin="0,0,0,8">
                 <TextBlock Text="Current local qty" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                <TextBox x:Name="CurrentQtyBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+                <TextBox x:Name="CurrentQtyBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True" AutomationProperties.AutomationId="inventory-adjust-stock-current-qty-input" AutomationProperties.Name="Current Qty"/>
             </StackPanel>
 
             <Grid Grid.Row="4" Margin="0,0,0,12">
@@ -48,7 +50,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="Adjustment mode" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="ModeBox" Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
+                    <ComboBox x:Name="ModeBox" Style="{StaticResource RoundedComboBox}" SelectedIndex="0" AutomationProperties.AutomationId="inventory-adjust-stock-mode-selector" AutomationProperties.Name="Mode">
                         <ComboBoxItem Content="Add quantity"/>
                         <ComboBoxItem Content="Remove quantity"/>
                         <ComboBoxItem Content="Set quantity to"/>
@@ -56,20 +58,20 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Quantity" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                    <TextBox x:Name="QuantityBox" Style="{StaticResource RoundedTextBox}"/>
+                    <TextBox x:Name="QuantityBox" Style="{StaticResource RoundedTextBox}" AutomationProperties.AutomationId="inventory-adjust-stock-quantity-input" AutomationProperties.Name="Quantity"/>
                 </StackPanel>
             </Grid>
 
             <StackPanel Grid.Row="5" Margin="0,0,0,16">
                 <TextBlock Text="Reason (required)" FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
-                <TextBox x:Name="ReasonBox" Style="{StaticResource RoundedTextBox}" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True"/>
+                <TextBox x:Name="ReasonBox" Style="{StaticResource RoundedTextBox}" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True" AutomationProperties.AutomationId="inventory-adjust-stock-reason-input" AutomationProperties.Name="Reason"/>
             </StackPanel>
 
             <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
-                        IsCancel="True" Click="Cancel_OnClick"/>
+                        IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="inventory-adjust-stock-cancel-button" AutomationProperties.Name="Cancel"/>
                 <Button Content="Apply" Style="{StaticResource PrimaryButton}" Width="90"
-                        IsDefault="True" Click="Apply_OnClick"/>
+                        IsDefault="True" Click="Apply_OnClick" AutomationProperties.AutomationId="inventory-adjust-stock-apply-button" AutomationProperties.Name="Apply"/>
             </StackPanel>
         </Grid>
     </Border>

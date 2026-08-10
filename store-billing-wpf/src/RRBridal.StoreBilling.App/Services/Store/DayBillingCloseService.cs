@@ -166,7 +166,7 @@ public sealed class DayBillingCloseService
 
         var businessDate = localDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var expenseDocs = await expensesColl.Find(storeFilter).ToListAsync(ct);
-        var dailyExpensesTotal = DayBillingCloseDocumentReader.SumDailyExpensesForBusinessDate(
+        var expensePayments = DayBillingCloseDocumentReader.AggregateDailyExpensePayments(
             expenseDocs,
             businessDate,
             posCounterFilter);
@@ -177,7 +177,7 @@ public sealed class DayBillingCloseService
             businessDate,
             posCounterFilter);
 
-        var netCash = cash - cashRefundTotal + exchangePayments.Cash - dailyExpensesTotal;
+        var netCash = cash - cashRefundTotal + exchangePayments.Cash - expensePayments.Cash;
         var netCard = card + exchangePayments.Card;
         var netUpi = upi + exchangePayments.Upi;
         var actualHandIn = netCash + netCard + netUpi;
@@ -243,7 +243,11 @@ public sealed class DayBillingCloseService
             NetCardInHand = netCard,
             NetUpiInHand = netUpi,
             ActualHandInTotal = actualHandIn,
-            DailyExpensesTotal = dailyExpensesTotal,
+            DailyExpensesTotal = expensePayments.Total,
+            ExpenseCashTotal = expensePayments.Cash,
+            ExpenseCardTotal = expensePayments.Card,
+            ExpenseUpiTotal = expensePayments.Upi,
+            ExpenseBankTransferTotal = expensePayments.BankTransfer,
             DepositsTotal = depositsTotal,
             WithdrawalsTotal = withdrawalsTotal,
             OpeningCash = openingCash,
@@ -288,14 +292,19 @@ public sealed class DayBillingCloseService
         if (!salesJson.RootElement.TryGetProperty("summary", out var summary))
             throw new InvalidOperationException("Central sales summary response missing 'summary'.");
 
-        var netCash = CentralDashboardClient.ReadDecimal(summary, "cashInHand");
+        var centralNetCash = CentralDashboardClient.ReadDecimal(summary, "cashInHand");
         var cardTotal = CentralDashboardClient.ReadDecimal(summary, "cardTotalAmount");
         var upiTotal = CentralDashboardClient.ReadDecimal(summary, "upiTotalAmount");
         var returnCashRefundTotal = CentralDashboardClient.ReadDecimal(summary, "returnCashRefundTotal");
         var creditNoteCashoutTotal = CentralDashboardClient.ReadDecimal(summary, "creditNoteCashoutTotal");
         var cashRefundTotal = returnCashRefundTotal + creditNoteCashoutTotal;
-        var dailyExpensesTotal = CentralDashboardClient.ReadDecimal(summary, "dailyExpensesTotal");
-        var cashTotal = netCash + cashRefundTotal + dailyExpensesTotal;
+
+        using var expensesJson = await _storePos.ListDailyExpensesAsync(businessDate, 500, ct);
+        var expenseDocs = ExtractDocs(expensesJson, MapCentralExpenseToDoc);
+        var expensePayments = DayBillingCloseDocumentReader.AggregateDailyExpensePayments(
+            expenseDocs, businessDate, posCounterFilter);
+        var cashTotal = centralNetCash + cashRefundTotal + expensePayments.Cash;
+        var netCash = cashTotal - cashRefundTotal - expensePayments.Cash;
 
         using var movementsJson = await _storePos.ListCashMovementsAsync(businessDate, 200, ct);
         var movementDocs = ExtractDocs(movementsJson, MapCentralMovementToDoc);
@@ -396,7 +405,11 @@ public sealed class DayBillingCloseService
             NetCardInHand = netCard,
             NetUpiInHand = netUpi,
             ActualHandInTotal = netCash + netCard + netUpi,
-            DailyExpensesTotal = dailyExpensesTotal,
+            DailyExpensesTotal = expensePayments.Total,
+            ExpenseCashTotal = expensePayments.Cash,
+            ExpenseCardTotal = expensePayments.Card,
+            ExpenseUpiTotal = expensePayments.Upi,
+            ExpenseBankTransferTotal = expensePayments.BankTransfer,
             DepositsTotal = depositsTotal,
             WithdrawalsTotal = withdrawalsTotal,
             OpeningCash = cashFigures.OpeningCash,
@@ -455,6 +468,20 @@ public sealed class DayBillingCloseService
         if (!doc.Contains("status"))
             doc["status"] = "posted";
 
+        return doc;
+    }
+
+    private static BsonDocument MapCentralExpenseToDoc(JsonElement el)
+    {
+        BsonDocument doc;
+        if (el.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+            doc = BsonDocument.Parse(payload.GetRawText());
+        else
+            doc = BsonDocument.Parse(el.GetRawText());
+        if (el.TryGetProperty("expenseNo", out var noEl) && noEl.ValueKind == JsonValueKind.String)
+            doc["expenseNo"] = noEl.GetString() ?? "";
+        if (!doc.Contains("status"))
+            doc["status"] = "posted";
         return doc;
     }
 

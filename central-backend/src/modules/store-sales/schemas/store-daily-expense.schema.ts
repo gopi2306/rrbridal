@@ -17,6 +17,9 @@ export class StoreDailyExpense {
   @Prop({ required: true })
   deviceId!: string;
 
+  @Prop({ type: [String], default: [] })
+  appliedEventIds!: string[];
+
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   payload!: Record<string, unknown>;
 }

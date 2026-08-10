@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RRBridal.StoreBilling.App",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RRBridal.StoreBilling.Tests", "RRBridal.StoreBilling.Tests\RRBridal.StoreBilling.Tests.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RRBridal.StoreBilling.UiTests", "RRBridal.StoreBilling.UiTests\RRBridal.StoreBilling.UiTests.csproj", "{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|Any CPU
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.Build.0 = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|x64.Build.0 = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Debug|x86.Build.0 = Debug|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|x64.ActiveCfg = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|x64.Build.0 = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|x86.ActiveCfg = Release|Any CPU
+		{2E719A86-8A92-4FB4-9E52-5BA7B20857CE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

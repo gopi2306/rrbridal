@@ -10,7 +10,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="credit-note-chooser-dialog"
+        AutomationProperties.Name="Credit Note voucher">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
         <StackPanel>
             <TextBlock Text="Credit Note" Style="{StaticResource TextSectionTitle}"/>
@@ -19,7 +21,7 @@
 
             <Button x:Name="BillReturnButton" Style="{StaticResource OutlineButton}"
                     HorizontalContentAlignment="Left" Padding="14,12" Margin="0,0,0,8"
-                    Click="BillReturn_OnClick">
+                    Click="BillReturn_OnClick" AutomationProperties.AutomationId="credit-note-chooser-bill-return-button" AutomationProperties.Name="Bill Return Button">
                 <StackPanel>
                     <TextBlock Text="1.  Bill Return" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                     <TextBlock Text="Return against a system bill → credit note for the customer"
@@ -29,7 +31,7 @@
 
             <Button x:Name="DirectButton" Style="{StaticResource OutlineButton}"
                     HorizontalContentAlignment="Left" Padding="14,12" Margin="0,0,0,16"
-                    Click="Direct_OnClick">
+                    Click="Direct_OnClick" AutomationProperties.AutomationId="credit-note-chooser-direct-button" AutomationProperties.Name="Direct Button">
                 <StackPanel>
                     <TextBlock Text="2.  Direct Customer Credit Note" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"/>
                     <TextBlock Text="Issue credit on a customer with amount only — no bill required"
@@ -38,7 +40,7 @@
             </Button>
 
             <Button Content="Cancel" Style="{StaticResource GhostNavButton}" HorizontalAlignment="Right"
-                    IsCancel="True" Click="Cancel_OnClick"/>
+                    IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="credit-note-chooser-cancel-button" AutomationProperties.Name="Cancel"/>
         </StackPanel>
     </Border>
 </Window>

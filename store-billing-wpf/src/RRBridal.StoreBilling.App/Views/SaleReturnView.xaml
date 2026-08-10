@@ -7,6 +7,8 @@
              xmlns:vm="clr-namespace:RRBridal.StoreBilling.App.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
+             AutomationProperties.AutomationId="sale-return-page"
+             AutomationProperties.Name="Sale return"
              Background="{StaticResource BrushBackground}">
     <Grid x:Name="MasterDetailGrid" Background="{StaticResource BrushBackground}"
           ui:MasterDetailLayoutBehavior.IsEnabled="True">
@@ -23,8 +25,10 @@
                         <TextBlock Text="Return source" Style="{StaticResource FilterFieldLabel}" Margin="0,0,0,4"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <RadioButton Content="System bill" GroupName="ReturnSourceMode" Margin="0,0,16,0"
+                                         AutomationProperties.AutomationId="sale-return-source-system"
                                          IsChecked="{Binding SourceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=SystemBill}"/>
                             <RadioButton Content="Pre-system invoice" GroupName="ReturnSourceMode"
+                                         AutomationProperties.AutomationId="sale-return-source-legacy"
                                          IsChecked="{Binding SourceMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=PreSystemInvoice}"/>
                         </StackPanel>
 
@@ -38,6 +42,7 @@
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                 <TextBlock Text="Original bill no" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
+                                         AutomationProperties.AutomationId="sale-return-bill-number"
                                          Margin="0,4,0,0"
                                          Text="{Binding OriginalBillNo, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Full bill no or partial match"/>
@@ -55,6 +60,7 @@
                                          Text="{Binding SearchCustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <Button Grid.Column="3" Content="Search" Style="{StaticResource PrimaryButton}"
+                                    AutomationProperties.AutomationId="sale-return-search"
                                     VerticalAlignment="Bottom" MinWidth="80"
                                     Command="{Binding SearchBillsCommand}"/>
                         </Grid>
@@ -102,6 +108,7 @@
                                     Command="{Binding StartPreSystemReturnCommand}"/>
                         </Grid>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="12"
+                                   AutomationProperties.AutomationId="sale-return-status"
                                    Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -114,6 +121,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <DataGrid Grid.Row="0"
+                                  AutomationProperties.AutomationId="sale-return-search-results"
                                   ItemsSource="{Binding SearchResults}"
                                   SelectedItem="{Binding SelectedSearchBill}"
                                   Style="{StaticResource ThemedDataGrid}"
@@ -132,6 +140,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <Button Grid.Row="1" Content="Load bill" Style="{StaticResource PrimaryButton}"
+                                AutomationProperties.AutomationId="sale-return-load-bill"
                                 HorizontalAlignment="Right" Margin="0,12,0,0" Width="120"
                                 Command="{Binding OpenSelectedBillCommand}"/>
                     </Grid>
@@ -171,6 +180,7 @@
                             </StackPanel>
                         </StackPanel>
                         <DataGrid ItemsSource="{Binding ReturnLines}"
+                                  AutomationProperties.AutomationId="sale-return-lines"
                                   Style="{StaticResource ThemedDataGrid}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"

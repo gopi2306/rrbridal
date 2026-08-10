@@ -10,8 +10,12 @@
         Width="760" Height="540"
         FontFamily="{StaticResource FontFamilyPrimary}"
         Background="{StaticResource BrushAccent}"
+        AutomationProperties.AutomationId="login-window"
+        AutomationProperties.Name="Store billing sign in"
         SizeChanged="LoginWindow_OnSizeChanged">
-    <Grid x:Name="RootLayout">
+    <Grid x:Name="RootLayout"
+          AutomationProperties.AutomationId="login-root"
+          AutomationProperties.Name="Sign in form">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="BrandColumn" Width="*" MinWidth="0"/>
             <ColumnDefinition Width="1.2*" MinWidth="280"/>
@@ -65,6 +69,8 @@
                             </Style>
                         </Border.Style>
                         <TextBlock Text="{Binding SyncWarning}"
+                                   AutomationProperties.AutomationId="login-sync-warning"
+                                   AutomationProperties.Name="{Binding SyncWarning}"
                                    Style="{StaticResource AlertTextWarning}"
                                    TextWrapping="Wrap"/>
                     </Border>
@@ -72,6 +78,8 @@
                     <!-- Email with inline placeholder -->
                     <Grid Margin="0,0,0,14" MinHeight="48">
                         <TextBox x:Name="EmailBox"
+                                 AutomationProperties.AutomationId="login-email-input"
+                                 AutomationProperties.Name="Email address"
                                  Style="{StaticResource RoundedTextBox}"
                                  Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="14" MinHeight="48" Padding="14,12"
@@ -90,6 +98,8 @@
 
                     <Grid MinHeight="48">
                         <PasswordBox x:Name="PasswordBox"
+                                     AutomationProperties.AutomationId="login-password-input"
+                                     AutomationProperties.Name="Password"
                                      Style="{StaticResource RoundedPasswordBox}"
                                      FontSize="14" MinHeight="48" Padding="14,12"
                                      VerticalContentAlignment="Center"
@@ -117,11 +127,15 @@
                             </Style>
                         </Border.Style>
                         <TextBlock Text="{Binding ErrorMessage}"
+                                   AutomationProperties.AutomationId="login-error-text"
+                                   AutomationProperties.Name="{Binding ErrorMessage}"
                                    Style="{StaticResource AlertTextError}"
                                    TextWrapping="Wrap"/>
                     </Border>
 
                     <Button Content="Sign in"
+                            AutomationProperties.AutomationId="login-submit-button"
+                            AutomationProperties.Name="Sign in"
                             Style="{StaticResource PrimaryButton}"
                             Command="{Binding LoginCommand}"
                             HorizontalAlignment="Stretch"
@@ -131,6 +145,8 @@
                             IsEnabled="{Binding IsLoggingIn, Converter={StaticResource InvertBool}}"/>
 
                     <TextBlock Text="Signing in…"
+                               AutomationProperties.AutomationId="login-progress-text"
+                               AutomationProperties.Name="Signing in"
                                HorizontalAlignment="Center" Margin="0,14,0,0">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextCaption}">

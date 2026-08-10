@@ -6,6 +6,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="720" d:DesignWidth="1100"
+             AutomationProperties.AutomationId="customers-page"
+             AutomationProperties.Name="Customers"
              Background="{StaticResource BrushBackground}">
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>

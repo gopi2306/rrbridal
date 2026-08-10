@@ -198,6 +198,22 @@ export class ProductsService {
     return await this.productModel.findOne({ sku: trimmed }).lean();
   }
 
+  async listPhysicalInventoryTemplateProducts() {
+    return await this.productModel
+      .find({ isActive: { $ne: false }, sku: { $exists: true, $nin: [null, ''] } })
+      .select('sku itemName')
+      .sort({ sku: 1 })
+      .lean();
+  }
+
+  async findPhysicalInventoryProductsBySkus(skus: string[]) {
+    const normalized = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    return await this.productModel
+      .find({ sku: { $in: normalized }, isActive: { $ne: false } })
+      .select('sku itemName')
+      .lean();
+  }
+
   /** Import upsert lookup: match by SKU first, then exact itemName (description). */
   async findExistingForImport(sku?: string, itemName?: string) {
     const skuTrim = sku?.trim();

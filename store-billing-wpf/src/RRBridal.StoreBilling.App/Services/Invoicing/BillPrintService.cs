@@ -4,6 +4,7 @@ using RRBridal.StoreBilling.App.Services.Ui;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -141,6 +142,12 @@ public sealed class BillPrintService
     /// <summary>Print to a specific queue, or return false if queue unavailable.</summary>
     public static bool TryPrintToQueue(FlowDocument document, string printQueueFullName, string jobName)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            RecordSimulatedPrint(document, jobName, null, printQueueFullName);
+            return true;
+        }
+
         try
         {
             var queue = InstalledPrinterDiscovery.TryGetPrintQueue(printQueueFullName);
@@ -159,6 +166,12 @@ public sealed class BillPrintService
 
     public static bool ShowPrintDialog(Window? owner, FlowDocument document, string jobName)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            RecordSimulatedPrint(document, jobName, null, null);
+            return true;
+        }
+
         var dlg = new PrintDialog();
         dlg.PrintTicket = new PrintTicket
         {
@@ -194,6 +207,12 @@ public sealed class BillPrintService
         BillPrinterKind kind = BillPrinterKind.OfficeInvoice)
     {
         var queueName = ResolvePrinterQueue(print, kind);
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            RecordSimulatedPrint(document, jobName, kind, queueName);
+            return true;
+        }
+
         if (print.AlwaysUsePrintDialog || string.IsNullOrWhiteSpace(queueName))
             return ShowPrintDialog(owner, document, jobName);
 
@@ -207,5 +226,27 @@ public sealed class BillPrintService
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         return r == MessageBoxResult.Yes && ShowPrintDialog(owner, document, jobName);
+    }
+
+    private static void RecordSimulatedPrint(
+        FlowDocument document,
+        string jobName,
+        BillPrinterKind? kind,
+        string? queueName)
+    {
+        var content = new TextRange(document.ContentStart, document.ContentEnd).Text
+            .Replace("\r\n", "\n")
+            .TrimEnd('\r', '\n');
+        UiAutomationSimulation.RecordJson(
+            "print-jobs",
+            "print-job",
+            $"{kind?.ToString() ?? "unspecified"}|{jobName}|{content}",
+            new
+            {
+                jobName,
+                printerKind = kind?.ToString(),
+                requestedQueue = queueName,
+                content,
+            });
     }
 }

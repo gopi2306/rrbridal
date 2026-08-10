@@ -5,6 +5,7 @@ using System.Linq;
 using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Payments;
+using RRBridal.StoreBilling.App.Services.Expenses;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
 
@@ -280,11 +281,38 @@ public static class DayBillingCloseDocumentReader
         string businessDate,
         string? posCounterFilter)
     {
-        return expenses
+        return AggregateDailyExpensePayments(expenses, businessDate, posCounterFilter).Cash;
+    }
+
+    public static ExpensePaymentDayTotals AggregateDailyExpensePayments(
+        IEnumerable<BsonDocument> expenses,
+        string businessDate,
+        string? posCounterFilter)
+    {
+        decimal total = 0m, cash = 0m, card = 0m, upi = 0m, bank = 0m;
+        foreach (var doc in expenses
             .Where(d => string.Equals(ReadString(d, "businessDate"), businessDate, StringComparison.Ordinal))
             .Where(d => MatchesPosCounterFilter(d, posCounterFilter))
-            .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase))
-            .Sum(d => ReadDecimal(d, "amount"));
+            .Where(d => string.Equals(ReadString(d, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase)))
+        {
+            total += ReadDecimal(doc, "amount");
+            if (!doc.TryGetValue("payments", out var paymentsValue) || !paymentsValue.IsBsonArray || paymentsValue.AsBsonArray.Count == 0)
+            {
+                cash += ReadDecimal(doc, "amount");
+                continue;
+            }
+
+            foreach (var leg in paymentsValue.AsBsonArray.OfType<BsonDocument>())
+            {
+                var mode = ReadString(leg, "mode") ?? ReadString(leg, "provider") ?? "";
+                var amount = ReadDecimal(leg, "amount");
+                if (string.Equals(mode, ExpensePaymentMode.Cash, StringComparison.OrdinalIgnoreCase)) cash += amount;
+                else if (string.Equals(mode, ExpensePaymentMode.Card, StringComparison.OrdinalIgnoreCase)) card += amount;
+                else if (string.Equals(mode, ExpensePaymentMode.Upi, StringComparison.OrdinalIgnoreCase)) upi += amount;
+                else if (string.Equals(mode, ExpensePaymentMode.BankTransfer, StringComparison.OrdinalIgnoreCase)) bank += amount;
+            }
+        }
+        return new ExpensePaymentDayTotals(total, cash, card, upi, bank);
     }
 
     public static (decimal Deposits, decimal Withdrawals) SumCashMovementsForBusinessDate(

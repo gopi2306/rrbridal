@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Invoicing;
 
@@ -26,8 +27,7 @@ public sealed class ReceiptConfigStore
 
     public ReceiptConfigStore()
     {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RRBridal", "StoreBilling");
-        Directory.CreateDirectory(dir);
+        var dir = StoreBillingDataPath.Get();
         _filePath = Path.Combine(dir, "receipt_config.json");
         _tempFilePath = _filePath + ".tmp";
         Load();

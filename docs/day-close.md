@@ -16,7 +16,7 @@ Operational day open/close for store billing tills (WPF POS + local MongoDB), wi
 |------------|---------|
 | `store_day_sessions` | Open/closed session per counter per business date |
 | `store_cash_movements` | Bank deposits and cash withdrawals |
-| `store_daily_expenses` | Petty cash expenses (existing) |
+| `store_daily_expenses` | GST expense vouchers with one or more payment legs |
 
 ## Expected cash formula
 
@@ -24,7 +24,7 @@ Operational day open/close for store billing tills (WPF POS + local MongoDB), wi
 expectedCash = openingCash + netCashInHand - depositsToBank - cashWithdrawals
 ```
 
-`netCashInHand` already deducts daily expenses and cash refunds from bill/return activity.
+`netCashInHand` deducts cash refunds and only the **Cash payment legs** of posted expenses. Card, UPI, and Bank Transfer expense legs remain in gross expense reporting but do not reduce the physical drawer. Voided expenses are excluded. Legacy expenses without `payments[]` are treated as fully Cash.
 
 ## UI
 
@@ -69,7 +69,7 @@ curl -O -J "http://localhost:3000/api/dashboard/store/day-close/export?format=cs
 
 **Report sections:** METADATA, SUMMARY (reconciliation), COUNTER_ROLLUP, BILLS, RETURNS, ADJUSTMENTS, EXPENSES, CASH_MOVEMENTS, CREDIT_NOTE_CASHOUTS (if any), DENOMINATIONS (if closed), STOCK_EXCEPTIONS (if any).
 
-Bills include cash/card/UPI/credit-note amounts and credit note number(s). Returns include credit note numbers when issued.
+Bills include cash/card/UPI/credit-note amounts and credit note number(s). Returns include credit note numbers when issued. Expenses include supplier/invoice details, taxable value, CGST/SGST/IGST, gross amount, payment summary, and cash outflow.
 
 ## Business date note
 

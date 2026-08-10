@@ -16,6 +16,7 @@ import { StoreSaleReturn, StoreSaleReturnSchema } from '../store-sales/schemas/s
 import { StoresModule } from '../stores/stores.module';
 import { SyncModule } from '../sync/sync.module';
 import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
+import { StockTransfersModule } from '../stock-transfers/stock-transfers.module';
 import { StoreHeldBill, StoreHeldBillSchema } from './schemas/store-held-bill.schema';
 import { StorePosCounter, StorePosCounterSchema } from './schemas/store-pos-counter.schema';
 import { StorePosController } from './store-pos.controller';
@@ -29,6 +30,7 @@ import { StorePosService } from './store-pos.service';
     InventoryModule,
     StoresModule,
     PromotionSchemesModule,
+    StockTransfersModule,
     MongooseModule.forFeature([
       { name: StoreInvoice.name, schema: StoreInvoiceSchema },
       { name: StoreSaleReturn.name, schema: StoreSaleReturnSchema },

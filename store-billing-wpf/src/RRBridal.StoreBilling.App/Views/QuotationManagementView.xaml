@@ -5,6 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
+             AutomationProperties.AutomationId="quotations-page"
+             AutomationProperties.Name="Quotation management"
              Background="{StaticResource BrushBackground}">
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>

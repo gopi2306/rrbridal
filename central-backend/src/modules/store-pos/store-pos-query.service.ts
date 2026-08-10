@@ -235,23 +235,65 @@ export class StorePosQueryService {
     });
   }
 
-  async listDailyExpenses(storeCode: string, businessDate: string, limit = 100) {
+  async listDailyExpenses(
+    storeCode: string,
+    options: {
+      businessDate?: string | undefined;
+      from?: string | undefined;
+      to?: string | undefined;
+      status?: string | undefined;
+      limit?: number | undefined;
+    },
+  ) {
     const storeId = await this.requireStore(storeCode);
-    const date = businessDate?.trim();
-    if (!date) throw new BadRequestException('businessDate is required');
-    const take = Math.min(200, Math.max(1, limit));
+    const date = options.businessDate?.trim();
+    const from = options.from?.trim();
+    const to = options.to?.trim();
+    const isYmd = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (date && !isYmd(date)) throw new BadRequestException('businessDate must be YYYY-MM-DD');
+    if (!date && (!from || !to)) {
+      throw new BadRequestException('businessDate or both from and to are required');
+    }
+    if ((from && !to) || (!from && to) || (from && !isYmd(from)) || (to && !isYmd(to))) {
+      throw new BadRequestException('from and to must both be YYYY-MM-DD');
+    }
+    if (from && to && from > to) throw new BadRequestException('from must not be after to');
+
+    const take = Math.min(500, Math.max(1, options.limit ?? 100));
+    const filter: Record<string, unknown> = {
+      storeId,
+      'payload.businessDate': date ?? { $gte: from, $lte: to },
+    };
+    const status = options.status?.trim().toLowerCase();
+    if (status && status !== 'all') {
+      if (status === 'posted') {
+        filter.$or = [
+          { 'payload.status': 'posted' },
+          { 'payload.status': { $exists: false } },
+          { 'payload.status': null },
+          { 'payload.status': '' },
+        ];
+      } else if (status === 'void') {
+        filter['payload.status'] = { $in: ['void', 'cancelled'] };
+      } else {
+        filter['payload.status'] = status;
+      }
+    }
     const docs = await this.dailyExpenseModel
-      .find({ storeId, 'payload.businessDate': date })
-      .sort({ createdAt: -1 })
+      .find(filter)
+      .sort({ 'payload.businessDate': -1, updatedAt: -1, createdAt: -1 })
       .limit(take)
       .lean();
     return docs.map((d) => {
       const row = d as Record<string, unknown>;
+      const payload = (d.payload ?? {}) as Record<string, unknown>;
       return {
         expenseNo: d.expenseNo,
         storeId: d.storeId,
-        payload: d.payload ?? {},
+        status: String(payload.status ?? 'posted'),
+        payload,
         createdAt: row.createdAt ?? null,
+        updatedAt: row.updatedAt ?? null,
       };
     });
   }

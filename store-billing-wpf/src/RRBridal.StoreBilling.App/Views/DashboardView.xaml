@@ -6,6 +6,8 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
+             AutomationProperties.AutomationId="dashboard-page"
+             AutomationProperties.Name="Dashboard"
              Background="{StaticResource BrushBackground}">
     <!-- Grid + * row: TabControl inside ScrollViewer often measures to zero height (see LedgerView). -->
     <Grid Margin="0,0,0,8">
@@ -162,6 +164,18 @@
                             <Button Grid.Column="2" Content="Search inventory" Style="{StaticResource PrimaryButton}" Width="140"
                                     Command="{Binding SearchInventoryCommand}"/>
                         </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Download count template"
+                                    Style="{StaticResource OutlineButton}"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding DownloadPhysicalInventoryTemplateCommand}"/>
+                            <Button Content="Import physical counts"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Padding="12,6"
+                                    Command="{Binding ImportPhysicalInventoryCommand}"/>
+                        </StackPanel>
 
                         <TextBlock Text="{Binding InventoryHint}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,4"/>
 

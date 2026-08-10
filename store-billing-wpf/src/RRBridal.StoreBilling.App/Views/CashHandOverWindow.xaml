@@ -5,7 +5,9 @@
         Width="520" Height="640"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="cash-hand-over-window"
+        AutomationProperties.Name="Cash Hand Over">
     <Window.InputBindings>
         <KeyBinding Key="F3" Command="{Binding PrintCommand}"/>
         <KeyBinding Key="F12" Command="{Binding ExitCommand}"/>
@@ -35,7 +37,7 @@
             <StackPanel Grid.Column="1">
                 <TextBlock Text="Cash taken" Foreground="{StaticResource BrushTextMuted}"/>
                 <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CashTaken, UpdateSourceTrigger=PropertyChanged}"
-                         IsReadOnly="{Binding IsReadOnly}" Margin="0,4,0,0"/>
+                         IsReadOnly="{Binding IsReadOnly}" Margin="0,4,0,0" AutomationProperties.AutomationId="cash-hand-over-cash-taken-input" AutomationProperties.Name="Cash Taken"/>
             </StackPanel>
         </Grid>
 
@@ -45,7 +47,7 @@
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       HeadersVisibility="Column"
-                      IsReadOnly="{Binding IsReadOnly}">
+                      IsReadOnly="{Binding IsReadOnly}" AutomationProperties.AutomationId="cash-hand-over-denominations-grid" AutomationProperties.Name="Denominations">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Rs." Binding="{Binding Denomination}" Width="70" IsReadOnly="True"/>
                     <DataGridTextColumn Header="No of Unit" Binding="{Binding UnitCountText, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
@@ -76,12 +78,12 @@
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Margin="0,0,12,0"
                        Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" MaxWidth="200"/>
             <Button Content="F3 Print" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
-                    Command="{Binding PrintCommand}"/>
+                    Command="{Binding PrintCommand}" AutomationProperties.AutomationId="cash-hand-over-f3-print-button" AutomationProperties.Name="F3 Print"/>
                     <Button Content="Close day" Style="{StaticResource PrimaryButton}" Width="100" Margin="0,0,8,0"
                             Command="{Binding CloseDayCommand}"
-                            Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" AutomationProperties.AutomationId="cash-hand-over-close-day-button" AutomationProperties.Name="Close day"/>
             <Button Content="F12 Exit" Style="{StaticResource OutlineButton}" Width="90"
-                    Command="{Binding ExitCommand}"/>
+                    Command="{Binding ExitCommand}" AutomationProperties.AutomationId="cash-hand-over-f12-exit-button" AutomationProperties.Name="F12 Exit"/>
         </StackPanel>
     </Grid>
 </Window>

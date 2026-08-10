@@ -44,6 +44,36 @@ public sealed class InventoryGridClient
             : SearchOfflineAsync(search, storeId, page, limit, stockFilter, ct);
     }
 
+    public async Task<IReadOnlyList<InventoryGridRow>> GetAllAsync(
+        string storeId,
+        CancellationToken ct = default)
+    {
+        const int pageSize = 500;
+        const int maxRows = 10_000;
+        var rows = new List<InventoryGridRow>();
+        var page = 1;
+        while (rows.Count < maxRows)
+        {
+            var result = await SearchAsync(
+                "",
+                storeId,
+                page,
+                pageSize,
+                InventoryStockFilter.All,
+                ct).ConfigureAwait(false);
+            rows.AddRange(result.Data);
+            if (result.TotalPages == 0 || page >= result.TotalPages || result.Data.Count == 0)
+                break;
+            page++;
+        }
+        return rows
+            .GroupBy(row => row.Sku, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(row => row.Sku, StringComparer.OrdinalIgnoreCase)
+            .Take(maxRows)
+            .ToList();
+    }
+
     /// <summary>Central inventory grid is fail-closed: any API failure propagates so the caller shows an error.</summary>
     private async Task<InventoryGridPageResult> SearchOnlineAsync(
         string search,

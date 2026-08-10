@@ -6,6 +6,8 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
+             AutomationProperties.AutomationId="bill-lookup-page"
+             AutomationProperties.Name="Bill lookup"
              Background="{StaticResource BrushBackground}">
     <Grid Background="{StaticResource BrushBackground}">
         <Grid.RowDefinitions>

@@ -9,13 +9,19 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
-    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="bill-post-confirm-dialog"
+        AutomationProperties.Name="Confirm bill posting">
+    <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20"
+            AutomationProperties.AutomationId="bill-post-confirm-root"
+            AutomationProperties.Name="Bill posting summary">
         <StackPanel>
             <TextBlock Text="Confirm bill posting" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
             <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,12,0,16"
                        Text="Review the bill summary below. Click Post bill to continue or Cancel to go back."/>
-            <Grid Margin="0,0,0,4">
+            <Grid Margin="0,0,0,4"
+                  AutomationProperties.AutomationId="bill-post-confirm-summary-grid"
+                  AutomationProperties.Name="Bill summary">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="*"/>
@@ -27,18 +33,30 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer" Foreground="{StaticResource BrushTextMuted}" FontSize="12"/>
-                <TextBlock x:Name="CustomerText" Grid.Row="0" Grid.Column="1" FontWeight="SemiBold"/>
+                <TextBlock x:Name="CustomerText" Grid.Row="0" Grid.Column="1" FontWeight="SemiBold"
+                           AutomationProperties.AutomationId="bill-post-confirm-customer-text"
+                           AutomationProperties.Name="Customer"/>
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Items" Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,8,0,0"/>
-                <TextBlock x:Name="ItemCountText" Grid.Row="1" Grid.Column="1" Margin="0,8,0,0"/>
+                <TextBlock x:Name="ItemCountText" Grid.Row="1" Grid.Column="1" Margin="0,8,0,0"
+                           AutomationProperties.AutomationId="bill-post-confirm-item-count-text"
+                           AutomationProperties.Name="Item count"/>
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Payable" Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,8,0,0"/>
-                <TextBlock x:Name="PayableText" Grid.Row="2" Grid.Column="1" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,0"/>
+                <TextBlock x:Name="PayableText" Grid.Row="2" Grid.Column="1" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,0"
+                           AutomationProperties.AutomationId="bill-post-confirm-payable-text"
+                           AutomationProperties.Name="Payable amount"/>
                 <TextBlock x:Name="OnlineCodNote" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="bill-post-confirm-online-cod-note"
+                           AutomationProperties.Name="Online cash on delivery payment notice"
                            Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,12,0,0" Visibility="Collapsed"
                            Text="Online COD — payment will be collected later."/>
             </Grid>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0" IsCancel="True"/>
-                <Button Content="Post bill" Style="{StaticResource PrimaryButton}" Width="110" IsDefault="True" Click="PostBill_Click"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0" IsCancel="True"
+                        AutomationProperties.AutomationId="bill-post-confirm-cancel-button"
+                        AutomationProperties.Name="Cancel bill posting"/>
+                <Button Content="Post bill" Style="{StaticResource PrimaryButton}" Width="110" IsDefault="True" Click="PostBill_Click"
+                        AutomationProperties.AutomationId="bill-post-confirm-submit-button"
+                        AutomationProperties.Name="Post bill"/>
             </StackPanel>
         </StackPanel>
     </Border>

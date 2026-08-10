@@ -5,7 +5,9 @@
         Title="Payment" SizeToContent="Height" Width="640" MinWidth="560" MaxHeight="900"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="payment-dialog"
+        AutomationProperties.Name="Payment">
 
     <Window.Resources>
         <Style x:Key="ModeRadio" TargetType="RadioButton">
@@ -17,8 +19,12 @@
         </Style>
     </Window.Resources>
 
-    <DockPanel Margin="24,20" LastChildFill="True">
-        <Grid DockPanel.Dock="Bottom">
+    <DockPanel Margin="24,20" LastChildFill="True"
+               AutomationProperties.AutomationId="payment-root"
+               AutomationProperties.Name="Payment form">
+        <Grid DockPanel.Dock="Bottom"
+              AutomationProperties.AutomationId="payment-actions-grid"
+              AutomationProperties.Name="Payment actions">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -26,6 +32,8 @@
 
             <!-- Error message -->
             <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" FontSize="13" Foreground="{StaticResource BrushNegative}"
+                       AutomationProperties.AutomationId="payment-error-text"
+                       AutomationProperties.Name="{Binding ErrorMessage}"
                        TextWrapping="Wrap" Margin="0,0,0,12">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -48,15 +56,21 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="payment-processing-status"
+                            AutomationProperties.Name="Processing payment"
                             Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
                     <TextBlock Text="Processing payment..." FontSize="13" Foreground="{StaticResource BrushTextMuted}" FontStyle="Italic"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" Style="{StaticResource OutlineButton}" Content="Cancel" Margin="0,0,10,0" MinWidth="90"
+                        AutomationProperties.AutomationId="payment-cancel-button"
+                        AutomationProperties.Name="Cancel payment"
                         Command="{Binding CancelCommand}"
                         IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
                 <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Confirm Payment" MinWidth="140"
+                        AutomationProperties.AutomationId="payment-confirm-button"
+                        AutomationProperties.Name="Confirm payment"
                         Command="{Binding ConfirmPaymentCommand}"
                         IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
             </Grid>
@@ -76,6 +90,8 @@
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="Invoice total" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"/>
                         <TextBlock Text="{Binding PayableFormatted}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource BrushText}"
+                                   AutomationProperties.AutomationId="payment-invoice-total-text"
+                                   AutomationProperties.Name="{Binding PayableFormatted, StringFormat=Invoice total {0}}"
                                    HorizontalAlignment="Center" Margin="0,2,0,0"/>
                         <TextBlock Text="Credit applied" FontSize="12" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"
                                    Margin="0,10,0,2"
@@ -86,6 +102,8 @@
                         <TextBlock Text="Amount to collect" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"
                                    Margin="0,10,0,2"/>
                         <TextBlock Text="{Binding CollectibleFormatted}" FontSize="32" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"
+                                   AutomationProperties.AutomationId="payment-collectible-total-text"
+                                   AutomationProperties.Name="{Binding CollectibleFormatted, StringFormat=Amount to collect {0}}"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -160,6 +178,8 @@
                                 <TextBlock Text="Cash out remaining" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,4"/>
                                 <TextBlock Text="{Binding CreditNoteCashOutMaxFormatted}" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,6"/>
                                 <TextBox Style="{StaticResource RoundedTextBox}"
+                                         AutomationProperties.AutomationId="payment-credit-cash-out-input"
+                                         AutomationProperties.Name="Credit note cash out amount"
                                          Text="{Binding CreditNoteCashOutAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                          MinHeight="{DynamicResource DensityInputMinHeight}"/>
                             </StackPanel>
@@ -171,23 +191,36 @@
                 <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Payment Method" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,10"/>
-                        <WrapPanel>
+                        <WrapPanel AutomationProperties.AutomationId="payment-methods"
+                                   AutomationProperties.Name="Payment method">
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Cash"
+                                         AutomationProperties.AutomationId="payment-method-cash"
+                                         AutomationProperties.Name="Cash"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Cash}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="{Binding CardModeLabel}"
+                                         AutomationProperties.AutomationId="payment-method-card"
+                                         AutomationProperties.Name="{Binding CardModeLabel}"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Card}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="{Binding UpiModeLabel}"
+                                         AutomationProperties.AutomationId="payment-method-upi"
+                                         AutomationProperties.Name="{Binding UpiModeLabel}"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Upi}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Credit Note"
+                                         AutomationProperties.AutomationId="payment-method-credit-note"
+                                         AutomationProperties.Name="Credit note"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CreditNote}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Split Payment"
+                                         AutomationProperties.AutomationId="payment-method-split"
+                                         AutomationProperties.Name="Split payment"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Split}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                             <RadioButton Style="{StaticResource ModeRadio}" Content="Bill on credit"
+                                         AutomationProperties.AutomationId="payment-method-bill-on-credit"
+                                         AutomationProperties.Name="Bill on credit"
                                          IsChecked="{Binding SelectedMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Credit}"
                                          IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"
                                          Visibility="{Binding ShowCreditBillingOption, Converter={StaticResource BoolToVis}}"/>
@@ -222,12 +255,16 @@
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Amount received (to collect)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource RoundedTextBox}" FontSize="18" FontWeight="Bold" Margin="0,0,12,0"
+                                 AutomationProperties.AutomationId="payment-cash-received-input"
+                                 AutomationProperties.Name="Cash amount received"
                                  Text="{Binding AmountReceived, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Change Due" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
                         <Border Grid.Row="1" Grid.Column="1" Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="10,8">
-                            <TextBlock Text="{Binding ChangeDueFormatted}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ChangeDueFormatted}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="payment-change-due-text"
+                                       AutomationProperties.Name="{Binding ChangeDueFormatted, StringFormat=Change due {0}}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="#FF2E7D32"/>
@@ -260,7 +297,9 @@
                     <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="12,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Status:" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding DeviceStatusText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DeviceStatusText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="payment-card-device-status-text"
+                                       AutomationProperties.Name="{Binding DeviceStatusText}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -282,7 +321,9 @@
                     <Border Background="{StaticResource BrushBackground}" CornerRadius="8" Padding="12,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Status:" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding DeviceStatusText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DeviceStatusText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="payment-upi-device-status-text"
+                                       AutomationProperties.Name="{Binding DeviceStatusText}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -314,9 +355,13 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Credit note no. / reference" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Amount" FontSize="13" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,6"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource RoundedTextBox}" Margin="0,0,12,0"
+                                 AutomationProperties.AutomationId="payment-credit-note-reference-input"
+                                 AutomationProperties.Name="Credit note reference"
                                  Text="{Binding CreditNoteReference, UpdateSourceTrigger=PropertyChanged}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}" FontWeight="SemiBold"
+                                 AutomationProperties.AutomationId="payment-credit-note-amount-input"
+                                 AutomationProperties.Name="Credit note amount"
                                  Text="{Binding CreditNoteAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                     </Grid>
@@ -337,7 +382,9 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                         <TextBlock Text="Remaining:" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="{Binding SplitRemainingFormatted}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding SplitRemainingFormatted}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="payment-split-remaining-text"
+                                   AutomationProperties.Name="{Binding SplitRemainingFormatted, StringFormat=Split remaining {0}}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{StaticResource BrushNegative}"/>
@@ -367,21 +414,29 @@
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Cash" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                 AutomationProperties.AutomationId="payment-split-cash-input"
+                                 AutomationProperties.Name="Split cash amount"
                                  Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Card (Razorpay POS)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                 AutomationProperties.AutomationId="payment-split-card-input"
+                                 AutomationProperties.Name="Split card amount"
                                  Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="UPI (Razorpay POS)" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                 AutomationProperties.AutomationId="payment-split-upi-input"
+                                 AutomationProperties.Name="Split UPI amount"
                                  Text="{Binding SplitUpiAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
 
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Credit Note" FontSize="13" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,0,8"/>
                         <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,8,8"
+                                 AutomationProperties.AutomationId="payment-split-credit-note-amount-input"
+                                 AutomationProperties.Name="Split credit note amount"
                                  Text="{Binding SplitCreditNoteAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}">
                             <TextBox.Style>
                                 <Style TargetType="TextBox" BasedOn="{StaticResource RoundedTextBox}">
@@ -395,6 +450,8 @@
                             </TextBox.Style>
                         </TextBox>
                         <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,8"
+                                 AutomationProperties.AutomationId="payment-split-credit-note-reference-input"
+                                 AutomationProperties.Name="Split credit note reference"
                                  ToolTip="Reference when credit note amount is used"
                                  Text="{Binding SplitCreditNoteReference, UpdateSourceTrigger=PropertyChanged}"
                                  IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
@@ -428,6 +485,8 @@
                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
                             <TextBlock Text="Advance now (₹)" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,4"/>
                             <TextBox Style="{StaticResource RoundedTextBox}"
+                                     AutomationProperties.AutomationId="payment-credit-advance-input"
+                                     AutomationProperties.Name="Credit bill advance amount"
                                      Text="{Binding CreditAdvanceAmountText, UpdateSourceTrigger=PropertyChanged}"
                                      IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertBool}}"/>
                         </StackPanel>

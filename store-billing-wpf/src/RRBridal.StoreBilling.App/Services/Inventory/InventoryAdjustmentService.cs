@@ -19,11 +19,11 @@ public enum InventoryAdjustmentMode
 public sealed class InventoryAdjustmentService
 {
     private readonly IMongoCollection<BsonDocument> _localAdjustments;
+    private readonly IMongoCollection<BsonDocument> _localProducts;
     private readonly ProductCatalogService _productCatalog;
     private readonly BillingOutboxPublisher _outbox;
     private readonly StoreContext _storeContext;
     private CentralOnlineModeService? _centralMode;
-    private CentralDashboardClient? _dashboardApi;
 
     public InventoryAdjustmentService(
         IMongoDatabase localDb,
@@ -32,18 +32,18 @@ public sealed class InventoryAdjustmentService
         StoreContext storeContext)
     {
         _localAdjustments = localDb.GetCollection<BsonDocument>("local_inventory_adjustments");
+        _localProducts = localDb.GetCollection<BsonDocument>("local_products_cache");
         _productCatalog = productCatalog;
         _outbox = outbox;
         _storeContext = storeContext;
     }
 
-    public void ConfigureOnline(CentralOnlineModeService centralMode, CentralDashboardClient dashboardApi)
+    public void ConfigureOnline(CentralOnlineModeService centralMode)
     {
         _centralMode = centralMode;
-        _dashboardApi = dashboardApi;
     }
 
-    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true && _dashboardApi != null;
+    private bool IsCentralOnline => _centralMode?.IsOnlineMode == true;
 
     public async Task<(bool Success, string Message)> AdjustAsync(
         string sku,
@@ -84,10 +84,15 @@ public sealed class InventoryAdjustmentService
 
         if (IsCentralOnline)
         {
-            // Fail-closed: central adjustment failures propagate so the caller shows an error
-            // instead of silently falling back to a local (offline) stock mutation.
-            await _dashboardApi!.PostInventoryAdjustmentAsync(trimmedSku, qtyDelta, trimmedReason, ct);
-            return (true, "Stock adjusted centrally.");
+            var onlineAdjustmentNo = $"IADJ-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..23].ToUpperInvariant();
+            await _outbox.PublishInventoryAdjustmentCreatedAsync(
+                onlineAdjustmentNo,
+                trimmedReason,
+                trimmedSku,
+                qtyDelta,
+                trimmedReason,
+                ct);
+            return (true, "Stock adjusted centrally through the Store POS API.");
         }
 
         if (qtyDelta > 0)
@@ -137,6 +142,77 @@ public sealed class InventoryAdjustmentService
         }
 
         return false;
+    }
+
+    public async Task<(bool Success, string Message)> ApplyPhysicalImportAsync(
+        PhysicalInventoryImportPreview preview,
+        string reason,
+        string batchId,
+        CancellationToken ct = default)
+    {
+        var trimmedReason = reason?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(trimmedReason))
+            return (false, "Reason is required.");
+        if (trimmedReason.Length > 500)
+            return (false, "Reason must not exceed 500 characters.");
+        if (preview.Errors.Count > 0)
+            return (false, "Correct all import errors before applying.");
+        var changed = preview.Lines.Where(line => !line.Unchanged).ToList();
+        if (changed.Count == 0)
+            return (false, "No stock quantities need correction.");
+
+        var normalizedBatchId = batchId?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(normalizedBatchId))
+            return (false, "Import batch ID is required.");
+        var eventId = $"physical-inventory-import:{_storeContext.StoreId}:{normalizedBatchId}";
+        var adjustmentNo = $"IADJ-{DateTime.UtcNow:yyyyMMdd}-{normalizedBatchId[..Math.Min(8, normalizedBatchId.Length)]}"
+            .ToUpperInvariant();
+
+        if (IsCentralOnline)
+        {
+            await _outbox.PublishPhysicalInventoryImportAsync(
+                adjustmentNo,
+                trimmedReason,
+                changed.Select(line => (line.Sku, line.NewQty)).ToList(),
+                eventId,
+                ct);
+            return (true, $"{changed.Count} physical stock quantity(s) adjusted centrally.");
+        }
+
+        if (await HasAppliedAsync(eventId, null, ct))
+            return (true, "This physical inventory import was already applied.");
+
+        var writes = changed.Select(line =>
+            new UpdateOneModel<BsonDocument>(
+                Builders<BsonDocument>.Filter.Eq("sku", line.Sku),
+                Builders<BsonDocument>.Update
+                    .Set("stockQty", (double)line.NewQty)
+                    .Set("lastStockUpdatedAt", DateTime.UtcNow.ToString("O")))
+            {
+                IsUpsert = false,
+            }).ToList();
+        var result = await _localProducts.BulkWriteAsync(writes, cancellationToken: ct);
+        if (result.MatchedCount != changed.Count)
+            throw new InvalidOperationException(
+                $"Only {result.MatchedCount} of {changed.Count} SKUs were found in the local product cache.");
+
+        await _outbox.PublishPhysicalInventoryImportAsync(
+            adjustmentNo,
+            trimmedReason,
+            changed.Select(line => (line.Sku, line.NewQty)).ToList(),
+            eventId,
+            ct);
+        foreach (var line in changed)
+        {
+            await RecordLocalAdjustmentAsync(
+                eventId,
+                adjustmentNo,
+                line.Sku,
+                line.QtyDelta,
+                trimmedReason,
+                ct);
+        }
+        return (true, $"{changed.Count} physical stock quantity(s) corrected locally and queued for sync.");
     }
 
     public async Task RecordPulledAdjustmentAsync(

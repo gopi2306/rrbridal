@@ -4,6 +4,7 @@ import type {
   StoreSalesPeriodPreset,
 } from './store-sales-dashboard.types';
 import { roundMoney } from '../../common/money.util';
+import { readDailyExpenseCashAmount } from '../store-sales/daily-expense-payload';
 
 const MONTH_NAMES = [
   'Jan',
@@ -321,14 +322,27 @@ export function sumDailyExpenses(
   let count = 0;
   for (const doc of docs) {
     const payload = (doc.payload ?? {}) as Record<string, unknown>;
-    const status = readString(payload.status) ?? 'posted';
+    const status = (readString(payload.status) ?? 'posted').toLowerCase();
     if (status === 'void' || status === 'cancelled') continue;
-    const amount = readNumber(payload.amount);
+    const amount = readNumber(payload.grandTotal ?? payload.amount);
     if (amount <= 0) continue;
     total += amount;
     count += 1;
   }
   return { total: roundMoney(total), count };
+}
+
+/** Posted cash outflow only; legacy expenses without payment legs are fully Cash. */
+export function sumDailyExpenseCashOutflow(
+  docs: ReadonlyArray<{ payload?: Record<string, unknown> }>,
+): number {
+  return roundMoney(
+    docs.reduce(
+      (total, doc) =>
+        total + readDailyExpenseCashAmount((doc.payload ?? {}) as Record<string, unknown>),
+      0,
+    ),
+  );
 }
 
 /** Bill total after discounts + discounts given + credit note applied at checkout. */

@@ -10,7 +10,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="cash-movement-dialog"
+        AutomationProperties.Name="Payment voucher — Cash withdrawal">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
         <Grid>
             <Grid.RowDefinitions>
@@ -27,20 +29,20 @@
 
             <StackPanel Grid.Row="2" Margin="0,0,0,10">
                 <TextBlock Text="Amount (₹)" Style="{StaticResource FormFieldLabel}"/>
-                <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}"/>
+                <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}" AutomationProperties.AutomationId="cash-movement-amount-input" AutomationProperties.Name="Amount"/>
             </StackPanel>
 
             <StackPanel Grid.Row="3" Margin="0,0,0,16">
                 <TextBlock Text="Description" Style="{StaticResource FormFieldLabel}"/>
                 <TextBox x:Name="DescriptionBox" Style="{StaticResource RoundedTextBox}"
-                         MinHeight="52" TextWrapping="Wrap" AcceptsReturn="True"/>
+                         MinHeight="52" TextWrapping="Wrap" AcceptsReturn="True" AutomationProperties.AutomationId="cash-movement-description-input" AutomationProperties.Name="Description"/>
             </StackPanel>
 
             <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
-                        IsCancel="True" Click="Cancel_OnClick"/>
+                        IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="cash-movement-cancel-button" AutomationProperties.Name="Cancel"/>
                 <Button Content="Post withdrawal" Style="{StaticResource PrimaryButton}" MinWidth="130"
-                        IsDefault="True" Click="Post_OnClick"/>
+                        IsDefault="True" Click="Post_OnClick" AutomationProperties.AutomationId="cash-movement-post-withdrawal-button" AutomationProperties.Name="Post withdrawal"/>
             </StackPanel>
         </Grid>
     </Border>

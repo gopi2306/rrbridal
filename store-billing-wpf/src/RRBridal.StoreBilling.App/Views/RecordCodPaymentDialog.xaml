@@ -4,7 +4,9 @@
         Title="Record COD payment" SizeToContent="Height" Width="420" MinWidth="380"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="record-cod-payment-dialog"
+        AutomationProperties.Name="Record COD payment">
     <StackPanel Margin="24,20">
         <TextBlock Text="Record payment received" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
         <TextBlock Text="Amount" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,16,0,4"/>
@@ -16,10 +18,10 @@
             <RadioButton x:Name="CardRadio" Content="Card"/>
         </StackPanel>
         <TextBlock Text="Transaction / reference no" Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,16,0,4"/>
-        <TextBox x:Name="TransactionNoBox" Style="{StaticResource RoundedTextBox}"/>
+        <TextBox x:Name="TransactionNoBox" Style="{StaticResource RoundedTextBox}" AutomationProperties.AutomationId="record-cod-payment-transaction-no-input" AutomationProperties.Name="Transaction No"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0" Click="Cancel_Click"/>
-            <Button Content="Confirm" Style="{StaticResource PrimaryButton}" Width="100" Click="Confirm_Click"/>
+            <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0" Click="Cancel_Click" AutomationProperties.AutomationId="record-cod-payment-cancel-button" AutomationProperties.Name="Cancel"/>
+            <Button Content="Confirm" Style="{StaticResource PrimaryButton}" Width="100" Click="Confirm_Click" AutomationProperties.AutomationId="record-cod-payment-confirm-button" AutomationProperties.Name="Confirm"/>
         </StackPanel>
     </StackPanel>
 </Window>

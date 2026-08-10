@@ -6,7 +6,9 @@
         Height="400"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="billing-post-warnings-dialog"
+        AutomationProperties.Name="Stock shortage">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
     <Grid>
         <Grid.RowDefinitions>
@@ -18,7 +20,7 @@
         <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"
                    Text="The following lines exceed local stock. Stock will not be reduced for these items. Post bill anyway?"/>
         <DataGrid x:Name="ShortGrid" Grid.Row="1" Style="{StaticResource ThemedDataGrid}"
-                  AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                  AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" AutomationProperties.AutomationId="billing-post-warnings-short-grid" AutomationProperties.Name="Short">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="100"/>
                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
@@ -27,8 +29,8 @@
             </DataGrid.Columns>
         </DataGrid>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="Post anyway" Style="{StaticResource PrimaryButton}" Width="110" Margin="0,0,8,0" Click="PostAnyway_Click"/>
-            <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="80" IsCancel="True"/>
+            <Button Content="Post anyway" Style="{StaticResource PrimaryButton}" Width="110" Margin="0,0,8,0" Click="PostAnyway_Click" AutomationProperties.AutomationId="billing-post-warnings-post-anyway-button" AutomationProperties.Name="Post anyway"/>
+            <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="80" IsCancel="True" AutomationProperties.AutomationId="billing-post-warnings-cancel-button" AutomationProperties.Name="Cancel"/>
         </StackPanel>
     </Grid>
     </Border>

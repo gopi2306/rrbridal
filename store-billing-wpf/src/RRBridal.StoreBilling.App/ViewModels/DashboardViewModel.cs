@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Windows;
 using RRBridal.StoreBilling.App.Services.Ui;
@@ -706,6 +707,76 @@ public partial class DashboardViewModel : ObservableObject
     {
         InventoryPage = 1;
         await LoadInventoryGridAsync();
+    }
+
+    [RelayCommand]
+    private async Task DownloadPhysicalInventoryTemplate()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save physical inventory count template",
+            Filter = "Excel workbook (*.xlsx)|*.xlsx",
+            FileName = $"physical-inventory-{_storeContext.StoreId}-{DateTime.Today:yyyy-MM-dd}.xlsx",
+            AddExtension = true,
+            DefaultExt = ".xlsx",
+        };
+        if (dialog.ShowDialog(Application.Current.MainWindow) != true)
+            return;
+
+        InventoryHint = "Preparing physical inventory template…";
+        try
+        {
+            await _services.PhysicalInventoryExcel.SaveTemplateAsync(dialog.FileName);
+            InventoryHint = $"Template saved: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            InventoryHint = "Could not download template. " + ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportPhysicalInventory()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select completed physical inventory workbook",
+            Filter = "Excel workbook (*.xlsx;*.xls)|*.xlsx;*.xls",
+            Multiselect = false,
+        };
+        if (dialog.ShowDialog(Application.Current.MainWindow) != true)
+            return;
+
+        InventoryHint = "Validating physical inventory workbook…";
+        try
+        {
+            var preview = await _services.PhysicalInventoryExcel.ParseAndPreviewAsync(dialog.FileName);
+            if (!PhysicalInventoryImportPreviewDialog.TryShow(
+                    Application.Current.MainWindow!,
+                    preview,
+                    out var reason))
+            {
+                InventoryHint = preview.Errors.Count > 0
+                    ? $"Import blocked: {preview.Errors.Count} error(s) must be corrected."
+                    : "Physical inventory import cancelled.";
+                return;
+            }
+
+            var fileBytes = await File.ReadAllBytesAsync(dialog.FileName);
+            var batchId = Convert.ToHexString(SHA256.HashData(fileBytes))[..16].ToLowerInvariant();
+            InventoryHint = "Applying physical inventory corrections…";
+            var (success, message) = await _services.InventoryAdjustments.ApplyPhysicalImportAsync(
+                preview,
+                reason,
+                batchId);
+            InventoryHint = message;
+            if (success)
+                await LoadInventoryGridAsync();
+        }
+        catch (Exception ex)
+        {
+            InventoryHint = "Could not import physical inventory. " + ex.Message;
+        }
     }
 
     [RelayCommand]

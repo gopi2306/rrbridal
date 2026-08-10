@@ -8,7 +8,9 @@
         MinWidth="640"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="product-search-dialog"
+        AutomationProperties.Name="Pick product">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
     <Grid>
         <Grid.RowDefinitions>
@@ -26,8 +28,8 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" Style="{StaticResource RoundedTextBox}" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,8,0"/>
-            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" Width="100"/>
+                     Margin="0,0,8,0" AutomationProperties.AutomationId="product-search-search-query-input" AutomationProperties.Name="Search Query"/>
+            <Button Grid.Column="1" Content="Search" Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" Width="100" AutomationProperties.AutomationId="product-search-search-button" AutomationProperties.Name="Search"/>
         </Grid>
 
             <ListView x:Name="ResultsListView"
@@ -36,7 +38,7 @@
                   SelectedItem="{Binding SelectedProduct}"
                   MouseDoubleClick="Results_OnMouseDoubleClick"
                   BorderBrush="{StaticResource BrushBorder}"
-                  Background="{StaticResource BrushSurface}">
+                  Background="{StaticResource BrushSurface}" AutomationProperties.AutomationId="product-search-results-list" AutomationProperties.Name="Results">
             <ListView.View>
                 <GridView x:Name="ResultsGridView"/>
             </ListView.View>
@@ -45,8 +47,8 @@
         <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0,12,0,0">
             <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="90" IsCancel="True" Click="Cancel_OnClick"/>
-                <Button Content="Add to bill" Style="{StaticResource PrimaryButton}" Width="120" Click="Add_OnClick"/>
+                <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="90" IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="product-search-cancel-button" AutomationProperties.Name="Cancel"/>
+                <Button Content="Add to bill" Style="{StaticResource PrimaryButton}" Width="120" Click="Add_OnClick" AutomationProperties.AutomationId="product-search-add-to-bill-button" AutomationProperties.Name="Add to bill"/>
             </StackPanel>
         </StackPanel>
     </Grid>

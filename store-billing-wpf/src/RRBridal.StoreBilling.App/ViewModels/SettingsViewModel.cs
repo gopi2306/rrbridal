@@ -884,6 +884,19 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task RefreshStatusAsync()
     {
+        if (_services.CentralMode.IsOnlineMode)
+        {
+            PendingOutboxText = "Pending outbox: not used (direct API)";
+            CursorText = "Local product/transfer cursors: not used";
+            LastErrorText = "(local sync not applicable)";
+            SyncDiagnosticsText =
+                "Central Online uses direct APIs. Sync All refreshes masters, promotions, receipt/barcode configuration, and completes awaiting stock transfers in both directions.";
+            LastActionText = "Central Online status refreshed.";
+            UpdateAutoSyncStatusText();
+            UpdateMongoHealthStatusText();
+            return;
+        }
+
         var status = await _services.SyncEngine.GetStatusAsync(CancellationToken.None);
         PendingOutboxText = $"Pending outbox: {status.PendingOutbox}";
         CursorText = $"Product cursor: {status.LastCursor} | Transfer cursor: {status.LastTransferCursor}";
@@ -900,16 +913,11 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task RunSyncOnceAsync()
     {
-        if (!_services.CentralMode.IsOnlineMode)
-        {
-            LastActionText = "Sync skipped: Central mode is Offline.";
-            await RefreshStatusAsync();
-            return;
-        }
-
         try
         {
-            LastActionText = "Running sync...";
+            LastActionText = _services.CentralMode.IsOnlineMode
+                ? "Refreshing direct central operations..."
+                : "Running sync...";
             var result = await _services.StoreSyncRunner.RunFullStoreSyncAsync(CancellationToken.None);
 
             if (!result.SkippedBecauseBusy)
@@ -932,10 +940,10 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task ForceProductResyncAsync()
     {
-        if (!_services.CentralMode.IsOnlineMode)
+        if (_services.CentralMode.IsOnlineMode)
         {
-            LastActionText = "Product re-sync is available only in Central Online mode.";
             await RefreshStatusAsync();
+            LastActionText = "Local product re-sync is not required in Central Online mode.";
             return;
         }
 
@@ -1226,8 +1234,6 @@ public partial class SettingsViewModel : ObservableObject
         var previousOnlineMode = _services.PosBillingSettings.Current.PreferCentralOnline;
         _services.PosBillingSettings.Update(s =>
         {
-            if (!_services.PosBillingSettings.IsEnvOnlineOverride)
-                s.PreferCentralOnline = BillingPreferCentralOnline;
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
             s.ConfirmDuplicateProductAdd = BillingConfirmDuplicateProductAdd;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
@@ -1246,12 +1252,25 @@ public partial class SettingsViewModel : ObservableObject
         });
         _services.PosBillingSettings.ReapplyEnvOnlineModeOverride();
         await _services.PosBillingSettings.SaveAsync();
+        try
+        {
+            if (!_services.PosBillingSettings.IsEnvOnlineOverride
+                && previousOnlineMode != BillingPreferCentralOnline)
+                await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+            else if (_services.PosBillingSettings.IsEnvOnlineOverride)
+                await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
+            LastActionText = ex.Message;
+            UpdateCentralModeStatusText();
+            return;
+        }
         BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
-        if (!_services.PosBillingSettings.IsEnvOnlineOverride
-            && previousOnlineMode != BillingPreferCentralOnline)
-            await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
-        else if (_services.PosBillingSettings.IsEnvOnlineOverride)
-            await _services.CentralMode.SetOnlineModeAsync(BillingPreferCentralOnline, CancellationToken.None);
+
+        _services.PeriodicSync.Stop();
+        _services.PeriodicSync.Start();
 
         // Push full billing settings to central so all counters inherit the same config.
         var snapshot = _services.PosBillingSettings.Current;

@@ -10,6 +10,8 @@
              FontFamily="{StaticResource FontFamilyPrimary}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
+             AutomationProperties.AutomationId="settings-page"
+             AutomationProperties.Name="Settings"
              Background="{StaticResource BrushBackground}">
     <UserControl.Resources>
         <Style x:Key="SettingsFieldLabel" TargetType="TextBlock" BasedOn="{StaticResource TextLabel}">

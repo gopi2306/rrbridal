@@ -33,7 +33,11 @@ internal static class DayCloseReportSectionBuilder
             ("Gross cash from bills", F(s.CashTotal)),
             ("Cash refunds (returns)", F(-s.ReturnCashRefundTotal)),
             ("Credit note cashouts", F(-s.CreditNoteCashoutTotal)),
-            ("Daily expenses", F(-s.DailyExpensesTotal)),
+            ("Daily expenses (all tenders)", F(-s.DailyExpensesTotal)),
+            ("Expense cash deducted", F(-s.ExpenseCashTotal)),
+            ("Expense card", F(s.ExpenseCardTotal)),
+            ("Expense UPI", F(s.ExpenseUpiTotal)),
+            ("Expense bank transfer", F(s.ExpenseBankTransferTotal)),
             ("Deposits to bank", F(-s.DepositsTotal)),
             ("Cash withdrawals", F(s.WithdrawalsTotal)),
             ("Expected cash (drawer)", F(s.ExpectedCash)),
@@ -138,10 +142,17 @@ internal static class DayCloseReportSectionBuilder
 
     public static SheetSection BuildExpensesSection(DayCloseReportData data)
     {
-        var headers = new[] { "Expense no", "Counter", "Business date", "Description", "Amount" };
+        var headers = new[]
+        {
+            "Expense no", "Counter", "Business date", "Posted (local)", "Supplier", "GSTIN",
+            "Supplier invoice", "Invoice date", "Category", "Description", "GST mode", "GST rate",
+            "Taxable", "CGST", "SGST", "IGST", "Payments", "Amount",
+        };
         var rows = data.Expenses.Select(e => (IReadOnlyList<string>)
         [
-            e.ExpenseNo, e.CounterDisplay, e.BusinessDate, e.Description, F(e.Amount),
+            e.ExpenseNo, e.CounterDisplay, e.BusinessDate, e.PostedAtLocal, e.SupplierName, e.SupplierGstin,
+            e.SupplierInvoiceNo, e.SupplierInvoiceDate, e.Category, e.Description, e.GstMode, Q(e.GstRate),
+            F(e.TaxableAmount), F(e.CgstAmount), F(e.SgstAmount), F(e.IgstAmount), e.PaymentSummary, F(e.Amount),
         ]).ToList();
         return new SheetSection("EXPENSES", headers, rows);
     }

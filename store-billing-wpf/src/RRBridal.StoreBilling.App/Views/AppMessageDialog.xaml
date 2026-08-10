@@ -12,8 +12,12 @@
         Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True"
-        SnapsToDevicePixels="True">
+        SnapsToDevicePixels="True"
+        AutomationProperties.AutomationId="app-message-dialog"
+        AutomationProperties.Name="{Binding TitleText}">
     <Border Background="{StaticResource BrushSurface}"
+            AutomationProperties.AutomationId="app-message-root"
+            AutomationProperties.Name="Application message"
             BorderBrush="{StaticResource BrushBorder}"
             BorderThickness="1"
             CornerRadius="14"
@@ -28,12 +32,16 @@
                     BorderThickness="0,0,0,1">
                 <Grid>
                     <TextBlock Text="{Binding TitleText}"
+                               AutomationProperties.AutomationId="app-message-title-text"
+                               AutomationProperties.Name="{Binding TitleText}"
                                FontSize="15" FontWeight="SemiBold"
                                Foreground="{StaticResource BrushText}"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                     <Button HorizontalAlignment="Right"
                             Width="28" Height="28"
+                            AutomationProperties.AutomationId="app-message-close-button"
+                            AutomationProperties.Name="Close message"
                             Style="{StaticResource GhostNavButton}"
                             Click="Close_Click"
                             ToolTip="Close">
@@ -48,7 +56,9 @@
                     Padding="16,12"
                     BorderBrush="{StaticResource BrushBorder}"
                     BorderThickness="0,1,0,0">
-                <StackPanel x:Name="ButtonHost" Orientation="Horizontal" HorizontalAlignment="Right"/>
+                <StackPanel x:Name="ButtonHost" Orientation="Horizontal" HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="app-message-actions"
+                            AutomationProperties.Name="Message actions"/>
             </Border>
 
             <Grid Margin="20,18">
@@ -66,6 +76,8 @@
                 </Border>
                 <TextBlock Grid.Column="1"
                            Text="{Binding MessageText}"
+                           AutomationProperties.AutomationId="app-message-body-text"
+                           AutomationProperties.Name="{Binding MessageText}"
                            TextWrapping="Wrap"
                            FontSize="13.5"
                            LineHeight="20"

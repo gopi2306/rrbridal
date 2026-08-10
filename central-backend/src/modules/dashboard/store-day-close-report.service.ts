@@ -14,6 +14,10 @@ import { StoreDailyExpense, StoreDailyExpenseDocument } from '../store-sales/sch
 import { StoreDayClose, StoreDayCloseDocument } from '../store-sales/schemas/store-day-close.schema';
 import { StoreInvoice, StoreInvoiceDocument } from '../store-sales/schemas/store-invoice.schema';
 import { StoreSaleReturn, StoreSaleReturnDocument } from '../store-sales/schemas/store-sale-return.schema';
+import {
+  formatDailyExpensePaymentSummary,
+  readDailyExpenseCashAmount,
+} from '../store-sales/daily-expense-payload';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import { StoreDayCloseDashboardService } from './store-day-close-dashboard.service';
 import {
@@ -127,6 +131,23 @@ function matchesPosCounter(
 
 function sumInvoiceLineQty(payload: Record<string, unknown>): number {
   return parseInvoiceLines(payload).reduce((s, l) => s + l.qty, 0);
+}
+
+function firstString(payload: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = readString(payload[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function firstNumber(payload: Record<string, unknown>, ...keys: string[]): number {
+  for (const key of keys) {
+    if (payload[key] !== undefined && payload[key] !== null && payload[key] !== '') {
+      return readNumber(payload[key]);
+    }
+  }
+  return 0;
 }
 
 @Injectable()
@@ -245,7 +266,7 @@ export class StoreDayCloseReportService {
 
     const dayExpenses = expenses.filter((doc) => {
       const payload = (doc.payload ?? {}) as Record<string, unknown>;
-      const status = readString(payload.status) ?? 'posted';
+      const status = (readString(payload.status) ?? 'posted').toLowerCase();
       if (status === 'void' || status === 'cancelled') return false;
       const pos = readString(payload.posCounter);
       return matchesPosCounter(pos, posFilter);
@@ -311,10 +332,14 @@ export class StoreDayCloseReportService {
     const cashRefundTotal = roundMoney(returnCashRefundTotal + creditNoteCashoutTotal);
 
     let dailyExpensesTotal = 0;
+    let dailyExpenseCashTotal = 0;
     for (const doc of dayExpenses) {
-      dailyExpensesTotal += readNumber((doc.payload as Record<string, unknown>).amount);
+      const payload = doc.payload as Record<string, unknown>;
+      dailyExpensesTotal += readNumber(payload.grandTotal ?? payload.amount);
+      dailyExpenseCashTotal += readDailyExpenseCashAmount(payload);
     }
     dailyExpensesTotal = roundMoney(dailyExpensesTotal);
+    dailyExpenseCashTotal = roundMoney(dailyExpenseCashTotal);
 
     let depositsTotal = 0;
     let withdrawalsTotal = 0;
@@ -342,7 +367,7 @@ export class StoreDayCloseReportService {
     creditNoteTotal = roundMoney(creditNoteTotal);
 
     const openingCash = roundMoney(dashboard.totals.openingCash);
-    const netCashInHand = roundMoney(cashTotal - cashRefundTotal + exchangeCash - dailyExpensesTotal);
+    const netCashInHand = roundMoney(cashTotal - cashRefundTotal + exchangeCash - dailyExpenseCashTotal);
     const netCardInHand = roundMoney(cardTotal + exchangeCard);
     const netUpiInHand = roundMoney(upiTotal + exchangeUpi);
     const expectedCash = roundMoney(openingCash + netCashInHand - depositsTotal + withdrawalsTotal);
@@ -355,6 +380,7 @@ export class StoreDayCloseReportService {
       returnCashRefundTotal,
       creditNoteCashoutTotal,
       dailyExpensesTotal,
+      dailyExpenseCashTotal,
       depositsTotal,
       withdrawalsTotal,
       expectedCash,
@@ -494,12 +520,31 @@ export class StoreDayCloseReportService {
       }),
       expenses: dayExpenses.map((doc) => {
         const payload = (doc.payload ?? {}) as Record<string, unknown>;
+        const cgst = firstNumber(payload, 'cgst', 'cgstAmount');
+        const sgst = firstNumber(payload, 'sgst', 'sgstAmount');
+        const igst = firstNumber(payload, 'igst', 'igstAmount');
+        const totalTax = payload.totalTax !== undefined
+          ? readNumber(payload.totalTax)
+          : roundMoney(cgst + sgst + igst);
         return {
           expenseNo: doc.expenseNo,
           counter: formatCounter(readString(payload.posCounter), doc.deviceId),
           businessDate: readString(payload.businessDate) ?? businessDate,
+          supplier: firstString(payload, 'supplierName', 'supplier'),
+          supplierGstin: firstString(payload, 'supplierGstin', 'supplierGSTIN'),
+          invoiceNo: firstString(payload, 'supplierInvoiceNo', 'invoiceNo', 'invoiceNumber'),
+          invoiceDate: firstString(payload, 'supplierInvoiceDate', 'invoiceDate'),
+          category: firstString(payload, 'category', 'expenseCategory'),
           description: readString(payload.description) ?? '',
-          amount: formatMoney(readNumber(payload.amount)),
+          taxableValue: formatMoney(firstNumber(payload, 'taxableValue', 'taxableAmount')),
+          gstRate: formatMoney(firstNumber(payload, 'gstRate')),
+          cgst: formatMoney(cgst),
+          sgst: formatMoney(sgst),
+          igst: formatMoney(igst),
+          totalTax: formatMoney(totalTax),
+          amount: formatMoney(readNumber(payload.grandTotal ?? payload.amount)),
+          payments: formatDailyExpensePaymentSummary(payload),
+          cashOutflow: formatMoney(readDailyExpenseCashAmount(payload)),
         };
       }),
       cashMovements: dayMovements.map((doc) => {

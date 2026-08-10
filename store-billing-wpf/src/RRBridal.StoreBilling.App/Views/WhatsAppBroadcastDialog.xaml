@@ -8,7 +8,9 @@
         Width="520"
         SizeToContent="Height"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="whatsapp-broadcast-dialog"
+        AutomationProperties.Name="Broadcast WhatsApp promotion">
     <Border Padding="20" Background="{StaticResource BrushSurface}"
             BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Margin="12"
             CornerRadius="12">
@@ -29,33 +31,33 @@
             <StackPanel x:Name="TemplateFieldsPanel">
                 <TextBlock Text="Offer {{2}} e.g. 20" Style="{StaticResource FilterFieldLabel}"/>
                 <TextBox x:Name="OfferTextBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
-                         Text="20"/>
+                         Text="20" AutomationProperties.AutomationId="whatsapp-broadcast-offer-text-input" AutomationProperties.Name="Offer Text"/>
 
                 <TextBlock Text="Scope {{3}} e.g. All Products" Style="{StaticResource FilterFieldLabel}"/>
                 <TextBox x:Name="OfferScopeBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
-                         Text="All Products"/>
+                         Text="All Products" AutomationProperties.AutomationId="whatsapp-broadcast-offer-scope-input" AutomationProperties.Name="Offer Scope"/>
 
                 <TextBlock Text="Valid until {{4}} e.g. 31 July 2026" Style="{StaticResource FilterFieldLabel}"/>
-                <TextBox x:Name="OfferDateBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"/>
+                <TextBox x:Name="OfferDateBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12" AutomationProperties.AutomationId="whatsapp-broadcast-offer-date-input" AutomationProperties.Name="Offer Date"/>
 
                 <TextBlock x:Name="UrlLabel" Text="URL button (only if Meta URL is dynamic)" Style="{StaticResource FilterFieldLabel}"/>
                 <TextBox x:Name="UrlSuffixBox" Style="{StaticResource RoundedTextBox}" Margin="0,0,0,12"
-                         Text="https://yourdomain.com/offers"/>
+                         Text="https://yourdomain.com/offers" AutomationProperties.AutomationId="whatsapp-broadcast-url-suffix-input" AutomationProperties.Name="Url Suffix"/>
             </StackPanel>
 
             <StackPanel x:Name="SessionFieldsPanel" Visibility="Collapsed">
                 <TextBlock Text="Free-text message" Style="{StaticResource FilterFieldLabel}"/>
                 <TextBox x:Name="SessionTextBox" Style="{StaticResource RoundedTextBox}"
                          AcceptsReturn="True" TextWrapping="Wrap" Height="88" Margin="0,0,0,12"
-                         VerticalScrollBarVisibility="Auto"/>
+                         VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="whatsapp-broadcast-session-text-input" AutomationProperties.Name="Session Text"/>
             </StackPanel>
 
             <StackPanel x:Name="MediaPanel" Visibility="Collapsed" Margin="0,0,0,12">
                 <TextBlock Text="Header media (when promoHeaderType is image/document)" Style="{StaticResource FilterFieldLabel}"/>
                 <DockPanel LastChildFill="True">
                     <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" MinWidth="88"
-                            Style="{StaticResource OutlineButton}" Click="BrowseMedia_Click"/>
-                    <TextBox x:Name="MediaPathBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"/>
+                            Style="{StaticResource OutlineButton}" Click="BrowseMedia_Click" AutomationProperties.AutomationId="whatsapp-broadcast-browse-button" AutomationProperties.Name="Browse…"/>
+                    <TextBox x:Name="MediaPathBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True" AutomationProperties.AutomationId="whatsapp-broadcast-media-path-input" AutomationProperties.Name="Media Path"/>
                 </DockPanel>
             </StackPanel>
 
@@ -63,9 +65,9 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" Style="{StaticResource OutlineButton}" MinWidth="88" Margin="0,0,8,0"
-                        IsCancel="True" Click="Cancel_Click"/>
+                        IsCancel="True" Click="Cancel_Click" AutomationProperties.AutomationId="whatsapp-broadcast-cancel-button" AutomationProperties.Name="Cancel"/>
                 <Button x:Name="SendButton" Content="Send broadcast" Style="{StaticResource PrimaryButton}" MinWidth="120"
-                        IsDefault="True" Click="Send_Click"/>
+                        IsDefault="True" Click="Send_Click" AutomationProperties.AutomationId="whatsapp-broadcast-send-button" AutomationProperties.Name="Send broadcast"/>
             </StackPanel>
         </StackPanel>
     </Border>

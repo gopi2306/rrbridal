@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.BarcodePrinting;
 
@@ -22,8 +23,7 @@ public sealed class BarcodeLabelDesignStore
 
     public BarcodeLabelDesignStore()
     {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RRBridal", "StoreBilling");
-        Directory.CreateDirectory(dir);
+        var dir = StoreBillingDataPath.Get();
         _filePath = Path.Combine(dir, "barcode_label_design.json");
         _tempFilePath = _filePath + ".tmp";
         Load();

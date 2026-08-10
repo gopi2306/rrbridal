@@ -5,6 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
+             AutomationProperties.AutomationId="ledger-page"
+             AutomationProperties.Name="Ledger"
              Background="{StaticResource BrushBackground}">
     <!-- Grid + * row: TabControl inside ScrollViewer/StackPanel often measures to zero height and hides grids. -->
     <Grid Margin="0,0,0,8">

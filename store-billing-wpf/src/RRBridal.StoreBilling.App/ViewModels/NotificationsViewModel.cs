@@ -37,6 +37,14 @@ public partial class NotificationsViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            if (_services.CentralMode.IsOnlineMode)
+            {
+                Items.Clear();
+                SummaryText = "Central Online sends business operations directly; no local outbox is used.";
+                StatusText = _services.PeriodicSync.StatusDescription;
+                return;
+            }
+
             var snap = await _services.OutboxNotifications.LoadAsync(CancellationToken.None);
 
             Items.Clear();
@@ -88,7 +96,15 @@ public partial class NotificationsViewModel : ObservableObject
         {
             var result = await _services.StoreSyncRunner.RunFullStoreSyncAsync(CancellationToken.None);
             StatusText = result.Message;
-            await LoadAsync();
+            if (_services.CentralMode.IsOnlineMode)
+            {
+                Items.Clear();
+                SummaryText = "Direct central refresh finished.";
+            }
+            else
+            {
+                await LoadAsync();
+            }
         }
         catch (Exception ex)
         {

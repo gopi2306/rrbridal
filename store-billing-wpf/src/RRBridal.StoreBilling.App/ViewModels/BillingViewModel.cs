@@ -197,8 +197,7 @@ public partial class BillingViewModel : ObservableObject
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
         _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
-        var promoRepo = new PromotionSchemeRepository(services.LocalDb);
-        promoRepo.ConfigureOnline(services.CentralMode, services.StorePos);
+        var promoRepo = services.PromotionSchemes;
         _promotionEngine = new PromotionEngine(promoRepo);
         _ = promoRepo.LoadActiveAsync(); // warm Online promotions cache off UI thread
         RefreshAlterationGstIncludedFromSettings();

@@ -13,7 +13,9 @@
         MinHeight="600"
         MinWidth="900"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="main-window"
+        AutomationProperties.Name="Store billing main window">
     <Window.InputBindings>
         <!-- Function keys (billing + global actions) -->
         <KeyBinding Key="F1" Command="{Binding ShowHelpCommand}"/>
@@ -56,7 +58,8 @@
         <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCustomerRegistrationCommand}"/>
     </Window.InputBindings>
 
-    <Grid>
+    <Grid AutomationProperties.AutomationId="main-shell-grid"
+          AutomationProperties.Name="Application shell">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
@@ -65,6 +68,8 @@
         <!-- Persistent left gateway (Tally-style) -->
         <Border Grid.Column="0"
                 Width="248"
+                AutomationProperties.AutomationId="main-sidebar"
+                AutomationProperties.Name="Primary navigation"
                 Background="{StaticResource BrushSidebar}"
                 BorderBrush="{StaticResource BrushBorder}"
                 BorderThickness="0,0,1,0"
@@ -101,6 +106,8 @@
                         Padding="12,10">
                     <StackPanel>
                         <Button Style="{StaticResource GhostNavButton}"
+                                AutomationProperties.AutomationId="main-sidebar-help-button"
+                                AutomationProperties.Name="Keyboard shortcuts"
                                 HorizontalContentAlignment="Left"
                                 Padding="8,6"
                                 Command="{Binding ShowHelpCommand}"
@@ -108,6 +115,8 @@
                             <TextBlock Text="⌨  Shortcuts  F1" FontSize="12" Foreground="{StaticResource BrushTextMuted}"/>
                         </Button>
                         <Button Style="{StaticResource GhostNavButton}"
+                                AutomationProperties.AutomationId="main-sidebar-sign-out-button"
+                                AutomationProperties.Name="Sign out"
                                 HorizontalContentAlignment="Left"
                                 Padding="8,6"
                                 Command="{Binding LogoutCommand}"
@@ -205,7 +214,9 @@
         </Border>
 
         <!-- Main workspace -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1"
+              AutomationProperties.AutomationId="main-workspace"
+              AutomationProperties.Name="Main workspace">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -213,6 +224,8 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
+                    AutomationProperties.AutomationId="main-header"
+                    AutomationProperties.Name="Application header"
                     Background="{StaticResource BrushHeaderBar}"
                     BorderBrush="{StaticResource BrushBorder}"
                     BorderThickness="0,0,0,1"
@@ -256,6 +269,8 @@
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Width="40" Height="40"
+                                AutomationProperties.AutomationId="main-navigation-menu-button"
+                                AutomationProperties.Name="Open navigation menu"
                                 Style="{StaticResource GhostNavButton}"
                                 Margin="0,0,10,0"
                                 Command="{Binding ToggleNavDrawerCommand}"
@@ -303,6 +318,8 @@
                         <Border Style="{StaticResource UserBadge}" Margin="0,0,8,4" VerticalAlignment="Center"
                                 ToolTip="Business day status — click to open Day Close (Ctrl+W)">
                             <Button Style="{StaticResource GhostNavButton}" Padding="8,4"
+                                    AutomationProperties.AutomationId="main-day-status-button"
+                                    AutomationProperties.Name="{Binding DaySessionStatusChip}"
                                     Command="{Binding NavigateDayCloseCommand}">
                                 <TextBlock Text="{Binding DaySessionStatusChip}" Style="{StaticResource TextCaption}"
                                            FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
@@ -321,6 +338,8 @@
                             </StackPanel>
                         </Border>
                         <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                                AutomationProperties.AutomationId="main-sign-out-button"
+                                AutomationProperties.Name="Sign out"
                                 Command="{Binding LogoutCommand}"
                                 ToolTip="Sign out and return to login"
                                 Margin="0,0,4,4">
@@ -332,6 +351,8 @@
                             </Viewbox>
                         </Button>
                         <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}"
+                                AutomationProperties.AutomationId="main-notifications-button"
+                                AutomationProperties.Name="{Binding NotificationBellToolTip}"
                                 Command="{Binding OpenNotificationsCommand}"
                                 ToolTip="{Binding NotificationBellToolTip}"
                                 Opacity="{Binding NotificationBellOpacity}"
@@ -344,6 +365,8 @@
                             </Viewbox>
                         </Button>
                         <Button Width="36" Height="36" Style="{StaticResource GhostNavButton}" ToolTip="Settings (Ctrl+,)"
+                                AutomationProperties.AutomationId="main-settings-button"
+                                AutomationProperties.Name="Settings"
                                 Command="{Binding NavigateCommand}"
                                 CommandParameter="{x:Static vm:ShellPage.Settings}"
                                 Visibility="{Binding ShowSettingsNav, Converter={StaticResource BoolToVis}}"
@@ -370,7 +393,9 @@
                 </DockPanel>
             </Border>
 
-            <Grid Grid.Row="1" Margin="{DynamicResource DensityContentMargin}">
+            <Grid Grid.Row="1" Margin="{DynamicResource DensityContentMargin}"
+                  AutomationProperties.AutomationId="main-page-host"
+                  AutomationProperties.Name="{Binding CurrentPageLabel}">
                 <Grid Visibility="{Binding IsBillingPage, Converter={StaticResource BoolToVis}}">
                     <views:BillingView DataContext="{Binding Billing}"/>
                 </Grid>
@@ -455,7 +480,9 @@
                         <Button Style="{StaticResource ShortcutChip}" Content="F2 / Ctrl+N New" Command="{Binding ClearForNewBillCommand}" Margin="0,0,3,0"/>
                         <Button Style="{StaticResource ShortcutChip}" Content="F3 / Ctrl+F Search" Command="{Binding FocusGlobalSearchCommand}" Margin="0,0,3,0"/>
                         <Button Style="{StaticResource ShortcutChip}" Content="F8 / Ctrl+H Hold" Command="{Binding HoldBillCommand}" Margin="0,0,3,0"/>
-                        <Button Style="{StaticResource FooterPrimaryChip}" Content="F9 / Ctrl+↵ Post" Command="{Binding PostBillCommand}" Margin="0,0,3,0"/>
+                        <Button Style="{StaticResource FooterPrimaryChip}" Content="F9 / Ctrl+↵ Post" Command="{Binding PostBillCommand}" Margin="0,0,3,0"
+                                AutomationProperties.AutomationId="main-post-bill-button"
+                                AutomationProperties.Name="Post bill"/>
                         <Button Style="{StaticResource ShortcutChip}" Content="F10 / Ctrl+P Print" Command="{Binding PrintStubCommand}"/>
                     </WrapPanel>
                 </DockPanel>
@@ -465,12 +492,16 @@
         <!-- Compact overlay drawer when sidebar hidden -->
         <Border Grid.ColumnSpan="2"
                 Panel.ZIndex="100"
+                AutomationProperties.AutomationId="main-navigation-overlay"
+                AutomationProperties.Name="Navigation overlay"
                 Background="#66000000"
                 Visibility="{Binding IsNavDrawerOpen, Converter={StaticResource BoolToVis}}"
                 MouseLeftButtonDown="NavDrawerOverlay_MouseLeftButtonDown"/>
 
         <Border Grid.ColumnSpan="2"
                 Panel.ZIndex="101"
+                AutomationProperties.AutomationId="main-navigation-drawer"
+                AutomationProperties.Name="Navigation menu"
                 HorizontalAlignment="Left"
                 Width="280"
                 Background="{StaticResource BrushSurface}"
@@ -496,6 +527,8 @@
                                    VerticalAlignment="Center"/>
                         <Button Grid.Column="1"
                                 Width="32" Height="32"
+                                AutomationProperties.AutomationId="main-navigation-close-button"
+                                AutomationProperties.Name="Close navigation menu"
                                 Style="{StaticResource GhostNavButton}"
                                 Command="{Binding CloseNavDrawerCommand}"
                                 ToolTip="Close (Esc)">

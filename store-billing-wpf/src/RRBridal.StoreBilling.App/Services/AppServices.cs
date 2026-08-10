@@ -18,6 +18,8 @@ using RRBridal.StoreBilling.App.Services.Audit;
 using RRBridal.StoreBilling.App.Services.Store;
 using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.WhatsApp;
+using RRBridal.StoreBilling.App.Services.Expenses;
+using RRBridal.StoreBilling.App.Services.Billing.Promotions;
 
 namespace RRBridal.StoreBilling.App.Services;
 
@@ -41,11 +43,13 @@ public sealed class AppServices
     public required ProductImageCache ProductImageCache { get; init; }
     public required ProductCatalogService ProductCatalog { get; init; }
     public required InventoryGridClient InventoryGrid { get; init; }
+    public required PhysicalInventoryExcelService PhysicalInventoryExcel { get; init; }
     public required InventoryAdjustmentService InventoryAdjustments { get; init; }
     public required CentralAuthSession CentralAuthSession { get; init; }
     public required CentralAuthClient CentralAuthClient { get; init; }
 
     public required MasterDataService MasterData { get; init; }
+    public required PromotionSchemeRepository PromotionSchemes { get; init; }
     public required LocalAuthService LocalAuth { get; init; }
     public required ReceiptConfigStore ReceiptConfig { get; init; }
     public required ReceiptLogoCache ReceiptLogoCache { get; init; }
@@ -76,6 +80,7 @@ public sealed class AppServices
     public required DaySessionService DaySessions { get; init; }
     public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
+    public required DailyExpenseService DailyExpenses { get; init; }
     public required OnlineCodBillService OnlineCodBills { get; init; }
     public required QuotationService Quotations { get; init; }
     public required CreditBillService CreditBills { get; init; }
@@ -124,15 +129,16 @@ public sealed class AppServices
 
         var masterData = new MasterDataService(localDb, http);
         var localAuth = new LocalAuthService(localDb, storeContext);
-        var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext);
         var productImageCache = new ProductImageCache(http);
         var storeAuditLog = new StoreAuditLogService(localDb, storeContext);
         var posBillingSettings = new PosBillingSettingsStore();
         var billingOutbox = new BillingOutboxPublisher(localDb, storeContext);
+        var purchaseIntentPublisher = new PurchaseIntentPublisher(localDb, storeContext, billingOutbox);
         var storePos = new CentralStorePosClient(http, storeContext);
         var dashboardApi = new CentralDashboardClient(http, storeContext);
         var productCatalog = new ProductCatalogService(localDb, http, storeAuditLog);
         var inventoryGrid = new InventoryGridClient(localDb);
+        var physicalInventoryExcel = new PhysicalInventoryExcelService(http, storeContext, inventoryGrid);
         var inventoryAdjustments = new InventoryAdjustmentService(localDb, productCatalog, billingOutbox, storeContext);
         var receiptConfig = new ReceiptConfigStore();
         var receiptLogoCache = new ReceiptLogoCache(http);
@@ -159,6 +165,7 @@ public sealed class AppServices
             barcodeLabelDesignClient,
             barcodeLabelDesign,
             authSession);
+        var promotionSchemes = new PromotionSchemeRepository(localDb);
 
         var syncEngine = new SyncEngine(
             localDb,
@@ -181,6 +188,7 @@ public sealed class AppServices
         var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
+        var dailyExpenses = new DailyExpenseService(localDb, storeContext, billNumberGenerator, billingOutbox, storeAuditLog);
         var onlineCodBills = new OnlineCodBillService(localDb, billingOutbox);
         var quotations = new QuotationService(localDb, storeContext, billNumberGenerator, billingOutbox);
         var creditBills = new CreditBillService(localDb, billingOutbox, billNumberGenerator);
@@ -189,6 +197,14 @@ public sealed class AppServices
         var syncSchedule = new SyncScheduleOptions();
         AppServices? servicesRef = null;
         var whatsappBills = new WhatsAppBillService(localDb, storeContext, whatsappClient, whatsappPrefs, () => servicesRef!);
+        var onlineDirectOperations = new OnlineDirectOperationsRunner(
+            storeContext,
+            storePos,
+            masterData,
+            receiptConfigSync,
+            barcodeLabelDesignSync,
+            shellBranding,
+            promotionSchemes);
         var storeSyncRunner = new StoreSyncRunner(
             syncEngine,
             authSession,
@@ -197,7 +213,8 @@ public sealed class AppServices
             shellBranding,
             localAuth,
             () => servicesRef?.UserSession,
-            () => servicesRef?.CentralMode.IsOnlineMode ?? posBillingSettings.Current.PreferCentralOnline);
+            () => servicesRef?.CentralMode.IsOnlineMode ?? posBillingSettings.Current.PreferCentralOnline,
+            onlineDirectOperations);
         var centralMode = new CentralOnlineModeService(
             posBillingSettings,
             http,
@@ -206,9 +223,12 @@ public sealed class AppServices
             receiptConfig,
             receiptConfigSync,
             storeContext.StoreId);
+        masterData.ConfigureOnline(() => centralMode.IsOnlineMode);
+        promotionSchemes.ConfigureOnline(centralMode, storePos);
         productCatalog.ConfigureOnline(centralMode, storePos);
         inventoryGrid.ConfigureOnline(centralMode, dashboardApi);
-        inventoryAdjustments.ConfigureOnline(centralMode, dashboardApi);
+        physicalInventoryExcel.ConfigureOnline(centralMode);
+        inventoryAdjustments.ConfigureOnline(centralMode);
         billNumberGenerator.ConfigureOnline(centralMode, storePos);
         billDocuments.ConfigureOnline(centralMode, storePos);
         heldBills.ConfigureOnline(centralMode, storePos);
@@ -242,10 +262,12 @@ public sealed class AppServices
             ProductImageCache = productImageCache,
             ProductCatalog = productCatalog,
             InventoryGrid = inventoryGrid,
+            PhysicalInventoryExcel = physicalInventoryExcel,
             InventoryAdjustments = inventoryAdjustments,
             CentralAuthSession = authSession,
             CentralAuthClient = centralAuthClient,
             MasterData = masterData,
+            PromotionSchemes = promotionSchemes,
             LocalAuth = localAuth,
             ReceiptConfig = receiptConfig,
             ReceiptLogoCache = receiptLogoCache,
@@ -276,6 +298,7 @@ public sealed class AppServices
             DaySessions = daySessions,
             DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
+            DailyExpenses = dailyExpenses,
             OnlineCodBills = onlineCodBills,
             Quotations = quotations,
             CreditBills = creditBills,
@@ -286,7 +309,7 @@ public sealed class AppServices
         billingOutbox.ConfigureOnlineDispatch(
             () => servicesRef.CentralMode.IsOnlineMode,
             ct => syncEngine.PushPendingAsync(ct),
-            async (type, payload, hash, ct) =>
+            async (type, payload, hash, eventId, ct) =>
             {
                 var mapped = BsonTypeMapper.MapToDotNetValue(payload);
                 var storePos = servicesRef.StorePos;
@@ -339,6 +362,18 @@ public sealed class AppServices
                     case "DailyExpenseCreated":
                         await storePos.PostDailyExpenseAsync(mapped!, ct).ConfigureAwait(false);
                         break;
+                    case "DailyExpenseUpdated":
+                    {
+                        var expenseNo = ReadPayloadString(payload, "expenseNo") ?? "";
+                        await storePos.UpdateDailyExpenseAsync(expenseNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "DailyExpenseVoided":
+                    {
+                        var expenseNo = ReadPayloadString(payload, "expenseNo") ?? "";
+                        await storePos.VoidDailyExpenseAsync(expenseNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
                     case "InvoiceCodPaymentReceived":
                     {
                         var billNo = ReadPayloadString(payload, "billNo") ?? "";
@@ -355,7 +390,7 @@ public sealed class AppServices
                         await storePos.PostAdjustmentBillAsync(mapped!, ct).ConfigureAwait(false);
                         break;
                     default:
-                        await storePos.PostEventAsync(type, mapped!, ct).ConfigureAwait(false);
+                        await storePos.PostEventAsync(type, mapped!, ct, eventId).ConfigureAwait(false);
                         break;
                 }
             });

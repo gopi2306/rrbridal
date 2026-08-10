@@ -1,0 +1,101 @@
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { memoryStorage } from 'multer';
+import { PhysicalInventoryImportService } from './physical-inventory-import.service';
+
+const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
+const EXCEL_MIMES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/octet-stream',
+]);
+
+function excelFileFilter(
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, accept: boolean) => void,
+) {
+  const name = file.originalname?.toLowerCase() ?? '';
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+    return cb(new BadRequestException('Only .xlsx or .xls files are allowed'), false);
+  }
+  cb(null, true);
+}
+
+@ApiTags('inventory-adjustments-import')
+@Controller('inventory-adjustments/import')
+export class PhysicalInventoryImportController {
+  constructor(private readonly importService: PhysicalInventoryImportService) {}
+
+  @Get('excel/template')
+  @ApiQuery({ name: 'storeCode', required: true })
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async downloadTemplate(
+    @Query('storeCode') storeCode: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!storeCode?.trim()) throw new BadRequestException('storeCode is required');
+    const buffer = await this.importService.buildTemplate(storeCode);
+    const safeStore = storeCode.trim().replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="physical-inventory-${safeStore}.xlsx"`,
+    );
+    res.send(buffer);
+  }
+
+  @Post('excel')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiQuery({ name: 'storeCode', required: true })
+  @ApiQuery({ name: 'reason', required: true })
+  @ApiQuery({ name: 'dryRun', required: false, type: Boolean })
+  @ApiQuery({ name: 'batchId', required: false })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: IMPORT_MAX_BYTES },
+      fileFilter: excelFileFilter,
+    }),
+  )
+  async importExcel(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Query('storeCode') storeCode: string,
+    @Query('reason') reason: string,
+    @Query('dryRun') dryRun?: string,
+    @Query('batchId') batchId?: string,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('file is required');
+    if (file.mimetype && !EXCEL_MIMES.has(file.mimetype)) {
+      throw new BadRequestException(`Unsupported MIME type: ${file.mimetype}`);
+    }
+    return await this.importService.runFromExcelBuffer({
+      buffer: file.buffer,
+      originalName: file.originalname ?? 'physical-inventory.xlsx',
+      storeCode,
+      reason,
+      dryRun: dryRun === 'true' || dryRun === '1',
+      ...(batchId?.trim() ? { batchId: batchId.trim() } : {}),
+    });
+  }
+}

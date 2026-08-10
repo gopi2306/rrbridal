@@ -20,6 +20,7 @@ export type StoreDayCloseReportSummary = {
   returnCashRefundTotal: number;
   creditNoteCashoutTotal: number;
   dailyExpensesTotal: number;
+  dailyExpenseCashTotal: number;
   depositsTotal: number;
   withdrawalsTotal: number;
   expectedCash: number;

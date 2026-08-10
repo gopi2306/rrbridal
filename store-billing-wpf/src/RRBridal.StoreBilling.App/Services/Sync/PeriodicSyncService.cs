@@ -43,7 +43,9 @@ public sealed class PeriodicSyncService : IDisposable
 
     public bool IsScheduleEnabled => _schedule.Enabled;
 
-    public bool IsActive => _storeContext.IsPrimaryCounter && IsScheduleEnabled;
+    public bool IsActive =>
+        IsScheduleEnabled
+        && (_centralMode?.IsOnlineMode == true || _storeContext.IsPrimaryCounter);
 
     public DateTime? LastRunUtc { get; private set; }
 
@@ -55,14 +57,22 @@ public sealed class PeriodicSyncService : IDisposable
     {
         get
         {
-            if (!_storeContext.IsPrimaryCounter)
+            if (_centralMode?.IsOnlineMode != true && !_storeContext.IsPrimaryCounter)
                 return "Auto-sync: not available on this till (runs on counter 1 / POS 1)";
 
             if (!IsScheduleEnabled)
                 return "Auto-sync: off (SYNC_INTERVAL_MINUTES=0)";
 
-            if (_centralMode != null && !_centralMode.IsOnlineMode)
-                return "Auto-sync: paused (Central mode is Offline)";
+            if (_centralMode?.IsOnlineMode == true)
+            {
+                var onlineInterval = IntervalMinutes == 1 ? "1 min" : $"{IntervalMinutes} min";
+                var onlineBase = $"Central refresh: every {onlineInterval}";
+                if (LastRunUtc is null)
+                    return onlineBase + " — starting…";
+                var onlineLocal = LastRunUtc.Value.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+                var onlineOutcome = LastRunSucceeded == true ? "OK" : "failed";
+                return $"{onlineBase} · last: {onlineLocal} ({onlineOutcome})";
+            }
 
             var interval = IntervalMinutes == 1 ? "1 min" : $"{IntervalMinutes} min";
             var baseText = $"Auto-sync: every {interval} (counter 1 only)";
@@ -77,9 +87,6 @@ public sealed class PeriodicSyncService : IDisposable
 
     public void Start()
     {
-        if (_centralMode != null && !_centralMode.IsOnlineMode)
-            return;
-
         if (!IsActive || _loopTask is { IsCompleted: false })
             return;
 
@@ -123,18 +130,13 @@ public sealed class PeriodicSyncService : IDisposable
 
     private async Task RunTickAsync()
     {
-        if (_centralMode != null && !_centralMode.IsOnlineMode)
-        {
-            LastRunMessage = "Skipped: Central mode is Offline.";
-            LastRunSucceeded = null;
-            RaiseStatusChanged();
-            return;
-        }
-
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(Math.Max(IntervalMinutes * 2, 5)));
-            var result = await _syncRunner.RunFullStoreSyncAsync(cts.Token, skipIfBusy: true).ConfigureAwait(false);
+            var result = await _syncRunner.RunFullStoreSyncAsync(
+                cts.Token,
+                skipIfBusy: true,
+                includeStoreWideOnlineOperations: _storeContext.IsPrimaryCounter).ConfigureAwait(false);
             if (result.SkippedBecauseBusy)
                 return;
 
@@ -142,7 +144,8 @@ public sealed class PeriodicSyncService : IDisposable
             LastRunMessage = result.Message;
             LastRunSucceeded = result.Succeeded;
 
-            await SaveStatusToMongoAsync().ConfigureAwait(false);
+            if (_centralMode?.IsOnlineMode != true)
+                await SaveStatusToMongoAsync().ConfigureAwait(false);
 
             if (result.Succeeded && _shellBranding != null)
             {
@@ -158,7 +161,8 @@ public sealed class PeriodicSyncService : IDisposable
             LastRunUtc = DateTime.UtcNow;
             LastRunMessage = ex.Message;
             LastRunSucceeded = false;
-            await SaveStatusToMongoAsync().ConfigureAwait(false);
+            if (_centralMode?.IsOnlineMode != true)
+                await SaveStatusToMongoAsync().ConfigureAwait(false);
         }
         finally
         {

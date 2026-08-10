@@ -53,7 +53,7 @@ export interface StoreSalesDashboardSummary {
   salesMargin: number;
   /** (salesMargin / totalCostValue) × 100 when cost > 0 */
   marginPercentage: number;
-  /** Sum of daily cash expenses in the period (IST business dates) */
+  /** Gross non-void daily expenses in the period (IST business dates) */
   dailyExpensesTotal: number;
   dailyExpensesCount: number;
 }

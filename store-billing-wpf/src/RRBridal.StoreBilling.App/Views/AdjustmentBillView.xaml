@@ -6,6 +6,8 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900"
+             AutomationProperties.AutomationId="adjustments-page"
+             AutomationProperties.Name="Inventory adjustments"
              Background="{StaticResource BrushBackground}">
     <Grid x:Name="MasterDetailGrid" Background="{StaticResource BrushBackground}"
           ui:MasterDetailLayoutBehavior.IsEnabled="True">

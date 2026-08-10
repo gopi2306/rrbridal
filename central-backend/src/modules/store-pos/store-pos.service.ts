@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'crypto';
 import { InventoryService } from '../inventory/inventory.service';
 import { ProductsService } from '../products/products.service';
 import { StoresService } from '../stores/stores.service';
+import { StockTransfersService } from '../stock-transfers/stock-transfers.service';
 import { SyncEventDto } from '../sync/dto/sync-push.dto';
 import { SyncService } from '../sync/sync.service';
 
@@ -34,6 +35,7 @@ export class StorePosService {
     private readonly productsService: ProductsService,
     private readonly inventoryService: InventoryService,
     private readonly storesService: StoresService,
+    private readonly stockTransfersService: StockTransfersService,
   ) {}
 
   async searchCatalog(storeCode: string, q: string, limit = 80): Promise<StorePosCatalogProduct[]> {
@@ -70,6 +72,22 @@ export class StorePosService {
     }
 
     return results;
+  }
+
+  async listAwaitingTransfers(storeId: string, limit = 200) {
+    const normalizedStoreId = storeId?.trim();
+    if (!normalizedStoreId) throw new BadRequestException('storeId is required');
+    if (!(await this.storesService.existsByCode(normalizedStoreId))) {
+      throw new BadRequestException(`Unknown storeId '${normalizedStoreId}'`);
+    }
+
+    const transfers = await this.stockTransfersService.listAwaitingIntakeForStore(
+      normalizedStoreId,
+      limit,
+    );
+    return transfers.map((transfer) =>
+      this.stockTransfersService.toSyncTransferPayload(transfer),
+    );
   }
 
   async applyEvent(input: {
@@ -165,6 +183,34 @@ export class StorePosService {
 
   async createDailyExpense(storeId: string, deviceId: string, payload: Record<string, unknown>) {
     return this.applyEvent({ type: 'DailyExpenseCreated', storeId, deviceId, payload });
+  }
+
+  async updateDailyExpense(
+    storeId: string,
+    deviceId: string,
+    expenseNo: string,
+    payload: Record<string, unknown>,
+  ) {
+    return this.applyEvent({
+      type: 'DailyExpenseUpdated',
+      storeId,
+      deviceId,
+      payload: { ...payload, expenseNo },
+    });
+  }
+
+  async voidDailyExpense(
+    storeId: string,
+    deviceId: string,
+    expenseNo: string,
+    payload: Record<string, unknown>,
+  ) {
+    return this.applyEvent({
+      type: 'DailyExpenseVoided',
+      storeId,
+      deviceId,
+      payload: { ...payload, expenseNo },
+    });
   }
 
   async receiveCodPayment(storeId: string, deviceId: string, billNo: string, payload: Record<string, unknown>) {

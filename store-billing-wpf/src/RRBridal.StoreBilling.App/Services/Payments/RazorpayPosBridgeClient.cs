@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Payments;
 
@@ -25,6 +26,31 @@ public sealed class RazorpayPosBridgeClient
         PaymentRequest request,
         CancellationToken ct)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            var reference = UiAutomationSimulation.StableId(
+                "sim-rzp-pos",
+                $"{request.InvoiceNo}|{request.Amount.ToString("0.00", CultureInfo.InvariantCulture)}|{request.Currency}|{request.PosMode}");
+            var raw = JsonSerializer.Serialize(new
+            {
+                simulated = true,
+                provider = "Razorpay",
+                invoiceNo = request.InvoiceNo,
+                amount = request.Amount,
+                currency = request.Currency,
+                mode = MapMode(request.PosMode),
+                reference,
+                status = "Success",
+            }, JsonOpts);
+            UiAutomationSimulation.RecordJson(
+                "payment-jobs",
+                "razorpay-pos-payment",
+                reference,
+                JsonSerializer.Deserialize<object>(raw)!);
+            return new PaymentResult(PaymentProviderKind.Razorpay, reference, "Success", raw);
+        }
+
         ValidateSettings(settings);
 
         var mode = MapMode(request.PosMode);

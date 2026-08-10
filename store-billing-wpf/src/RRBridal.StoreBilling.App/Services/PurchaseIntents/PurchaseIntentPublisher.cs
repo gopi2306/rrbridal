@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.PurchaseIntents;
 
@@ -22,14 +23,17 @@ public readonly record struct PurchaseIntentLineInput(
 public sealed class PurchaseIntentPublisher
 {
     private readonly IMongoCollection<BsonDocument> _localIntents;
-    private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly StoreContext _storeContext;
+    private readonly BillingOutboxPublisher _outbox;
 
-    public PurchaseIntentPublisher(IMongoDatabase localDb, StoreContext storeContext)
+    public PurchaseIntentPublisher(
+        IMongoDatabase localDb,
+        StoreContext storeContext,
+        BillingOutboxPublisher outbox)
     {
         _localIntents = localDb.GetCollection<BsonDocument>("local_purchase_intents");
-        _outbox = localDb.GetCollection<BsonDocument>("outbox_events");
         _storeContext = storeContext;
+        _outbox = outbox;
     }
 
     /// <summary>Returns the outbox eventId (also central sourceEventId).</summary>
@@ -55,7 +59,6 @@ public sealed class PurchaseIntentPublisher
 
         var eventId = Guid.NewGuid().ToString();
         var storeId = _storeContext.StoreId;
-        var deviceId = _storeContext.DeviceId;
         var createdAt = DateTime.UtcNow.ToString("O");
 
         var linesBson = new BsonArray();
@@ -93,31 +96,25 @@ public sealed class PurchaseIntentPublisher
                 remarks,
             });
 
-        var localDoc = new BsonDocument
+        if (!_outbox.IsOnlineMode)
         {
-            { "_id", ObjectId.GenerateNewId() },
-            { "eventId", eventId },
-            { "storeId", storeId },
-            { "createdAt", createdAt },
-            { "payload", payload },
-            { "syncStatus", "pending" },
-        };
+            var localDoc = new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() },
+                { "eventId", eventId },
+                { "storeId", storeId },
+                { "createdAt", createdAt },
+                { "payload", payload },
+                { "syncStatus", "pending" },
+            };
+            await _localIntents.InsertOneAsync(localDoc, cancellationToken: ct);
+        }
 
-        await _localIntents.InsertOneAsync(localDoc, cancellationToken: ct);
-
-        var outboxEvent = new BsonDocument
-        {
-            { "eventId", eventId },
-            { "storeId", storeId },
-            { "deviceId", deviceId },
-            { "type", "PurchaseIntentCreated" },
-            { "createdAt", createdAt },
-            { "payload", payload },
-            { "hash", hash },
-            { "status", "pending" },
-        };
-
-        await _outbox.InsertOneAsync(outboxEvent, cancellationToken: ct);
-        return eventId;
+        return await _outbox.EnqueueAsync(
+            "PurchaseIntentCreated",
+            payload,
+            hash,
+            ct,
+            eventId);
     }
 }

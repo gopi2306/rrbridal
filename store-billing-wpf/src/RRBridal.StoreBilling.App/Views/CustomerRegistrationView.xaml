@@ -5,6 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="720" d:DesignWidth="1000"
+             AutomationProperties.AutomationId="customer-registration-page"
+             AutomationProperties.Name="Customer registration"
              Background="{StaticResource BrushBackground}">
     <Grid>
         <Grid.RowDefinitions>

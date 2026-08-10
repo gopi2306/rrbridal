@@ -31,3 +31,5 @@ npm-debug.log*
 *.exe
 *.pdb
 *.nupkg
+TestResults/
+ui-test-artifacts/

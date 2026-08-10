@@ -184,19 +184,27 @@ export class StorePosController {
 
   @Get('daily-expenses')
   @ApiQuery({ name: 'storeCode', required: true })
-  @ApiQuery({ name: 'businessDate', required: true })
+  @ApiQuery({ name: 'businessDate', required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'limit', required: false })
   async listDailyExpenses(
     @Query('storeCode') storeCode: string,
-    @Query('businessDate') businessDate: string,
+    @Query('businessDate') businessDate?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('status') status?: string,
     @Query('limit') limit?: string,
   ) {
     const parsed = limit ? Number(limit) : 100;
-    return await this.storePosQuery.listDailyExpenses(
-      storeCode,
+    return await this.storePosQuery.listDailyExpenses(storeCode, {
       businessDate,
-      Number.isFinite(parsed) ? parsed : 100,
-    );
+      from,
+      to,
+      status,
+      limit: Number.isFinite(parsed) ? parsed : 100,
+    });
   }
 
   @Post('next-number')
@@ -345,6 +353,34 @@ export class StorePosController {
     return await this.storePos.createDailyExpense(write.storeId, write.deviceId, write.payload ?? {});
   }
 
+  @Put('daily-expenses/:expenseNo')
+  async updateDailyExpense(
+    @Param('expenseNo') expenseNo: string,
+    @Body() body: StorePosWriteBody,
+  ) {
+    const write = requireWriteBody(body);
+    return await this.storePos.updateDailyExpense(
+      write.storeId,
+      write.deviceId,
+      expenseNo,
+      write.payload ?? {},
+    );
+  }
+
+  @Post('daily-expenses/:expenseNo/void')
+  async voidDailyExpense(
+    @Param('expenseNo') expenseNo: string,
+    @Body() body: StorePosWriteBody,
+  ) {
+    const write = requireWriteBody(body);
+    return await this.storePos.voidDailyExpense(
+      write.storeId,
+      write.deviceId,
+      expenseNo,
+      write.payload ?? {},
+    );
+  }
+
   @Post('bills/:billNo/cod-payment')
   async receiveCodPayment(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
     const write = requireWriteBody(body);
@@ -442,6 +478,20 @@ export class StorePosController {
   @ApiQuery({ name: 'storeCode', required: true })
   async listPromotions(@Query('storeCode') storeCode: string) {
     return await this.storePosQuery.listActivePromotions(storeCode);
+  }
+
+  @Get('transfers/awaiting-intake')
+  @ApiQuery({ name: 'storeId', required: true })
+  @ApiQuery({ name: 'limit', required: false })
+  async listAwaitingTransfers(
+    @Query('storeId') storeId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsed = limit ? Number(limit) : 200;
+    return await this.storePos.listAwaitingTransfers(
+      storeId,
+      Number.isFinite(parsed) ? parsed : 200,
+    );
   }
 
   @Post('bills/:billNo/stock-exceptions/approve')

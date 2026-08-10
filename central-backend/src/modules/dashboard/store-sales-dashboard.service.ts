@@ -36,6 +36,7 @@ import {
   readNumber,
   readString,
   resolveDateRange,
+  sumDailyExpenseCashOutflow,
   sumDailyExpenses,
   type LineMarginRow,
 } from './store-sales-payload.util';
@@ -258,9 +259,10 @@ export class StoreSalesDashboardService {
     const cashRefundForReturns = returnCashRefundTotal + creditNoteCashoutTotal;
 
     const { total: dailyExpensesTotal, count: dailyExpensesCount } = sumDailyExpenses(dailyExpenses);
+    const dailyExpenseCashOutflow = sumDailyExpenseCashOutflow(dailyExpenses);
 
     const netSales = totalBillAmount - creditAppliedOnBills;
-    const cashInHand = billCashTotal - cashRefundForReturns + exchangeCashTotal - dailyExpensesTotal;
+    const cashInHand = billCashTotal - cashRefundForReturns + exchangeCashTotal - dailyExpenseCashOutflow;
     const { totalCostValue, totalSellingValue, salesMargin, marginPercentage, costBySku } =
       await this.computeSalesMarginSummary(marginLines);
 

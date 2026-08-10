@@ -21,9 +21,9 @@ export interface StoreDashboardMetrics {
   inTransitUnits: number;
   lowStockSkus: number;
   openRequests: number;
-  /** IST today — sum of posted daily cash expenses */
+  /** IST today — gross non-void daily expenses */
   dailyExpensesToday: number;
-  /** Current calendar month (IST) — sum of posted daily cash expenses */
+  /** Current calendar month (IST) — gross non-void daily expenses */
   dailyExpensesMonth: number;
 }
 

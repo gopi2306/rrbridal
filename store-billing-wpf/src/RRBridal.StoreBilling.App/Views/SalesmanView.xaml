@@ -6,6 +6,8 @@
              xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
              mc:Ignorable="d"
              d:DesignHeight="720" d:DesignWidth="1000"
+             AutomationProperties.AutomationId="salesmen-page"
+             AutomationProperties.Name="Salesmen"
              Background="{StaticResource BrushBackground}">
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>

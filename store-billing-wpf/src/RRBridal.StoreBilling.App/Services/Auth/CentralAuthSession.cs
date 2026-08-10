@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Auth;
 
@@ -16,8 +17,7 @@ public sealed class CentralAuthSession
 
     public CentralAuthSession()
     {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RRBridal", "StoreBilling");
-        Directory.CreateDirectory(dir);
+        var dir = StoreBillingDataPath.Get();
         _filePath = Path.Combine(dir, "central_auth.json");
     }
 

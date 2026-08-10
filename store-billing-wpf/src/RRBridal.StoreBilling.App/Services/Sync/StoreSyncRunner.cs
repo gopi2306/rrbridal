@@ -17,6 +17,7 @@ public sealed class StoreSyncRunner
     private readonly LocalAuthService? _localAuth;
     private readonly Func<UserSession?>? _getUserSession;
     private readonly Func<bool>? _isOnlineMode;
+    private readonly IOnlineDirectOperationsRunner? _onlineDirectOperations;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public StoreSyncRunner(
@@ -27,7 +28,8 @@ public sealed class StoreSyncRunner
         ShellBrandingService? shellBranding = null,
         LocalAuthService? localAuth = null,
         Func<UserSession?>? getUserSession = null,
-        Func<bool>? isOnlineMode = null)
+        Func<bool>? isOnlineMode = null,
+        IOnlineDirectOperationsRunner? onlineDirectOperations = null)
     {
         _syncEngine = syncEngine;
         _authSession = authSession;
@@ -37,11 +39,15 @@ public sealed class StoreSyncRunner
         _localAuth = localAuth;
         _getUserSession = getUserSession;
         _isOnlineMode = isOnlineMode;
+        _onlineDirectOperations = onlineDirectOperations;
     }
 
     public SemaphoreSlim SyncLock => _syncLock;
 
-    public async Task<SyncRunResult> RunFullStoreSyncAsync(CancellationToken ct, bool skipIfBusy = false)
+    public async Task<SyncRunResult> RunFullStoreSyncAsync(
+        CancellationToken ct,
+        bool skipIfBusy = false,
+        bool includeStoreWideOnlineOperations = true)
     {
         if (skipIfBusy)
         {
@@ -55,8 +61,17 @@ public sealed class StoreSyncRunner
 
         try
         {
-            if (_isOnlineMode != null && !_isOnlineMode())
-                return SyncRunResult.Ok("Sync skipped: Central mode is Offline.");
+            if (_isOnlineMode?.Invoke() == true)
+            {
+                if (_onlineDirectOperations == null)
+                    return SyncRunResult.Failed("Online direct operations are not configured.");
+                var online = await _onlineDirectOperations
+                    .RunAsync(includeStoreWideOnlineOperations, ct)
+                    .ConfigureAwait(false);
+                return online.Succeeded
+                    ? SyncRunResult.Ok(online.Message)
+                    : SyncRunResult.Failed(online.Message);
+            }
 
             _authSession.ApplyTo(_centralApi);
             await _syncEngine.RunOnceAsync(ct).ConfigureAwait(false);

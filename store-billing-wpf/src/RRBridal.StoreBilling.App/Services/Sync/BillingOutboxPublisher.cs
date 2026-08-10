@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +15,7 @@ public sealed class BillingOutboxPublisher
     private readonly IMongoCollection<BsonDocument> _outbox;
     private readonly StoreContext _storeContext;
     private Func<bool>? _isOnlineMode;
-    private Func<string, BsonDocument, string, CancellationToken, Task>? _onlinePostAsync;
+    private Func<string, BsonDocument, string, string, CancellationToken, Task>? _onlinePostAsync;
     private Func<CancellationToken, Task>? _pushPendingAsync;
 
     public BillingOutboxPublisher(IMongoDatabase localDb, StoreContext storeContext)
@@ -26,22 +28,26 @@ public sealed class BillingOutboxPublisher
         string type,
         BsonDocument payload,
         string hash,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? eventId = null)
     {
+        var resolvedEventId = string.IsNullOrWhiteSpace(eventId)
+            ? Guid.NewGuid().ToString()
+            : eventId.Trim();
+
         // Pure Online: post to central only — never touch local outbox_events.
         if (_isOnlineMode?.Invoke() == true)
         {
             if (_onlinePostAsync == null)
                 throw new InvalidOperationException("Online mode is enabled but central write dispatch is not configured.");
 
-            await _onlinePostAsync(type, payload, hash, ct);
-            return Guid.NewGuid().ToString();
+            await _onlinePostAsync(type, payload, hash, resolvedEventId, ct);
+            return resolvedEventId;
         }
 
-        var eventId = Guid.NewGuid().ToString();
         var outboxEvent = new BsonDocument
         {
-            { "eventId", eventId },
+            { "eventId", resolvedEventId },
             { "storeId", _storeContext.StoreId },
             { "deviceId", _storeContext.DeviceId },
             { "type", type },
@@ -51,18 +57,20 @@ public sealed class BillingOutboxPublisher
             { "status", "pending" },
         };
         await _outbox.InsertOneAsync(outboxEvent, cancellationToken: ct);
-        return eventId;
+        return resolvedEventId;
     }
 
     public void ConfigureOnlineDispatch(
         Func<bool> isOnlineMode,
         Func<CancellationToken, Task> pushPendingAsync,
-        Func<string, BsonDocument, string, CancellationToken, Task>? onlinePostAsync = null)
+        Func<string, BsonDocument, string, string, CancellationToken, Task>? onlinePostAsync = null)
     {
         _isOnlineMode = isOnlineMode;
         _pushPendingAsync = pushPendingAsync;
         _onlinePostAsync = onlinePostAsync;
     }
+
+    public bool IsOnlineMode => _isOnlineMode?.Invoke() == true;
 
     public Task<string> PublishCustomEventAsync(
         string type,
@@ -183,6 +191,20 @@ public sealed class BillingOutboxPublisher
         var payload = (BsonDocument)expenseDoc.DeepClone();
         var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
         return EnqueueAsync("DailyExpenseCreated", payload, hash, ct);
+    }
+
+    public Task<string> PublishDailyExpenseUpdatedAsync(BsonDocument expenseDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)expenseDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("DailyExpenseUpdated", payload, hash, ct);
+    }
+
+    public Task<string> PublishDailyExpenseVoidedAsync(BsonDocument expenseDoc, CancellationToken ct = default)
+    {
+        var payload = (BsonDocument)expenseDoc.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("DailyExpenseVoided", payload, hash, ct);
     }
 
     public Task<string> PublishCashMovementCreatedAsync(BsonDocument movementDoc, CancellationToken ct = default)
@@ -313,5 +335,30 @@ public sealed class BillingOutboxPublisher
         });
 
         return EnqueueAsync("InventoryAdjustmentCreated", payload, hash, ct);
+    }
+
+    public Task<string> PublishPhysicalInventoryImportAsync(
+        string adjustmentNo,
+        string reason,
+        IReadOnlyList<(string Sku, decimal NewQty)> lines,
+        string eventId,
+        CancellationToken ct = default)
+    {
+        if (lines.Count == 0)
+            throw new ArgumentException("At least one inventory line is required.", nameof(lines));
+        var lineArray = new BsonArray(lines.Select(line => new BsonDocument
+        {
+            { "sku", line.Sku.Trim() },
+            { "newQty", (double)line.NewQty },
+        }));
+        var payload = new BsonDocument
+        {
+            { "adjustmentNo", adjustmentNo.Trim() },
+            { "locationKind", "store" },
+            { "reason", reason.Trim() },
+            { "lines", lineArray },
+        };
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync("InventoryAdjustmentCreated", payload, hash, ct, eventId);
     }
 }

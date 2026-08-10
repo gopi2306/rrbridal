@@ -8,7 +8,9 @@
         MinHeight="480"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="bill-detail-dialog"
+        AutomationProperties.Name="Bill details">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -37,7 +39,7 @@
                               IsReadOnly="True"
                               CanUserAddRows="False"
                               HeadersVisibility="Column"
-                              MaxHeight="220">
+                              MaxHeight="220" AutomationProperties.AutomationId="bill-detail-lines-grid" AutomationProperties.Name="Lines">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding LineNo}" Width="40"/>
                             <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90"/>
@@ -56,7 +58,7 @@
                                 Style="{StaticResource OutlineButton}"
                                 HorizontalAlignment="Right"
                                 Padding="10,4"
-                                Command="{Binding OpenReturnCommand}"/>
+                                Command="{Binding OpenReturnCommand}" AutomationProperties.AutomationId="bill-detail-open-in-returns-button" AutomationProperties.Name="Open in Returns"/>
                     </Grid>
                     <Border Style="{StaticResource CardBorder}">
                         <TextBlock Text="{Binding ReturnSummary}" TextWrapping="Wrap" FontSize="13"/>
@@ -70,7 +72,7 @@
                                 Style="{StaticResource OutlineButton}"
                                 HorizontalAlignment="Right"
                                 Padding="10,4"
-                                Command="{Binding OpenAdjustmentCommand}"/>
+                                Command="{Binding OpenAdjustmentCommand}" AutomationProperties.AutomationId="bill-detail-open-in-adjustments-button" AutomationProperties.Name="Open in Adjustments"/>
                     </Grid>
                     <Border Style="{StaticResource CardBorder}">
                         <TextBlock Text="{Binding AdjustmentSummary}" TextWrapping="Wrap" FontSize="13"/>
@@ -80,6 +82,6 @@
         </ScrollViewer>
 
         <Button Grid.Row="2" Content="Close" Style="{StaticResource PrimaryButton}"
-                HorizontalAlignment="Right" Width="100" IsCancel="True"/>
+                HorizontalAlignment="Right" Width="100" IsCancel="True" AutomationProperties.AutomationId="bill-detail-close-button" AutomationProperties.Name="Close"/>
     </Grid>
 </Window>

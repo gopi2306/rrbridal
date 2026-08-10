@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -6,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.WhatsApp;
 
@@ -67,6 +69,7 @@ public sealed class WhatsAppSendResult
 
 public sealed class WhatsAppSettingsClient
 {
+    private static readonly ConcurrentDictionary<string, WhatsAppBroadcastJobSnapshot> SimulatedBroadcasts = new();
     private readonly HttpClient _http;
 
     public WhatsAppSettingsClient(HttpClient http) => _http = http;
@@ -75,6 +78,21 @@ public sealed class WhatsAppSettingsClient
         string storeId,
         CancellationToken ct = default)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            return (new WhatsAppSettingsSnapshot
+            {
+                Enabled = true,
+                Configured = true,
+                TemplateName = "rrbridal_ui_automation",
+                DefaultCountryCode = "91",
+                AttachmentType = "image",
+                PromoTemplateName = "rrbridal_ui_automation_promo",
+                PromoConfigured = true,
+            }, null);
+        }
+
         try
         {
             var code = Uri.EscapeDataString(storeId.Trim().ToLowerInvariant());
@@ -105,6 +123,29 @@ public sealed class WhatsAppSettingsClient
         string attachmentMimeType = "image/png",
         CancellationToken ct = default)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            var key = $"{storeId}|{billNo}|{customerPhone}|{payable.ToString(CultureInfo.InvariantCulture)}";
+            var messageId = UiAutomationSimulation.StableId("sim-wa-invoice", key);
+            var phone = NormalizePhone(customerPhone);
+            UiAutomationSimulation.RecordJson("whatsapp-jobs", "send-invoice", key, new
+            {
+                simulated = true,
+                storeId,
+                billNo,
+                customerName,
+                customerPhone,
+                phoneE164 = phone,
+                payable,
+                attachmentFileName,
+                attachmentMimeType,
+                attachmentBytes = attachment.Length,
+                messageId,
+            });
+            return (new WhatsAppSendResult { MessageId = messageId, PhoneE164 = phone }, null);
+        }
+
         try
         {
             using var form = new MultipartFormDataContent();
@@ -157,6 +198,27 @@ public sealed class WhatsAppSettingsClient
         string attachmentMimeType = "image/png",
         CancellationToken ct = default)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            var key = $"{storeId}|{customerPhone}|{attachmentFileName}";
+            var messageId = UiAutomationSimulation.StableId("sim-wa-test", key);
+            var phone = NormalizePhone(customerPhone);
+            UiAutomationSimulation.RecordJson("whatsapp-jobs", "send-test", key, new
+            {
+                simulated = true,
+                storeId,
+                customerName,
+                customerPhone,
+                phoneE164 = phone,
+                attachmentFileName,
+                attachmentMimeType,
+                attachmentBytes = attachment.Length,
+                messageId,
+            });
+            return (new WhatsAppSendResult { MessageId = messageId, PhoneE164 = phone }, null);
+        }
+
         try
         {
             using var form = new MultipartFormDataContent();
@@ -208,6 +270,41 @@ public sealed class WhatsAppSettingsClient
         string? offerScope = null,
         CancellationToken ct = default)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            var recipientsKey = string.Join("|", recipients.Select(r => $"{r.Name}:{r.Phone}"));
+            var key = $"{storeId}|{mode}|{promoText}|{recipientsKey}";
+            var jobId = UiAutomationSimulation.StableId("sim-wa-broadcast", key);
+            var snapshot = new WhatsAppBroadcastJobSnapshot
+            {
+                JobId = jobId,
+                Status = "completed",
+                Total = recipients.Count,
+                Sent = recipients.Count,
+                FirstRecipientSummary = recipients.Count == 0
+                    ? null
+                    : $"To: {recipients[0].Name} +{NormalizePhone(recipients[0].Phone)}",
+            };
+            SimulatedBroadcasts[jobId] = snapshot;
+            UiAutomationSimulation.RecordJson("whatsapp-jobs", "start-broadcast", key, new
+            {
+                simulated = true,
+                storeId,
+                mode,
+                promoText,
+                recipients = recipients.Select(r => new { r.Name, r.Phone }).ToArray(),
+                attachmentFileName,
+                attachmentMimeType,
+                attachmentBytes = attachment?.Length ?? 0,
+                offerDate,
+                urlButtonSuffix,
+                offerScope,
+                jobId,
+            });
+            return (jobId, null);
+        }
+
         try
         {
             using var form = new MultipartFormDataContent();
@@ -261,6 +358,18 @@ public sealed class WhatsAppSettingsClient
         string jobId,
         CancellationToken ct = default)
     {
+        if (UiAutomationSimulation.IsEnabled)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (SimulatedBroadcasts.TryGetValue(jobId.Trim(), out var simulated))
+                return (simulated, null);
+            return (new WhatsAppBroadcastJobSnapshot
+            {
+                JobId = jobId.Trim(),
+                Status = "completed",
+            }, null);
+        }
+
         try
         {
             using var res = await _http.GetAsync($"/api/whatsapp/broadcast/{Uri.EscapeDataString(jobId.Trim())}", ct);
@@ -279,6 +388,12 @@ public sealed class WhatsAppSettingsClient
         {
             return (null, ex.Message);
         }
+    }
+
+    private static string NormalizePhone(string phone)
+    {
+        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
+        return digits.StartsWith("91", StringComparison.Ordinal) ? digits : $"91{digits}";
     }
 }
 

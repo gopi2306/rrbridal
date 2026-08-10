@@ -93,6 +93,21 @@ public sealed class CentralOnlineModeService : IDisposable
             return;
 
         var changed = false;
+        var wasOnline = IsOnlineMode;
+        var centralWantsOnline =
+            mode.BillingSettings?.PreferCentralOnline ?? mode.PreferCentralOnline;
+        var allowPromotion = true;
+
+        if (!_settings.IsEnvOnlineOverride && !wasOnline && centralWantsOnline)
+        {
+            var flush = await _syncRunner.RunFullStoreSyncAsync(ct).ConfigureAwait(false);
+            allowPromotion = flush.Succeeded;
+            if (!allowPromotion)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Central Online promotion deferred until offline sync succeeds: {flush.Message}");
+            }
+        }
 
         if (mode.BillingSettings != null)
         {
@@ -106,11 +121,14 @@ public sealed class CentralOnlineModeService : IDisposable
             changed = true;
         }
 
-        // .env Online/Offline wins; otherwise only promote to Online when central says true.
-        if (!_settings.IsEnvOnlineOverride && mode.PreferCentralOnline && !IsOnlineMode)
+        // .env wins. Central may promote only after a successful final offline sync;
+        // it never silently demotes a till that is already Online.
+        if (!_settings.IsEnvOnlineOverride)
         {
-            _settings.Update(s => s.PreferCentralOnline = true);
-            changed = true;
+            var resolvedOnline = wasOnline || (centralWantsOnline && allowPromotion);
+            if (IsOnlineMode != resolvedOnline)
+                changed = true;
+            _settings.Update(s => s.PreferCentralOnline = resolvedOnline);
         }
 
         if (!string.IsNullOrWhiteSpace(mode.ReceiptPrintSettingsJson))
@@ -160,6 +178,14 @@ public sealed class CentralOnlineModeService : IDisposable
         }
 
         var previous = IsOnlineMode;
+        if (!previous && enabled)
+        {
+            var flush = await _syncRunner.RunFullStoreSyncAsync(ct).ConfigureAwait(false);
+            if (!flush.Succeeded)
+                throw new InvalidOperationException(
+                    $"Cannot enable Central Online until pending offline work is synced. {flush.Message}");
+        }
+
         _settings.Update(s => s.PreferCentralOnline = enabled);
         await _settings.SaveAsync(ct).ConfigureAwait(false);
 
@@ -187,7 +213,11 @@ public sealed class CentralOnlineModeService : IDisposable
         RaiseStatusChanged();
 
         if (!previous && enabled)
-            await _syncRunner.RunFullStoreSyncAsync(ct).ConfigureAwait(false);
+        {
+            var refresh = await _syncRunner.RunFullStoreSyncAsync(ct).ConfigureAwait(false);
+            if (!refresh.Succeeded)
+                System.Diagnostics.Debug.WriteLine($"Initial online refresh incomplete: {refresh.Message}");
+        }
     }
 
     public async Task<bool> ProbeHealthAsync(CancellationToken ct = default)

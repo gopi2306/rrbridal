@@ -105,6 +105,105 @@ Store adjustments created on the **WPF billing app** are pushed as `InventoryAdj
 
 See [sync-protocol.md](./sync-protocol.md).
 
+## Physical inventory Excel import
+
+The physical-count workbook treats **Phy Qty as the final store on-hand quantity**. The service calculates:
+
+`qtyDelta = Phy Qty - current ledger quantity`
+
+Blank `Phy Qty` cells are ignored, allowing counters to fill only products that were physically counted. Rows whose physical quantity already equals book stock are reported as skipped.
+
+### Download a store template
+
+```http
+GET /api/inventory-adjustments/import/excel/template?storeCode=store-001
+```
+
+Response: `physical-inventory-store-001.xlsx`, containing every active product:
+
+| SKU | Item Name | Phy Qty |
+|-----|-----------|---------|
+| SKU-000235 | Bridal Wear | *(blank)* |
+
+`SKU` is authoritative. `Item Name` is for operator verification and a mismatch is returned as a warning.
+
+### Dry-run preview
+
+```http
+POST /api/inventory-adjustments/import/excel?storeCode=store-001&reason=Physical%20stock%20count&dryRun=true
+Content-Type: multipart/form-data
+
+file=<completed .xlsx>
+```
+
+Supported aliases include `Physical Qty`, `Physical Quantity`, and `New Qty`. Maximum file size is 10 MB and maximum data rows is 10,000.
+
+The dry run validates the complete workbook without changing stock:
+
+```json
+{
+  "dryRun": true,
+  "readyToCommit": true,
+  "totalRows": 2,
+  "adjusted": 1,
+  "skipped": 1,
+  "failed": 0,
+  "errors": [],
+  "lines": [
+    {
+      "row": 2,
+      "sku": "SKU-000235",
+      "itemName": "Bridal Wear",
+      "qtyBefore": 12,
+      "newQty": 10,
+      "qtyDelta": -2,
+      "qtyAfter": 10,
+      "unchanged": false
+    }
+  ]
+}
+```
+
+Commit must be blocked when `readyToCommit` is false. Hard errors include missing/duplicate/unknown SKU, negative/non-numeric physical quantity, inactive store, and malformed headers.
+
+### Commit
+
+Repeat the same upload with `dryRun=false` and a stable client-generated batch ID:
+
+```http
+POST /api/inventory-adjustments/import/excel?storeCode=store-001&reason=Physical%20stock%20count&dryRun=false&batchId=20260806-store001-count1
+```
+
+The whole validated file is posted as one multi-line inventory adjustment. `batchId` is required and idempotent per store: retrying the same batch after a timeout returns the existing adjustment without posting ledger entries again.
+
+Successful responses also include `adjustmentId` and `adjustmentNo`.
+
+### Browser integration for the external central admin
+
+```javascript
+// Template
+const template = await fetch(
+  `/api/inventory-adjustments/import/excel/template?storeCode=${encodeURIComponent(storeCode)}`
+);
+const blob = await template.blob();
+
+// Preview or commit
+const form = new FormData();
+form.append("file", file);
+const query = new URLSearchParams({
+  storeCode,
+  reason,
+  dryRun: String(dryRun),
+  ...(dryRun ? {} : { batchId }),
+});
+const result = await fetch(`/api/inventory-adjustments/import/excel?${query}`, {
+  method: "POST",
+  body: form,
+}).then((response) => response.json());
+```
+
+The WPF Dashboard exposes the same workflow through **Download count template** and **Import physical counts**. Online mode posts centrally without changing local Mongo; Offline mode sets local cached quantities and queues one multi-line `InventoryAdjustmentCreated` event.
+
 ## Ledger
 
 Each line creates one ledger entry:

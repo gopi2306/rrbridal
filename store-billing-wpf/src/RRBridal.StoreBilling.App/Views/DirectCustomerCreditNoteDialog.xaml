@@ -10,7 +10,9 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         FontFamily="{StaticResource FontFamilyPrimary}"
-        Background="{StaticResource BrushBackground}">
+        Background="{StaticResource BrushBackground}"
+        AutomationProperties.AutomationId="direct-customer-credit-note-dialog"
+        AutomationProperties.Name="Direct Customer Credit Note">
     <Border Style="{StaticResource CardBorder}" Margin="16" Padding="20">
         <Grid>
             <Grid.RowDefinitions>
@@ -31,9 +33,9 @@
                 <TextBlock Text="Customer" Style="{StaticResource FormFieldLabel}"/>
                 <DockPanel LastChildFill="True">
                     <Button DockPanel.Dock="Right" Content="Search…" Style="{StaticResource OutlineButton}"
-                            MinWidth="90" Margin="8,0,0,0" Click="SearchCustomer_OnClick"/>
+                            MinWidth="90" Margin="8,0,0,0" Click="SearchCustomer_OnClick" AutomationProperties.AutomationId="direct-customer-credit-note-search-button" AutomationProperties.Name="Search…"/>
                     <TextBox x:Name="CustomerDisplayBox" Style="{StaticResource RoundedTextBox}" IsReadOnly="True"
-                             Text="{Binding CustomerDisplay, Mode=OneWay}"/>
+                             Text="{Binding CustomerDisplay, Mode=OneWay}" AutomationProperties.AutomationId="direct-customer-credit-note-customer-display-input" AutomationProperties.Name="Customer Display"/>
                 </DockPanel>
             </StackPanel>
 
@@ -41,39 +43,39 @@
                 <StackPanel Margin="0,0,8,0">
                     <TextBlock Text="Mobile" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox x:Name="PhoneBox" Style="{StaticResource RoundedTextBox}"
-                             Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"/>
+                             Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="direct-customer-credit-note-phone-input" AutomationProperties.Name="Phone"/>
                 </StackPanel>
                 <StackPanel Margin="8,0,0,0">
                     <TextBlock Text="Customer code" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}" IsReadOnly="True"
-                             Text="{Binding CustomerCode, Mode=OneWay}"/>
+                             Text="{Binding CustomerCode, Mode=OneWay}" AutomationProperties.AutomationId="direct-customer-credit-note-customer-code-input" AutomationProperties.Name="Customer Code"/>
                 </StackPanel>
             </UniformGrid>
 
             <StackPanel Grid.Row="4" Margin="0,0,0,10">
                 <TextBlock Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
                 <TextBox Style="{StaticResource RoundedTextBox}"
-                         Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                         Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="direct-customer-credit-note-customer-name-input" AutomationProperties.Name="Customer Name"/>
             </StackPanel>
 
             <UniformGrid Grid.Row="5" Columns="2" Margin="0,0,0,16">
                 <StackPanel Margin="0,0,8,0">
                     <TextBlock Text="Amount (₹)" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox x:Name="AmountBox" Style="{StaticResource RoundedTextBox}"
-                             Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"/>
+                             Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="direct-customer-credit-note-amount-input" AutomationProperties.Name="Amount"/>
                 </StackPanel>
                 <StackPanel Margin="8,0,0,0">
                     <TextBlock Text="Reason (optional)" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"
-                             Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"/>
+                             Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="direct-customer-credit-note-reason-input" AutomationProperties.Name="Reason"/>
                 </StackPanel>
             </UniformGrid>
 
             <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" Style="{StaticResource OutlineButton}" Width="90" Margin="0,0,8,0"
-                        IsCancel="True" Click="Cancel_OnClick"/>
+                        IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="direct-customer-credit-note-cancel-button" AutomationProperties.Name="Cancel"/>
                 <Button Content="Create credit note" Style="{StaticResource PrimaryButton}" MinWidth="150"
-                        IsDefault="True" Click="Post_OnClick"/>
+                        IsDefault="True" Click="Post_OnClick" AutomationProperties.AutomationId="direct-customer-credit-note-create-credit-note-button" AutomationProperties.Name="Create credit note"/>
             </StackPanel>
         </Grid>
     </Border>
