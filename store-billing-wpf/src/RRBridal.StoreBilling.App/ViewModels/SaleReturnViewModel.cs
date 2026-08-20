@@ -129,7 +129,9 @@ public partial class SaleReturnViewModel : ObservableObject
         _services = services;
         _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode);
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
-        _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _customerCodeGenerator = new CustomerCodeGenerator(
+            services.LocalDb,
+            () => services.CentralMode.IsOnlineMode);
         _ = AssignReturnNoAsync();
         LegacyReturnLines.CollectionChanged += (_, e) =>
         {

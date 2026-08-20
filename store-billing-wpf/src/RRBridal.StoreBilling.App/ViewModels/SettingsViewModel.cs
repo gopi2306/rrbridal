@@ -59,6 +59,14 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _receiptThankYouLine = "";
 
+    [ObservableProperty] private string _receiptBankAccountHolderName = "";
+
+    [ObservableProperty] private string _receiptBankAccountNumber = "";
+
+    [ObservableProperty] private string _receiptBankIfsc = "";
+
+    [ObservableProperty] private string _receiptBankBranchName = "";
+
     [ObservableProperty] private bool _receiptAlwaysUsePrintDialog;
 
     [ObservableProperty] private string? _selectedThermalPrinterFullName;
@@ -181,12 +189,23 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool IsWhatsAppA4TaxInvoiceFormat
+    {
+        get => WhatsAppInvoiceFormat == InvoicePrintFormat.A4TaxInvoice;
+        set
+        {
+            if (value)
+                WhatsAppInvoiceFormat = InvoicePrintFormat.A4TaxInvoice;
+        }
+    }
+
     partial void OnWhatsAppInvoiceFormatChanged(InvoicePrintFormat value)
     {
         OnPropertyChanged(nameof(IsWhatsAppThermalFormat));
         OnPropertyChanged(nameof(IsWhatsAppA4Format));
         OnPropertyChanged(nameof(IsWhatsAppA5Format));
         OnPropertyChanged(nameof(IsWhatsAppA4CommercialFormat));
+        OnPropertyChanged(nameof(IsWhatsAppA4TaxInvoiceFormat));
     }
 
     public ObservableCollection<PrinterOption> PrinterOptions { get; } = new();
@@ -259,6 +278,16 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool IsA4TaxInvoiceReceiptFormat
+    {
+        get => ReceiptPrintFormat == InvoicePrintFormat.A4TaxInvoice;
+        set
+        {
+            if (value)
+                ReceiptPrintFormat = InvoicePrintFormat.A4TaxInvoice;
+        }
+    }
+
     public bool IsCreditThermalPrintFormat
     {
         get => CreditPrintFormat == CreditPrintFormat.Thermal;
@@ -280,13 +309,15 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     public bool IsOfficeInvoiceFormat =>
-        ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
+        ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+            or InvoicePrintFormat.A4Commercial or InvoicePrintFormat.A4TaxInvoice;
 
     partial void OnReceiptPrintFormatChanged(InvoicePrintFormat value)
     {
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
         OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
+        OnPropertyChanged(nameof(IsA4TaxInvoiceReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         OnPropertyChanged(nameof(IsA4PrePrintedSettingsVisible));
@@ -398,6 +429,10 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptTerms = s.TermsAndConditions;
         ReceiptPolicyLinesText = string.Join(Environment.NewLine, s.PolicyLines ?? new List<string>());
         ReceiptThankYouLine = s.ThankYouLine;
+        ReceiptBankAccountHolderName = s.BankAccountHolderName;
+        ReceiptBankAccountNumber = s.BankAccountNumber;
+        ReceiptBankIfsc = s.BankIfsc;
+        ReceiptBankBranchName = s.BankBranchName;
         ReceiptAlwaysUsePrintDialog = c.Print.AlwaysUsePrintDialog;
         ApplyPrinterFieldsFromConfig(c.Print);
         ReceiptCharWidth = c.Print.ReceiptCharWidth is >= 32 and <= 56 ? c.Print.ReceiptCharWidth : 48;
@@ -411,6 +446,7 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsThermalReceiptFormat));
         OnPropertyChanged(nameof(IsA4ReceiptFormat));
         OnPropertyChanged(nameof(IsA4CommercialReceiptFormat));
+        OnPropertyChanged(nameof(IsA4TaxInvoiceReceiptFormat));
         OnPropertyChanged(nameof(IsA5ReceiptFormat));
         OnPropertyChanged(nameof(IsOfficeInvoiceFormat));
         OnPropertyChanged(nameof(IsCreditThermalPrintFormat));
@@ -523,6 +559,10 @@ public partial class SettingsViewModel : ObservableObject
         c.Store.Website = ReceiptWebsite.Trim();
         c.Store.TermsAndConditions = ReceiptTerms.Trim();
         c.Store.ThankYouLine = ReceiptThankYouLine.Trim();
+        c.Store.BankAccountHolderName = ReceiptBankAccountHolderName.Trim();
+        c.Store.BankAccountNumber = ReceiptBankAccountNumber.Trim();
+        c.Store.BankIfsc = ReceiptBankIfsc.Trim();
+        c.Store.BankBranchName = ReceiptBankBranchName.Trim();
         c.Store.PolicyLines = ReceiptPolicyLinesText
             .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(x => x.Trim())
@@ -547,7 +587,9 @@ public partial class SettingsViewModel : ObservableObject
         c.Print.CreditPrintFormat = CreditPrintFormat;
         c.Print.A4PrePrintedEnabled = A4PrePrintedEnabled;
         c.Print.A5PrePrintedEnabled = A5PrePrintedEnabled;
-        c.Print.AlsoPrintThermalFirst = ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial
+        c.Print.AlsoPrintThermalFirst =
+            (ReceiptPrintFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+                or InvoicePrintFormat.A4Commercial or InvoicePrintFormat.A4TaxInvoice)
             && AlsoPrintThermalFirst;
         c.Print.A4PrePrintedLayout = A4Layout.ToSettings();
         c.Print.A5PrePrintedLayout = A5Layout.ToSettings();
@@ -665,7 +707,8 @@ public partial class SettingsViewModel : ObservableObject
             var printFormat = ReceiptPrintFormat;
             var isA4PrePrinted = printFormat == InvoicePrintFormat.A4 && A4PrePrintedEnabled;
             var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && A5PrePrintedEnabled;
-            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
+            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+                or InvoicePrintFormat.A4Commercial or InvoicePrintFormat.A4TaxInvoice;
             var dualPrint = isOfficeFormat && AlsoPrintThermalFirst;
             var a4Layout = A4Layout.ToSettings();
             var a5Layout = A5Layout.ToSettings();
@@ -714,6 +757,8 @@ public partial class SettingsViewModel : ObservableObject
                 ? isDuplicate ? "A4 pre-printed duplicate layout" : "A4 pre-printed test layout"
                 : isA5PrePrinted
                 ? isDuplicate ? "A5 pre-printed duplicate layout" : "A5 pre-printed test layout"
+                : printFormat == InvoicePrintFormat.A4TaxInvoice
+                    ? "A4 Tax Invoice preview"
                 : printFormat == InvoicePrintFormat.A4Commercial
                     ? "A4 commercial invoice preview"
                 : isA5
@@ -764,6 +809,9 @@ public partial class SettingsViewModel : ObservableObject
         if (printFormat == InvoicePrintFormat.A4Commercial)
             return CommercialA4InvoiceDocumentBuilder.Create(input);
 
+        if (printFormat == InvoicePrintFormat.A4TaxInvoice)
+            return TaxInvoiceA4DocumentBuilder.Create(input);
+
         var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
             ? (148.0, 210.0)
             : (210.0, 297.0);
@@ -785,6 +833,10 @@ public partial class SettingsViewModel : ObservableObject
             FssaiNo = ReceiptFssaiNo.Trim(),
             BranchCode = ReceiptBranchCode.Trim(),
             Website = ReceiptWebsite.Trim(),
+            BankAccountHolderName = ReceiptBankAccountHolderName.Trim(),
+            BankAccountNumber = ReceiptBankAccountNumber.Trim(),
+            BankIfsc = ReceiptBankIfsc.Trim(),
+            BankBranchName = ReceiptBankBranchName.Trim(),
             TermsAndConditions = ReceiptTerms.Trim(),
             ThankYouLine = ReceiptThankYouLine.Trim(),
             PolicyLines = ReceiptPolicyLinesText
@@ -1120,6 +1172,7 @@ public partial class SettingsViewModel : ObservableObject
                 Barcodes = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Barcodes), counter),
                 Dashboard = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Dashboard), counter),
                 Analytics = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Analytics), counter),
+                CustomerBillingReport = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CustomerBillingReport), counter),
                 OnlineSales = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OnlineSales), counter),
                 CreditBills = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CreditBills), counter),
                 Customers = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Customers), counter),
@@ -1127,6 +1180,7 @@ public partial class SettingsViewModel : ObservableObject
                 Ledger = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Ledger), counter),
                 Returns = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Returns), counter),
                 BillLookup = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.BillLookup), counter),
+                OutboundDispatch = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OutboundDispatch), counter),
                 DayClose = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DayClose), counter),
                 Duplicate = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Duplicate), counter),
                 Adjustments = access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Adjustments), counter),
@@ -1163,6 +1217,7 @@ public partial class SettingsViewModel : ObservableObject
             Salesman = true,
             Returns = true,
             BillLookup = true,
+            OutboundDispatch = true,
             DayClose = true,
             Duplicate = true,
             Adjustments = true,
@@ -1187,6 +1242,8 @@ public partial class SettingsViewModel : ObservableObject
             CounterScreenAccessRows.Where(r => r.Dashboard).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.Analytics),
             CounterScreenAccessRows.Where(r => r.Analytics).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.CustomerBillingReport),
+            CounterScreenAccessRows.Where(r => r.CustomerBillingReport).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.OnlineSales),
             CounterScreenAccessRows.Where(r => r.OnlineSales).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.CreditBills),
@@ -1201,6 +1258,8 @@ public partial class SettingsViewModel : ObservableObject
             CounterScreenAccessRows.Where(r => r.Returns).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.BillLookup),
             CounterScreenAccessRows.Where(r => r.BillLookup).Select(r => r.PosCounter));
+        access.SetAllowed(nameof(CounterScreenAccessSettings.OutboundDispatch),
+            CounterScreenAccessRows.Where(r => r.OutboundDispatch).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.DayClose),
             CounterScreenAccessRows.Where(r => r.DayClose).Select(r => r.PosCounter));
         access.SetAllowed(nameof(CounterScreenAccessSettings.Duplicate),
@@ -1471,6 +1530,7 @@ public partial class SettingsViewModel : ObservableObject
             InvoicePrintFormat.A4 => "A4",
             InvoicePrintFormat.A5 => "A5",
             InvoicePrintFormat.A4Commercial => "A4 commercial",
+            InvoicePrintFormat.A4TaxInvoice => "A4 Tax Invoice",
             _ => "Thermal",
         };
         WhatsAppTemplateSummary = string.IsNullOrWhiteSpace(settings.TemplateName)

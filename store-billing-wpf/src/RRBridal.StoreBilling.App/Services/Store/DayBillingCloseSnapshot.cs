@@ -21,6 +21,14 @@ public sealed class DayBillingCloseSnapshot
 
     public decimal CreditNoteTotal { get; init; }
 
+    public decimal DispatchChargeCashTotal { get; init; }
+
+    public decimal DispatchChargeCardTotal { get; init; }
+
+    public decimal DispatchChargeUpiTotal { get; init; }
+
+    public decimal DispatchChargeBankTransferTotal { get; init; }
+
     public int ReturnCount { get; init; }
 
     public decimal ReturnTotalAmount { get; init; }
@@ -138,6 +146,8 @@ public sealed class DayCloseStockExceptionRow
 public sealed record PaymentDayTotals(decimal Cash, decimal Card, decimal Upi, decimal CreditNote);
 
 public sealed record ExpensePaymentDayTotals(decimal Total, decimal Cash, decimal Card, decimal Upi, decimal BankTransfer);
+
+public sealed record DispatchChargeDayTotals(decimal Cash, decimal Card, decimal Upi, decimal BankTransfer);
 
 public sealed record OnlineCodReceivedDayTotals(
     PaymentDayTotals Payments,

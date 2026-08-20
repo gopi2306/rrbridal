@@ -61,6 +61,22 @@ export class CompanyProfile {
   @Prop({ trim: true })
   website?: string;
 
+  @ApiProperty({ required: false, description: 'Bank account holder for Tax Invoice' })
+  @Prop({ trim: true })
+  bankAccountHolderName?: string;
+
+  @ApiProperty({ required: false, description: 'Bank account number for Tax Invoice' })
+  @Prop({ trim: true })
+  bankAccountNumber?: string;
+
+  @ApiProperty({ required: false, description: 'Bank IFSC for Tax Invoice' })
+  @Prop({ trim: true })
+  bankIfsc?: string;
+
+  @ApiProperty({ required: false, description: 'Bank branch name for Tax Invoice' })
+  @Prop({ trim: true })
+  bankBranchName?: string;
+
   @ApiProperty({ required: false })
   @Prop({ trim: true })
   termsAndConditions?: string;

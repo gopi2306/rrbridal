@@ -195,7 +195,9 @@ public partial class BillingViewModel : ObservableObject
         _services = services;
         _customerLookup = new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode);
         _customerRegistration = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
-        _customerCodeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _customerCodeGenerator = new CustomerCodeGenerator(
+            services.LocalDb,
+            () => services.CentralMode.IsOnlineMode);
         _salesmanService = new SalesmanService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
         var promoRepo = services.PromotionSchemes;
         _promotionEngine = new PromotionEngine(promoRepo);

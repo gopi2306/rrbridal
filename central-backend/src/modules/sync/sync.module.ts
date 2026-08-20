@@ -8,6 +8,7 @@ import { StockTransfersModule } from '../stock-transfers/stock-transfers.module'
 import { StoreSalesModule } from '../store-sales/store-sales.module';
 import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
 import { InventoryAdjustmentsModule } from '../inventory-adjustments/inventory-adjustments.module';
+import { OutboundDispatchesModule } from '../outbound-dispatches/outbound-dispatches.module';
 import { SyncController } from './sync.controller';
 import { SyncEvent, SyncEventSchema } from './schemas/sync-event.schema';
 import { SyncCursor, SyncCursorSchema } from './schemas/sync-cursor.schema';
@@ -23,6 +24,7 @@ import { SyncService } from './sync.service';
     StoreSalesModule,
     PromotionSchemesModule,
     InventoryAdjustmentsModule,
+    OutboundDispatchesModule,
     MongooseModule.forFeature([
       { name: SyncEvent.name, schema: SyncEventSchema },
       { name: SyncCursor.name, schema: SyncCursorSchema },

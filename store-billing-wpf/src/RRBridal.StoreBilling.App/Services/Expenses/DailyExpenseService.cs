@@ -63,6 +63,8 @@ public sealed class DailyExpenseDraft
     public decimal GstRate { get; init; }
     public string SupplyType { get; init; } = ExpenseSupplyType.IntraState;
     public IReadOnlyList<DailyExpensePaymentLeg> Payments { get; init; } = Array.Empty<DailyExpensePaymentLeg>();
+    public string LinkedDispatchNo { get; init; } = "";
+    public string LinkedBillNo { get; init; } = "";
 }
 
 /// <summary>Pure, backward-compatible GST and tender helpers for expense documents.</summary>
@@ -211,6 +213,10 @@ public static class DailyExpenseDomain
                 { "reference", p.Reference.Trim() },
             }));
         doc["status"] = "posted";
+        if (!string.IsNullOrWhiteSpace(draft.LinkedDispatchNo))
+            doc["dispatchNo"] = draft.LinkedDispatchNo.Trim();
+        if (!string.IsNullOrWhiteSpace(draft.LinkedBillNo))
+            doc["billNo"] = draft.LinkedBillNo.Trim();
         if (!doc.Contains("createdAtUtc"))
             doc["createdAtUtc"] = createdAtUtc;
         return doc;

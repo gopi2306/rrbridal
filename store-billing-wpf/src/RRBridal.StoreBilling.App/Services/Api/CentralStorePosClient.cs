@@ -125,6 +125,21 @@ public sealed class CentralStorePosClient
     public Task VoidDailyExpenseAsync(string expenseNo, object payload, CancellationToken ct = default) =>
         PostWriteAsync($"/api/store-pos/daily-expenses/{Uri.EscapeDataString(expenseNo.Trim())}/void", payload, ct);
 
+    public Task CreateOutboundDispatchAsync(object payload, CancellationToken ct = default) =>
+        PostWriteAsync("/api/store-pos/outbound-dispatches", payload, ct);
+
+    public Task UpdateOutboundDispatchAsync(string dispatchNo, object payload, CancellationToken ct = default) =>
+        PutWriteAsync($"/api/store-pos/outbound-dispatches/{Uri.EscapeDataString(dispatchNo.Trim())}", payload, ct);
+
+    public Task ChangeOutboundDispatchStatusAsync(string dispatchNo, object payload, CancellationToken ct = default) =>
+        PostWriteAsync($"/api/store-pos/outbound-dispatches/{Uri.EscapeDataString(dispatchNo.Trim())}/status", payload, ct);
+
+    public Task ReceiveOutboundDispatchChargeAsync(string dispatchNo, object payload, CancellationToken ct = default) =>
+        PostWriteAsync($"/api/store-pos/outbound-dispatches/{Uri.EscapeDataString(dispatchNo.Trim())}/charge", payload, ct);
+
+    public Task CancelOutboundDispatchAsync(string dispatchNo, object payload, CancellationToken ct = default) =>
+        PostWriteAsync($"/api/store-pos/outbound-dispatches/{Uri.EscapeDataString(dispatchNo.Trim())}/cancel", payload, ct);
+
     public Task PostCodPaymentAsync(string billNo, object payload, CancellationToken ct = default) =>
         PostWriteAsync($"/api/store-pos/bills/{Uri.EscapeDataString(billNo)}/cod-payment", payload, ct);
 
@@ -370,6 +385,62 @@ public sealed class CentralStorePosClient
         var raw = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)
             throw new InvalidOperationException($"Central daily-expenses list failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
+        return JsonDocument.Parse(raw);
+    }
+
+    public async Task<JsonDocument> ListOutboundDispatchesAsync(
+        string? businessDate = null,
+        string? status = null,
+        string? batchNo = null,
+        int limit = 100,
+        CancellationToken ct = default)
+    {
+        var url =
+            $"/api/store-pos/outbound-dispatches?storeCode={Uri.EscapeDataString(_storeContext.StoreId)}" +
+            $"&limit={Math.Clamp(limit, 1, 500)}";
+        if (!string.IsNullOrWhiteSpace(businessDate))
+            url += $"&businessDate={Uri.EscapeDataString(businessDate.Trim())}";
+        if (!string.IsNullOrWhiteSpace(status))
+            url += $"&status={Uri.EscapeDataString(status.Trim())}";
+        if (!string.IsNullOrWhiteSpace(batchNo))
+            url += $"&batchNo={Uri.EscapeDataString(batchNo.Trim())}";
+        using var res = await _http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Central outbound dispatch list failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
+        return JsonDocument.Parse(raw);
+    }
+
+    public async Task<JsonDocument> GetOutboundDispatchAsync(string dispatchNo, CancellationToken ct = default)
+    {
+        var url =
+            $"/api/store-pos/outbound-dispatches/{Uri.EscapeDataString(dispatchNo.Trim())}" +
+            $"?storeCode={Uri.EscapeDataString(_storeContext.StoreId)}";
+        using var res = await _http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        if (res.StatusCode == System.Net.HttpStatusCode.NotFound || string.IsNullOrWhiteSpace(raw) || raw == "null")
+            return JsonDocument.Parse("null");
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Central outbound dispatch lookup failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
+        return JsonDocument.Parse(raw);
+    }
+
+    public async Task<JsonDocument> GetActiveOutboundDispatchByBillAsync(
+        string billNo,
+        CancellationToken ct = default)
+    {
+        var url =
+            $"/api/store-pos/outbound-dispatches/by-bill/{Uri.EscapeDataString(billNo.Trim())}/active" +
+            $"?storeCode={Uri.EscapeDataString(_storeContext.StoreId)}";
+        using var res = await _http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        if (res.StatusCode == System.Net.HttpStatusCode.NotFound || string.IsNullOrWhiteSpace(raw) || raw == "null")
+            return JsonDocument.Parse("null");
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Central active dispatch lookup failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
         return JsonDocument.Parse(raw);
     }
 

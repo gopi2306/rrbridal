@@ -55,6 +55,12 @@ export class CompanyProfileService {
     }
     if (dto.fssaiNo !== undefined) set.fssaiNo = this.trimOrUndef(dto.fssaiNo);
     if (dto.website !== undefined) set.website = this.trimOrUndef(dto.website);
+    if (dto.bankAccountHolderName !== undefined)
+      set.bankAccountHolderName = this.trimOrUndef(dto.bankAccountHolderName);
+    if (dto.bankAccountNumber !== undefined)
+      set.bankAccountNumber = this.trimOrUndef(dto.bankAccountNumber);
+    if (dto.bankIfsc !== undefined) set.bankIfsc = this.trimOrUndef(dto.bankIfsc);
+    if (dto.bankBranchName !== undefined) set.bankBranchName = this.trimOrUndef(dto.bankBranchName);
     if (dto.termsAndConditions !== undefined) set.termsAndConditions = this.trimOrUndef(dto.termsAndConditions);
     if (dto.thankYouLine !== undefined) set.thankYouLine = this.trimOrUndef(dto.thankYouLine);
     if (dto.policyLines !== undefined) set.policyLines = dto.policyLines;

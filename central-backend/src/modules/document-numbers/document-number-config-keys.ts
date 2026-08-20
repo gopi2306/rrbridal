@@ -8,6 +8,8 @@ export const DOCUMENT_NUMBER_CONFIG_KEYS = [
   'goods_receipt_rcv',
   'goods_receipt_grn',
   'inventory_adjustment',
+  'outbound_dispatch',
+  'outbound_dispatch_batch',
 ] as const;
 
 export type DocumentNumberConfigKey = (typeof DOCUMENT_NUMBER_CONFIG_KEYS)[number];
@@ -97,5 +99,21 @@ export const DOCUMENT_NUMBER_CONFIG_DEFAULTS: DocumentNumberConfigDefault[] = [
     startFrom: 1,
     label: 'Inventory adjustment',
     description: 'Inventory adjustment number (adjustmentNo)',
+  },
+  {
+    configKey: 'outbound_dispatch',
+    prefix: 'DSP-',
+    padLength: 6,
+    startFrom: 1,
+    label: 'Outbound dispatch',
+    description: 'Outbound dispatch number (dispatchNo)',
+  },
+  {
+    configKey: 'outbound_dispatch_batch',
+    prefix: 'DSPB-',
+    padLength: 6,
+    startFrom: 1,
+    label: 'Outbound dispatch batch',
+    description: 'Outbound dispatch batch number (batchNo)',
   },
 ];

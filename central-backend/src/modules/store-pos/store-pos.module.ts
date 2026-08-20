@@ -17,6 +17,8 @@ import { StoresModule } from '../stores/stores.module';
 import { SyncModule } from '../sync/sync.module';
 import { PromotionSchemesModule } from '../promotion-schemes/promotion-schemes.module';
 import { StockTransfersModule } from '../stock-transfers/stock-transfers.module';
+import { OutboundDispatchesModule } from '../outbound-dispatches/outbound-dispatches.module';
+import { OutboundDispatchesController } from '../outbound-dispatches/outbound-dispatches.controller';
 import { StoreHeldBill, StoreHeldBillSchema } from './schemas/store-held-bill.schema';
 import { StorePosCounter, StorePosCounterSchema } from './schemas/store-pos-counter.schema';
 import { StorePosController } from './store-pos.controller';
@@ -31,6 +33,7 @@ import { StorePosService } from './store-pos.service';
     StoresModule,
     PromotionSchemesModule,
     StockTransfersModule,
+    OutboundDispatchesModule,
     MongooseModule.forFeature([
       { name: StoreInvoice.name, schema: StoreInvoiceSchema },
       { name: StoreSaleReturn.name, schema: StoreSaleReturnSchema },
@@ -47,7 +50,7 @@ import { StorePosService } from './store-pos.service';
       { name: StoreHeldBill.name, schema: StoreHeldBillSchema },
     ]),
   ],
-  controllers: [StorePosController],
+  controllers: [StorePosController, OutboundDispatchesController],
   providers: [StorePosService, StorePosQueryService],
   exports: [StorePosService, StorePosQueryService],
 })

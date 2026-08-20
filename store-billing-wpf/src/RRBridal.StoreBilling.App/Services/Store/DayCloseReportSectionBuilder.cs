@@ -31,6 +31,10 @@ internal static class DayCloseReportSectionBuilder
         [
             ("Opening cash", F(s.OpeningCash)),
             ("Gross cash from bills", F(s.CashTotal)),
+            ("Dispatch charges (cash)", F(s.DispatchChargeCashTotal)),
+            ("Dispatch charges (card)", F(s.DispatchChargeCardTotal)),
+            ("Dispatch charges (UPI)", F(s.DispatchChargeUpiTotal)),
+            ("Dispatch charges (bank transfer)", F(s.DispatchChargeBankTransferTotal)),
             ("Cash refunds (returns)", F(-s.ReturnCashRefundTotal)),
             ("Credit note cashouts", F(-s.CreditNoteCashoutTotal)),
             ("Daily expenses (all tenders)", F(-s.DailyExpensesTotal)),

@@ -467,7 +467,7 @@ public sealed class CustomerRegistrationService
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            if (root.TryGetProperty("_id", out var idEl))
+            if (root.TryGetProperty("_id", out var idEl) || root.TryGetProperty("id", out idEl))
             {
                 if (idEl.ValueKind == JsonValueKind.String)
                     return idEl.GetString();

@@ -1,0 +1,50 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:RRBridal.StoreBilling.App.Views"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1180"
+             AutomationProperties.AutomationId="reports-page"
+             AutomationProperties.Name="Reports"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,0,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="320"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Reports" Style="{StaticResource TextPageTitleAccent}"/>
+            <TextBlock Text="Open a report tab. Customer billing, supplier-wise, fast sellers, and going out of stock are available here."
+                       Style="{StaticResource PageSubtitle}" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <TabControl Grid.Row="1"
+                    Style="{StaticResource ThemedTabControl}"
+                    VerticalAlignment="Stretch"
+                    SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+            <TabItem Header="Customer Billing"
+                     AutomationProperties.AutomationId="reports-tab-customer-billing"
+                     AutomationProperties.Name="Customer Billing report">
+                <views:CustomerBillingReportView DataContext="{Binding CustomerBilling}"/>
+            </TabItem>
+            <TabItem Header="Supplier-wise"
+                     AutomationProperties.AutomationId="reports-tab-supplier-wise"
+                     AutomationProperties.Name="Supplier-wise sales report">
+                <views:SupplierWiseReportView DataContext="{Binding SupplierWise}"/>
+            </TabItem>
+            <TabItem Header="Fast sellers"
+                     AutomationProperties.AutomationId="reports-tab-fast-sellers"
+                     AutomationProperties.Name="Fast sellers report">
+                <views:FastSellersReportView DataContext="{Binding FastSellers}"/>
+            </TabItem>
+            <TabItem Header="Going out of stock"
+                     AutomationProperties.AutomationId="reports-tab-going-out-of-stock"
+                     AutomationProperties.Name="Going out of stock report">
+                <views:GoingOutOfStockReportView DataContext="{Binding GoingOutOfStock}"/>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

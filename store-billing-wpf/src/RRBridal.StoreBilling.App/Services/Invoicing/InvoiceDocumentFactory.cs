@@ -49,6 +49,9 @@ public static class InvoiceDocumentFactory
         if (format == InvoicePrintFormat.A4Commercial)
             return CommercialA4InvoiceDocumentBuilder.Create(input);
 
+        if (format == InvoicePrintFormat.A4TaxInvoice)
+            return TaxInvoiceA4DocumentBuilder.Create(input);
+
         var (pageW, pageH) = format == InvoicePrintFormat.A5
             ? (148.0, 210.0)
             : (210.0, 297.0);

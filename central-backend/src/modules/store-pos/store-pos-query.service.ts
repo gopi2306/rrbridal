@@ -27,6 +27,8 @@ const NUMBER_KINDS: Record<string, string> = {
   quotationNo: 'QUOT-',
   paymentReceiptNo: 'RCPT-',
   creditNoteNo: 'CN-',
+  dispatchNo: 'DSP-',
+  dispatchBatchNo: 'DSPB-',
 };
 
 @Injectable()

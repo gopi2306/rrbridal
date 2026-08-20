@@ -490,4 +490,40 @@ public class DayBillingCloseDocumentReaderTests
         Assert.Single(filtered);
         Assert.Equal("ADJ-1", DayBillingCloseDocumentReader.ReadString(filtered[0], "adjustmentNo"));
     }
+
+    [Fact]
+    public void AggregateDispatchChargePayments_counts_posted_receipts_by_tender()
+    {
+        var localDate = DateTime.Today;
+        var createdAtUtc = localDate.AddHours(10).ToUniversalTime().ToString("O");
+        BsonDocument Dispatch(string mode, decimal amount, string counter = "1", string status = "posted") => new()
+        {
+            { "posCounter", counter },
+            { "chargeReceipt", new BsonDocument
+                {
+                    { "status", status },
+                    { "createdAtUtc", createdAtUtc },
+                    { "mode", mode },
+                    { "amount", (double)amount },
+                }
+            },
+        };
+        var dispatches = new[]
+        {
+            Dispatch("Cash", 100m),
+            Dispatch("Card", 200m),
+            Dispatch("UPI", 300m),
+            Dispatch("Bank Transfer", 400m),
+            Dispatch("Cash", 999m, counter: "2"),
+            Dispatch("Cash", 999m, status: "void"),
+        };
+
+        var totals = DayBillingCloseDocumentReader.AggregateDispatchChargePayments(
+            dispatches, localDate, "1");
+
+        Assert.Equal(100m, totals.Cash);
+        Assert.Equal(200m, totals.Card);
+        Assert.Equal(300m, totals.Upi);
+        Assert.Equal(400m, totals.BankTransfer);
+    }
 }

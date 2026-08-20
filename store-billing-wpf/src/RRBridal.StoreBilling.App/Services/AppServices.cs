@@ -20,6 +20,7 @@ using RRBridal.StoreBilling.App.Services.Ui;
 using RRBridal.StoreBilling.App.Services.WhatsApp;
 using RRBridal.StoreBilling.App.Services.Expenses;
 using RRBridal.StoreBilling.App.Services.Billing.Promotions;
+using RRBridal.StoreBilling.App.Services.Dispatch;
 
 namespace RRBridal.StoreBilling.App.Services;
 
@@ -77,10 +78,14 @@ public sealed class AppServices
     public required OutboxNotificationService OutboxNotifications { get; init; }
     public required StoreAuditLogService StoreAuditLog { get; init; }
     public required StoreBillListService StoreBillList { get; init; }
+    public required CustomerBillingReportService CustomerBillingReports { get; init; }
+    public required SkuSalesReportService SkuSalesReports { get; init; }
+    public required GoingOutOfStockReportService GoingOutOfStockReports { get; init; }
     public required DaySessionService DaySessions { get; init; }
     public required DayCloseReportService DayCloseReports { get; init; }
     public required CashMovementService CashMovements { get; init; }
     public required DailyExpenseService DailyExpenses { get; init; }
+    public required OutboundDispatchService OutboundDispatches { get; init; }
     public required OnlineCodBillService OnlineCodBills { get; init; }
     public required QuotationService Quotations { get; init; }
     public required CreditBillService CreditBills { get; init; }
@@ -180,6 +185,9 @@ public sealed class AppServices
         var shellUiSettings = new ShellUiSettingsStore();
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
+        var customerBillingReports = new CustomerBillingReportService(localDb, http, storeContext);
+        var skuSalesReports = new SkuSalesReportService(localDb, http, storeContext);
+        var goingOutOfStockReports = new GoingOutOfStockReportService(localDb, http, storeContext);
         var billDelete = new BillDeleteService(
             localDb, storeContext, billDocuments, storeBillList, productCatalog, billingOutbox);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);
@@ -189,6 +197,8 @@ public sealed class AppServices
         var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var dailyExpenses = new DailyExpenseService(localDb, storeContext, billNumberGenerator, billingOutbox, storeAuditLog);
+        var outboundDispatches = new OutboundDispatchService(
+            localDb, storeContext, billNumberGenerator, billingOutbox, dailyExpenses, storeAuditLog);
         var onlineCodBills = new OnlineCodBillService(localDb, billingOutbox);
         var quotations = new QuotationService(localDb, storeContext, billNumberGenerator, billingOutbox);
         var creditBills = new CreditBillService(localDb, billingOutbox, billNumberGenerator);
@@ -243,6 +253,10 @@ public sealed class AppServices
         customerCreditNotes.ConfigureNumberGenerator(billNumberGenerator);
         saleReturnHistory.ConfigureOnline(centralMode, storePos);
         storeBillList.ConfigureOnline(centralMode, storePos);
+        customerBillingReports.ConfigureOnline(centralMode);
+        skuSalesReports.ConfigureOnline(centralMode);
+        goingOutOfStockReports.ConfigureOnline(centralMode);
+        outboundDispatches.ConfigureOnline(centralMode, storePos);
         paymentRouter.ConfigureOnline(centralMode, storePos);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding, centralMode);
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
@@ -295,10 +309,14 @@ public sealed class AppServices
             OutboxNotifications = outboxNotifications,
             StoreAuditLog = storeAuditLog,
             StoreBillList = storeBillList,
+            CustomerBillingReports = customerBillingReports,
+            SkuSalesReports = skuSalesReports,
+            GoingOutOfStockReports = goingOutOfStockReports,
             DaySessions = daySessions,
             DayCloseReports = dayCloseReports,
             CashMovements = cashMovements,
             DailyExpenses = dailyExpenses,
+            OutboundDispatches = outboundDispatches,
             OnlineCodBills = onlineCodBills,
             Quotations = quotations,
             CreditBills = creditBills,
@@ -372,6 +390,33 @@ public sealed class AppServices
                     {
                         var expenseNo = ReadPayloadString(payload, "expenseNo") ?? "";
                         await storePos.VoidDailyExpenseAsync(expenseNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "OutboundDispatchCreated":
+                        await storePos.CreateOutboundDispatchAsync(mapped!, ct).ConfigureAwait(false);
+                        break;
+                    case "OutboundDispatchUpdated":
+                    {
+                        var dispatchNo = ReadPayloadString(payload, "dispatchNo") ?? "";
+                        await storePos.UpdateOutboundDispatchAsync(dispatchNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "OutboundDispatchStatusChanged":
+                    {
+                        var dispatchNo = ReadPayloadString(payload, "dispatchNo") ?? "";
+                        await storePos.ChangeOutboundDispatchStatusAsync(dispatchNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "OutboundDispatchChargeReceived":
+                    {
+                        var dispatchNo = ReadPayloadString(payload, "dispatchNo") ?? "";
+                        await storePos.ReceiveOutboundDispatchChargeAsync(dispatchNo, mapped!, ct).ConfigureAwait(false);
+                        break;
+                    }
+                    case "OutboundDispatchCancelled":
+                    {
+                        var dispatchNo = ReadPayloadString(payload, "dispatchNo") ?? "";
+                        await storePos.CancelOutboundDispatchAsync(dispatchNo, mapped!, ct).ConfigureAwait(false);
                         break;
                     }
                     case "InvoiceCodPaymentReceived":

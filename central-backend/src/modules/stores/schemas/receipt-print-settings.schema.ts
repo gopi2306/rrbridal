@@ -24,7 +24,11 @@ export class ReceiptPrintSettings {
   @Prop({ min: 58, max: 120 })
   paperWidthMm?: number;
 
-  @ApiProperty({ required: false, example: 'Thermal', description: 'Thermal | A4 | A5 | A4Commercial' })
+  @ApiProperty({
+    required: false,
+    example: 'Thermal',
+    description: 'Thermal | A4 | A5 | A4Commercial | A4TaxInvoice',
+  })
   @Prop({ trim: true })
   printFormat?: string;
 

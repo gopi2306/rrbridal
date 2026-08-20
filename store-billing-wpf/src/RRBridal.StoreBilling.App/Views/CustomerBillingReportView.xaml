@@ -1,0 +1,246 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.CustomerBillingReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1180"
+             AutomationProperties.AutomationId="customer-billing-report-page"
+             AutomationProperties.Name="Customer-wise billing report"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,4,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Posted bills grouped by customer, with returns, payments, and expandable line items."
+                       Style="{StaticResource PageSubtitle}" VerticalAlignment="Center"
+                       TextWrapping="Wrap" Margin="0,0,280,0"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="100"
+                        Command="{Binding RefreshCommand}" Margin="0,0,8,0"/>
+                <Button Content="Download Excel" Style="{StaticResource PrimaryButton}" MinWidth="140"
+                        Command="{Binding DownloadExcelCommand}"/>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+            <WrapPanel>
+                <StackPanel Width="145" Margin="0,0,12,6">
+                    <TextBlock Text="From date" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}"
+                                SelectedDate="{Binding DateFrom, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Width="145" Margin="0,0,12,6">
+                    <TextBlock Text="To date (inclusive)" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}"
+                                SelectedDate="{Binding DateTo, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Width="260" Margin="0,0,12,6">
+                    <TextBlock Text="Customer search" Style="{StaticResource FilterFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search customer name, code, or phone"/>
+                </StackPanel>
+                <StackPanel Width="150" Margin="0,0,12,6">
+                    <TextBlock Text="POS counter" Style="{StaticResource FilterFieldLabel}"/>
+                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                              ItemsSource="{Binding PosCounterFilterOptions}"
+                              SelectedItem="{Binding SelectedPosCounterFilter}"
+                              DisplayMemberPath="Label"/>
+                </StackPanel>
+                <Button Content="Search" Style="{StaticResource PrimaryButton}" MinWidth="110"
+                        Height="34" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                        Command="{Binding SearchCommand}" IsDefault="True"/>
+            </WrapPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <Border Padding="10,7" CornerRadius="6" Background="{StaticResource BrushSurface}">
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextCaption}">
+                            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <Setter Property="Foreground" Value="#B91C1C"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+
+            <Border Margin="0,8,0,0" Padding="10" CornerRadius="6" Background="#FFF7ED"
+                    Visibility="{Binding IsTruncated, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding TruncatedMessage}" Foreground="#9A3412"
+                           FontWeight="SemiBold" TextWrapping="Wrap"/>
+            </Border>
+
+            <UniformGrid Margin="0,10,0,0"
+                         ui:UniformGridColumnsBehavior.IsEnabled="True"
+                         ui:UniformGridColumnsBehavior.CompactColumns="2"
+                         ui:UniformGridColumnsBehavior.MediumColumns="3"
+                         ui:UniformGridColumnsBehavior.WideColumns="5">
+                <Border Style="{StaticResource MetricCardAccent}">
+                    <StackPanel>
+                        <TextBlock Text="Customers" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding CustomerCount}" Style="{StaticResource MetricValueAccent}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Bills" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding BillCount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Gross billed" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding GrossAmount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Returns" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding ReturnAmount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Net sales" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding NetAmount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+            <TextBlock Text="{Binding PaymentSummary}" Style="{StaticResource TextCaption}"
+                       TextWrapping="Wrap" Margin="4,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
+            <Grid>
+                <TextBlock Text="No matching customer billing activity."
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Style="{StaticResource PageSubtitle}"
+                           Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasRows, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl ItemsSource="{Binding CustomerRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Expander Margin="0,0,0,8" BorderThickness="1"
+                                          BorderBrush="{StaticResource BrushBorder}" Background="{StaticResource BrushSurface}">
+                                    <Expander.Header>
+                                        <Grid Margin="8,6" MinWidth="760">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2*"/>
+                                                <ColumnDefinition Width="1.2*"/>
+                                                <ColumnDefinition Width="75"/>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="120"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource BrushText}"/>
+                                                <TextBlock Style="{StaticResource TextCaption}">
+                                                    <Run Text="{Binding CustomerCode}"/><Run Text=" · "/><Run Text="{Binding CustomerPhone}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding CustomerKey}" Style="{StaticResource TextCaption}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding BillCount, StringFormat={}{0} bills}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding GrossAmount, StringFormat=₹ {0:N2}}"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding ReturnAmount, StringFormat=₹ {0:N2}}"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#B45309"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding NetAmount, StringFormat=₹ {0:N2}}"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                       FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
+                                        </Grid>
+                                    </Expander.Header>
+                                    <ItemsControl ItemsSource="{Binding Bills}" Margin="8,0,8,8">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Expander Margin="0,0,0,6" BorderThickness="1"
+                                                          BorderBrush="{StaticResource BrushBorder}"
+                                                          Background="{StaticResource BrushBackground}"
+                                                          IsExpanded="False">
+                                                    <Expander.Header>
+                                                        <Grid Margin="6,4" MinWidth="720">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="100"/>
+                                                                <ColumnDefinition Width="1.6*"/>
+                                                                <ColumnDefinition Width="60"/>
+                                                                <ColumnDefinition Width="70"/>
+                                                                <ColumnDefinition Width="100"/>
+                                                                <ColumnDefinition Width="100"/>
+                                                                <ColumnDefinition Width="100"/>
+                                                                <ColumnDefinition Width="90"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding BillDate}" VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding BillNo}" FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource BrushAccent}"/>
+                                                                <TextBlock Text="Click to expand line items"
+                                                                           Style="{StaticResource TextCaption}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="2" Text="{Binding PosCounter}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Qty, StringFormat=N2}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding GrossAmount, StringFormat=₹ {0:N2}}"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding ReturnAmount, StringFormat=₹ {0:N2}}"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#B45309"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding NetAmount, StringFormat=₹ {0:N2}}"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="Bold"/>
+                                                            <TextBlock Grid.Column="7" Text="{Binding Lines.Count, Mode=OneWay, StringFormat={}{0} lines}"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                                       Style="{StaticResource TextCaption}"/>
+                                                        </Grid>
+                                                    </Expander.Header>
+                                                    <StackPanel Margin="8,0,8,8">
+                                                        <TextBlock Text="Line items" Style="{StaticResource FilterFieldLabel}" Margin="0,0,0,4"/>
+                                                        <DataGrid ItemsSource="{Binding Lines}"
+                                                                  Style="{StaticResource ThemedDataGrid}" AutoGenerateColumns="False"
+                                                                  IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                                                                  MaxHeight="220" SelectionMode="Single">
+                                                            <DataGrid.Columns>
+                                                                <DataGridTextColumn Header="#" Binding="{Binding LineNo}" Width="40"/>
+                                                                <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110"/>
+                                                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                                                <DataGridTextColumn Header="HSN" Binding="{Binding Hsn}" Width="80"/>
+                                                                <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat=N2}" Width="70"/>
+                                                                <DataGridTextColumn Header="Rate" Binding="{Binding Rate, StringFormat=₹ {0:N2}}" Width="95"/>
+                                                                <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat=₹ {0:N2}}" Width="95"/>
+                                                                <DataGridTextColumn Header="Tax" Binding="{Binding TaxAmount, StringFormat=₹ {0:N2}}" Width="90"/>
+                                                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=₹ {0:N2}}" Width="105"/>
+                                                            </DataGrid.Columns>
+                                                        </DataGrid>
+                                                        <TextBlock Margin="0,6,0,0" Style="{StaticResource TextCaption}" TextWrapping="Wrap">
+                                                            <Run Text="Payments: Cash "/><Run Text="{Binding Payments.Cash, StringFormat=₹ {0:N2}}"/>
+                                                            <Run Text=" · Card "/><Run Text="{Binding Payments.Card, StringFormat=₹ {0:N2}}"/>
+                                                            <Run Text=" · UPI "/><Run Text="{Binding Payments.Upi, StringFormat=₹ {0:N2}}"/>
+                                                            <Run Text=" · Credit note "/><Run Text="{Binding Payments.CreditNote, StringFormat=₹ {0:N2}}"/>
+                                                            <Run Text=" · Return records "/><Run Text="{Binding Returns.Count, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Expander>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Expander>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

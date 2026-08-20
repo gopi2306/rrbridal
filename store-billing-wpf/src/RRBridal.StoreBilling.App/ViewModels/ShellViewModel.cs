@@ -22,6 +22,8 @@ public partial class ShellViewModel : ObservableObject
 
     public AnalyticsViewModel Analytics { get; }
 
+    public ReportsViewModel Reports { get; }
+
     public OnlineSalesViewModel OnlineSales { get; }
 
     public QuotationViewModel Quotation { get; }
@@ -41,6 +43,8 @@ public partial class ShellViewModel : ObservableObject
     public SaleReturnViewModel SaleReturn { get; }
 
     public BillLookupViewModel BillLookup { get; }
+
+    public OutboundDispatchViewModel OutboundDispatch { get; }
 
     public AdjustmentBillViewModel AdjustmentBill { get; }
 
@@ -153,6 +157,11 @@ public partial class ShellViewModel : ObservableObject
 
     public bool ShowAnalyticsNav => CanAccess(ShellPage.Analytics);
 
+    public bool ShowCustomerBillingReportNav => CanAccess(ShellPage.CustomerBillingReport);
+
+    public bool ShowReportsNav => ShowDashboardNav || ShowAnalyticsNav || ShowCustomerBillingReportNav
+                                  || ShowLedgerNav || ShowBillLookupNav;
+
     public bool ShowOnlineSalesNav => CanAccess(ShellPage.OnlineSales);
 
     public bool ShowCreditBillsNav => CanAccess(ShellPage.CreditBills);
@@ -166,6 +175,8 @@ public partial class ShellViewModel : ObservableObject
     public bool ShowReturnsNav => CanAccess(ShellPage.SaleReturn);
 
     public bool ShowBillLookupNav => CanAccess(ShellPage.BillLookup);
+
+    public bool ShowOutboundDispatchNav => CanAccess(ShellPage.OutboundDispatch);
 
     public bool ShowDayCloseNav => CanAccess(ShellPage.DayClose);
 
@@ -227,6 +238,7 @@ public partial class ShellViewModel : ObservableObject
                 CurrentPage = ShellPage.CreditBills;
         };
         Analytics = new AnalyticsViewModel(services);
+        Reports = new ReportsViewModel(services);
         OnlineSales = new OnlineSalesViewModel(services);
         Quotation = new QuotationViewModel(services);
         Quotation.Editor.NavigateToCustomerRegistration = () =>
@@ -252,6 +264,18 @@ public partial class ShellViewModel : ObservableObject
         SaleReturn = new SaleReturnViewModel(services);
         AdjustmentBill = new AdjustmentBillViewModel(services);
         BillLookup = new BillLookupViewModel(services);
+        OutboundDispatch = new OutboundDispatchViewModel(services);
+        BillLookup.OpenDispatchForBill = billNo =>
+        {
+            if (!CanAccess(ShellPage.OutboundDispatch))
+            {
+                AppDialog.Show("This counter does not have access to Outbound Dispatch.",
+                    "Outbound Dispatch", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            CurrentPage = ShellPage.OutboundDispatch;
+            _ = OutboundDispatch.OpenBillAsync(billNo);
+        };
         DuplicatePrint = new DuplicatePrintViewModel(services);
         BarcodePrinting = new BarcodePrintingViewModel(services);
         DailyExpenses = new DailyExpenseViewModel(services);
@@ -321,6 +345,7 @@ public partial class ShellViewModel : ObservableObject
             ShellPage.Barcodes => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Barcodes), counter),
             ShellPage.Dashboard => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Dashboard), counter),
             ShellPage.Analytics => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Analytics), counter),
+            ShellPage.CustomerBillingReport => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CustomerBillingReport), counter),
             ShellPage.OnlineSales => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OnlineSales), counter),
             ShellPage.CreditBills => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.CreditBills), counter),
             ShellPage.Customers => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Customers), counter),
@@ -328,6 +353,7 @@ public partial class ShellViewModel : ObservableObject
             ShellPage.Ledger => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Ledger), counter),
             ShellPage.SaleReturn => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Returns), counter),
             ShellPage.BillLookup => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.BillLookup), counter),
+            ShellPage.OutboundDispatch => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.OutboundDispatch), counter),
             ShellPage.DayClose => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.DayClose), counter),
             ShellPage.DuplicateBill => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Duplicate), counter),
             ShellPage.Adjustments => access.IsCounterAllowed(nameof(CounterScreenAccessSettings.Adjustments), counter),
@@ -345,6 +371,8 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowBarcodesNav));
         OnPropertyChanged(nameof(ShowDashboardNav));
         OnPropertyChanged(nameof(ShowAnalyticsNav));
+        OnPropertyChanged(nameof(ShowCustomerBillingReportNav));
+        OnPropertyChanged(nameof(ShowReportsNav));
         OnPropertyChanged(nameof(ShowOnlineSalesNav));
         OnPropertyChanged(nameof(ShowCreditBillsNav));
         OnPropertyChanged(nameof(ShowCustomersNav));
@@ -352,6 +380,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowLedgerNav));
         OnPropertyChanged(nameof(ShowReturnsNav));
         OnPropertyChanged(nameof(ShowBillLookupNav));
+        OnPropertyChanged(nameof(ShowOutboundDispatchNav));
         OnPropertyChanged(nameof(ShowDayCloseNav));
         OnPropertyChanged(nameof(ShowDuplicateNav));
         OnPropertyChanged(nameof(ShowAdjustmentsNav));
@@ -371,6 +400,7 @@ public partial class ShellViewModel : ObservableObject
                      ShellPage.Barcodes,
                      ShellPage.Dashboard,
                      ShellPage.Analytics,
+                     ShellPage.CustomerBillingReport,
                      ShellPage.OnlineSales,
                      ShellPage.CreditBills,
                      ShellPage.Customers,
@@ -378,6 +408,7 @@ public partial class ShellViewModel : ObservableObject
                      ShellPage.Ledger,
                      ShellPage.SaleReturn,
                      ShellPage.BillLookup,
+                     ShellPage.OutboundDispatch,
                      ShellPage.DayClose,
                      ShellPage.DuplicateBill,
                      ShellPage.Adjustments,
@@ -421,6 +452,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
+        OnPropertyChanged(nameof(IsCustomerBillingReportPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsQuotationPage));
         OnPropertyChanged(nameof(IsQuotationManagementPage));
@@ -430,6 +462,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
+        OnPropertyChanged(nameof(IsOutboundDispatchPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -492,6 +525,8 @@ public partial class ShellViewModel : ObservableObject
 
     public bool IsAnalyticsPage => CurrentPage == ShellPage.Analytics;
 
+    public bool IsCustomerBillingReportPage => CurrentPage == ShellPage.CustomerBillingReport;
+
     public bool IsOnlineSalesPage => CurrentPage == ShellPage.OnlineSales;
 
     public bool IsQuotationPage => CurrentPage == ShellPage.Quotation;
@@ -509,6 +544,8 @@ public partial class ShellViewModel : ObservableObject
     public bool IsSaleReturnPage => CurrentPage == ShellPage.SaleReturn;
 
     public bool IsBillLookupPage => CurrentPage == ShellPage.BillLookup;
+
+    public bool IsOutboundDispatchPage => CurrentPage == ShellPage.OutboundDispatch;
 
     public bool IsAdjustmentsPage => CurrentPage == ShellPage.Adjustments;
 
@@ -557,6 +594,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBillingPage));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsAnalyticsPage));
+        OnPropertyChanged(nameof(IsCustomerBillingReportPage));
         OnPropertyChanged(nameof(IsOnlineSalesPage));
         OnPropertyChanged(nameof(IsQuotationPage));
         OnPropertyChanged(nameof(IsQuotationManagementPage));
@@ -566,6 +604,7 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLedgerPage));
         OnPropertyChanged(nameof(IsSaleReturnPage));
         OnPropertyChanged(nameof(IsBillLookupPage));
+        OnPropertyChanged(nameof(IsOutboundDispatchPage));
         OnPropertyChanged(nameof(IsAdjustmentsPage));
         OnPropertyChanged(nameof(IsDuplicateBillPage));
         OnPropertyChanged(nameof(IsBarcodesPage));
@@ -581,6 +620,8 @@ public partial class ShellViewModel : ObservableObject
             _ = Dashboard.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Analytics)
             _ = Analytics.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.CustomerBillingReport)
+            Reports.OnNavigated();
         if (value == ShellPage.OnlineSales)
             _ = OnlineSales.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.QuotationManagement)
@@ -589,6 +630,8 @@ public partial class ShellViewModel : ObservableObject
             _ = CreditBills.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
+        if (value == ShellPage.OutboundDispatch)
+            _ = OutboundDispatch.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Customers)
             _ = Customers.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.Salesmen)
@@ -757,6 +800,7 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Billing => "Billing",
         ShellPage.Dashboard => "Dashboard",
         ShellPage.Analytics => "Analytics",
+        ShellPage.CustomerBillingReport => "Reports",
         ShellPage.OnlineSales => "Online Sales",
         ShellPage.Quotation => "Quotation",
         ShellPage.QuotationManagement => "Quotations",
@@ -766,6 +810,7 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Ledger => "Ledger",
         ShellPage.SaleReturn => "Returns",
         ShellPage.BillLookup => "Bill Lookup",
+        ShellPage.OutboundDispatch => "Outbound Dispatch",
         ShellPage.DayClose => "Day Close",
         ShellPage.DuplicateBill => "Duplicate",
         ShellPage.Adjustments => "Adjustments",
@@ -784,7 +829,9 @@ public partial class ShellViewModel : ObservableObject
         ShellPage.Customers => "Customers · F4/Ctrl+S save · Esc/F2 new · Ctrl+U open · F1 shortcuts",
         ShellPage.SaleReturn => "Returns · Ctrl+R · F2 clear · F3 search exchange · F1 shortcuts",
         ShellPage.DayClose => "Day Close · Ctrl+W · F2 refresh · F1 shortcuts",
+        ShellPage.OutboundDispatch => "Outbound Dispatch · Search posted bills · manage status · print parcel and batch documents",
         ShellPage.Dashboard => "Dashboard · Ctrl+D · F2 refresh · F1 shortcuts",
+        ShellPage.CustomerBillingReport => "Reports · Customer Billing · Supplier-wise · Fast sellers · Going out of stock · Excel download",
         ShellPage.Vouchers => "Vouchers · Ctrl+V · 1–6 select · Enter create · F1 shortcuts",
         _ => "Ctrl+G Go To · Ctrl+V Vouchers · Ctrl+A Billing · Ctrl+U Customers · F1 all shortcuts",
     };
@@ -889,6 +936,9 @@ public partial class ShellViewModel : ObservableObject
                 break;
             case ShellPage.BillLookup:
                 _ = BillLookup.ResetForNewAsync();
+                break;
+            case ShellPage.OutboundDispatch:
+                _ = OutboundDispatch.RefreshCommand.ExecuteAsync(null);
                 break;
             case ShellPage.Adjustments:
                 _ = AdjustmentBill.ClearFormCommand.ExecuteAsync(null);

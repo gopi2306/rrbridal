@@ -84,6 +84,11 @@ export class ProductsController {
 
   }
 
+  @Post('backfill-without-gst-prices')
+  async backfillWithoutGstPrices() {
+    return await this.productsService.backfillWithoutGstPrices();
+  }
+
 
 
   @Get(':id')

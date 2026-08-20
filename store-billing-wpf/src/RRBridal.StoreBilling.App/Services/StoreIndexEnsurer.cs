@@ -224,5 +224,67 @@ public static class StoreIndexEnsurer
                     .Ascending("businessDate"),
                 new CreateIndexOptions { Name = "storeId_businessDate" }),
             cancellationToken: ct);
+
+        var dispatches = db.GetCollection<MongoDB.Bson.BsonDocument>("store_outbound_dispatches");
+        await dispatches.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("dispatchNo"),
+                new CreateIndexOptions { Name = "storeId_dispatchNo_unique", Unique = true }),
+            cancellationToken: ct);
+        await dispatches.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("billNo"),
+                new CreateIndexOptions<MongoDB.Bson.BsonDocument>
+                {
+                    Name = "one_active_dispatch_per_bill",
+                    Unique = true,
+                    PartialFilterExpression = Builders<MongoDB.Bson.BsonDocument>.Filter.In(
+                        "status",
+                        new[]
+                        {
+                            "Draft",
+                            "Ready",
+                            "HandedOver",
+                        }),
+                }),
+            cancellationToken: ct);
+        await dispatches.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Descending("updatedAtUtc"),
+                new CreateIndexOptions { Name = "storeId_updatedAtUtc" }),
+            cancellationToken: ct);
+        await paymentReceipts.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("dispatchNo")
+                    .Ascending("kind"),
+                new CreateIndexOptions<MongoDB.Bson.BsonDocument>
+                {
+                    Name = "storeId_dispatchNo_kind_unique",
+                    Unique = true,
+                    PartialFilterExpression =
+                        Builders<MongoDB.Bson.BsonDocument>.Filter.Exists("dispatchNo", true),
+                }),
+            cancellationToken: ct);
+        await dailyExpenses.Indexes.CreateOneAsync(
+            new CreateIndexModel<MongoDB.Bson.BsonDocument>(
+                Builders<MongoDB.Bson.BsonDocument>.IndexKeys
+                    .Ascending("storeId")
+                    .Ascending("dispatchNo"),
+                new CreateIndexOptions<MongoDB.Bson.BsonDocument>
+                {
+                    Name = "storeId_dispatchNo_unique",
+                    Unique = true,
+                    PartialFilterExpression =
+                        Builders<MongoDB.Bson.BsonDocument>.Filter.Exists("dispatchNo", true),
+                }),
+            cancellationToken: ct);
     }
 }

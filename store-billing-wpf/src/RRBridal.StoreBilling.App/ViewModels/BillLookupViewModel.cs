@@ -28,6 +28,7 @@ public partial class BillLookupViewModel : ObservableObject
     [ObservableProperty] private BillLookupMode _activeMode = BillLookupMode.View;
     [ObservableProperty] private bool _hasRemainingReturnableQty;
     [ObservableProperty] private BillSearchRow? _selectedSearchBill;
+    [ObservableProperty] private string _dispatchSummary = "No active dispatch";
 
     public ObservableCollection<BillSearchRow> SearchResults { get; } = new();
 
@@ -37,6 +38,7 @@ public partial class BillLookupViewModel : ObservableObject
     public BillDetailDialogViewModel OriginalDetail { get; }
     public SaleReturnViewModel Return { get; }
     public AdjustmentBillViewModel Adjustment { get; }
+    public Action<string>? OpenDispatchForBill { get; set; }
 
     public bool IsViewMode => ActiveMode == BillLookupMode.View;
     public bool IsReturnMode => ActiveMode == BillLookupMode.Return;
@@ -107,6 +109,7 @@ public partial class BillLookupViewModel : ObservableObject
         StatusMessage = "Search by bill no, customer name, or mobile.";
         ActiveMode = BillLookupMode.View;
         SelectedSearchBill = null;
+        DispatchSummary = "No active dispatch";
         Detail.Clear();
         OriginalDetail.Clear();
         SearchResults.Clear();
@@ -127,6 +130,7 @@ public partial class BillLookupViewModel : ObservableObject
 
         StatusMessage = "Searching…";
         ActiveMode = BillLookupMode.View;
+        DispatchSummary = "No active dispatch";
         Detail.Clear();
         OriginalDetail.Clear();
         SearchResults.Clear();
@@ -203,7 +207,30 @@ public partial class BillLookupViewModel : ObservableObject
         await Detail.LoadAsync(billNo);
         await OriginalDetail.LoadAsync(billNo);
         await RefreshReturnEligibilityAsync(billNo);
+        await RefreshDispatchSummaryAsync(billNo);
         NotifySearchResultsChanged();
+    }
+
+    private async Task RefreshDispatchSummaryAsync(string billNo)
+    {
+        if (!Detail.IsLoaded)
+        {
+            DispatchSummary = "No active dispatch";
+            return;
+        }
+
+        var dispatch = await _services.OutboundDispatches.GetActiveByBillNoAsync(billNo);
+        if (dispatch == null)
+        {
+            DispatchSummary = "No active dispatch";
+            return;
+        }
+
+        var dispatchNo = dispatch.GetValue("dispatchNo", "").ToString();
+        var status = dispatch.GetValue("status", "").ToString();
+        DispatchSummary = string.IsNullOrWhiteSpace(dispatchNo)
+            ? $"Active dispatch: {status}"
+            : $"Dispatch {dispatchNo} · {status}";
     }
 
     private async Task RefreshReturnEligibilityAsync(string billNo)
@@ -365,6 +392,29 @@ public partial class BillLookupViewModel : ObservableObject
         await EnterAdjustmentViewAsync(Detail.LoadedBillNo);
     }
 
+    private bool CanOpenDispatch() => Detail.IsLoaded;
+
+    [RelayCommand(CanExecute = nameof(CanOpenDispatch))]
+    private async Task OpenDispatch()
+    {
+        if (!Detail.IsLoaded || OpenDispatchForBill == null)
+            return;
+        var bill = await _services.BillDocuments.GetByBillNoAsync(Detail.LoadedBillNo);
+        if (bill == null)
+        {
+            AppDialog.Show("Bill not found.", "Outbound Dispatch", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var status = bill.GetValue("status", "posted").ToString();
+        if (!string.Equals(status, "posted", StringComparison.OrdinalIgnoreCase))
+        {
+            AppDialog.Show("Only posted bills can be dispatched.", "Outbound Dispatch",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        OpenDispatchForBill(Detail.LoadedBillNo);
+    }
+
     [RelayCommand(CanExecute = nameof(CanDeleteBill))]
     private async Task DeleteBill()
     {
@@ -390,6 +440,7 @@ public partial class BillLookupViewModel : ObservableObject
 
         Detail.Clear();
         OriginalDetail.Clear();
+        DispatchSummary = "No active dispatch";
         SearchResults.Clear();
         SelectedSearchBill = null;
         await Return.ClearFormCommand.ExecuteAsync(null);
@@ -498,6 +549,7 @@ public partial class BillLookupViewModel : ObservableObject
         DeleteBillCommand.NotifyCanExecuteChanged();
         PrintDuplicateCommand.NotifyCanExecuteChanged();
         PrintCreditNoteDuplicateCommand.NotifyCanExecuteChanged();
+        OpenDispatchCommand.NotifyCanExecuteChanged();
         NotifyReturnPostState();
         OnPropertyChanged(nameof(CanPostAdjustment));
         OnPropertyChanged(nameof(CanDeleteBill));

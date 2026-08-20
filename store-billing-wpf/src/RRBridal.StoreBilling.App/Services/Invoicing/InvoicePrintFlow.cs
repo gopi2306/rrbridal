@@ -28,7 +28,8 @@ public static class InvoicePrintFlow
             var printFormat = printSettings.PrintFormat;
             var isA4PrePrinted = printFormat == InvoicePrintFormat.A4 && printSettings.A4PrePrintedEnabled;
             var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && printSettings.A5PrePrintedEnabled;
-            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5 or InvoicePrintFormat.A4Commercial;
+            var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5
+                or InvoicePrintFormat.A4Commercial or InvoicePrintFormat.A4TaxInvoice;
             var dualPrint = isOfficeFormat && printSettings.AlsoPrintThermalFirst;
 
             var assets = await ThermalReceiptDocumentBuilder.BuildAssetsAsync(
@@ -66,6 +67,8 @@ public static class InvoicePrintFlow
                 ? "A4 pre-printed preview"
                 : isA5PrePrinted
                 ? "A5 pre-printed preview"
+                : printFormat == InvoicePrintFormat.A4TaxInvoice
+                    ? "A4 Tax Invoice preview"
                 : printFormat == InvoicePrintFormat.A4Commercial
                     ? "A4 commercial invoice preview"
                 : isA5
@@ -113,6 +116,9 @@ public static class InvoicePrintFlow
 
         if (printFormat == InvoicePrintFormat.A4Commercial)
             return CommercialA4InvoiceDocumentBuilder.Create(input);
+
+        if (printFormat == InvoicePrintFormat.A4TaxInvoice)
+            return TaxInvoiceA4DocumentBuilder.Create(input);
 
         var (pageW, pageH) = printFormat == InvoicePrintFormat.A5
             ? (148.0, 210.0)

@@ -149,6 +149,10 @@
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowReturnsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                        <controls:NavDrawerItem Label="Outbound Dispatch" Shortcut="" Page="{x:Static vm:ShellPage.OutboundDispatch}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowOutboundDispatchNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OutboundDispatch}}"/>
                         <controls:NavDrawerItem Label="Adjustments" Shortcut="Ctrl+T" Page="{x:Static vm:ShellPage.Adjustments}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowAdjustmentsNav, Converter={StaticResource BoolToVis}}"
@@ -177,7 +181,7 @@
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Salesmen}}"/>
 
                         <TextBlock Text="REPORTS" Style="{StaticResource NavSectionHeader}"
-                                   Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"/>
+                                   Visibility="{Binding ShowReportsNav, Converter={StaticResource BoolToVis}}"/>
                         <controls:NavDrawerItem Label="Dashboard" Shortcut="Ctrl+D" Page="{x:Static vm:ShellPage.Dashboard}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"
@@ -186,6 +190,10 @@
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                        <controls:NavDrawerItem Label="Reports" Shortcut="" Page="{x:Static vm:ShellPage.CustomerBillingReport}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowCustomerBillingReportNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.CustomerBillingReport}}"/>
                         <controls:NavDrawerItem Label="Ledger" Shortcut="Ctrl+L" Page="{x:Static vm:ShellPage.Ledger}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"
@@ -249,12 +257,16 @@
                                     Visibility="{Binding ShowCustomersNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="Returns" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.SaleReturn}"
                                     Visibility="{Binding ShowReturnsNav, Converter={StaticResource BoolToVis}}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Dispatch" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.OutboundDispatch}"
+                                    Visibility="{Binding ShowOutboundDispatchNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="Day Close" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DayClose}"
                                     Visibility="{Binding ShowDayCloseNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="Duplicate" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.DuplicateBill}"
                                     Visibility="{Binding ShowDuplicateNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="Dashboard" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Dashboard}"
                                     Visibility="{Binding ShowDashboardNav, Converter={StaticResource BoolToVis}}"/>
+                            <Button Style="{StaticResource HeaderNavChip}" Content="Reports" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.CustomerBillingReport}"
+                                    Visibility="{Binding ShowCustomerBillingReportNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="Ledger" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:ShellPage.Ledger}"
                                     Visibility="{Binding ShowLedgerNav, Converter={StaticResource BoolToVis}}"/>
                             <Button Style="{StaticResource HeaderNavChip}" Content="More…" Command="{Binding ToggleNavDrawerCommand}"/>
@@ -408,6 +420,9 @@
                 <Grid Visibility="{Binding IsAnalyticsPage, Converter={StaticResource BoolToVis}}">
                     <views:AnalyticsView DataContext="{Binding Analytics}"/>
                 </Grid>
+                <Grid Visibility="{Binding IsCustomerBillingReportPage, Converter={StaticResource BoolToVis}}">
+                    <views:ReportsView DataContext="{Binding Reports}"/>
+                </Grid>
                 <Grid Visibility="{Binding IsOnlineSalesPage, Converter={StaticResource BoolToVis}}">
                     <views:OnlineSalesView DataContext="{Binding OnlineSales}"/>
                 </Grid>
@@ -434,6 +449,9 @@
                 </Grid>
                 <Grid Visibility="{Binding IsBillLookupPage, Converter={StaticResource BoolToVis}}">
                     <views:BillLookupView DataContext="{Binding BillLookup}"/>
+                </Grid>
+                <Grid Visibility="{Binding IsOutboundDispatchPage, Converter={StaticResource BoolToVis}}">
+                    <views:OutboundDispatchView DataContext="{Binding OutboundDispatch}"/>
                 </Grid>
                 <Grid Visibility="{Binding IsDuplicateBillPage, Converter={StaticResource BoolToVis}}">
                     <views:DuplicateBillView DataContext="{Binding DuplicatePrint}"/>
@@ -563,6 +581,10 @@
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowAnalyticsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.Analytics}}"/>
+                        <controls:NavDrawerItem Label="Reports" Shortcut="" Page="{x:Static vm:ShellPage.CustomerBillingReport}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowCustomerBillingReportNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.CustomerBillingReport}}"/>
                         <controls:NavDrawerItem Label="Online Sales" Shortcut="Ctrl+O" Page="{x:Static vm:ShellPage.OnlineSales}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowOnlineSalesNav, Converter={StaticResource BoolToVis}}"
@@ -587,6 +609,10 @@
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowReturnsNav, Converter={StaticResource BoolToVis}}"
                                                 IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.SaleReturn}}"/>
+                        <controls:NavDrawerItem Label="Outbound Dispatch" Shortcut="" Page="{x:Static vm:ShellPage.OutboundDispatch}"
+                                                NavigateCommand="{Binding NavigateCommand}"
+                                                Visibility="{Binding ShowOutboundDispatchNav, Converter={StaticResource BoolToVis}}"
+                                                IsActive="{Binding CurrentPage, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static vm:ShellPage.OutboundDispatch}}"/>
                         <controls:NavDrawerItem Label="Bill Lookup" Shortcut="Ctrl+K" Page="{x:Static vm:ShellPage.BillLookup}"
                                                 NavigateCommand="{Binding NavigateCommand}"
                                                 Visibility="{Binding ShowBillLookupNav, Converter={StaticResource BoolToVis}}"

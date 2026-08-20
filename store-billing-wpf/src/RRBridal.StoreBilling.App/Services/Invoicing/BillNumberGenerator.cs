@@ -59,6 +59,12 @@ public sealed class BillNumberGenerator
     public Task<string> NextCreditNoteAsync(CancellationToken ct = default) =>
         NextAsync("creditNoteNo", "CN-", ct);
 
+    public Task<string> NextDispatchAsync(CancellationToken ct = default) =>
+        NextAsync("dispatchNo", "DSP-", ct);
+
+    public Task<string> NextDispatchBatchAsync(CancellationToken ct = default) =>
+        NextAsync("dispatchBatchNo", "DBAT-", ct);
+
     public async Task<string> NextAsync(string counterKind, string prefix, CancellationToken ct = default)
     {
         if (IsCentralOnline)

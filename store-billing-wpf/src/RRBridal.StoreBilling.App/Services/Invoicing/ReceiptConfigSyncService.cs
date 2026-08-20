@@ -146,6 +146,18 @@ public sealed class ReceiptConfigSyncService
             ?? GetString(profile, "branchCode")
             ?? store.BranchCode;
         store.Website = GetString(profile, "website") ?? GetExtraString(profile, "website") ?? store.Website;
+        store.BankAccountHolderName = GetString(profile, "bankAccountHolderName")
+            ?? GetExtraString(profile, "bankAccountHolderName")
+            ?? store.BankAccountHolderName;
+        store.BankAccountNumber = GetString(profile, "bankAccountNumber")
+            ?? GetExtraString(profile, "bankAccountNumber")
+            ?? store.BankAccountNumber;
+        store.BankIfsc = GetString(profile, "bankIfsc")
+            ?? GetExtraString(profile, "bankIfsc")
+            ?? store.BankIfsc;
+        store.BankBranchName = GetString(profile, "bankBranchName")
+            ?? GetExtraString(profile, "bankBranchName")
+            ?? store.BankBranchName;
         store.TermsAndConditions = GetString(profile, "termsAndConditions")
             ?? GetExtraString(profile, "termsAndConditions")
             ?? store.TermsAndConditions;

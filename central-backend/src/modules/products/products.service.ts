@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, SortOrder } from 'mongoose';
+import { AnyBulkWriteOperation, FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import {
   applyObjectIdArrayRefAnyFilter,
   applyObjectIdArrayRefContainsFilter,
@@ -26,6 +26,11 @@ import {
   ProductMediaSource,
   resolveProductMediaItems,
 } from './product-media-items';
+import {
+  deriveWithoutGstPrices,
+  hasWithoutGstPriceSourceChanged,
+  PRODUCT_WITHOUT_GST_PRICE_FIELDS,
+} from './product-price-gst.util';
 import { ProductSkuGenerator } from './product-sku.generator';
 import { Product, ProductDocument } from './schemas/product.schema';
 
@@ -70,6 +75,7 @@ export class ProductsService {
       isActive: dto.isActive ?? true,
       decimalPoint: dto.decimalPoint ?? MONEY_DECIMAL_PLACES,
     });
+    Object.assign(payload, deriveWithoutGstPrices(payload) ?? {});
     const doc = await this.productModel.create(payload);
     const lean = serializeAuditDocument(this.withNormalizedMediaItems(doc.toObject())) as Record<
       string,
@@ -270,7 +276,19 @@ export class ProductsService {
     if (!before) throw new NotFoundException('Product not found');
 
     const payload = this.normalizeProductWritePayload({ ...dto } as Record<string, unknown>);
+    if (hasWithoutGstPriceSourceChanged(payload)) {
+      Object.assign(
+        payload,
+        deriveWithoutGstPrices({
+          ...(before as Record<string, unknown>),
+          ...payload,
+        }) ?? {},
+      );
+    }
     const changedFields = Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined);
+    for (const field of PRODUCT_WITHOUT_GST_PRICE_FIELDS) {
+      if (field in payload && !changedFields.includes(field)) changedFields.push(field);
+    }
     const wroteMedia = 'mediaItems' in payload;
     if (wroteMedia && !changedFields.includes('mediaItems')) {
       changedFields.push('mediaItems');
@@ -549,6 +567,66 @@ export class ProductsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async backfillWithoutGstPrices() {
+    const batchSize = 500;
+    let lastId: Types.ObjectId | undefined;
+    let processed = 0;
+    let updated = 0;
+    let skippedMissingGst = 0;
+
+    while (true) {
+      const cursorFilter: FilterQuery<ProductDocument> = lastId ? { _id: { $gt: lastId } } : {};
+      const rows = await this.productModel
+        .find(cursorFilter)
+        .select(
+          [
+            'gstPercent',
+            'costPrice',
+            'mrp',
+            'sellingPrice',
+            'storePrice',
+            ...PRODUCT_WITHOUT_GST_PRICE_FIELDS,
+          ].join(' '),
+        )
+        .sort({ _id: 1 })
+        .limit(batchSize)
+        .lean();
+
+      if (rows.length === 0) break;
+
+      const operations: AnyBulkWriteOperation<Product>[] = [];
+      for (const row of rows) {
+        processed += 1;
+        const derived = deriveWithoutGstPrices(row);
+        if (!derived) {
+          skippedMissingGst += 1;
+          continue;
+        }
+
+        const changed = Object.entries(derived).some(
+          ([field, value]) => (row as Record<string, unknown>)[field] !== value,
+        );
+        if (!changed) continue;
+
+        operations.push({
+          updateOne: {
+            filter: { _id: row._id },
+            update: { $set: derived },
+          },
+        });
+      }
+
+      if (operations.length > 0) {
+        const result = await this.productModel.bulkWrite(operations);
+        updated += result.modifiedCount;
+      }
+
+      lastId = rows[rows.length - 1]!._id;
+    }
+
+    return { processed, updated, skippedMissingGst };
   }
 
   async listDeltas(cursorFilter: Record<string, unknown>, limit: number) {

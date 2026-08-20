@@ -29,6 +29,7 @@ public partial class CounterScreenAccessRow : ObservableObject
     [ObservableProperty] private bool _barcodes = true;
     [ObservableProperty] private bool _dashboard;
     [ObservableProperty] private bool _analytics;
+    [ObservableProperty] private bool _customerBillingReport;
     [ObservableProperty] private bool _onlineSales;
     [ObservableProperty] private bool _creditBills;
     [ObservableProperty] private bool _customers = true;
@@ -36,6 +37,7 @@ public partial class CounterScreenAccessRow : ObservableObject
     [ObservableProperty] private bool _ledger;
     [ObservableProperty] private bool _returns = true;
     [ObservableProperty] private bool _billLookup = true;
+    [ObservableProperty] private bool _outboundDispatch = true;
     [ObservableProperty] private bool _dayClose = true;
     [ObservableProperty] private bool _duplicate = true;
     [ObservableProperty] private bool _adjustments = true;

@@ -315,6 +315,31 @@ public static class DayBillingCloseDocumentReader
         return new ExpensePaymentDayTotals(total, cash, card, upi, bank);
     }
 
+    public static DispatchChargeDayTotals AggregateDispatchChargePayments(
+        IEnumerable<BsonDocument> dispatches,
+        DateTime localDate,
+        string? posCounterFilter)
+    {
+        decimal cash = 0m, card = 0m, upi = 0m, bank = 0m;
+        foreach (var dispatch in dispatches.Where(d => MatchesPosCounterFilter(d, posCounterFilter)))
+        {
+            if (!dispatch.TryGetValue("chargeReceipt", out var receiptValue) || !receiptValue.IsBsonDocument)
+                continue;
+            var receipt = receiptValue.AsBsonDocument;
+            if (!string.Equals(ReadString(receipt, "status") ?? "posted", "posted", StringComparison.OrdinalIgnoreCase)
+                || !MatchesLocalDay(receipt, localDate))
+                continue;
+
+            var amount = ReadDecimal(receipt, "amount");
+            var mode = ReadString(receipt, "mode") ?? ReadString(receipt, "paymentMode") ?? "";
+            if (string.Equals(mode, ExpensePaymentMode.Cash, StringComparison.OrdinalIgnoreCase)) cash += amount;
+            else if (string.Equals(mode, ExpensePaymentMode.Card, StringComparison.OrdinalIgnoreCase)) card += amount;
+            else if (string.Equals(mode, ExpensePaymentMode.Upi, StringComparison.OrdinalIgnoreCase)) upi += amount;
+            else if (string.Equals(mode, ExpensePaymentMode.BankTransfer, StringComparison.OrdinalIgnoreCase)) bank += amount;
+        }
+        return new DispatchChargeDayTotals(cash, card, upi, bank);
+    }
+
     public static (decimal Deposits, decimal Withdrawals) SumCashMovementsForBusinessDate(
         IEnumerable<BsonDocument> movements,
         string businessDate,

@@ -381,6 +381,35 @@ export class StorePosController {
     );
   }
 
+  /** Compatibility wrapper used by current WPF; persisted as the canonical dispatch charge event. */
+  @Post('dispatch-charges')
+  async createDispatchCharge(@Body() body: StorePosWriteBody) {
+    const write = requireWriteBody(body);
+    return this.storePos.applyEvent({
+      type: 'OutboundDispatchChargeReceived',
+      storeId: write.storeId,
+      deviceId: write.deviceId,
+      payload: write.payload ?? {},
+      ...(write.eventId ? { eventId: write.eventId } : {}),
+    });
+  }
+
+  /** Compatibility wrapper for WPF receipt reversal outbox records. */
+  @Post('dispatch-charges/:receiptNo/void')
+  async voidDispatchCharge(
+    @Param('receiptNo') receiptNo: string,
+    @Body() body: StorePosWriteBody,
+  ) {
+    const write = requireWriteBody(body);
+    return this.storePos.applyEvent({
+      type: 'DispatchChargeVoided',
+      storeId: write.storeId,
+      deviceId: write.deviceId,
+      payload: { ...(write.payload ?? {}), receiptNo },
+      ...(write.eventId ? { eventId: write.eventId } : {}),
+    });
+  }
+
   @Post('bills/:billNo/cod-payment')
   async receiveCodPayment(@Param('billNo') billNo: string, @Body() body: StorePosWriteBody) {
     const write = requireWriteBody(body);

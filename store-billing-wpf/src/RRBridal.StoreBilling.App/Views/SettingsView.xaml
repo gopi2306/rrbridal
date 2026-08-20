@@ -212,6 +212,33 @@
                                              MinHeight="48" TextWrapping="Wrap" AcceptsReturn="True"/>
                                 </Grid>
 
+                                <TextBlock Text="Bank details (A4 Tax Invoice)" Style="{StaticResource TextLabel}" Margin="0,12,0,8"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Account holder" Style="{StaticResource SettingsFieldLabel}"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource SettingsFieldInput}"
+                                             Text="{Binding ReceiptBankAccountHolderName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="Account number" Style="{StaticResource SettingsFieldLabel}"/>
+                                    <TextBox Grid.Row="0" Grid.Column="4" Style="{StaticResource SettingsFieldInput}"
+                                             Text="{Binding ReceiptBankAccountNumber, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="IFSC" Style="{StaticResource SettingsFieldLabel}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsFieldInput}"
+                                             Text="{Binding ReceiptBankIfsc, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="Branch name" Style="{StaticResource SettingsFieldLabel}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="4" Style="{StaticResource SettingsFieldInput}"
+                                             Text="{Binding ReceiptBankBranchName, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Grid>
+
                                 <Grid Margin="0,4,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
@@ -268,6 +295,8 @@
                                                Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="16,0,0,12"/>
                                     <RadioButton Content="A4 commercial invoice" GroupName="PrintFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsA4CommercialReceiptFormat, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 Tax Invoice" GroupName="PrintFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsA4TaxInvoiceReceiptFormat, Mode=TwoWay}"/>
                                     <RadioButton Content="A5 tax invoice" GroupName="PrintFormat" Margin="0,0,0,0"
                                                  IsChecked="{Binding IsA5ReceiptFormat, Mode=TwoWay}"/>
                                 </StackPanel>
@@ -911,6 +940,8 @@
                                                  IsChecked="{Binding IsWhatsAppA5Format, Mode=TwoWay}"/>
                                     <RadioButton Content="A4 commercial invoice" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
                                                  IsChecked="{Binding IsWhatsAppA4CommercialFormat, Mode=TwoWay}"/>
+                                    <RadioButton Content="A4 Tax Invoice" GroupName="WhatsAppInvoiceFormat" Margin="0,0,0,6"
+                                                 IsChecked="{Binding IsWhatsAppA4TaxInvoiceFormat, Mode=TwoWay}"/>
                                 </StackPanel>
                                 <CheckBox Content="Auto-send bill on post (when customer phone is present)"
                                           Style="{StaticResource ThemedCheckBox}"
@@ -1118,6 +1149,7 @@
                                         <DataGridCheckBoxColumn Header="Barcodes" Binding="{Binding Barcodes, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
                                         <DataGridCheckBoxColumn Header="Dashboard" Binding="{Binding Dashboard, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="70"/>
                                         <DataGridCheckBoxColumn Header="Analytics" Binding="{Binding Analytics, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
+                                        <DataGridCheckBoxColumn Header="Reports" Binding="{Binding CustomerBillingReport, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>
                                         <DataGridCheckBoxColumn Header="Online Sales" Binding="{Binding OnlineSales, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>
                                         <DataGridCheckBoxColumn Header="Credit Bills" Binding="{Binding CreditBills, UpdateSourceTrigger=PropertyChanged}" Width="85" MinWidth="75"/>
                                         <DataGridCheckBoxColumn Header="Customers" Binding="{Binding Customers, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="70"/>
@@ -1125,6 +1157,7 @@
                                         <DataGridCheckBoxColumn Header="Ledger" Binding="{Binding Ledger, UpdateSourceTrigger=PropertyChanged}" Width="65" MinWidth="55"/>
                                         <DataGridCheckBoxColumn Header="Returns" Binding="{Binding Returns, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
                                         <DataGridCheckBoxColumn Header="Bill Lookup" Binding="{Binding BillLookup, UpdateSourceTrigger=PropertyChanged}" Width="85" MinWidth="75"/>
+                                        <DataGridCheckBoxColumn Header="Dispatch" Binding="{Binding OutboundDispatch, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
                                         <DataGridCheckBoxColumn Header="Day Close" Binding="{Binding DayClose, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
                                         <DataGridCheckBoxColumn Header="Duplicate" Binding="{Binding Duplicate, UpdateSourceTrigger=PropertyChanged}" Width="75" MinWidth="65"/>
                                         <DataGridCheckBoxColumn Header="Adjustments" Binding="{Binding Adjustments, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="80"/>

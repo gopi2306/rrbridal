@@ -184,6 +184,13 @@ export class Product {
 
   @ApiProperty({
     required: false,
+    description: 'Server-calculated cost price excluding GST',
+  })
+  @Prop()
+  costPriceWithoutGst?: number;
+
+  @ApiProperty({
+    required: false,
     description:
       'Minimum gross margin % above costPrice. Selling rate below cost × (1 + margin/100) triggers a warning at billing.',
   })
@@ -194,13 +201,34 @@ export class Product {
   @Prop()
   mrp?: number;
 
+  @ApiProperty({
+    required: false,
+    description: 'Server-calculated MRP excluding GST',
+  })
+  @Prop()
+  mrpWithoutGst?: number;
+
   @ApiProperty({ required: false })
   @Prop()
   sellingPrice?: number;
 
+  @ApiProperty({
+    required: false,
+    description: 'Server-calculated selling price excluding GST',
+  })
+  @Prop()
+  sellingPriceWithoutGst?: number;
+
   @ApiProperty({ required: false })
   @Prop()
   storePrice?: number;
+
+  @ApiProperty({
+    required: false,
+    description: 'Server-calculated store price excluding GST',
+  })
+  @Prop()
+  storePriceWithoutGst?: number;
 
   // ── Reorder Configurations ──
 

@@ -1,0 +1,148 @@
+<UserControl x:Class="RRBridal.StoreBilling.App.Views.FastSellersReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1180"
+             AutomationProperties.AutomationId="fast-sellers-report-page"
+             AutomationProperties.Name="Fast sellers report"
+             Background="{StaticResource BrushBackground}">
+    <Grid Margin="0,4,0,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="SKUs ranked by net quantity sold in the date range, with returns netted from posted bills."
+                       Style="{StaticResource PageSubtitle}" VerticalAlignment="Center"
+                       TextWrapping="Wrap" Margin="0,0,280,0"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Refresh" Style="{StaticResource OutlineButton}" MinWidth="100"
+                        Command="{Binding RefreshCommand}" Margin="0,0,8,0"/>
+                <Button Content="Download Excel" Style="{StaticResource PrimaryButton}" MinWidth="140"
+                        Command="{Binding DownloadExcelCommand}"/>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+            <WrapPanel>
+                <StackPanel Width="145" Margin="0,0,12,6">
+                    <TextBlock Text="From date" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}"
+                                SelectedDate="{Binding DateFrom, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Width="145" Margin="0,0,12,6">
+                    <TextBlock Text="To date (inclusive)" Style="{StaticResource FilterFieldLabel}"/>
+                    <DatePicker Style="{StaticResource RoundedDatePicker}"
+                                SelectedDate="{Binding DateTo, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Width="260" Margin="0,0,12,6">
+                    <TextBlock Text="SKU or name search" Style="{StaticResource FilterFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search SKU or product name"/>
+                </StackPanel>
+                <StackPanel Width="150" Margin="0,0,12,6">
+                    <TextBlock Text="POS counter" Style="{StaticResource FilterFieldLabel}"/>
+                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                              ItemsSource="{Binding PosCounterFilterOptions}"
+                              SelectedItem="{Binding SelectedPosCounterFilter}"
+                              DisplayMemberPath="Label"/>
+                </StackPanel>
+                <Button Content="Search" Style="{StaticResource PrimaryButton}" MinWidth="110"
+                        Height="34" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                        Command="{Binding SearchCommand}" IsDefault="True"/>
+            </WrapPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <Border Padding="10,7" CornerRadius="6" Background="{StaticResource BrushSurface}">
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextCaption}">
+                            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <Setter Property="Foreground" Value="#B91C1C"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+
+            <Border Margin="0,8,0,0" Padding="10" CornerRadius="6" Background="#FFF7ED"
+                    Visibility="{Binding IsTruncated, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding TruncatedMessage}" Foreground="#9A3412"
+                           FontWeight="SemiBold" TextWrapping="Wrap"/>
+            </Border>
+
+            <UniformGrid Margin="0,10,0,0"
+                         ui:UniformGridColumnsBehavior.IsEnabled="True"
+                         ui:UniformGridColumnsBehavior.CompactColumns="2"
+                         ui:UniformGridColumnsBehavior.MediumColumns="3"
+                         ui:UniformGridColumnsBehavior.WideColumns="5">
+                <Border Style="{StaticResource MetricCardAccent}">
+                    <StackPanel>
+                        <TextBlock Text="SKUs" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding SkuCount}" Style="{StaticResource MetricValueAccent}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Sold qty" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding SoldQty}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Return qty" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding ReturnQty}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Net qty" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding NetQty}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Net amount" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding NetAmount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+        </StackPanel>
+
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
+            <Grid>
+                <TextBlock Text="No matching fast sellers."
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Style="{StaticResource PageSubtitle}"
+                           Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                <DataGrid ItemsSource="{Binding SellerRows}"
+                          Visibility="{Binding HasRows, Converter={StaticResource BoolToVis}}"
+                          Style="{StaticResource ThemedDataGrid}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                          SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="50"/>
+                        <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="130"/>
+                        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                        <DataGridTextColumn Header="Sold qty" Binding="{Binding SoldQty, StringFormat=N2}" Width="90"/>
+                        <DataGridTextColumn Header="Return qty" Binding="{Binding ReturnQty, StringFormat=N2}" Width="90"/>
+                        <DataGridTextColumn Header="Net qty" Binding="{Binding NetQty, StringFormat=N2}" Width="90"/>
+                        <DataGridTextColumn Header="Net amount" Binding="{Binding NetAmount, StringFormat=₹ {0:N2}}" Width="120"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

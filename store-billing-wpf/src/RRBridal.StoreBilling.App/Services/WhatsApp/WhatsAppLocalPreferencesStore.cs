@@ -16,7 +16,7 @@ public sealed class WhatsAppLocalPreferencesDocument
     /// <summary>Central attachment channel mirrored for display: image | document.</summary>
     public string AttachmentFormat { get; set; } = "image";
 
-    /// <summary>Local invoice layout for WhatsApp PDF: Thermal | A4 | A5 | A4Commercial.</summary>
+    /// <summary>Local invoice layout for WhatsApp PDF: Thermal | A4 | A5 | A4Commercial | A4TaxInvoice.</summary>
     public string InvoiceFormat { get; set; } = "";
 }
 

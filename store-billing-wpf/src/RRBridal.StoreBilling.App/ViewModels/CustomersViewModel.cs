@@ -56,8 +56,13 @@ public partial class CustomersViewModel : ObservableObject
 
     public bool ShowDetailForm => IsNewCustomer || SelectedCustomer != null;
     public bool ShowDetailPlaceholder => !ShowDetailForm;
+    public string CustomerCodeHint => string.IsNullOrWhiteSpace(CustomerCode)
+        ? "Assigned automatically when you save."
+        : "Customer code cannot be edited after it is assigned.";
 
     public ObservableCollection<CustomerListRow> Results { get; } = new();
+
+    private bool _suppressSelection;
 
     public CustomersViewModel(AppServices services, BillingViewModel billing, Action navigateToBilling)
     {
@@ -67,23 +72,48 @@ public partial class CustomersViewModel : ObservableObject
             services.LocalDb,
             new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode),
             services.CentralMode);
-        _codeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _codeGenerator = new CustomerCodeGenerator(
+            services.LocalDb,
+            () => services.CentralMode.IsOnlineMode);
         _billing = billing;
         _navigateToBilling = navigateToBilling;
     }
 
     public void StartNewRegistration()
     {
-        IsNewCustomer = true;
-        IsDetailReadOnly = false;
-        SelectedCustomer = null;
-        ClearDetailForm();
-        DetailSourceLabel = "Register a new customer for billing and credit eligibility.";
-        DetailPanelTitle = "New customer";
-        StatusMessage = "Enter customer details and save (F4).";
+        _suppressSelection = true;
+        try
+        {
+            IsNewCustomer = true;
+            SelectedCustomer = null;
+            ClearDetailForm();
+            ApplyNewCustomerFormState();
+        }
+        finally
+        {
+            _suppressSelection = false;
+            if (SelectedCustomer != null)
+            {
+                _suppressSelection = true;
+                SelectedCustomer = null;
+                _suppressSelection = false;
+                ClearDetailForm();
+                ApplyNewCustomerFormState();
+            }
+        }
+
         NotifyDetailVisibility();
         SaveCommand.NotifyCanExecuteChanged();
         UseInBillingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ApplyNewCustomerFormState()
+    {
+        IsDetailReadOnly = false;
+        DetailSourceLabel = "Register a new customer for billing and credit eligibility.";
+        DetailPanelTitle = "New customer";
+        StatusMessage = "Enter name and mobile, then save (F4). Customer code is assigned automatically.";
+        OnPropertyChanged(nameof(CustomerCodeHint));
     }
 
     private void NotifyDetailVisibility()
@@ -95,11 +125,16 @@ public partial class CustomersViewModel : ObservableObject
     [RelayCommand]
     private async Task Refresh()
     {
-        await Search();
+        await SearchCustomersAsync(autoSelectFirst: !IsNewCustomer);
     }
 
     [RelayCommand]
     private async Task Search()
+    {
+        await SearchCustomersAsync(autoSelectFirst: !IsNewCustomer);
+    }
+
+    private async Task SearchCustomersAsync(bool autoSelectFirst)
     {
         StatusMessage = "Loading customers…";
         try
@@ -110,18 +145,38 @@ public partial class CustomersViewModel : ObservableObject
                 string.IsNullOrWhiteSpace(SearchCustomerName) ? null : SearchCustomerName.Trim(),
                 string.IsNullOrWhiteSpace(SearchCustomerPhone) ? null : SearchCustomerPhone.Trim());
 
-            Results.Clear();
-            foreach (var row in rows)
-                Results.Add(row);
+            _suppressSelection = true;
+            try
+            {
+                Results.Clear();
+                foreach (var row in rows)
+                    Results.Add(row);
+            }
+            finally
+            {
+                _suppressSelection = false;
+            }
 
-            StatusMessage = rows.Count == 0
-                ? "No customers found."
-                : $"{rows.Count} customer(s) found.";
             ResultsCountSummary = rows.Count == 0 ? "No matches" : $"{rows.Count} customer(s)";
-            if (!IsNewCustomer)
-                SelectedCustomer = Results.Count > 0 ? Results[0] : null;
-            else
+            if (IsNewCustomer)
+            {
+                SelectedCustomer = null;
+                ApplyNewCustomerFormState();
                 NotifyDetailVisibility();
+            }
+            else if (autoSelectFirst)
+            {
+                SelectedCustomer = Results.Count > 0 ? Results[0] : null;
+                StatusMessage = rows.Count == 0
+                    ? "No customers found."
+                    : $"{rows.Count} customer(s) found.";
+            }
+            else
+            {
+                StatusMessage = rows.Count == 0
+                    ? "No customers found."
+                    : $"{rows.Count} customer(s) found.";
+            }
         }
         catch (Exception ex)
         {
@@ -131,6 +186,9 @@ public partial class CustomersViewModel : ObservableObject
 
     partial void OnSelectedCustomerChanged(CustomerListRow? value)
     {
+        if (_suppressSelection)
+            return;
+
         if (value != null)
             IsNewCustomer = false;
         _ = LoadSelectedDetailAsync(value);
@@ -145,6 +203,9 @@ public partial class CustomersViewModel : ObservableObject
     {
         if (row == null)
         {
+            if (IsNewCustomer)
+                return;
+
             ClearDetailForm();
             DetailSourceLabel = "";
             DetailPanelTitle = "Customer details";
@@ -289,9 +350,8 @@ public partial class CustomersViewModel : ObservableObject
             }
 
             IsNewCustomer = false;
-            await Search();
-            SelectedCustomer = Results.FirstOrDefault(r => r.LocalMongoId == result.LocalMongoId)
-                ?? Results.FirstOrDefault(r => r.CustomerCode == result.BillingCustomerCode);
+            await SearchCustomersAsync(autoSelectFirst: false);
+            SelectedCustomer = FindSavedRow(result);
             StatusMessage = $"Customer {CustomerName} saved.";
         }
         catch (Exception ex)
@@ -436,6 +496,47 @@ public partial class CustomersViewModel : ObservableObject
         Landmark = "";
         IsCreditCustomer = false;
         SyncStatus = "";
+        OnPropertyChanged(nameof(CustomerCodeHint));
+    }
+
+    partial void OnCustomerCodeChanged(string value) => OnPropertyChanged(nameof(CustomerCodeHint));
+
+    private CustomerListRow? FindSavedRow(CustomerRegistrationResult result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.CentralCustomerId))
+        {
+            var byCentralId = Results.FirstOrDefault(r =>
+                string.Equals(r.CentralCustomerId, result.CentralCustomerId, StringComparison.Ordinal));
+            if (byCentralId != null)
+                return byCentralId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.LocalMongoId))
+        {
+            var byLocalId = Results.FirstOrDefault(r =>
+                string.Equals(r.LocalMongoId, result.LocalMongoId, StringComparison.Ordinal));
+            if (byLocalId != null)
+                return byLocalId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.BillingCustomerCode))
+        {
+            var byCode = Results.FirstOrDefault(r =>
+                string.Equals(r.CustomerCode, result.BillingCustomerCode, StringComparison.OrdinalIgnoreCase));
+            if (byCode != null)
+                return byCode;
+        }
+
+        var phone = string.IsNullOrWhiteSpace(Mobile) ? Telephone : Mobile;
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            return Results.FirstOrDefault(r =>
+                string.Equals(r.Phone, phone, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Name, result.CustomerName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Results.FirstOrDefault(r =>
+            string.Equals(r.Name, result.CustomerName, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsValidEmail(string email)

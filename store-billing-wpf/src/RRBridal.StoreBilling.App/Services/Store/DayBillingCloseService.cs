@@ -68,6 +68,7 @@ public sealed class DayBillingCloseService
         var returnsColl = _db.GetCollection<BsonDocument>("store_sale_returns");
         var cashoutsColl = _db.GetCollection<BsonDocument>("store_credit_note_cashouts");
         var expensesColl = _db.GetCollection<BsonDocument>("store_daily_expenses");
+        var dispatchesColl = _db.GetCollection<BsonDocument>("store_outbound_dispatches");
         var movementsColl = _db.GetCollection<BsonDocument>("store_cash_movements");
         var outboxColl = _db.GetCollection<BsonDocument>("outbox_events");
 
@@ -170,6 +171,11 @@ public sealed class DayBillingCloseService
             expenseDocs,
             businessDate,
             posCounterFilter);
+        var dispatchDocs = await dispatchesColl.Find(storeFilter).ToListAsync(ct);
+        var dispatchCharges = DayBillingCloseDocumentReader.AggregateDispatchChargePayments(
+            dispatchDocs,
+            localDate,
+            posCounterFilter);
 
         var movementDocs = await movementsColl.Find(storeFilter).ToListAsync(ct);
         var (depositsTotal, withdrawalsTotal) = DayBillingCloseDocumentReader.SumCashMovementsForBusinessDate(
@@ -177,9 +183,9 @@ public sealed class DayBillingCloseService
             businessDate,
             posCounterFilter);
 
-        var netCash = cash - cashRefundTotal + exchangePayments.Cash - expensePayments.Cash;
-        var netCard = card + exchangePayments.Card;
-        var netUpi = upi + exchangePayments.Upi;
+        var netCash = cash + dispatchCharges.Cash - cashRefundTotal + exchangePayments.Cash - expensePayments.Cash;
+        var netCard = card + dispatchCharges.Card + exchangePayments.Card;
+        var netUpi = upi + dispatchCharges.Upi + exchangePayments.Upi;
         var actualHandIn = netCash + netCard + netUpi;
 
         var openingCash = session?.OpeningCash ?? 0m;
@@ -233,6 +239,10 @@ public sealed class DayBillingCloseService
             CardTotal = card,
             UpiTotal = upi,
             CreditNoteTotal = creditNote,
+            DispatchChargeCashTotal = dispatchCharges.Cash,
+            DispatchChargeCardTotal = dispatchCharges.Card,
+            DispatchChargeUpiTotal = dispatchCharges.Upi,
+            DispatchChargeBankTransferTotal = dispatchCharges.BankTransfer,
             ReturnCount = returnTotals.ReturnCount,
             ReturnTotalAmount = returnTotals.ReturnTotalAmount,
             ReturnCashRefundTotal = returnCashRefundTotal,
@@ -303,8 +313,16 @@ public sealed class DayBillingCloseService
         var expenseDocs = ExtractDocs(expensesJson, MapCentralExpenseToDoc);
         var expensePayments = DayBillingCloseDocumentReader.AggregateDailyExpensePayments(
             expenseDocs, businessDate, posCounterFilter);
+        using var dispatchesJson = await _storePos.ListOutboundDispatchesAsync(
+            businessDate: null, limit: 500, ct: ct);
+        var dispatchDocs = ExtractDocs(
+            dispatchesJson,
+            element => BsonDocument.Parse(element.GetRawText()));
+        var dispatchCharges = DayBillingCloseDocumentReader.AggregateDispatchChargePayments(
+            dispatchDocs, localDate, posCounterFilter);
         var cashTotal = centralNetCash + cashRefundTotal + expensePayments.Cash;
-        var netCash = cashTotal - cashRefundTotal - expensePayments.Cash;
+        var netCash = cashTotal - cashRefundTotal - expensePayments.Cash + dispatchCharges.Cash;
+        expectedCash += dispatchCharges.Cash;
 
         using var movementsJson = await _storePos.ListCashMovementsAsync(businessDate, 200, ct);
         var movementDocs = ExtractDocs(movementsJson, MapCentralMovementToDoc);
@@ -382,8 +400,8 @@ public sealed class DayBillingCloseService
         }
         returnRows.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
 
-        var netCard = cardTotal;
-        var netUpi = upiTotal;
+        var netCard = cardTotal + dispatchCharges.Card;
+        var netUpi = upiTotal + dispatchCharges.Upi;
 
         return new DayBillingCloseSnapshot
         {
@@ -395,6 +413,10 @@ public sealed class DayBillingCloseService
             CardTotal = cardTotal,
             UpiTotal = upiTotal,
             CreditNoteTotal = CentralDashboardClient.ReadDecimal(summary, "creditAppliedOnBills"),
+            DispatchChargeCashTotal = dispatchCharges.Cash,
+            DispatchChargeCardTotal = dispatchCharges.Card,
+            DispatchChargeUpiTotal = dispatchCharges.Upi,
+            DispatchChargeBankTransferTotal = dispatchCharges.BankTransfer,
             ReturnCount = CentralDashboardClient.ReadInt(summary, "returnsCount"),
             ReturnTotalAmount = CentralDashboardClient.ReadDecimal(summary, "returnValue"),
             ReturnCashRefundTotal = returnCashRefundTotal,

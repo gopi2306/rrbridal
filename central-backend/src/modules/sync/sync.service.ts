@@ -11,6 +11,7 @@ import { StockTransfersService } from '../stock-transfers/stock-transfers.servic
 import { StoreSalesSyncService } from '../store-sales/store-sales-sync.service';
 import { PromotionSchemesService } from '../promotion-schemes/promotion-schemes.service';
 import { InventoryAdjustmentsService } from '../inventory-adjustments/inventory-adjustments.service';
+import { OutboundDispatchesService } from '../outbound-dispatches/outbound-dispatches.service';
 import {
   buildProductDeltaFilter,
   encodeProductSyncCursor,
@@ -30,6 +31,7 @@ export class SyncService {
     private readonly storeSalesSyncService: StoreSalesSyncService,
     private readonly promotionSchemesService: PromotionSchemesService,
     private readonly inventoryAdjustmentsService: InventoryAdjustmentsService,
+    private readonly outboundDispatchesService: OutboundDispatchesService,
   ) {}
 
   async push(events: SyncEventDto[]) {
@@ -103,6 +105,22 @@ export class SyncService {
           await this.storeSalesSyncService.applyQuotationConverted(meta, ev.payload);
         } else if (ev.type === 'QuotationCancelled') {
           await this.storeSalesSyncService.applyQuotationCancelled(meta, ev.payload);
+        } else if (ev.type === 'OutboundDispatchCreated') {
+          await this.outboundDispatchesService.applyCreated(meta, ev.payload);
+        } else if (ev.type === 'OutboundDispatchUpdated') {
+          await this.outboundDispatchesService.applyUpdated(meta, ev.payload);
+        } else if (ev.type === 'OutboundDispatchStatusChanged') {
+          await this.outboundDispatchesService.applyStatusChanged(meta, ev.payload);
+        } else if (ev.type === 'OutboundDispatchChargeReceived') {
+          await this.outboundDispatchesService.applyChargeReceived(meta, ev.payload);
+        } else if (ev.type === 'OutboundDispatchCancelled') {
+          await this.outboundDispatchesService.applyCancelled(meta, ev.payload);
+        } else if (ev.type === 'DispatchChargeCreated') {
+          // Compatibility for WPF builds that predate the canonical event name.
+          await this.outboundDispatchesService.applyChargeReceived(meta, ev.payload);
+        } else if (ev.type === 'DispatchChargeVoided') {
+          // Compatibility for WPF's linked receipt reversal outbox event.
+          await this.outboundDispatchesService.applyChargeVoided(meta, ev.payload);
         } else if (ev.type === 'InventoryAdjustmentCreated') {
           await this.inventoryAdjustmentsService.applyFromSync(meta, ev.payload);
         }

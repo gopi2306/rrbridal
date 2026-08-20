@@ -9,6 +9,7 @@ public enum InvoicePrintFormat
     A4,
     A5,
     A4Commercial,
+    A4TaxInvoice,
 }
 
 /// <summary>Print format for credit bill invoices and balance-collection receipts only.</summary>
@@ -51,6 +52,18 @@ public sealed class StoreProfile
     public string BranchCode { get; set; } = "";
 
     public string Website { get; set; } = "";
+
+    /// <summary>Printed on A4 Tax Invoice bank details box only.</summary>
+    public string BankAccountHolderName { get; set; } = "";
+
+    /// <summary>Printed on A4 Tax Invoice bank details box only.</summary>
+    public string BankAccountNumber { get; set; } = "";
+
+    /// <summary>Printed on A4 Tax Invoice bank details box only.</summary>
+    public string BankIfsc { get; set; } = "";
+
+    /// <summary>Printed on A4 Tax Invoice bank details box only.</summary>
+    public string BankBranchName { get; set; } = "";
 
     public string TermsAndConditions { get; set; } =
         "Goods once sold are subject to store policy. Please verify bill before leaving.";
@@ -103,7 +116,7 @@ public sealed class ReceiptPrintSettings
     /// <summary>When A5 format: print data values only on pre-printed stationery.</summary>
     public bool A5PrePrintedEnabled { get; set; }
 
-    /// <summary>When PrintFormat is A4, A4Commercial, or A5: also print 80mm thermal receipt before the invoice.</summary>
+    /// <summary>When PrintFormat is A4, A4Commercial, A4TaxInvoice, or A5: also print 80mm thermal receipt before the invoice.</summary>
     public bool AlsoPrintThermalFirst { get; set; }
 
     /// <summary>mm alignment and font for A4 Bilal pre-printed value-only mode.</summary>

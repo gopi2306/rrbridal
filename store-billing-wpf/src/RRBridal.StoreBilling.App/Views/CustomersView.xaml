@@ -114,6 +114,7 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="False"
                               CanUserAddRows="False"
+                              IsSynchronizedWithCurrentItem="False"
                               MinHeight="200">
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="36"
@@ -170,12 +171,15 @@
                                 <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,10">
                                     <TextBlock Text="Customer code" Style="{StaticResource FormFieldLabel}"/>
                                     <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}"
-                                             IsReadOnly="True"/>
+                                             IsReadOnly="True" IsTabStop="False"/>
+                                    <TextBlock Text="{Binding CustomerCodeHint}" Style="{StaticResource TextCaption}" Margin="0,4,0,0"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,10">
                                     <TextBlock Text="Customer name *" Style="{StaticResource FormFieldLabel}"/>
-                                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                    <TextBox x:Name="CustomerNameInput"
+                                             Style="{StaticResource RoundedTextBox}"
+                                             Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
                                              IsReadOnly="{Binding IsDetailReadOnly}"/>
                                 </StackPanel>
 

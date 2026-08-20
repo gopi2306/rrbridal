@@ -88,6 +88,30 @@ export class PatchCompanyProfileDto {
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
+  @MaxLength(200)
+  bankAccountHolderName?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  bankAccountNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  bankIfsc?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  bankBranchName?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
   @MaxLength(2000)
   termsAndConditions?: string;
 

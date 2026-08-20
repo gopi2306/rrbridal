@@ -41,6 +41,19 @@ import {
   CompanyProfile,
   CompanyProfileSchema,
 } from '../company-profile/schemas/company-profile.schema';
+import { CustomerBillingReportController } from './customer-billing-report.controller';
+import { CustomerBillingReportExportService } from './customer-billing-report-export.service';
+import { CustomerBillingReportService } from './customer-billing-report.service';
+import { FastSellersReportController } from './fast-sellers-report.controller';
+import { FastSellersReportExportService } from './fast-sellers-report-export.service';
+import { FastSellersReportService } from './fast-sellers-report.service';
+import { GoingOutOfStockReportController } from './going-out-of-stock-report.controller';
+import { GoingOutOfStockReportExportService } from './going-out-of-stock-report-export.service';
+import { GoingOutOfStockReportService } from './going-out-of-stock-report.service';
+import { SkuSalesReportLoader } from './sku-sales-report.loader';
+import { SupplierWiseSalesReportController } from './supplier-wise-sales-report.controller';
+import { SupplierWiseSalesReportExportService } from './supplier-wise-sales-report-export.service';
+import { SupplierWiseSalesReportService } from './supplier-wise-sales-report.service';
 
 @Module({
   imports: [
@@ -65,6 +78,10 @@ import {
     ItemDetailsReportController,
     GstReportController,
     BillSummaryReportController,
+    CustomerBillingReportController,
+    SupplierWiseSalesReportController,
+    FastSellersReportController,
+    GoingOutOfStockReportController,
     PurchaseReturnReportController,
     SalesReturnReportController,
   ],
@@ -73,6 +90,15 @@ import {
     ItemDetailsReportExportService,
     BillSummaryService,
     BillSummaryExportService,
+    CustomerBillingReportService,
+    CustomerBillingReportExportService,
+    SkuSalesReportLoader,
+    SupplierWiseSalesReportService,
+    SupplierWiseSalesReportExportService,
+    FastSellersReportService,
+    FastSellersReportExportService,
+    GoingOutOfStockReportService,
+    GoingOutOfStockReportExportService,
     GstReportService,
     GstReportExportService,
     PurchaseReturnReportService,

@@ -10,6 +10,15 @@ using RRBridal.StoreBilling.App.Services;
 
 namespace RRBridal.StoreBilling.App.Services.Sync;
 
+public static class OutboundDispatchEventType
+{
+    public const string Created = "OutboundDispatchCreated";
+    public const string Updated = "OutboundDispatchUpdated";
+    public const string StatusChanged = "OutboundDispatchStatusChanged";
+    public const string ChargeReceived = "OutboundDispatchChargeReceived";
+    public const string Cancelled = "OutboundDispatchCancelled";
+}
+
 public sealed class BillingOutboxPublisher
 {
     private readonly IMongoCollection<BsonDocument> _outbox;
@@ -207,6 +216,36 @@ public sealed class BillingOutboxPublisher
         return EnqueueAsync("DailyExpenseVoided", payload, hash, ct);
     }
 
+    public Task<string> PublishOutboundDispatchCreatedAsync(BsonDocument dispatchDoc, CancellationToken ct = default) =>
+        PublishDocumentAsync(OutboundDispatchEventType.Created, dispatchDoc, ct);
+
+    public Task<string> PublishOutboundDispatchUpdatedAsync(BsonDocument dispatchDoc, CancellationToken ct = default) =>
+        PublishDocumentAsync(OutboundDispatchEventType.Updated, dispatchDoc, ct);
+
+    public Task<string> PublishOutboundDispatchStatusChangedAsync(
+        BsonDocument dispatchDoc,
+        CancellationToken ct = default) =>
+        PublishDocumentAsync(OutboundDispatchEventType.StatusChanged, dispatchDoc, ct);
+
+    public Task<string> PublishOutboundDispatchCancelledAsync(
+        BsonDocument dispatchDoc,
+        CancellationToken ct = default) =>
+        PublishDocumentAsync(OutboundDispatchEventType.Cancelled, dispatchDoc, ct);
+
+    public Task<string> PublishOutboundDispatchChargeReceivedAsync(
+        string dispatchNo,
+        BsonDocument receiptDoc,
+        CancellationToken ct = default)
+    {
+        var payload = new BsonDocument
+        {
+            { "dispatchNo", dispatchNo.Trim() },
+            { "chargeReceiptNo", receiptDoc.GetValue("receiptNo", "").ToString() },
+            { "receipt", receiptDoc.DeepClone() },
+        };
+        return PublishDocumentAsync(OutboundDispatchEventType.ChargeReceived, payload, ct);
+    }
+
     public Task<string> PublishCashMovementCreatedAsync(BsonDocument movementDoc, CancellationToken ct = default)
     {
         var payload = (BsonDocument)movementDoc.DeepClone();
@@ -360,5 +399,15 @@ public sealed class BillingOutboxPublisher
         };
         var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
         return EnqueueAsync("InventoryAdjustmentCreated", payload, hash, ct, eventId);
+    }
+
+    private Task<string> PublishDocumentAsync(
+        string eventType,
+        BsonDocument document,
+        CancellationToken ct)
+    {
+        var payload = (BsonDocument)document.DeepClone();
+        var hash = JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(payload));
+        return EnqueueAsync(eventType, payload, hash, ct);
     }
 }

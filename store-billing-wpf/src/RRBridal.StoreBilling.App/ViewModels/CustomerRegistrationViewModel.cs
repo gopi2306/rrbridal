@@ -39,7 +39,9 @@ public partial class CustomerRegistrationViewModel : ObservableObject
     public CustomerRegistrationViewModel(AppServices services, BillingViewModel billing, Action navigateToBilling)
     {
         _registrationService = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
-        _codeGenerator = new CustomerCodeGenerator(services.LocalDb);
+        _codeGenerator = new CustomerCodeGenerator(
+            services.LocalDb,
+            () => services.CentralMode.IsOnlineMode);
         _billing = billing;
         _navigateToBilling = navigateToBilling;
     }

@@ -65,6 +65,7 @@ public sealed class CounterScreenAccessSettings
         nameof(Barcodes),
         nameof(Dashboard),
         nameof(Analytics),
+        nameof(CustomerBillingReport),
         nameof(OnlineSales),
         nameof(CreditBills),
         nameof(Customers),
@@ -72,6 +73,7 @@ public sealed class CounterScreenAccessSettings
         nameof(Ledger),
         nameof(Returns),
         nameof(BillLookup),
+        nameof(OutboundDispatch),
         nameof(DayClose),
         nameof(Duplicate),
         nameof(Adjustments),
@@ -87,6 +89,7 @@ public sealed class CounterScreenAccessSettings
     public List<string> Barcodes { get; set; } = new() { "1", "2", "3" };
     public List<string> Dashboard { get; set; } = new() { "1" };
     public List<string> Analytics { get; set; } = new() { "1" };
+    public List<string> CustomerBillingReport { get; set; } = new() { "1" };
     public List<string> OnlineSales { get; set; } = new() { "1" };
     public List<string> CreditBills { get; set; } = new() { "1" };
     public List<string> Customers { get; set; } = new() { "1", "2", "3" };
@@ -94,6 +97,7 @@ public sealed class CounterScreenAccessSettings
     public List<string> Ledger { get; set; } = new() { "1" };
     public List<string> Returns { get; set; } = new() { "1", "2", "3" };
     public List<string> BillLookup { get; set; } = new() { "1", "2", "3" };
+    public List<string> OutboundDispatch { get; set; } = new() { "1", "2", "3" };
     public List<string> DayClose { get; set; } = new() { "1", "2", "3" };
     public List<string> Duplicate { get; set; } = new() { "1", "2", "3" };
     public List<string> Adjustments { get; set; } = new() { "1", "2", "3" };
@@ -147,6 +151,7 @@ public sealed class CounterScreenAccessSettings
             case nameof(Barcodes): Barcodes = normalized; break;
             case nameof(Dashboard): Dashboard = normalized; break;
             case nameof(Analytics): Analytics = normalized; break;
+            case nameof(CustomerBillingReport): CustomerBillingReport = normalized; break;
             case nameof(OnlineSales): OnlineSales = normalized; break;
             case nameof(CreditBills): CreditBills = normalized; break;
             case nameof(Customers): Customers = normalized; break;
@@ -154,6 +159,7 @@ public sealed class CounterScreenAccessSettings
             case nameof(Ledger): Ledger = normalized; break;
             case nameof(Returns): Returns = normalized; break;
             case nameof(BillLookup): BillLookup = normalized; break;
+            case nameof(OutboundDispatch): OutboundDispatch = normalized; break;
             case nameof(DayClose): DayClose = normalized; break;
             case nameof(Duplicate): Duplicate = normalized; break;
             case nameof(Adjustments): Adjustments = normalized; break;
@@ -170,6 +176,7 @@ public sealed class CounterScreenAccessSettings
         nameof(Barcodes) => Barcodes,
         nameof(Dashboard) => Dashboard,
         nameof(Analytics) => Analytics,
+        nameof(CustomerBillingReport) => CustomerBillingReport,
         nameof(OnlineSales) => OnlineSales,
         nameof(CreditBills) => CreditBills,
         nameof(Customers) => Customers,
@@ -177,6 +184,7 @@ public sealed class CounterScreenAccessSettings
         nameof(Ledger) => Ledger,
         nameof(Returns) => Returns,
         nameof(BillLookup) => BillLookup,
+        nameof(OutboundDispatch) => OutboundDispatch,
         nameof(DayClose) => DayClose,
         nameof(Duplicate) => Duplicate,
         nameof(Adjustments) => Adjustments,
@@ -188,7 +196,8 @@ public sealed class CounterScreenAccessSettings
     private static IReadOnlyList<string> DefaultAllowed(string screenKey) =>
         screenKey switch
         {
-            nameof(Dashboard) or nameof(Analytics) or nameof(OnlineSales) or nameof(CreditBills)
+            nameof(Dashboard) or nameof(Analytics) or nameof(CustomerBillingReport)
+                or nameof(OnlineSales) or nameof(CreditBills)
                 or nameof(Ledger) or nameof(DailyExpenses) or nameof(Settings) => new[] { "1" },
             _ => new[] { "1", "2", "3" },
         };
