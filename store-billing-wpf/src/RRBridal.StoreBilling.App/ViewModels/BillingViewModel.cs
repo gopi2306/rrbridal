@@ -169,6 +169,7 @@ public partial class BillingViewModel : ObservableObject
     private bool _roundOffUserEdited;
     private bool _isComputingTotals;
     private bool _alterationGstIncluded;
+    private BillPriceGstMode _priceGstMode = BillPriceGstMode.WithGst;
     private string? _activeHoldNo;
     private string? _sourceQuotationNo;
     private BillTotals _lastBillTotals = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -360,7 +361,9 @@ public partial class BillingViewModel : ObservableObject
     }
 
     private static decimal LineOriginalInclusive(BillingLineItem line) =>
-        line.OriginalInclusiveAmount > 0 ? line.OriginalInclusiveAmount : line.Amount;
+        line.PricesExcludeGst
+            ? line.Amount
+            : (line.OriginalInclusiveAmount > 0 ? line.OriginalInclusiveAmount : line.Amount);
 
     private List<(BillingLineItem Line, decimal OriginalInclusive)> BuildDiscountSnapshots() =>
         Lines
@@ -608,8 +611,19 @@ public partial class BillingViewModel : ObservableObject
 
     private void RefreshAlterationGstIncludedFromSettings()
     {
+        RefreshBillingGstSettingsFromSettings();
+    }
+
+    private void RefreshBillingGstSettingsFromSettings()
+    {
         _services.PosBillingSettings.Load();
         _alterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
+        _priceGstMode = _services.PosBillingSettings.Current.PriceGstMode;
+        var exclude = _priceGstMode == BillPriceGstMode.WithoutGst;
+
+        // Keep Rate unchanged when mode flips; only tax math changes (inclusive reverse-split vs forward add-on).
+        foreach (var line in Lines.Where(l => !l.IsEntryRow))
+            line.PricesExcludeGst = exclude;
     }
 
     private void ApplyAlterationToTotals(
@@ -819,7 +833,7 @@ public partial class BillingViewModel : ObservableObject
         CgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Cgst);
         SgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Sgst);
         IgstTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.Igst);
-        GrossTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.OriginalInclusiveTotal);
+        GrossTotalFormatted = MoneyMath.FormatRupee(_lastBillTotals.GrandBeforeRound);
         ItemDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.ItemDiscount);
         CashDiscAmountFormatted = MoneyMath.FormatRupee(_lastBillTotals.CashDiscount);
         SchemeDiscountFormatted = MoneyMath.FormatRupee(_lastBillTotals.SchemeLineDiscount + _lastBillTotals.SchemeBillDiscount);
@@ -1435,7 +1449,7 @@ public partial class BillingViewModel : ObservableObject
             entry.ProductCode = "";
     }
 
-    private static void FillLineFromCatalog(BillingLineItem line, CatalogProduct p, decimal qty)
+    private void FillLineFromCatalog(BillingLineItem line, CatalogProduct p, decimal qty)
     {
         line.IsEntryRow = false;
         line.CentralProductId = p.CentralId ?? "";
@@ -1445,9 +1459,11 @@ public partial class BillingViewModel : ObservableObject
         line.Qty = qty;
         line.CostPrice = p.CostPrice ?? 0;
         line.MarginPercent = p.MarginPercent ?? 0;
+        line.PricesExcludeGst = _priceGstMode == BillPriceGstMode.WithoutGst;
+        line.TaxPercent = p.SuggestedTaxPercent;
+        // Both modes use catalog selling price as Rate. Without GST: Rate is taxable base; GST added on top.
         line.Rate = p.SuggestedRate;
         line.Mrp = p.Mrp ?? 0;
-        line.TaxPercent = p.SuggestedTaxPercent;
         line.CategoryId = p.CategoryId ?? "";
         line.BrandId = p.BrandId ?? "";
         line.OfferGroupId = p.OfferGroupId ?? "";
@@ -1492,8 +1508,15 @@ public partial class BillingViewModel : ObservableObject
         if (line.IsEntryRow || line.Qty <= 0 || line.Rate <= 0) return;
         if (line.CostPrice <= 0 || line.MarginPercent <= 0) return;
 
+        // Margin floor vs what the customer pays per unit (Rate+GST when Without GST).
+        var rateForMargin = line.Qty > 0
+            ? MoneyMath.RoundAmount(line.RevisedInclusiveAmount / line.Qty)
+            : line.Rate;
+        if (rateForMargin <= 0)
+            rateForMargin = line.Rate;
+
         var label = string.IsNullOrWhiteSpace(line.ProductCode) ? line.Description : line.ProductCode;
-        if (!MarginGatekeeper.TryBuildWarning(label, line.Rate, line.CostPrice, line.MarginPercent, out var message))
+        if (!MarginGatekeeper.TryBuildWarning(label, rateForMargin, line.CostPrice, line.MarginPercent, out var message))
             return;
 
         AppDialog.Show(
@@ -1903,6 +1926,7 @@ public partial class BillingViewModel : ObservableObject
                 { "taxTotal", (double)totals.TaxTotal },
                 { "alterationTotal", (double)totals.AlterationTotal },
                 { "alterationGstIncluded", _alterationGstIncluded },
+                { "priceGstMode", _priceGstMode.ToString() },
                 { "payable", (double)totals.Payable },
                 { "lines", linesArr },
                 { "payments", paymentsArr },
@@ -2373,8 +2397,10 @@ public partial class BillingViewModel : ObservableObject
         ItemDiscountPercent = header.ItemDiscountPercent;
         CashDiscAmountText = MoneyMath.FormatEditableAmount(header.CashDiscAmount);
         _alterationGstIncluded = header.AlterationGstIncluded;
+        _priceGstMode = header.PriceGstMode;
 
-        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(doc, IsInterState))
+        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(
+                     doc, IsInterState, _priceGstMode == BillPriceGstMode.WithoutGst))
             Lines.Add(line);
 
         EnsureEntryRow();
@@ -2418,8 +2444,10 @@ public partial class BillingViewModel : ObservableObject
         ItemDiscountPercent = header.ItemDiscountPercent;
         CashDiscAmountText = MoneyMath.FormatEditableAmount(header.CashDiscAmount);
         _alterationGstIncluded = header.AlterationGstIncluded;
+        _priceGstMode = header.PriceGstMode;
 
-        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(doc, IsInterState))
+        foreach (var line in BillingPayloadBuilder.LoadLinesFromDocument(
+                     doc, IsInterState, _priceGstMode == BillPriceGstMode.WithoutGst))
             Lines.Add(line);
 
         EnsureEntryRow();
@@ -2518,6 +2546,7 @@ public partial class BillingViewModel : ObservableObject
             { "taxTotal", (double)totals.TaxTotal },
             { "alterationTotal", (double)totals.AlterationTotal },
             { "alterationGstIncluded", _alterationGstIncluded },
+            { "priceGstMode", _priceGstMode.ToString() },
             { "payable", (double)totals.Payable },
             { "lines", linesArr },
         };

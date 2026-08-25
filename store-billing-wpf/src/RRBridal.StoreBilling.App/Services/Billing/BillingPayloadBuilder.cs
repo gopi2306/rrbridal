@@ -49,7 +49,10 @@ public static class BillingPayloadBuilder
         return linesArr;
     }
 
-    public static IReadOnlyList<BillingLineItem> LoadLinesFromDocument(BsonDocument doc, bool isInterState)
+    public static IReadOnlyList<BillingLineItem> LoadLinesFromDocument(
+        BsonDocument doc,
+        bool isInterState,
+        bool pricesExcludeGst = false)
     {
         var result = new List<BillingLineItem>();
         if (!doc.TryGetValue("lines", out var linesVal) || !linesVal.IsBsonArray)
@@ -65,6 +68,7 @@ public static class BillingPayloadBuilder
                 Description = lineBson.GetValue("description", "").AsString,
                 HsnCode = lineBson.GetValue("hsn", "").AsString,
                 Qty = (decimal)lineBson.GetValue("qty", 0).ToDouble(),
+                PricesExcludeGst = pricesExcludeGst,
                 Rate = (decimal)lineBson.GetValue("rate", 0).ToDouble(),
                 Mrp = (decimal)lineBson.GetValue("mrp", 0).ToDouble(),
                 TaxPercent = (decimal)lineBson.GetValue("taxPercent", 0).ToDouble(),
@@ -96,8 +100,21 @@ public static class BillingPayloadBuilder
             ItemDiscountPercent = (decimal)doc.GetValue("itemDiscountPercent", 0).ToDouble(),
             CashDiscAmount = (decimal)doc.GetValue("cashDiscAmount", 0).ToDouble(),
             AlterationGstIncluded = doc.GetValue("alterationGstIncluded", false).AsBoolean,
+            PriceGstMode = ParsePriceGstMode(doc),
             Payable = (decimal)doc.GetValue("payable", 0).ToDouble(),
         };
+    }
+
+    private static BillPriceGstMode ParsePriceGstMode(BsonDocument doc)
+    {
+        if (!doc.TryGetValue("priceGstMode", out var raw) || raw.IsBsonNull)
+            return BillPriceGstMode.WithGst;
+        var text = raw.ToString()?.Trim() ?? "";
+        if (string.IsNullOrEmpty(text))
+            return BillPriceGstMode.WithGst;
+        return Enum.TryParse<BillPriceGstMode>(text, ignoreCase: true, out var mode)
+            ? mode
+            : BillPriceGstMode.WithGst;
     }
 
     public static string FormatDeliveryDate(System.DateTime? deliveryDate) =>
@@ -136,5 +153,6 @@ public sealed class BillingHeaderSnap
     public decimal ItemDiscountPercent { get; init; }
     public decimal CashDiscAmount { get; init; }
     public bool AlterationGstIncluded { get; init; }
+    public BillPriceGstMode PriceGstMode { get; init; } = BillPriceGstMode.WithGst;
     public decimal Payable { get; init; }
 }

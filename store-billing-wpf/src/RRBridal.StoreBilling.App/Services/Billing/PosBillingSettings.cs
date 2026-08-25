@@ -4,6 +4,16 @@ using System.Linq;
 
 namespace RRBridal.StoreBilling.App.Services.Billing;
 
+/// <summary>How product Rate is interpreted on POS bills.</summary>
+public enum BillPriceGstMode
+{
+    /// <summary>Rate includes GST; tax is reverse-split from Amount.</summary>
+    WithGst = 0,
+
+    /// <summary>Rate excludes GST; GST is added on top (forward tax).</summary>
+    WithoutGst = 1,
+}
+
 public sealed class PosBillingSettingsDocument
 {
     /// <summary>When true, call central APIs immediately; when false, work local-only and sync later.</summary>
@@ -22,6 +32,12 @@ public sealed class PosBillingSettingsDocument
 
     /// <summary>When true, alteration amounts are GST-inclusive and split using each line's tax %.</summary>
     public bool AlterationGstIncluded { get; set; }
+
+    /// <summary>
+    /// WithGst (default): Rate is GST-inclusive selling price.
+    /// WithoutGst: Rate is exclusive selling price; GST is added on top.
+    /// </summary>
+    public BillPriceGstMode PriceGstMode { get; set; } = BillPriceGstMode.WithGst;
 
     /// <summary>When true, a bill may have multiple partial return transactions; fully returned lines are disabled.</summary>
     public bool AllowMultipleReturnsPerBill { get; set; }

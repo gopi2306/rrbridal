@@ -61,6 +61,9 @@ public sealed class CentralStorePosClient
                 Mrp = row.Mrp,
                 SellingPrice = row.SellingPrice,
                 StorePrice = row.StorePrice ?? row.SellingPrice,
+                MrpWithoutGst = row.MrpWithoutGst,
+                SellingPriceWithoutGst = row.SellingPriceWithoutGst,
+                StorePriceWithoutGst = row.StorePriceWithoutGst,
                 GstPercent = row.GstPercent,
                 HsnSac = row.HsnSac,
                 CategoryId = row.CategoryId,
@@ -619,6 +622,9 @@ public sealed class CentralStorePosClient
         public decimal? Mrp { get; set; }
         public decimal? SellingPrice { get; set; }
         public decimal? StorePrice { get; set; }
+        public decimal? MrpWithoutGst { get; set; }
+        public decimal? SellingPriceWithoutGst { get; set; }
+        public decimal? StorePriceWithoutGst { get; set; }
         public decimal? GstPercent { get; set; }
         public string? HsnSac { get; set; }
         public decimal StockQty { get; set; }

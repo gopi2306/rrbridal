@@ -1021,7 +1021,18 @@
                                               Style="{StaticResource ThemedCheckBox}"
                                               IsChecked="{Binding BillingAlterationGstIncluded}" Margin="0,0,0,4"/>
                                     <TextBlock Text="When off, alteration is a flat charge after merchandise tax."
-                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Selling price GST mode" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
+                                    <StackPanel Margin="0,0,0,4">
+                                        <RadioButton Content="With GST — selling price includes GST"
+                                                     GroupName="BillingPriceGstMode" Margin="0,0,0,6"
+                                                     IsChecked="{Binding IsBillingPriceGstWithGst, Mode=TwoWay}"/>
+                                        <RadioButton Content="Without GST — selling price excludes GST; GST is added"
+                                                     GroupName="BillingPriceGstMode" Margin="0,0,0,0"
+                                                     IsChecked="{Binding IsBillingPriceGstWithoutGst, Mode=TwoWay}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="With GST keeps today’s inclusive reverse-split. Without GST uses exclusive Rate and adds GST on top."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,14"/>
                                     <TextBlock Text="Line item columns" Style="{StaticResource TextLabel}" Margin="0,0,0,6"/>
                                     <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                               ItemsSource="{Binding BillingLineItemDetailOptions}"

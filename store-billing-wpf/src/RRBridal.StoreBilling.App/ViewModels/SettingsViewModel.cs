@@ -100,7 +100,34 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingAllowCreditNoteRemainingCashout;
     [ObservableProperty] private bool _billingAllowMultipleReturnsPerBill;
     [ObservableProperty] private bool _billingAlterationGstIncluded;
+    [ObservableProperty] private BillPriceGstMode _billingPriceGstMode = BillPriceGstMode.WithGst;
     [ObservableProperty] private BillingLineItemDetailLevel _billingLineItemDetailLevel = BillingLineItemDetailLevel.Full;
+
+    public bool IsBillingPriceGstWithGst
+    {
+        get => BillingPriceGstMode == BillPriceGstMode.WithGst;
+        set
+        {
+            if (value)
+                BillingPriceGstMode = BillPriceGstMode.WithGst;
+        }
+    }
+
+    public bool IsBillingPriceGstWithoutGst
+    {
+        get => BillingPriceGstMode == BillPriceGstMode.WithoutGst;
+        set
+        {
+            if (value)
+                BillingPriceGstMode = BillPriceGstMode.WithoutGst;
+        }
+    }
+
+    partial void OnBillingPriceGstModeChanged(BillPriceGstMode value)
+    {
+        OnPropertyChanged(nameof(IsBillingPriceGstWithGst));
+        OnPropertyChanged(nameof(IsBillingPriceGstWithoutGst));
+    }
     [ObservableProperty] private bool _billingEnableCreditBilling = true;
     [ObservableProperty] private bool _billingCreditRequireCreditCustomer = true;
     [ObservableProperty] private string _billingCreditMinAdvancePercentText = "0";
@@ -1131,6 +1158,7 @@ public partial class SettingsViewModel : ObservableObject
         BillingAllowCreditNoteRemainingCashout = _services.PosBillingSettings.Current.AllowCreditNoteRemainingCashout;
         BillingAllowMultipleReturnsPerBill = _services.PosBillingSettings.Current.AllowMultipleReturnsPerBill;
         BillingAlterationGstIncluded = _services.PosBillingSettings.Current.AlterationGstIncluded;
+        BillingPriceGstMode = _services.PosBillingSettings.Current.PriceGstMode;
         BillingLineItemDetailLevel = _services.PosBillingSettings.Current.LineItemDetailLevel;
         BillingEnableCreditBilling = _services.PosBillingSettings.Current.EnableCreditBilling;
         BillingCreditRequireCreditCustomer = _services.PosBillingSettings.Current.CreditBillingRequireCreditCustomer;
@@ -1298,6 +1326,7 @@ public partial class SettingsViewModel : ObservableObject
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
             s.AllowMultipleReturnsPerBill = BillingAllowMultipleReturnsPerBill;
             s.AlterationGstIncluded = BillingAlterationGstIncluded;
+            s.PriceGstMode = BillingPriceGstMode;
             s.LineItemDetailLevel = BillingLineItemDetailLevel;
             s.EnableCreditBilling = BillingEnableCreditBilling;
             s.CreditBillingRequireCreditCustomer = BillingCreditRequireCreditCustomer;
@@ -1357,6 +1386,7 @@ public partial class SettingsViewModel : ObservableObject
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
                 { "allowMultipleReturnsPerBill", BillingAllowMultipleReturnsPerBill },
                 { "alterationGstIncluded", BillingAlterationGstIncluded },
+                { "priceGstMode", BillingPriceGstMode.ToString() },
                 { "lineItemDetailLevel", BillingLineItemDetailLevel.ToString() },
                 { "enableCreditBilling", BillingEnableCreditBilling },
                 { "creditBillingRequireCreditCustomer", BillingCreditRequireCreditCustomer },

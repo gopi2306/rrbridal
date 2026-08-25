@@ -26,19 +26,23 @@ public static class BillingDiscountCalculator
 
     public static GstTaxBreakdown ComputeForwardTax(decimal taxable, decimal taxPercent, bool isIgst)
     {
-        if (taxable <= 0 || taxPercent <= 0)
+        if (taxable <= 0)
             return new GstTaxBreakdown(0, 0, 0, 0, 0);
+
+        var taxableRounded = MoneyMath.RoundAmount(taxable);
+        if (taxPercent <= 0)
+            return new GstTaxBreakdown(taxableRounded, 0, 0, 0, 0);
 
         if (isIgst)
         {
-            var igst = MoneyMath.RoundAmount(taxable * taxPercent / 100m);
-            return new GstTaxBreakdown(taxable, 0, 0, igst, igst);
+            var igst = MoneyMath.RoundAmount(taxableRounded * taxPercent / 100m);
+            return new GstTaxBreakdown(taxableRounded, 0, 0, igst, igst);
         }
 
         var halfRate = Math.Round(taxPercent / 2m, 2);
-        var cgst = MoneyMath.RoundAmount(taxable * halfRate / 100m);
-        var sgst = MoneyMath.RoundAmount(taxable * halfRate / 100m);
-        return new GstTaxBreakdown(taxable, cgst, sgst, 0, cgst + sgst);
+        var cgst = MoneyMath.RoundAmount(taxableRounded * halfRate / 100m);
+        var sgst = MoneyMath.RoundAmount(taxableRounded * halfRate / 100m);
+        return new GstTaxBreakdown(taxableRounded, cgst, sgst, 0, cgst + sgst);
     }
 
     public static GstTaxBreakdown ReverseSplitFromInclusive(decimal inclusive, decimal taxPercent, bool isIgst)
@@ -75,6 +79,22 @@ public static class BillingDiscountCalculator
             return new GstTaxBreakdown(0, 0, 0, 0, 0);
 
         return ReverseSplitFromInclusive(revisedInclusive, taxPercent, isIgst);
+    }
+
+    /// <summary>Discounts (₹) reduce exclusive taxable base; GST is added via forward tax.</summary>
+    public static GstTaxBreakdown ComputeRevisedFromExclusiveDiscounts(
+        decimal originalTaxable,
+        decimal schemeDisc,
+        decimal itemDisc,
+        decimal cashDisc,
+        decimal taxPercent,
+        bool isIgst)
+    {
+        var revisedTaxable = Math.Max(0m, originalTaxable - schemeDisc - itemDisc - cashDisc);
+        if (revisedTaxable <= 0)
+            return new GstTaxBreakdown(0, 0, 0, 0, 0);
+
+        return ComputeForwardTax(revisedTaxable, taxPercent, isIgst);
     }
 
     /// <summary>Tax-inclusive total after scheme discounts, before manual item/cash discounts.</summary>

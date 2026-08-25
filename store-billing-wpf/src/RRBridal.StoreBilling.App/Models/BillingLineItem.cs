@@ -51,6 +51,12 @@ public partial class BillingLineItem : ObservableObject
 
     [ObservableProperty] private bool isIgst;
 
+    /// <summary>
+    /// When true, Rate×Qty is exclusive taxable; GST is added via forward tax.
+    /// When false (default), Rate×Qty is GST-inclusive and tax is reverse-split.
+    /// </summary>
+    [ObservableProperty] private bool pricesExcludeGst;
+
     [ObservableProperty] private decimal cgstPercent;
     [ObservableProperty] private decimal sgstPercent;
     [ObservableProperty] private decimal igstPercent;
@@ -99,13 +105,14 @@ public partial class BillingLineItem : ObservableObject
     partial void OnRateChanged(decimal value) => Recalc();
     partial void OnTaxPercentChanged(decimal value) => RecalcTax();
     partial void OnIsIgstChanged(bool value) => RecalcTax();
+    partial void OnPricesExcludeGstChanged(bool value) => RecalcTax();
     partial void OnDiscountAmountChanged(decimal value) => RecalcTax();
     partial void OnCashDiscountAmountChanged(decimal value) => RecalcTax();
     partial void OnSchemeDiscountAmountChanged(decimal value) => RecalcTax();
 
     private void Recalc()
     {
-        // Rate from product master is GST-inclusive selling price.
+        // WithGst: Rate is GST-inclusive. WithoutGst: Rate is exclusive taxable.
         Amount = MoneyMath.RoundAmount(Qty * Rate);
         RecalcTax();
     }
@@ -125,19 +132,39 @@ public partial class BillingLineItem : ObservableObject
             IgstPercent = 0;
         }
 
-        var original = BillingDiscountCalculator.ReverseSplitFromInclusive(Amount, TaxPercent, IsIgst);
-        OriginalTaxAmount = original.TotalTax;
-        OriginalInclusiveAmount = original.Inclusive;
+        if (PricesExcludeGst)
+        {
+            var originalTaxable = Amount;
+            var original = BillingDiscountCalculator.ComputeForwardTax(originalTaxable, TaxPercent, IsIgst);
+            OriginalTaxAmount = original.TotalTax;
+            OriginalInclusiveAmount = original.Inclusive;
 
-        var revised = BillingDiscountCalculator.ComputeRevisedFromInclusiveDiscounts(
+            var revised = BillingDiscountCalculator.ComputeRevisedFromExclusiveDiscounts(
+                originalTaxable, SchemeDiscountAmount, DiscountAmount, CashDiscountAmount, TaxPercent, IsIgst);
+
+            RevisedAmount = revised.Taxable;
+            CgstAmount = revised.Cgst;
+            SgstAmount = revised.Sgst;
+            IgstAmount = revised.Igst;
+            TaxAmount = revised.TotalTax;
+            RevisedTaxAmount = revised.TotalTax;
+            RevisedInclusiveAmount = revised.Inclusive;
+            return;
+        }
+
+        var inclusiveOriginal = BillingDiscountCalculator.ReverseSplitFromInclusive(Amount, TaxPercent, IsIgst);
+        OriginalTaxAmount = inclusiveOriginal.TotalTax;
+        OriginalInclusiveAmount = inclusiveOriginal.Inclusive;
+
+        var inclusiveRevised = BillingDiscountCalculator.ComputeRevisedFromInclusiveDiscounts(
             OriginalInclusiveAmount, SchemeDiscountAmount, DiscountAmount, CashDiscountAmount, TaxPercent, IsIgst);
 
-        RevisedAmount = revised.Taxable;
-        CgstAmount = revised.Cgst;
-        SgstAmount = revised.Sgst;
-        IgstAmount = revised.Igst;
-        TaxAmount = revised.TotalTax;
-        RevisedTaxAmount = revised.TotalTax;
-        RevisedInclusiveAmount = revised.Inclusive;
+        RevisedAmount = inclusiveRevised.Taxable;
+        CgstAmount = inclusiveRevised.Cgst;
+        SgstAmount = inclusiveRevised.Sgst;
+        IgstAmount = inclusiveRevised.Igst;
+        TaxAmount = inclusiveRevised.TotalTax;
+        RevisedTaxAmount = inclusiveRevised.TotalTax;
+        RevisedInclusiveAmount = inclusiveRevised.Inclusive;
     }
 }

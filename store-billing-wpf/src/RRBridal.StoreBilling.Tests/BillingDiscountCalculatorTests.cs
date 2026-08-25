@@ -1,5 +1,6 @@
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Products;
 using Xunit;
 
 namespace RRBridal.StoreBilling.Tests;
@@ -62,5 +63,136 @@ public class BillingDiscountCalculatorTests
         Assert.Equal(29_952.8571m, taxable);
         Assert.Equal(1_497.6429m, tax);
         Assert.Equal(payable, taxable + tax);
+    }
+
+    [Fact]
+    public void WithGst_rate_118_at_18_percent_yields_taxable_100()
+    {
+        var line = new BillingLineItem
+        {
+            Qty = 1,
+            Rate = 118m,
+            TaxPercent = 18m,
+            PricesExcludeGst = false,
+        };
+
+        Assert.Equal(100m, line.RevisedAmount);
+        Assert.Equal(18m, line.RevisedTaxAmount);
+        Assert.Equal(118m, line.RevisedInclusiveAmount);
+    }
+
+    [Fact]
+    public void SuggestedTaxPercent_infers_from_inclusive_vs_without_gst_when_gst_percent_zero()
+    {
+        var product = new CatalogProduct
+        {
+            CentralId = "1",
+            Sku = "SKU1",
+            Name = "Test",
+            SellingPrice = 895m,
+            SellingPriceWithoutGst = 758.47m,
+            GstPercent = 0m,
+        };
+
+        Assert.Equal(18m, product.SuggestedTaxPercent);
+        Assert.Equal(758.47m, product.SuggestedExclusiveRate);
+        // Without GST billing: selling price is taxable base → 895 + 18% GST.
+        var payable = product.SuggestedPayableUnitRate(pricesExcludeGst: true);
+        Assert.Equal(1056.1m, payable);
+    }
+
+    [Fact]
+    public void WithoutGst_rate_650_at_18_percent_adds_gst_on_top()
+    {
+        var line = new BillingLineItem
+        {
+            Qty = 1,
+            PricesExcludeGst = true,
+            TaxPercent = 18m,
+            Rate = 650m,
+        };
+
+        Assert.Equal(650m, line.Amount);
+        Assert.Equal(650m, line.RevisedAmount);
+        Assert.Equal(117m, line.RevisedTaxAmount);
+        Assert.Equal(767m, line.RevisedInclusiveAmount);
+        Assert.Equal(58.5m, line.CgstAmount);
+        Assert.Equal(58.5m, line.SgstAmount);
+    }
+
+    [Fact]
+    public void WithoutGst_rate_100_at_18_percent_adds_gst_on_top()
+    {
+        var line = new BillingLineItem
+        {
+            Qty = 1,
+            PricesExcludeGst = true,
+            TaxPercent = 18m,
+            Rate = 100m,
+        };
+
+        Assert.Equal(100m, line.Amount);
+        Assert.Equal(100m, line.RevisedAmount);
+        Assert.Equal(18m, line.RevisedTaxAmount);
+        Assert.Equal(118m, line.RevisedInclusiveAmount);
+        Assert.Equal(9m, line.CgstAmount);
+        Assert.Equal(9m, line.SgstAmount);
+    }
+
+    [Fact]
+    public void WithoutGst_discount_reduces_taxable_then_adds_forward_tax()
+    {
+        var line = new BillingLineItem
+        {
+            Qty = 1,
+            Rate = 100m,
+            TaxPercent = 18m,
+            PricesExcludeGst = true,
+            DiscountAmount = 10m,
+        };
+
+        Assert.Equal(90m, line.RevisedAmount);
+        Assert.Equal(16.20m, line.RevisedTaxAmount);
+        Assert.Equal(106.20m, line.RevisedInclusiveAmount);
+    }
+
+    [Fact]
+    public void ComputeForwardTax_zero_percent_keeps_taxable()
+    {
+        var breakdown = BillingDiscountCalculator.ComputeForwardTax(100m, 0m, isIgst: false);
+        Assert.Equal(100m, breakdown.Taxable);
+        Assert.Equal(0m, breakdown.TotalTax);
+        Assert.Equal(100m, breakdown.Inclusive);
+    }
+
+    [Fact]
+    public void SuggestedExclusiveRate_derives_from_inclusive_when_without_gst_fields_missing()
+    {
+        var product = new CatalogProduct
+        {
+            CentralId = "1",
+            Sku = "SKU1",
+            Name = "Test",
+            SellingPrice = 118m,
+            GstPercent = 18m,
+        };
+
+        Assert.Equal(100m, product.SuggestedExclusiveRate);
+    }
+
+    [Fact]
+    public void SuggestedExclusiveRate_prefers_master_without_gst_fields()
+    {
+        var product = new CatalogProduct
+        {
+            CentralId = "1",
+            Sku = "SKU1",
+            Name = "Test",
+            SellingPrice = 118m,
+            SellingPriceWithoutGst = 99.5m,
+            GstPercent = 18m,
+        };
+
+        Assert.Equal(99.5m, product.SuggestedExclusiveRate);
     }
 }

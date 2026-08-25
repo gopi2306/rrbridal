@@ -162,6 +162,7 @@ public sealed class PosBillingSettingsStore
             _current.AllowCreditNoteRemainingCashout = central.AllowCreditNoteRemainingCashout;
             _current.LineItemDetailLevel = central.LineItemDetailLevel;
             _current.AlterationGstIncluded = central.AlterationGstIncluded;
+            _current.PriceGstMode = central.PriceGstMode;
             _current.AllowMultipleReturnsPerBill = central.AllowMultipleReturnsPerBill;
             _current.EnableCreditBilling = central.EnableCreditBilling;
             _current.CreditBillingRequireCreditCustomer = central.CreditBillingRequireCreditCustomer;
