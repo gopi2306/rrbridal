@@ -25,6 +25,8 @@ public static class RetailInvoiceLayout
     public const double LogoMaxHeightMm = 18;
 
     public const int MinTableRows = 12;
+    public const int LinesPerPage = 12;
+    public const int LastPageLinesPerPage = 8;
     public const double TableRowHeightMm = 9;
 
     /// <summary>Column weights: Description (~65%), Qty, Rate, Amount.</summary>

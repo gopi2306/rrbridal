@@ -29,6 +29,9 @@ import {
   parseInvoicePayments,
   parseOccurredAt,
   parsePaymentTotals,
+  parsePaymentTotalsForRange,
+  parseCreditBillingPaymentsInRange,
+  hasPriorCreditPaymentsInRange,
   parseReturnCashRefund,
   parseReturnExchangePayments,
   parseReturnLineCount,
@@ -90,8 +93,9 @@ export class StoreSalesDashboardService {
       throw new BadRequestException(err instanceof Error ? err.message : String(err));
     }
 
-    const [invoices, returns, creditNotes, creditNoteCashouts, dailyExpenses] = await Promise.all([
+    const [invoices, creditInvoices, returns, creditNotes, creditNoteCashouts, dailyExpenses] = await Promise.all([
       this.invoiceModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
+      this.invoiceModel.find({ storeId: store.code, 'payload.creditBilling': { $exists: true } }).lean(),
       this.returnModel.find(buildStoreSalePayloadTimeFilter(store.code, range)).lean(),
       this.creditNoteModel.find({ storeId: store.code, ...buildMongoCreatedAtFilter(range) }).lean(),
       this.creditNoteCashoutModel
@@ -127,7 +131,7 @@ export class StoreSalesDashboardService {
       const items = parseInvoiceLines(payload).reduce((s, l) => s + l.qty, 0);
       const discounts = parseInvoiceDiscounts(payload);
       const creditApplied = parseInvoiceCreditApplied(payload);
-      const payments = parsePaymentTotals(payload);
+      const payments = parsePaymentTotalsForRange(payload, range);
 
       grossSales += gross;
       totalBillAmount += net;
@@ -190,6 +194,19 @@ export class StoreSalesDashboardService {
       for (const line of invoiceMarginLines) {
         marginLines.push({ ...line, sign: 1 });
       }
+    }
+
+    
+    // Credit collections in this period on bills posted outside the period.
+    for (const inv of creditInvoices) {
+      const payload = (inv.payload ?? {}) as Record<string, unknown>;
+      const occurred = parseOccurredAt(payload, this.docTimestamp(inv));
+      if (occurred && isInRange(occurred, range)) continue;
+      if (!hasPriorCreditPaymentsInRange(payload, occurred, range)) continue;
+      const payments = parseCreditBillingPaymentsInRange(payload, range);
+      billCashTotal += payments.cash;
+      billCardTotal += payments.card;
+      billUpiTotal += payments.upi;
     }
 
     let returnValue = 0;

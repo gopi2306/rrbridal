@@ -542,6 +542,100 @@ function isCashRefundReturnMode(returnMode: string | undefined): boolean {
 }
 
 /** Cash refunded to customer when returnMode is cash_refund. */
+
+/** True when payload has a creditBilling object (pay-later bill). */
+export function hasCreditBilling(payload: Record<string, unknown>): boolean {
+  const cb = payload.creditBilling;
+  return !!cb && typeof cb === 'object';
+}
+
+function readCreditPaymentReceivedAt(entry: Record<string, unknown>): Date | null {
+  const raw =
+    readString(entry.receivedAtUtc) ??
+    readString(entry.receivedAt) ??
+    readString(entry.createdAtUtc);
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Sum cash/card/UPI/CN from creditBilling.payments whose receivedAtUtc falls in range.
+ * Supports split `legs` on a payment entry.
+ */
+export function parseCreditBillingPaymentsInRange(
+  payload: Record<string, unknown>,
+  range: ResolvedDateRange,
+): PaymentTotals {
+  const totals: PaymentTotals = { cash: 0, card: 0, upi: 0, creditNote: 0 };
+  const cb = payload.creditBilling;
+  if (!cb || typeof cb !== 'object') return totals;
+  const payments = (cb as Record<string, unknown>).payments;
+  if (!Array.isArray(payments)) return totals;
+
+  for (const p of payments) {
+    if (!p || typeof p !== 'object') continue;
+    const entry = p as Record<string, unknown>;
+    const receivedAt = readCreditPaymentReceivedAt(entry);
+    if (!receivedAt || !isInRange(receivedAt, range)) continue;
+
+    const legs = entry.legs;
+    if (Array.isArray(legs) && legs.length > 0) {
+      for (const leg of legs) {
+        if (!leg || typeof leg !== 'object') continue;
+        const row = leg as Record<string, unknown>;
+        const amount = readNumber(row.amount);
+        if (amount <= 0) continue;
+        const mode = classifyPaymentProvider(
+          readString(row.mode) ?? readString(row.provider) ?? '',
+        );
+        addPaymentToTotals(totals, mode, amount);
+      }
+    } else {
+      const amount = readNumber(entry.amount);
+      if (amount <= 0) continue;
+      const mode = classifyPaymentProvider(
+        readString(entry.mode) ?? readString(entry.provider) ?? '',
+      );
+      addPaymentToTotals(totals, mode, amount);
+    }
+  }
+
+  return totals;
+}
+
+/**
+ * Day-close / period tender: credit bills attribute cash/card/UPI by payment date;
+ * other bills keep full parsePaymentTotals (caller only includes bills for the period).
+ */
+export function parsePaymentTotalsForRange(
+  payload: Record<string, unknown>,
+  range: ResolvedDateRange,
+): PaymentTotals {
+  if (hasCreditBilling(payload)) {
+    const cb = payload.creditBilling as Record<string, unknown>;
+    const payments = cb.payments;
+    if (Array.isArray(payments) && payments.length > 0) {
+      return parseCreditBillingPaymentsInRange(payload, range);
+    }
+    // Legacy credit bills without dated creditBilling.payments: keep old bill-day attribution
+    // only when the bill itself occurred in range (caller should gate).
+    return parsePaymentTotals(payload);
+  }
+  return parsePaymentTotals(payload);
+}
+
+/** True when bill createdAt is outside range but credit collections fall inside. */
+export function hasPriorCreditPaymentsInRange(
+  payload: Record<string, unknown>,
+  billOccurred: Date | null,
+  range: ResolvedDateRange,
+): boolean {
+  if (!hasCreditBilling(payload)) return false;
+  if (billOccurred && isInRange(billOccurred, range)) return false;
+  const payments = parseCreditBillingPaymentsInRange(payload, range);
+  return payments.cash > 0 || payments.card > 0 || payments.upi > 0 || payments.creditNote > 0;
+}
 export function parseReturnCashRefund(payload: Record<string, unknown>): number {
   if (!isCashRefundReturnMode(readString(payload.returnMode))) return 0;
 

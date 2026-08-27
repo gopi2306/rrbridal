@@ -43,9 +43,11 @@ public static class TaxInvoiceA4GstBreakdown
         var rows = new List<HsnGstRow>();
         foreach (var g in groups)
         {
-            var taxable = g.Sum(x => x.TaxableAmount);
+            var taxable = g.Sum(x => LineTaxableAmount(x));
             var tax = g.Sum(x => x.TaxAmount);
             var percent = g.Key.Percent;
+            if (tax <= 0 && percent > 0 && taxable > 0)
+                tax = MoneyMath.RoundAmount(taxable * percent / 100m);
 
             if (input.IsInterState)
             {

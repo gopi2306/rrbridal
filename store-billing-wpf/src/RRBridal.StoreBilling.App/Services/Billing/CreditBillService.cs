@@ -281,6 +281,8 @@ public sealed class CreditBillService
                 { "amount", (double)leg.Amount },
                 { "reference", leg.Reference },
                 { "status", "posted" },
+                { "receivedAtUtc", receivedAt },
+                { "kind", "credit_collection" },
             });
         }
 

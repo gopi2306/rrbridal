@@ -37,13 +37,17 @@ public static class TaxInvoiceA4DocumentBuilder
         };
 
         var activeLines = InvoiceLinePagination.ActiveLines(input);
-        var chunks = InvoiceLinePagination.ChunkLines(activeLines, linesPerPage);
+        var lastPageMax = Math.Min(linesPerPage, TaxInvoiceA4Layout.LastPageLinesPerPage);
+        var chunks = InvoiceLinePagination.ChunkLinesFillThenFooterPage(activeLines, linesPerPage, lastPageMax);
 
         for (var pageIndex = 0; pageIndex < chunks.Count; pageIndex++)
         {
             var isLastPage = pageIndex == chunks.Count - 1;
-            var hasMorePages = !isLastPage;
-            var pageVisual = BuildPageVisual(input, contentWidth, pageWidth, pageHeight, margin, chunks[pageIndex], isLastPage, hasMorePages);
+            var hasMoreLinePages = !isLastPage && chunks[pageIndex + 1].Count > 0;
+            var showHeader = pageIndex == 0;
+            var pageVisual = BuildPageVisual(
+                input, contentWidth, pageWidth, pageHeight, margin,
+                chunks[pageIndex], isLastPage, hasMoreLinePages, showHeader);
 
             if (pageIndex == 0)
                 doc.Blocks.Add(new BlockUIContainer(pageVisual));
@@ -66,7 +70,8 @@ public static class TaxInvoiceA4DocumentBuilder
         double margin,
         IReadOnlyList<InvoiceLineSnap> pageLines,
         bool isLastPage,
-        bool hasMorePages)
+        bool hasMoreLinePages,
+        bool showHeader)
     {
         var bodyPt = TaxInvoiceA4Layout.BodyPt;
         var smallPt = TaxInvoiceA4Layout.SmallPt;
@@ -84,11 +89,16 @@ public static class TaxInvoiceA4DocumentBuilder
             Width = contentWidth,
             Height = pageHeight - margin * 2,
         };
-        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // title
+        if (showHeader)
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // meta
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // table
+        var tableRow = showHeader ? 2 : 1;
+        var footerStartRow = tableRow + 1;
         if (isLastPage)
         {
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // subtotal / tax / total
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // amount words
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // gst split
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // tax words
@@ -97,59 +107,77 @@ public static class TaxInvoiceA4DocumentBuilder
         }
         root.Children.Add(content);
 
-        var title = BuildTitleRow(contentWidth, bodyPt);
-        Grid.SetRow(title, 0);
+        var row = 0;
+        var title = BuildTitleRow(contentWidth, bodyPt, showHeader, input.BillNo);
+        Grid.SetRow(title, row++);
         content.Children.Add(title);
 
-        var meta = BuildMetaSection(input, contentWidth, bodyPt, smallPt);
-        Grid.SetRow(meta, 1);
-        content.Children.Add(meta);
+        if (showHeader)
+        {
+            var meta = BuildMetaSection(input, contentWidth, bodyPt, smallPt);
+            Grid.SetRow(meta, row++);
+            content.Children.Add(meta);
+        }
 
-        var table = BuildLineTable(input, contentWidth, pageLines, isLastPage, hasMorePages);
-        Grid.SetRow(table, 2);
+        var table = BuildLineTable(input, contentWidth, pageLines, hasMoreLinePages);
+        Grid.SetRow(table, tableRow);
         content.Children.Add(table);
 
         if (isLastPage)
         {
             var taxTotals = TaxInvoiceA4GstBreakdown.ComputeTotals(input);
+            var footerPt = TaxInvoiceA4Layout.FooterBodyPt;
+            var footerSmallPt = TaxInvoiceA4Layout.FooterSmallPt;
 
-            var amountInWords = BuildAmountInWords(input, contentWidth, bodyPt);
-            Grid.SetRow(amountInWords, 3);
+            var totalsBlock = BuildTotalsBlock(input, taxTotals, contentWidth);
+            Grid.SetRow(totalsBlock, footerStartRow);
+            content.Children.Add(totalsBlock);
+
+            var amountInWords = BuildAmountInWords(input, contentWidth, footerPt);
+            Grid.SetRow(amountInWords, footerStartRow + 1);
             content.Children.Add(amountInWords);
 
-            var gstSplit = BuildGstSplitTable(input, contentWidth, bodyPt, smallPt);
-            Grid.SetRow(gstSplit, 4);
+            var gstSplit = BuildGstSplitTable(input, contentWidth, footerPt, footerSmallPt);
+            Grid.SetRow(gstSplit, footerStartRow + 2);
             content.Children.Add(gstSplit);
 
-            var taxWords = BuildTaxAmountInWords(taxTotals.TotalTax, contentWidth, bodyPt);
-            Grid.SetRow(taxWords, 5);
+            var taxWords = BuildTaxAmountInWords(taxTotals.TotalTax, contentWidth, footerPt);
+            Grid.SetRow(taxWords, footerStartRow + 3);
             content.Children.Add(taxWords);
 
-            var declaration = BuildDeclarationFooter(input, contentWidth, bodyPt, smallPt);
-            Grid.SetRow(declaration, 6);
+            var declaration = BuildDeclarationFooter(input, contentWidth, footerPt, footerSmallPt);
+            Grid.SetRow(declaration, footerStartRow + 4);
             content.Children.Add(declaration);
 
             var footerNote = SectionBorder(
                 TaxInvoiceA4Visuals.Text(
                     "This is a Computer Generated Invoice",
-                    smallPt,
+                    footerSmallPt,
                     align: TextAlignment.Center),
-                new Thickness(1, 0, 1, 1));
-            Grid.SetRow(footerNote, 7);
+                new Thickness(1, 0, 1, 1),
+                FooterSectionPadding());
+            Grid.SetRow(footerNote, footerStartRow + 5);
             content.Children.Add(footerNote);
         }
 
         return root;
     }
 
-    private static UIElement BuildTitleRow(double contentWidth, double bodyPt)
+    private static UIElement BuildTitleRow(double contentWidth, double bodyPt, bool showHeader, string? billNo)
     {
         var grid = new Grid { Width = contentWidth };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var title = TaxInvoiceA4Visuals.Text("Tax Invoice", TaxInvoiceA4Layout.TitlePt, FontWeights.Bold, TextAlignment.Center);
+        var titleText = showHeader
+            ? "Tax Invoice"
+            : $"Tax Invoice (Continued){(string.IsNullOrWhiteSpace(billNo) ? "" : $" — {billNo}")}";
+        var title = TaxInvoiceA4Visuals.Text(
+            titleText,
+            showHeader ? TaxInvoiceA4Layout.TitlePt : TaxInvoiceA4Layout.BodyPt,
+            FontWeights.Bold,
+            TextAlignment.Center);
         Grid.SetColumn(title, 1);
         grid.Children.Add(title);
 
@@ -167,6 +195,12 @@ public static class TaxInvoiceA4DocumentBuilder
     {
         var pad = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.SectionPaddingMm);
         return new Thickness(pad);
+    }
+
+    private static Thickness FooterSectionPadding()
+    {
+        var pad = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.FooterSectionPaddingMm);
+        return new Thickness(pad, pad * 0.6, pad, pad * 0.6);
     }
 
     private static Border SectionBorder(UIElement child, Thickness border, Thickness? padding = null)
@@ -298,7 +332,6 @@ public static class TaxInvoiceA4DocumentBuilder
         ThermalInvoiceInput input,
         double contentWidth,
         IReadOnlyList<InvoiceLineSnap> pageLines,
-        bool isLastPage,
         bool hasMorePages)
     {
         var colWidths = TaxInvoiceA4Layout.ComputeColumnWidths(contentWidth);
@@ -309,14 +342,7 @@ public static class TaxInvoiceA4DocumentBuilder
         var cellPadV = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableCellPaddingVerticalMm);
         var cellPadding = new Thickness(cellPadH, cellPadV, cellPadH, cellPadV);
 
-        var showDiscount = isLastPage && input.ManualDiscountAmount > 0;
-        var taxTotals = isLastPage ? TaxInvoiceA4GstBreakdown.ComputeTotals(input) : null;
-        var taxFooterRows = isLastPage
-            ? (input.IsInterState ? 1 : 2)
-            : 0;
-        var footerRows = isLastPage ? 1 + (showDiscount ? 1 : 0) + taxFooterRows + 1 : 0;
         var spacerRow = 1 + pageLines.Count;
-        var footerStartRow = spacerRow + 1;
 
         var table = new Grid
         {
@@ -332,8 +358,6 @@ public static class TaxInvoiceA4DocumentBuilder
         for (var i = 0; i < pageLines.Count; i++)
             table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(rowH) });
         table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        for (var i = 0; i < footerRows; i++)
-            table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(rowH) });
 
         var headers = new[] { "SI No.", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount" };
         for (var c = 0; c < LineColCount; c++)
@@ -354,50 +378,77 @@ public static class TaxInvoiceA4DocumentBuilder
 
         AddSpacerRow(table, spacerRow, hasMorePages ? "Continued..." : "", rowPt, cellPadding);
 
-        if (isLastPage && taxTotals != null)
+        return SectionBorder(table, new Thickness(1, 0, 1, 0), new Thickness(0));
+    }
+
+    /// <summary>
+    /// Subtotal / CGST / SGST / Total as a dedicated Auto block so it cannot be clipped
+    /// when the line-item Star row shrinks under GST + declaration content.
+    /// </summary>
+    private static UIElement BuildTotalsBlock(
+        ThermalInvoiceInput input,
+        TaxInvoiceA4GstBreakdown.BillTaxTotals taxTotals,
+        double contentWidth)
+    {
+        var colWidths = TaxInvoiceA4Layout.ComputeColumnWidths(contentWidth);
+        var rowPt = TaxInvoiceA4Layout.FooterBodyPt;
+        var rowH = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.FooterTableRowHeightMm);
+        var cellPadH = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableCellPaddingHorizontalMm);
+        var cellPadV = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableCellPaddingVerticalMm);
+        var cellPadding = new Thickness(cellPadH, cellPadV, cellPadH, cellPadV);
+        var showDiscount = input.ManualDiscountAmount > 0;
+        var taxFooterRows = input.IsInterState ? 1 : 2;
+        var footerRows = 1 + (showDiscount ? 1 : 0) + taxFooterRows + 1;
+
+        var table = new Grid
         {
-            var subtotal = ComputeTaxableSubtotal(input, taxTotals);
-            var footerRow = footerStartRow;
+            Width = contentWidth,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true,
+        };
+        for (var c = 0; c < LineColCount; c++)
+            table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(colWidths[c]) });
+        for (var i = 0; i < footerRows; i++)
+            table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(rowH) });
 
-            AddLabelAmountFooterRow(table, footerRow, "", "Subtotal", Money(subtotal), rowPt, TableCellBorder.Footer, cellPadding, labelBold: true);
+        var footerRow = 0;
+        var subtotal = ComputeTaxableSubtotal(input, taxTotals);
+        AddLabelAmountFooterRow(table, footerRow, "Subtotal", Money(subtotal), rowPt, TableCellBorder.Footer, cellPadding, labelBold: true, labelAlign: TextAlignment.Right);
+        footerRow++;
+
+        if (showDiscount)
+        {
+            AddLabelAmountFooterRow(
+                table,
+                footerRow,
+                "Less : DISCOUNT",
+                $"(-) {Money(input.ManualDiscountAmount)}",
+                rowPt,
+                TableCellBorder.Footer,
+                cellPadding);
             footerRow++;
-
-            if (showDiscount)
-            {
-                AddLabelAmountFooterRow(
-                    table,
-                    footerRow,
-                    "Less : DISCOUNT",
-                    "",
-                    $"(-) {Money(input.ManualDiscountAmount)}",
-                    rowPt,
-                    TableCellBorder.Footer,
-                    cellPadding,
-                    labelInDescription: true);
-                footerRow++;
-            }
-
-            if (input.IsInterState)
-            {
-                AddLabelAmountFooterRow(table, footerRow, "IGST", "", Money(taxTotals.Igst), rowPt, TableCellBorder.Footer, cellPadding, labelInDescription: true);
-                footerRow++;
-            }
-            else
-            {
-                AddLabelAmountFooterRow(table, footerRow, "CGST", "", Money(taxTotals.Cgst), rowPt, TableCellBorder.Footer, cellPadding, labelInDescription: true);
-                footerRow++;
-                AddLabelAmountFooterRow(table, footerRow, "SGST", "", Money(taxTotals.Sgst), rowPt, TableCellBorder.Footer, cellPadding, labelInDescription: true);
-                footerRow++;
-            }
-
-            AddTableCell(table, footerRow, 0, "", rowPt, FontWeights.Normal, TableColumnAlign(0), TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 1, "Total", rowPt, FontWeights.Bold, TextAlignment.Left, TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 2, "", rowPt, FontWeights.Normal, TableColumnAlign(2), TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 3, $"{FormatQty(input.TotalQty)} {UnitPer}", rowPt, FontWeights.Bold, TableColumnAlign(3), TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), TableCellBorder.FooterLast, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 6, Money(input.Payable), rowPt, FontWeights.Bold, TableColumnAlign(6), TableCellBorder.FooterLast, cellPadding: cellPadding);
         }
+
+        if (input.IsInterState)
+        {
+            AddLabelAmountFooterRow(table, footerRow, "IGST", Money(taxTotals.Igst), rowPt, TableCellBorder.Footer, cellPadding);
+            footerRow++;
+        }
+        else
+        {
+            AddLabelAmountFooterRow(table, footerRow, "CGST", Money(taxTotals.Cgst), rowPt, TableCellBorder.Footer, cellPadding);
+            footerRow++;
+            AddLabelAmountFooterRow(table, footerRow, "SGST", Money(taxTotals.Sgst), rowPt, TableCellBorder.Footer, cellPadding);
+            footerRow++;
+        }
+
+        AddTableCell(table, footerRow, 0, "", rowPt, FontWeights.Normal, TableColumnAlign(0), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 1, "Total", rowPt, FontWeights.Bold, TextAlignment.Left, TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 2, "", rowPt, FontWeights.Normal, TableColumnAlign(2), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 3, $"{FormatQty(input.TotalQty)} {UnitPer}", rowPt, FontWeights.Bold, TableColumnAlign(3), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 6, Money(input.Payable), rowPt, FontWeights.Bold, TableColumnAlign(6), TableCellBorder.FooterLast, cellPadding: cellPadding);
 
         return SectionBorder(table, new Thickness(1, 0, 1, 0), new Thickness(0));
     }
@@ -405,56 +456,50 @@ public static class TaxInvoiceA4DocumentBuilder
     private static void AddLabelAmountFooterRow(
         Grid table,
         int row,
-        string descriptionLabel,
-        string amountLabel,
+        string label,
         string amountValue,
         double rowPt,
         TableCellBorder border,
         Thickness cellPadding,
         bool labelBold = false,
-        bool labelInDescription = false)
+        TextAlignment labelAlign = TextAlignment.Left)
     {
         AddTableCell(table, row, 0, "", rowPt, FontWeights.Normal, TableColumnAlign(0), border, cellPadding: cellPadding);
         AddTableCell(
             table,
             row,
             1,
-            labelInDescription ? descriptionLabel : "",
+            label,
             rowPt,
-            labelInDescription && !string.IsNullOrEmpty(descriptionLabel) ? FontWeights.Normal : FontWeights.Normal,
-            TextAlignment.Left,
+            labelBold ? FontWeights.Bold : FontWeights.Normal,
+            labelAlign,
             border,
             cellPadding: cellPadding);
         AddTableCell(table, row, 2, "", rowPt, FontWeights.Normal, TableColumnAlign(2), border, cellPadding: cellPadding);
         AddTableCell(table, row, 3, "", rowPt, FontWeights.Normal, TableColumnAlign(3), border, cellPadding: cellPadding);
         AddTableCell(table, row, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), border, cellPadding: cellPadding);
-        AddTableCell(
-            table,
-            row,
-            5,
-            amountLabel,
-            rowPt,
-            labelBold ? FontWeights.Bold : FontWeights.Normal,
-            TextAlignment.Right,
-            border,
-            cellPadding: cellPadding);
+        AddTableCell(table, row, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), border, cellPadding: cellPadding);
         AddTableCell(table, row, 6, amountValue, rowPt, FontWeights.Normal, TableColumnAlign(6), border, cellPadding: cellPadding);
     }
 
     private static UIElement BuildAmountInWords(ThermalInvoiceInput input, double contentWidth, double bodyPt)
     {
         var stack = new StackPanel();
-        stack.Children.Add(TaxInvoiceA4Visuals.Text("Amount Chargeable (in words)", bodyPt, FontWeights.Bold));
-        stack.Children.Add(TaxInvoiceA4Visuals.Text(IndianAmountInWords.ForRupee(input.Payable), bodyPt));
-        return SectionBorder(stack, new Thickness(1, 0, 1, 1));
+        stack.Children.Add(TaxInvoiceA4Visuals.Text(
+            $"Amount Chargeable (in words): {IndianAmountInWords.ForRupee(input.Payable)}",
+            bodyPt,
+            FontWeights.SemiBold));
+        return SectionBorder(stack, new Thickness(1, 0, 1, 1), FooterSectionPadding());
     }
 
     private static UIElement BuildTaxAmountInWords(decimal totalTax, double contentWidth, double bodyPt)
     {
         var stack = new StackPanel();
-        stack.Children.Add(TaxInvoiceA4Visuals.Text("Tax Amount (in words)", bodyPt, FontWeights.Bold));
-        stack.Children.Add(TaxInvoiceA4Visuals.Text(IndianAmountInWords.ForRupee(totalTax), bodyPt));
-        return SectionBorder(stack, new Thickness(1, 0, 1, 1));
+        stack.Children.Add(TaxInvoiceA4Visuals.Text(
+            $"Tax Amount (in words): {IndianAmountInWords.ForRupee(totalTax)}",
+            bodyPt,
+            FontWeights.SemiBold));
+        return SectionBorder(stack, new Thickness(1, 0, 1, 1), FooterSectionPadding());
     }
 
     private static UIElement BuildGstSplitTable(
@@ -465,27 +510,33 @@ public static class TaxInvoiceA4DocumentBuilder
     {
         var rows = TaxInvoiceA4GstBreakdown.BuildHsnRows(input);
         var inter = input.IsInterState;
-        var headerPt = TaxInvoiceA4Layout.TableHeaderPt;
-        var rowPt = TaxInvoiceA4Layout.TableRowPt;
-        var rowH = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableRowHeightMm);
+        var headerPt = TaxInvoiceA4Layout.FooterSmallPt;
+        var rowPt = TaxInvoiceA4Layout.FooterSmallPt;
+        var rowH = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.FooterTableRowHeightMm);
         var cellPadH = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableCellPaddingHorizontalMm);
-        var cellPadV = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.TableCellPaddingVerticalMm);
+        var cellPadV = InvoiceImageScaling.MmToPx(0.25);
         var cellPadding = new Thickness(cellPadH, cellPadV, cellPadH, cellPadV);
 
+        var sectionPadPx = InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.FooterSectionPaddingMm);
+        var innerWidth = Math.Max(1, contentWidth - sectionPadPx * 2);
+
         var colCount = inter ? 5 : 7;
+        // Widen amount / Total Tax Amount columns so values like 1,530.76 are not clipped.
         double[] weights = inter
-            ? new[] { 1.2, 1.4, 0.9, 1.2, 1.2 }
-            : new[] { 1.1, 1.3, 0.7, 1.0, 0.7, 1.0, 1.1 };
+            ? new[] { 1.0, 1.35, 0.7, 1.25, 1.5 }
+            : new[] { 0.95, 1.25, 0.55, 1.1, 0.55, 1.1, 1.5 };
         var widths = new double[colCount];
         var sumW = weights.Sum();
         for (var i = 0; i < colCount; i++)
-            widths[i] = contentWidth * weights[i] / sumW;
+            widths[i] = innerWidth * weights[i] / sumW;
 
         var grid = new Grid
         {
-            Width = contentWidth,
+            Width = innerWidth,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             SnapsToDevicePixels = true,
             UseLayoutRounding = true,
+            ClipToBounds = false,
         };
         for (var c = 0; c < colCount; c++)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(widths[c]) });
@@ -574,11 +625,7 @@ public static class TaxInvoiceA4DocumentBuilder
         var stack = new StackPanel();
         stack.Children.Add(TaxInvoiceA4Visuals.Text("GST breakup", bodyPt, FontWeights.Bold));
         stack.Children.Add(grid);
-        return SectionBorder(stack, new Thickness(1, 0, 1, 1), new Thickness(
-            InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.SectionPaddingMm),
-            InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.SectionPaddingMm),
-            InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.SectionPaddingMm),
-            InvoiceImageScaling.MmToPx(TaxInvoiceA4Layout.SectionPaddingMm)));
+        return SectionBorder(stack, new Thickness(1, 0, 1, 1), FooterSectionPadding());
     }
 
     private static void AddGstCell(
@@ -604,15 +651,31 @@ public static class TaxInvoiceA4DocumentBuilder
             _ => new Thickness(left, 0, right, 0),
         };
 
+        // Slightly tighter padding on amount columns so N2 values are not clipped by the border.
+        var isAmountCol = IsGstAmountColumn(table.ColumnDefinitions.Count, col);
+        var pad = isAmountCol
+            ? new Thickness(
+                Math.Max(1, cellPadding.Left * 0.5),
+                cellPadding.Top,
+                Math.Max(1, cellPadding.Right * 0.5),
+                cellPadding.Bottom)
+            : cellPadding;
+
         var cell = new Border
         {
             BorderBrush = TaxInvoiceA4Visuals.BorderBrush,
             BorderThickness = thickness,
-            Padding = cellPadding,
+            Padding = pad,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             SnapsToDevicePixels = true,
-            Child = TaxInvoiceA4Visuals.Text(text, fontSize, weight, align),
+            ClipToBounds = false,
+            Child = TaxInvoiceA4Visuals.Text(
+                text,
+                fontSize,
+                weight,
+                align,
+                wrap: borderKind == TableCellBorder.Header),
         };
         Grid.SetRow(cell, row);
         Grid.SetColumn(cell, col);
@@ -623,9 +686,14 @@ public static class TaxInvoiceA4DocumentBuilder
         table.Children.Add(cell);
     }
 
+    private static bool IsGstAmountColumn(int colCount, int col) =>
+        colCount == 5
+            ? col is 1 or 3 or 4
+            : col is 1 or 3 or 5 or 6;
+
     private static UIElement BuildDeclarationFooter(ThermalInvoiceInput input, double contentWidth, double bodyPt, double smallPt)
     {
-        var sectionPad = SectionPadding();
+        var sectionPad = FooterSectionPadding();
         var grid = new Grid
         {
             Width = contentWidth,
@@ -652,12 +720,18 @@ public static class TaxInvoiceA4DocumentBuilder
             idx++;
         }
 
+        // Cap policy lines so the footer stays compact enough for 10–15 items on page 1.
+        const int maxPolicyLines = 3;
+        var policyShown = 0;
         foreach (var line in input.Store.PolicyLines ?? Enumerable.Empty<string>())
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;
+            if (policyShown >= maxPolicyLines)
+                break;
             decl.Children.Add(TaxInvoiceA4Visuals.Text($"{idx}. {line}", smallPt, verticalAlign: VerticalAlignment.Top));
             idx++;
+            policyShown++;
         }
 
         var declHost = new Border
@@ -700,7 +774,7 @@ public static class TaxInvoiceA4DocumentBuilder
             BorderThickness = new Thickness(0, 0, 0, 1),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Height = 1,
-            Margin = new Thickness(0, 20, 0, 4),
+            Margin = new Thickness(0, 8, 0, 2),
             SnapsToDevicePixels = true,
         });
         sig.Children.Add(TaxInvoiceA4Visuals.Text($"for {input.Store.StoreName}", bodyPt, align: TextAlignment.Right));
@@ -826,7 +900,13 @@ public static class TaxInvoiceA4DocumentBuilder
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             SnapsToDevicePixels = true,
-            Child = TaxInvoiceA4Visuals.Text(text, fontSize, weight, align, verticalAlign: verticalAlign),
+            Child = TaxInvoiceA4Visuals.Text(
+                text,
+                fontSize,
+                weight,
+                align,
+                wrap: col == 1,
+                verticalAlign: verticalAlign),
         };
         Grid.SetRow(cell, row);
         Grid.SetColumn(cell, col);

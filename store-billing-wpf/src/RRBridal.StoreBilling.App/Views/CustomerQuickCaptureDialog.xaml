@@ -2,10 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Customer"
-        Width="440"
-        SizeToContent="Height"
-        MinWidth="400"
-        MaxWidth="520"
+        Width="520"
+        Height="640"
+        MinWidth="460"
+        MinHeight="420"
+        MaxWidth="620"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource FontFamilyPrimary}"
@@ -16,7 +17,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -26,36 +27,131 @@
         <TextBlock Grid.Row="1" Text="{Binding StatusText}" Foreground="{StaticResource BrushTextMuted}"
                    TextWrapping="Wrap" Margin="0,8,0,12"/>
 
-        <Grid Grid.Row="2" Margin="0,0,0,8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="110"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock Text="Contact" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,10"/>
 
-            <TextBlock Text="Mobile no" VerticalAlignment="Center" Margin="0,0,0,8"/>
-            <TextBox x:Name="MobileBox" Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                     Text="{Binding MobileNo, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,0,8" AutomationProperties.AutomationId="customer-quick-capture-mobile-input" AutomationProperties.Name="Mobile"/>
+                <TextBlock Text="Mobile no *" Style="{StaticResource FormFieldLabel}"/>
+                <TextBox x:Name="MobileBox" Style="{StaticResource RoundedTextBox}"
+                         Text="{Binding MobileNo, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,0,8"
+                         AutomationProperties.AutomationId="customer-quick-capture-mobile-input"
+                         AutomationProperties.Name="Mobile"/>
 
-            <TextBlock Grid.Row="1" Text="Customer name" VerticalAlignment="Center"/>
-            <TextBox x:Name="NameBox" Grid.Row="1" Grid.Column="1" Style="{StaticResource RoundedTextBox}"
-                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="customer-quick-capture-name-input" AutomationProperties.Name="Name"/>
-        </Grid>
+                <TextBlock Text="Customer name *" Style="{StaticResource FormFieldLabel}"/>
+                <TextBox x:Name="NameBox" Style="{StaticResource RoundedTextBox}"
+                         Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,0,8"
+                         AutomationProperties.AutomationId="customer-quick-capture-name-input"
+                         AutomationProperties.Name="Name"/>
+
+                <StackPanel Visibility="{Binding ShowExtendedFields}">
+                    <TextBlock Text="Telephone" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding Telephone, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-telephone-input"
+                             AutomationProperties.Name="Telephone"/>
+
+                    <TextBlock Text="Email" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-email-input"
+                             AutomationProperties.Name="Email"/>
+
+                    <Border BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Margin="0,6,0,14"/>
+
+                    <TextBlock Text="Address &amp; tax" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="GSTIN" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding Gstin, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-gstin-input"
+                             AutomationProperties.Name="GSTIN"/>
+
+                    <TextBlock Text="Door / plot" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding DoorNo, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-door-input"
+                             AutomationProperties.Name="Door"/>
+
+                    <TextBlock Text="Street" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-street-input"
+                             AutomationProperties.Name="Street"/>
+
+                    <TextBlock Text="Full address" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding FullAddress, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-address-input"
+                             AutomationProperties.Name="Full address"/>
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="120"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="City" Style="{StaticResource FormFieldLabel}"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding City, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="customer-quick-capture-city-input"
+                                     AutomationProperties.Name="City"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Pincode" Style="{StaticResource FormFieldLabel}"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}"
+                                     Text="{Binding Pincode, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="customer-quick-capture-pincode-input"
+                                     AutomationProperties.Name="Pincode"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="State" Style="{StaticResource FormFieldLabel}"/>
+                    <TextBox Style="{StaticResource RoundedTextBox}"
+                             Text="{Binding State, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="customer-quick-capture-state-input"
+                             AutomationProperties.Name="State"/>
+
+                    <Border BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Margin="0,6,0,14"/>
+
+                    <TextBlock Text="Billing options" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,10"/>
+                    <Border Background="{StaticResource BrushSidebarTint}" CornerRadius="8" Padding="12" Margin="0,0,0,4">
+                        <CheckBox Content="Credit customer — eligible for Bill on credit"
+                                  Style="{StaticResource ThemedCheckBox}"
+                                  IsChecked="{Binding IsCreditCustomer}"
+                                  AutomationProperties.AutomationId="customer-quick-capture-credit-checkbox"
+                                  AutomationProperties.Name="Credit customer"/>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
 
         <TextBlock x:Name="ValidationBlock" Grid.Row="3" Foreground="{StaticResource BrushNegative}"
                    TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Content="Advanced search" Style="{StaticResource OutlineButton}" Margin="0,0,8,0"
-                    Click="AdvancedSearch_OnClick" Visibility="{Binding ShowAdvancedSearch}" AutomationProperties.AutomationId="customer-quick-capture-advanced-search-button" AutomationProperties.Name="Advanced search"/>
+                    Click="AdvancedSearch_OnClick" Visibility="{Binding ShowAdvancedSearch}"
+                    AutomationProperties.AutomationId="customer-quick-capture-advanced-search-button"
+                    AutomationProperties.Name="Advanced search"/>
             <Button Content="Cancel" Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Width="80"
-                    IsCancel="True" Click="Cancel_OnClick" AutomationProperties.AutomationId="customer-quick-capture-cancel-button" AutomationProperties.Name="Cancel"/>
+                    IsCancel="True" Click="Cancel_OnClick"
+                    AutomationProperties.AutomationId="customer-quick-capture-cancel-button"
+                    AutomationProperties.Name="Cancel"/>
             <Button Content="Save" Style="{StaticResource PrimaryButton}" Width="90" IsDefault="True"
-                    Click="Save_OnClick" AutomationProperties.AutomationId="customer-quick-capture-save-button" AutomationProperties.Name="Save"/>
+                    Click="Save_OnClick"
+                    AutomationProperties.AutomationId="customer-quick-capture-save-button"
+                    AutomationProperties.Name="Save"/>
         </StackPanel>
     </Grid>
 </Window>

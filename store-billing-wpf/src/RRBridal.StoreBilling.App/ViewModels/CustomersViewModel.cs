@@ -20,6 +20,7 @@ public partial class CustomersViewModel : ObservableObject
     private readonly AppServices _services;
     private readonly CustomerRegistrationService _registrationService;
     private readonly CustomerDirectoryService _directory;
+    private readonly CustomerLookupService _lookup;
     private readonly CustomerCodeGenerator _codeGenerator;
     private readonly BillingViewModel _billing;
     private readonly Action _navigateToBilling;
@@ -68,10 +69,8 @@ public partial class CustomersViewModel : ObservableObject
     {
         _services = services;
         _registrationService = new CustomerRegistrationService(services.LocalDb, services.CentralApi, services.StoreContext, services.CentralMode);
-        _directory = new CustomerDirectoryService(
-            services.LocalDb,
-            new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode),
-            services.CentralMode);
+        _lookup = new CustomerLookupService(services.LocalDb, services.CentralApi, services.CentralMode);
+        _directory = new CustomerDirectoryService(services.LocalDb, _lookup, services.CentralMode);
         _codeGenerator = new CustomerCodeGenerator(
             services.LocalDb,
             () => services.CentralMode.IsOnlineMode);
@@ -219,11 +218,31 @@ public partial class CustomersViewModel : ObservableObject
         if (row.Source == "Central" || string.IsNullOrWhiteSpace(row.LocalMongoId))
         {
             LoadDetailFromRow(row);
+
             if (_services.CentralMode.IsOnlineMode && !string.IsNullOrWhiteSpace(row.CentralCustomerId))
             {
+                try
+                {
+                    StatusMessage = $"Loading {row.Name}…";
+                    var central = await _lookup.GetCentralByIdAsync(row.CentralCustomerId);
+                    if (central != null
+                        && SelectedCustomer?.CentralCustomerId == row.CentralCustomerId)
+                    {
+                        LoadDetailFromCentralMatch(central);
+                        DetailPanelTitle = CustomerName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"Loaded list fields only — full detail failed: {ex.Message}";
+                    DetailSourceLabel = "Central customer — editable (Online mode).";
+                    IsDetailReadOnly = false;
+                    return;
+                }
+
                 DetailSourceLabel = "Central customer — editable (Online mode).";
                 IsDetailReadOnly = false;
-                StatusMessage = $"Viewing {row.Name} (central).";
+                StatusMessage = $"Viewing {CustomerName} (central).";
             }
             else
             {
@@ -256,8 +275,7 @@ public partial class CustomersViewModel : ObservableObject
         CentralCustomerId = row.CentralCustomerId ?? "";
         CustomerCode = row.CustomerCode;
         CustomerName = row.Name;
-        Mobile = row.Phone;
-        Telephone = "";
+        SplitPhoneIntoFields(row.Phone);
         Email = row.Email;
         IsCreditCustomer = row.IsCreditCustomer;
         SyncStatus = row.SyncStatus;
@@ -270,6 +288,49 @@ public partial class CustomersViewModel : ObservableObject
         Pincode = "";
         State = "";
         Landmark = "";
+    }
+
+    private void LoadDetailFromCentralMatch(CustomerMatch match)
+    {
+        LocalMongoId = "";
+        CentralCustomerId = match.Id;
+        CustomerCode = match.Code;
+        CustomerName = match.Name;
+        SplitPhoneIntoFields(match.Phone);
+        Email = match.Email ?? "";
+        Gstin = match.Gstin ?? "";
+        DoorNo = match.DoorNo ?? "";
+        Street = match.Street ?? "";
+        FullAddress = match.FullAddress ?? "";
+        Place = match.Place ?? "";
+        City = match.City ?? "";
+        Pincode = match.Pincode ?? "";
+        State = match.State ?? "";
+        Landmark = "";
+        IsCreditCustomer = match.IsCreditCustomer;
+        SyncStatus = "central";
+    }
+
+    private void SplitPhoneIntoFields(string? phoneCombined)
+    {
+        var phone = (phoneCombined ?? "").Trim();
+        if (string.IsNullOrEmpty(phone))
+        {
+            Telephone = "";
+            Mobile = "";
+            return;
+        }
+
+        var sep = phone.IndexOf(" / ", StringComparison.Ordinal);
+        if (sep >= 0)
+        {
+            Telephone = phone[..sep].Trim();
+            Mobile = phone[(sep + 3)..].Trim();
+            return;
+        }
+
+        Telephone = "";
+        Mobile = phone;
     }
 
     private void LoadDetailFromDocument(BsonDocument doc)
@@ -350,8 +411,18 @@ public partial class CustomersViewModel : ObservableObject
             }
 
             IsNewCustomer = false;
+            LocalMongoId = result.LocalMongoId ?? "";
+            CentralCustomerId = result.CentralCustomerId ?? "";
+            if (!string.IsNullOrWhiteSpace(result.BillingCustomerCode))
+                CustomerCode = result.BillingCustomerCode;
+            SyncStatus = result.CentralSyncStatus ?? SyncStatus;
+
             await SearchCustomersAsync(autoSelectFirst: false);
-            SelectedCustomer = FindSavedRow(result);
+            var savedRow = FindSavedRow(result);
+            if (savedRow != null)
+                SelectedCustomer = savedRow;
+            UseInBillingCommand.NotifyCanExecuteChanged();
+            SaveCommand.NotifyCanExecuteChanged();
             StatusMessage = $"Customer {CustomerName} saved.";
         }
         catch (Exception ex)
@@ -367,12 +438,13 @@ public partial class CustomersViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanUseInBilling))]
     private void UseInBilling()
     {
-        if (SelectedCustomer == null || string.IsNullOrWhiteSpace(CustomerName))
+        if (string.IsNullOrWhiteSpace(CustomerName))
             return;
 
         _billing.ApplyCustomerRegistration(new CustomerRegistrationResult
         {
             LocalMongoId = LocalMongoId,
+            CentralCustomerId = CentralCustomerId,
             CentralSyncStatus = SyncStatus,
             CustomerName = CustomerName,
             CustomerPhone = string.IsNullOrWhiteSpace(Mobile) ? Telephone : Mobile,
@@ -386,9 +458,11 @@ public partial class CustomersViewModel : ObservableObject
 
     private bool CanUseInBilling() =>
         !IsNewCustomer
-        && SelectedCustomer != null
         && !string.IsNullOrWhiteSpace(CustomerName)
-        && SelectedCustomer.Source == "Local";
+        && (SelectedCustomer != null
+            || !string.IsNullOrWhiteSpace(LocalMongoId)
+            || !string.IsNullOrWhiteSpace(CentralCustomerId)
+            || !string.IsNullOrWhiteSpace(CustomerCode));
 
     private CustomerRegistrationPayload BuildPayload() => new()
     {

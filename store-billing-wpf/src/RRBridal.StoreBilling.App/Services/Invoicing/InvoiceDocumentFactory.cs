@@ -55,6 +55,6 @@ public static class InvoiceDocumentFactory
         var (pageW, pageH) = format == InvoicePrintFormat.A5
             ? (148.0, 210.0)
             : (210.0, 297.0);
-        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH, linesPerPage: 10, a5Layout: null);
+        return A4InvoiceDocumentBuilder.Create(input, assets, pageW, pageH, linesPerPage: RetailInvoiceLayout.LinesPerPage, a5Layout: null);
     }
 }

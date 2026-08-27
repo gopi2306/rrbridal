@@ -35,13 +35,17 @@ public static class CommercialA4InvoiceDocumentBuilder
         };
 
         var activeLines = InvoiceLinePagination.ActiveLines(input);
-        var chunks = InvoiceLinePagination.ChunkLines(activeLines, linesPerPage);
+        var lastPageMax = Math.Min(linesPerPage, CommercialA4InvoiceLayout.LastPageLinesPerPage);
+        var chunks = InvoiceLinePagination.ChunkLinesFillThenFooterPage(activeLines, linesPerPage, lastPageMax);
 
         for (var pageIndex = 0; pageIndex < chunks.Count; pageIndex++)
         {
             var isLastPage = pageIndex == chunks.Count - 1;
-            var hasMorePages = !isLastPage;
-            var pageVisual = BuildPageVisual(input, contentWidth, pageWidth, pageHeight, margin, chunks[pageIndex], isLastPage, hasMorePages);
+            var hasMoreLinePages = !isLastPage && chunks[pageIndex + 1].Count > 0;
+            var showHeader = pageIndex == 0;
+            var pageVisual = BuildPageVisual(
+                input, contentWidth, pageWidth, pageHeight, margin,
+                chunks[pageIndex], isLastPage, hasMoreLinePages, showHeader);
 
             if (pageIndex == 0)
                 doc.Blocks.Add(new BlockUIContainer(pageVisual));
@@ -64,7 +68,8 @@ public static class CommercialA4InvoiceDocumentBuilder
         double margin,
         IReadOnlyList<InvoiceLineSnap> pageLines,
         bool isLastPage,
-        bool hasMorePages)
+        bool hasMoreLinePages,
+        bool showHeader)
     {
         var bodyPt = CommercialA4InvoiceLayout.BodyPt;
         var smallPt = CommercialA4InvoiceLayout.SmallPt;
@@ -82,9 +87,14 @@ public static class CommercialA4InvoiceDocumentBuilder
             Width = contentWidth,
             Height = pageHeight - margin * 2,
         };
-        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var row = 0;
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // title
+        if (showHeader)
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // meta
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // table
+        var tableRow = showHeader ? 2 : 1;
+        var footerStartRow = tableRow + 1;
         if (isLastPage)
         {
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -93,26 +103,29 @@ public static class CommercialA4InvoiceDocumentBuilder
         }
         root.Children.Add(content);
 
-        var title = BuildTitleRow(contentWidth, bodyPt);
-        Grid.SetRow(title, 0);
+        var title = BuildTitleRow(contentWidth, bodyPt, showHeader, input.BillNo);
+        Grid.SetRow(title, row++);
         content.Children.Add(title);
 
-        var meta = BuildMetaSection(input, contentWidth, bodyPt, smallPt);
-        Grid.SetRow(meta, 1);
-        content.Children.Add(meta);
+        if (showHeader)
+        {
+            var meta = BuildMetaSection(input, contentWidth, bodyPt, smallPt);
+            Grid.SetRow(meta, row++);
+            content.Children.Add(meta);
+        }
 
-        var table = BuildLineTable(input, contentWidth, pageLines, isLastPage, hasMorePages);
-        Grid.SetRow(table, 2);
+        var table = BuildLineTable(input, contentWidth, pageLines, isLastPage, hasMoreLinePages);
+        Grid.SetRow(table, tableRow);
         content.Children.Add(table);
 
         if (isLastPage)
         {
             var amountInWords = BuildAmountInWords(input, contentWidth, bodyPt);
-            Grid.SetRow(amountInWords, 3);
+            Grid.SetRow(amountInWords, footerStartRow);
             content.Children.Add(amountInWords);
 
             var declaration = BuildDeclarationFooter(input, contentWidth, bodyPt, smallPt);
-            Grid.SetRow(declaration, 4);
+            Grid.SetRow(declaration, footerStartRow + 1);
             content.Children.Add(declaration);
 
             var footerNote = SectionBorder(
@@ -121,21 +134,26 @@ public static class CommercialA4InvoiceDocumentBuilder
                     smallPt,
                     align: TextAlignment.Center),
                 new Thickness(1, 0, 1, 1));
-            Grid.SetRow(footerNote, 5);
+            Grid.SetRow(footerNote, footerStartRow + 2);
             content.Children.Add(footerNote);
         }
 
         return root;
     }
 
-    private static UIElement BuildTitleRow(double contentWidth, double bodyPt)
+    private static UIElement BuildTitleRow(double contentWidth, double bodyPt, bool showHeader, string? billNo)
     {
         var grid = new Grid { Width = contentWidth };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var title = CommercialA4InvoiceVisuals.Text("INVOICE", CommercialA4InvoiceLayout.TitlePt, FontWeights.Bold, TextAlignment.Center);
+        var titleText = showHeader ? "INVOICE" : $"INVOICE (Continued){(string.IsNullOrWhiteSpace(billNo) ? "" : $" — {billNo}")}";
+        var title = CommercialA4InvoiceVisuals.Text(
+            titleText,
+            showHeader ? CommercialA4InvoiceLayout.TitlePt : CommercialA4InvoiceLayout.BodyPt,
+            FontWeights.Bold,
+            TextAlignment.Center);
         Grid.SetColumn(title, 1);
         grid.Children.Add(title);
 
@@ -343,12 +361,12 @@ public static class CommercialA4InvoiceDocumentBuilder
             var footerRow = footerStartRow;
 
             AddTableCell(table, footerRow, 0, "", rowPt, FontWeights.Normal, TableColumnAlign(0), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 1, "", rowPt, FontWeights.Normal, TableColumnAlign(1), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
+            AddTableCell(table, footerRow, 1, "Subtotal", rowPt, FontWeights.Bold, TextAlignment.Right, CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             AddTableCell(table, footerRow, 2, "", rowPt, FontWeights.Normal, TableColumnAlign(2), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             AddTableCell(table, footerRow, 3, "", rowPt, FontWeights.Normal, TableColumnAlign(3), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             AddTableCell(table, footerRow, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             AddTableCell(table, footerRow, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
-            AddTableCell(table, footerRow, 6, "Subtotal", rowPt, FontWeights.Bold, TextAlignment.Right, CommercialTableCellBorder.Footer, cellPadding: cellPadding);
+            AddTableCell(table, footerRow, 6, "", rowPt, FontWeights.Normal, TableColumnAlign(6), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             AddTableCell(table, footerRow, 7, Money(subtotal), rowPt, FontWeights.Normal, TableColumnAlign(7), CommercialTableCellBorder.Footer, cellPadding: cellPadding);
             footerRow++;
 
@@ -551,7 +569,13 @@ public static class CommercialA4InvoiceDocumentBuilder
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             SnapsToDevicePixels = true,
-            Child = CommercialA4InvoiceVisuals.Text(text, fontSize, weight, align, verticalAlign: verticalAlign),
+            Child = CommercialA4InvoiceVisuals.Text(
+                text,
+                fontSize,
+                weight,
+                align,
+                wrap: col == 1,
+                verticalAlign: verticalAlign),
         };
         Grid.SetRow(cell, row);
         Grid.SetColumn(cell, col);

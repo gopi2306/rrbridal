@@ -41,6 +41,9 @@ import {
   parseInvoiceLines,
   parseOccurredAt,
   parsePaymentTotals,
+  parsePaymentTotalsForRange,
+  parseCreditBillingPaymentsInRange,
+  hasPriorCreditPaymentsInRange,
   parseReturnCashRefund,
   parseReturnExchangePayments,
   readNumber,
@@ -355,7 +358,31 @@ export class StoreDayCloseReportService {
 
     for (const doc of dayInvoices) {
       const payload = (doc.payload ?? {}) as Record<string, unknown>;
-      const payments = parsePaymentTotals(payload);
+      const payments = parsePaymentTotalsForRange(payload, range);
+      cashTotal += payments.cash;
+      cardTotal += payments.card;
+      upiTotal += payments.upi;
+      creditNoteTotal += payments.creditNote;
+    }
+
+    // Credit collections received today on bills posted on earlier days.
+    const dayInvoiceNos = new Set(
+      dayInvoices.map((d) => String(d.invoiceNo ?? '')).filter((n) => n.length > 0),
+    );
+    const creditInvoices = await this.invoiceModel
+      .find({ storeId: store.code, 'payload.creditBilling': { $exists: true } })
+      .lean();
+    for (const doc of creditInvoices) {
+      const payload = (doc.payload ?? {}) as Record<string, unknown>;
+      const status = readString(payload.status) ?? 'posted';
+      if (status !== 'posted') continue;
+      const pos = readString(payload.posCounter) ?? (doc as { posCounter?: string }).posCounter;
+      if (!matchesPosCounter(pos, posFilter)) continue;
+      const invoiceNo = String(doc.invoiceNo ?? '');
+      if (dayInvoiceNos.has(invoiceNo)) continue;
+      const occurred = parseOccurredAt(payload, readDocCreatedAt(doc));
+      if (!hasPriorCreditPaymentsInRange(payload, occurred, range)) continue;
+      const payments = parseCreditBillingPaymentsInRange(payload, range);
       cashTotal += payments.cash;
       cardTotal += payments.card;
       upiTotal += payments.upi;
@@ -458,7 +485,7 @@ export class StoreDayCloseReportService {
       bills: dayInvoices.map((doc) => {
         const payload = (doc.payload ?? {}) as Record<string, unknown>;
         const billNo = readString(payload.billNo) ?? doc.invoiceNo;
-        const payments = parsePaymentTotals(payload);
+        const payments = parsePaymentTotalsForRange(payload, range);
         const occurred = parseOccurredAt(payload, readDocCreatedAt(doc));
         return {
           billNo,

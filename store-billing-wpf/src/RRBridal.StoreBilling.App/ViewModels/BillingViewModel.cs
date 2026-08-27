@@ -1248,16 +1248,8 @@ public partial class BillingViewModel : ObservableObject
             if (dialogResult != true || !dlg.Saved)
                 return;
 
-            var name = dlg.CustomerName.Trim();
-            var mobile = dlg.MobileNo.Trim();
-
             var code = await _customerCodeGenerator.NextAsync();
-            var reg = await _customerRegistration.RegisterAsync(new CustomerRegistrationPayload
-            {
-                CustomerCode = code,
-                CustomerName = name,
-                Mobile = mobile,
-            });
+            var reg = await _customerRegistration.RegisterAsync(dlg.ToPayload(code));
 
             ApplyCustomerRegistration(reg);
 
@@ -1267,7 +1259,7 @@ public partial class BillingViewModel : ObservableObject
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
-            _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(mobile);
+            _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(dlg.MobileNo);
         }
         finally
         {
@@ -1313,25 +1305,68 @@ public partial class BillingViewModel : ObservableObject
         await ShowCustomerSearchDialogAsync(query);
     }
 
-    private Task ShowCustomerSearchDialogAsync(string query)
+    private async Task ShowCustomerSearchDialogAsync(string query)
     {
-        var dlg = new CustomerSearchDialog(query, _customerLookup)
+        while (true)
+        {
+            var dlg = new CustomerSearchDialog(query, _customerLookup)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            var result = dlg.ShowDialog();
+
+            if (result == true && dlg.SelectedCustomer != null)
+            {
+                ApplyCustomerMatch(dlg.SelectedCustomer);
+                _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(dlg.SelectedCustomer.Phone);
+                return;
+            }
+
+            if (!dlg.WantsNewRegistration)
+                return;
+
+            var initialPhone = PhoneMatchHelper.IsPhoneLikeQuery(query) ? query.Trim() : "";
+            var initialName = PhoneMatchHelper.IsPhoneLikeQuery(query) ? "" : query.Trim();
+            var saved = await OpenNewCustomerQuickCaptureFromSearchAsync(initialPhone, initialName);
+            if (saved)
+                return;
+
+            query = initialPhone.Length > 0 ? initialPhone : initialName;
+        }
+    }
+
+    private async Task<bool> OpenNewCustomerQuickCaptureFromSearchAsync(string initialPhone, string initialName)
+    {
+        var dlg = new CustomerQuickCaptureDialog(
+            initialPhone,
+            initialName,
+            existingMatch: null,
+            isNewCustomer: true,
+            exactMatchCount: 0)
         {
             Owner = Application.Current.MainWindow
         };
-        var result = dlg.ShowDialog();
 
-        if (result == true && dlg.SelectedCustomer != null)
+        _suppressPhoneAutoSearch = true;
+        var dialogResult = dlg.ShowDialog();
+        _suppressPhoneAutoSearch = false;
+
+        if (dialogResult != true || !dlg.Saved)
+            return false;
+
+        var code = await _customerCodeGenerator.NextAsync();
+        var reg = await _customerRegistration.RegisterAsync(dlg.ToPayload(code));
+
+        ApplyCustomerRegistration(reg);
+        _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(dlg.MobileNo);
+
+        if (!string.IsNullOrWhiteSpace(reg.CentralSyncWarning))
         {
-            ApplyCustomerMatch(dlg.SelectedCustomer);
-            _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(dlg.SelectedCustomer.Phone);
-        }
-        else if (dlg.WantsNewRegistration)
-        {
-            NavigateToCustomerRegistration?.Invoke();
+            AppDialog.Show(reg.CentralSyncWarning, "RR Bridal Billing",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        return Task.CompletedTask;
+        return true;
     }
 
     [RelayCommand]

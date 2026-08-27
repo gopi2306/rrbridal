@@ -23,6 +23,7 @@ public sealed class CustomerMatch
     public string DoorNo { get; init; } = "";
     public string Street { get; init; } = "";
     public string FullAddress { get; init; } = "";
+    public string Place { get; init; } = "";
     public string City { get; init; } = "";
     public string State { get; init; } = "";
     public string Pincode { get; init; } = "";
@@ -88,6 +89,45 @@ public sealed class CustomerLookupService
         return await FetchCentralAsync("/api/customers", ct);
     }
 
+    /// <summary>Load one Central customer by id (full address / GST / email fields).</summary>
+    public async Task<CustomerMatch?> GetCentralByIdAsync(string centralId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(centralId))
+            return null;
+
+        try
+        {
+            var response = await _centralApi.GetAsync($"/api/customers/{Uri.EscapeDataString(centralId.Trim())}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var raw = await response.Content.ReadAsStringAsync(ct);
+                if (IsCentralOnline)
+                    throw new InvalidOperationException(
+                        $"Central customer load failed: HTTP {(int)response.StatusCode}: {Truncate(raw, 300)}");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            return MapCentralElement(doc.RootElement);
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (IsCentralOnline)
+                throw new InvalidOperationException("Central customer load failed: " + ex.Message, ex);
+
+            Trace.TraceWarning("Central customer load error for '{0}': {1}", centralId, ex.Message);
+            return null;
+        }
+    }
+
     private async Task<List<CustomerMatch>> SearchLocalAsync(string query, CancellationToken ct)
     {
         var coll = _localDb.GetCollection<BsonDocument>("store_customers");
@@ -115,6 +155,7 @@ public sealed class CustomerLookupService
             DoorNo = d.GetValue("doorNo", "").AsString,
             Street = d.GetValue("street", "").AsString,
             FullAddress = d.GetValue("fullAddress", "").AsString,
+            Place = d.GetValue("place", "").AsString,
             City = d.GetValue("city", "").AsString,
             State = d.GetValue("state", "").AsString,
             Pincode = d.GetValue("pincode", "").AsString,
@@ -155,25 +196,7 @@ public sealed class CustomerLookupService
 
             var results = new List<CustomerMatch>();
             foreach (var el in items.EnumerateArray())
-            {
-                results.Add(new CustomerMatch
-                {
-                    Source = "Central",
-                    Id = ReadJsonId(el),
-                    Code = el.TryGetProperty("customerCode", out var cc) ? cc.GetString() ?? "" : "",
-                    Name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                    Phone = el.TryGetProperty("phone", out var p) ? p.GetString() ?? "" : "",
-                    Email = el.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "",
-                    DoorNo = "",
-                    Street = "",
-                    FullAddress = el.TryGetProperty("addressLine1", out var a1) ? a1.GetString() ?? "" : "",
-                    City = el.TryGetProperty("city", out var c) ? c.GetString() ?? "" : "",
-                    State = el.TryGetProperty("state", out var s) ? s.GetString() ?? "" : "",
-                    Pincode = el.TryGetProperty("pincode", out var pc) ? pc.GetString() ?? "" : "",
-                    Gstin = el.TryGetProperty("gstin", out var g) ? g.GetString() ?? "" : "",
-                    IsCreditCustomer = el.TryGetProperty("isCreditCustomer", out var icc) && icc.ValueKind == JsonValueKind.True,
-                });
-            }
+                results.Add(MapCentralElement(el));
 
             return results;
         }
@@ -191,12 +214,40 @@ public sealed class CustomerLookupService
         }
     }
 
+    private static CustomerMatch MapCentralElement(JsonElement el)
+    {
+        return new CustomerMatch
+        {
+            Source = "Central",
+            Id = ReadJsonId(el),
+            Code = ReadJsonString(el, "customerCode"),
+            Name = ReadJsonString(el, "name"),
+            Phone = ReadJsonString(el, "phone"),
+            Email = ReadJsonString(el, "email"),
+            DoorNo = "",
+            Street = "",
+            FullAddress = ReadJsonString(el, "addressLine1"),
+            Place = ReadJsonString(el, "addressLine2"),
+            City = ReadJsonString(el, "city"),
+            State = ReadJsonString(el, "state"),
+            Pincode = ReadJsonString(el, "pincode"),
+            Gstin = ReadJsonString(el, "gstin"),
+            IsCreditCustomer = el.TryGetProperty("isCreditCustomer", out var icc)
+                && (icc.ValueKind == JsonValueKind.True
+                    || (icc.ValueKind == JsonValueKind.String
+                        && bool.TryParse(icc.GetString(), out var b) && b)),
+        };
+    }
+
+    private static string ReadJsonString(JsonElement el, string propertyName) =>
+        el.TryGetProperty(propertyName, out var p) ? p.GetString() ?? "" : "";
+
     private static string Truncate(string s, int max) =>
         string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..max] + "…";
 
     private static string ReadJsonId(JsonElement el)
     {
-        if (!el.TryGetProperty("_id", out var idEl))
+        if (!el.TryGetProperty("_id", out var idEl) && !el.TryGetProperty("id", out idEl))
             return "";
 
         if (idEl.ValueKind == JsonValueKind.String)

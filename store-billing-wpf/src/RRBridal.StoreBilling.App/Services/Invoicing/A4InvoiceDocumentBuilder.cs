@@ -16,15 +16,12 @@ public static class A4InvoiceDocumentBuilder
 {
     private static readonly CultureInfo In = CultureInfo.GetCultureInfo("en-IN");
 
-    private const double A5PageWidthMm = 148;
-    private const double A5PageHeightMm = 210;
-
     public static FlowDocument Create(
         ThermalInvoiceInput input,
         ThermalReceiptAssets? assets,
         double pageWidthMm = RetailInvoiceLayout.ReferencePageWidthMm,
         double pageHeightMm = RetailInvoiceLayout.ReferencePageHeightMm,
-        int linesPerPage = 10,
+        int linesPerPage = RetailInvoiceLayout.LinesPerPage,
         A5PrePrintedLayoutSettings? a5Layout = null)
     {
         var scale = RetailInvoiceLayout.Scale(pageWidthMm);
@@ -43,41 +40,30 @@ public static class A4InvoiceDocumentBuilder
             Background = RetailInvoiceVisuals.PageGreenBrush,
         };
 
-        var isA5 = IsA5Page(pageWidthMm, pageHeightMm);
-        if (isA5)
+        var activeLines = InvoiceLinePagination.ActiveLines(input);
+        var lastPageMax = Math.Min(linesPerPage, RetailInvoiceLayout.LastPageLinesPerPage);
+        var chunks = InvoiceLinePagination.ChunkLinesFillThenFooterPage(activeLines, linesPerPage, lastPageMax);
+
+        for (var pageIndex = 0; pageIndex < chunks.Count; pageIndex++)
         {
-            var activeLines = InvoiceLinePagination.ActiveLines(input);
-            var chunks = InvoiceLinePagination.ChunkLines(activeLines, linesPerPage);
-            for (var pageIndex = 0; pageIndex < chunks.Count; pageIndex++)
+            var isLastPage = pageIndex == chunks.Count - 1;
+            var hasMorePages = !isLastPage;
+            var pageVisual = BuildPageVisual(
+                input, assets, pageWidth, pageHeight, scale,
+                chunks[pageIndex], isLastPage, hasMorePages, a5Layout);
+
+            if (pageIndex == 0)
+                doc.Blocks.Add(new BlockUIContainer(pageVisual));
+            else
             {
-                var isLastPage = pageIndex == chunks.Count - 1;
-                var hasMorePages = !isLastPage;
-                var pageVisual = BuildPageVisual(
-                    input, assets, pageWidth, pageHeight, scale,
-                    chunks[pageIndex], isLastPage, hasMorePages, a5Layout);
-
-                if (pageIndex == 0)
-                    doc.Blocks.Add(new BlockUIContainer(pageVisual));
-                else
-                {
-                    var section = new Section { BreakPageBefore = true };
-                    section.Blocks.Add(new BlockUIContainer(pageVisual));
-                    doc.Blocks.Add(section);
-                }
+                var section = new Section { BreakPageBefore = true };
+                section.Blocks.Add(new BlockUIContainer(pageVisual));
+                doc.Blocks.Add(section);
             }
-
-            return doc;
         }
 
-        var singlePageVisual = BuildPageVisual(
-            input, assets, pageWidth, pageHeight, scale,
-            InvoiceLinePagination.ActiveLines(input), isLastPage: true, hasMorePages: false);
-        doc.Blocks.Add(new BlockUIContainer(singlePageVisual));
         return doc;
     }
-
-    private static bool IsA5Page(double pageWidthMm, double pageHeightMm) =>
-        Math.Abs(pageWidthMm - A5PageWidthMm) < 0.1 && Math.Abs(pageHeightMm - A5PageHeightMm) < 0.1;
 
     private static FrameworkElement BuildPageVisual(
         ThermalInvoiceInput input,

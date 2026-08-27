@@ -434,16 +434,8 @@ public partial class SaleReturnViewModel : ObservableObject
                 return true;
             }
 
-            var name = dlg.CustomerName.Trim();
-            var mobile = dlg.MobileNo.Trim();
-
             var code = await _customerCodeGenerator.NextAsync();
-            var reg = await _customerRegistration.RegisterAsync(new CustomerRegistrationPayload
-            {
-                CustomerCode = code,
-                CustomerName = name,
-                Mobile = mobile,
-            });
+            var reg = await _customerRegistration.RegisterAsync(dlg.ToPayload(code));
 
             ApplyLegacyCustomerRegistration(reg);
 
