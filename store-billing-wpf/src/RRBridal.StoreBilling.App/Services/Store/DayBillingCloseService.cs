@@ -100,7 +100,8 @@ public sealed class DayBillingCloseService
             var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
             var payable = DayBillingCloseDocumentReader.ReadDecimal(doc, "payable");
             var qty = DayBillingCloseDocumentReader.SumBillLineQty(doc);
-            var payments = DayBillingCloseDocumentReader.SumBillPayments(doc);
+            // Credit collections attribute by payment received date, not bill post date.
+            var payments = DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, localDate);
 
             totalQty += qty;
             totalAmount += payable;
@@ -144,6 +145,18 @@ public sealed class DayBillingCloseService
         creditNote += priorCodReceived.Payments.CreditNote;
         totalAmount += priorCodReceived.TotalAmount;
         invoices.AddRange(priorCodReceived.InvoiceRows);
+
+        var priorCreditCollected = DayBillingCloseDocumentReader.AggregatePriorCreditPaymentsReceivedOnLocalDay(
+            billDocs,
+            localDate,
+            posCounterFilter,
+            outboxByBillNo);
+        cash += priorCreditCollected.Payments.Cash;
+        card += priorCreditCollected.Payments.Card;
+        upi += priorCreditCollected.Payments.Upi;
+        creditNote += priorCreditCollected.Payments.CreditNote;
+        totalAmount += priorCreditCollected.TotalAmount;
+        invoices.AddRange(priorCreditCollected.InvoiceRows);
 
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
 
@@ -363,6 +376,14 @@ public sealed class DayBillingCloseService
 
             AppendStockExceptionRows(doc, billNo, pos, dev, postedLocal, stockExceptions);
         }
+
+        var priorCreditCollected = DayBillingCloseDocumentReader.AggregatePriorCreditPaymentsReceivedOnLocalDay(
+            billDocs,
+            localDate,
+            posCounterFilter,
+            outboxByBillNo: new Dictionary<string, string>());
+        invoices.AddRange(priorCreditCollected.InvoiceRows);
+
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
 
         using var returnsJson = await _storePos.ListSaleReturnsAsync(null, 200, ct);

@@ -18,19 +18,16 @@ public sealed class DayCloseReportService
 {
     private readonly IMongoDatabase _db;
     private readonly DaySessionService _daySessions;
-    private readonly StoreBillListService _billList;
     private CentralOnlineModeService? _centralMode;
     private CentralDashboardClient? _dashboardApi;
     private CentralStorePosClient? _storePos;
 
     public DayCloseReportService(
         IMongoDatabase localDb,
-        DaySessionService daySessions,
-        StoreBillListService billList)
+        DaySessionService daySessions)
     {
         _db = localDb;
         _daySessions = daySessions;
-        _billList = billList;
     }
 
     public void ConfigureOnline(
@@ -73,15 +70,8 @@ public sealed class DayCloseReportService
         StoreDaySessionRollup? rollup = null;
         rollup = await _daySessions.GetStoreRollupAsync(storeId, businessDate, ct);
 
-        var billSnapshot = await _billList.LoadAsync(storeId, new StoreBillListQuery
-        {
-            BusinessDate = localDate.Date,
-            UseDateRange = false,
-            PosCounterFilter = posCounterFilter,
-            Limit = StoreBillListService.DefaultLimit,
-        }, ct);
-
         var storeFilter = Builders<BsonDocument>.Filter.Eq("storeId", storeId);
+        var billDocs = await _db.GetCollection<BsonDocument>("store_bills").Find(storeFilter).ToListAsync(ct);
         var returnDocs = await _db.GetCollection<BsonDocument>("store_sale_returns").Find(storeFilter).ToListAsync(ct);
         var adjustmentDocs = await _db.GetCollection<BsonDocument>("store_adjustments").Find(storeFilter).ToListAsync(ct);
         var expenseDocs = await _db.GetCollection<BsonDocument>("store_daily_expenses").Find(storeFilter).ToListAsync(ct);
@@ -91,6 +81,29 @@ public sealed class DayCloseReportService
             Builders<BsonDocument>.Filter.And(
                 storeFilter,
                 Builders<BsonDocument>.Filter.Eq("businessDate", businessDate))).ToListAsync(ct);
+
+        var outboxDocs = await _db.GetCollection<BsonDocument>("outbox_events")
+            .Find(Builders<BsonDocument>.Filter.And(
+                storeFilter,
+                Builders<BsonDocument>.Filter.Eq("type", "InvoiceCreated")))
+            .ToListAsync(ct);
+        var outboxByBillNo = DayBillingCloseDocumentReader.BuildOutboxSyncByBillNo(outboxDocs);
+
+        var returnNoByBillNo = returnDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedReturn)
+            .GroupBy(d => DayBillingCloseDocumentReader.ReadString(d, "originalBillNo") ?? "")
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .ToDictionary(
+                g => g.Key,
+                g => DayBillingCloseDocumentReader.ReadString(g.First(), "returnNo") ?? "",
+                StringComparer.OrdinalIgnoreCase);
+
+        var bills = BuildDayCloseBillRows(
+            billDocs,
+            localDate,
+            posCounterFilter,
+            outboxByBillNo,
+            returnNoByBillNo);
 
         var returns = MapReturns(returnDocs, localDate, posCounterFilter);
         var adjustments = MapAdjustments(adjustmentDocs, localDate, posCounterFilter);
@@ -117,7 +130,7 @@ public sealed class DayCloseReportService
             Snapshot = snapshot,
             Session = session,
             StoreRollup = rollup,
-            Bills = billSnapshot.Rows,
+            Bills = bills,
             Returns = returns,
             Adjustments = adjustments,
             Expenses = expenses,
@@ -148,11 +161,6 @@ public sealed class DayCloseReportService
 
         using var billsJson = await _storePos.ListBillsAsync(null, 200, ct);
         var billDocs = ExtractDocs(billsJson, BillDocumentService.MapCentralBillToDoc);
-        var dayBills = billDocs
-            .Where(DayBillingCloseDocumentReader.IsPostedBill)
-            .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
-            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
-            .ToList();
 
         using var returnsJson = await _storePos.ListSaleReturnsAsync(null, 200, ct);
         var returnDocs = ExtractDocs(returnsJson, MapCentralReturnToDoc);
@@ -166,7 +174,12 @@ public sealed class DayCloseReportService
                 g => DayBillingCloseDocumentReader.ReadString(g.First(), "returnNo") ?? "",
                 StringComparer.OrdinalIgnoreCase);
 
-        var billRows = dayBills.Select(d => MapOnlineBillRow(d, returnNoByBillNo)).ToList();
+        var billRows = BuildDayCloseBillRows(
+            billDocs,
+            localDate,
+            posCounterFilter,
+            outboxByBillNo: new Dictionary<string, string>(),
+            returnNoByBillNo);
 
         using var expensesJson = await _storePos.ListDailyExpensesAsync(businessDate, 200, ct);
         var expenseDocs = ExtractDocs(expensesJson, MapCentralExpenseToDoc);
@@ -302,36 +315,91 @@ public sealed class DayCloseReportService
         return rows;
     }
 
-    private static string ReadReportString(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
-            ? p.GetString() ?? ""
-            : el.TryGetProperty(name, out var n) && n.ValueKind == JsonValueKind.Number
-                ? n.ToString()
-                : "";
-
-    private static decimal ParseReportMoney(JsonElement el, string name)
-    {
-        var s = ReadReportString(el, name).Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal).Trim();
-        return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0m;
-    }
-
-    private static StoreBillListRow MapOnlineBillRow(
-        BsonDocument doc,
+    private static List<StoreBillListRow> BuildDayCloseBillRows(
+        IEnumerable<BsonDocument> billDocs,
+        DateTime localDate,
+        string? posCounterFilter,
+        IReadOnlyDictionary<string, string> outboxByBillNo,
         IReadOnlyDictionary<string, string> returnNoByBillNo)
     {
-        var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
-        var sortUtc = DayBillingCloseDocumentReader.TryGetUtcDate(doc, "createdAtUtc", out var utc)
-            ? utc
-            : DateTime.MinValue;
-        var postedLocal = sortUtc == DateTime.MinValue
-            ? "—"
-            : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+        var rows = new List<StoreBillListRow>();
+        var posted = billDocs
+            .Where(DayBillingCloseDocumentReader.IsPostedBill)
+            .Where(d => DayBillingCloseDocumentReader.MatchesPosCounterFilter(d, posCounterFilter))
+            .ToList();
 
-        var payments = DayBillingCloseDocumentReader.SumBillPayments(doc);
+        foreach (var doc in posted.Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate)))
+        {
+            var payments = DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, localDate);
+            rows.Add(MapDayCloseBillRow(doc, payments, localDate, outboxByBillNo, returnNoByBillNo, creditCollected: false));
+        }
+
+        foreach (var doc in posted
+            .Where(DayBillingCloseDocumentReader.HasCreditBilling)
+            .Where(d => !DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate)))
+        {
+            var payments = DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, localDate);
+            if (payments.Cash <= 0 && payments.Card <= 0 && payments.Upi <= 0 && payments.CreditNote <= 0)
+                continue;
+            rows.Add(MapDayCloseBillRow(doc, payments, localDate, outboxByBillNo, returnNoByBillNo, creditCollected: true));
+        }
+
+        rows.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
+        return rows;
+    }
+
+    private static StoreBillListRow MapDayCloseBillRow(
+        BsonDocument doc,
+        PaymentDayTotals payments,
+        DateTime localDate,
+        IReadOnlyDictionary<string, string> outboxByBillNo,
+        IReadOnlyDictionary<string, string> returnNoByBillNo,
+        bool creditCollected)
+    {
+        var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+        DateTime sortUtc;
+        string postedLocal;
+        if (creditCollected)
+        {
+            sortUtc = DateTime.MinValue;
+            if (doc.TryGetValue("creditBilling", out var cbVal) && cbVal.IsBsonDocument
+                && cbVal.AsBsonDocument.TryGetValue("payments", out var payVal) && payVal.IsBsonArray)
+            {
+                foreach (BsonDocument p in payVal.AsBsonArray.OfType<BsonDocument>())
+                {
+                    if (!DayBillingCloseDocumentReader.TryGetUtcDate(p, "receivedAtUtc", out var received)
+                        && !DayBillingCloseDocumentReader.TryGetUtcDate(p, "receivedAt", out received)
+                        && !DayBillingCloseDocumentReader.TryGetUtcDate(p, "createdAtUtc", out received))
+                        continue;
+                    if (received.ToLocalTime().Date != localDate.Date)
+                        continue;
+                    if (received > sortUtc)
+                        sortUtc = received;
+                }
+            }
+
+            postedLocal = sortUtc == DateTime.MinValue
+                ? "—"
+                : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            sortUtc = DayBillingCloseDocumentReader.TryGetUtcDate(doc, "createdAtUtc", out var utc)
+                ? utc
+                : DateTime.MinValue;
+            postedLocal = sortUtc == DateTime.MinValue
+                ? "—"
+                : sortUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+        }
+
         var pos = DayBillingCloseDocumentReader.ReadString(doc, "posCounter") ?? "";
         var dev = DayBillingCloseDocumentReader.ReadString(doc, "deviceId") ?? "";
         var hasReturn = returnNoByBillNo.TryGetValue(billNo, out var returnNo);
+        var syncStatus = outboxByBillNo.Count == 0
+            ? "Synced"
+            : DayBillingCloseDocumentReader.ResolveSyncStatus(doc, outboxByBillNo);
 
+        var collected = payments.Cash + payments.Card + payments.Upi + payments.CreditNote;
         return new StoreBillListRow
         {
             BillNo = billNo,
@@ -343,20 +411,35 @@ public sealed class DayCloseReportService
             SalesmanId = DayBillingCloseDocumentReader.ReadString(doc, "salesmanId") ?? "",
             CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
             PostedAtLocal = postedLocal,
-            TotalQty = DayBillingCloseDocumentReader.SumBillLineQty(doc),
-            Payable = DayBillingCloseDocumentReader.ReadDecimal(doc, "payable"),
+            TotalQty = creditCollected ? 0m : DayBillingCloseDocumentReader.SumBillLineQty(doc),
+            Payable = creditCollected ? collected : DayBillingCloseDocumentReader.ReadDecimal(doc, "payable"),
             CashAmount = payments.Cash,
             CardAmount = payments.Card,
             UpiAmount = payments.Upi,
             CreditNoteAmount = payments.CreditNote,
             CreditNoteRefs = DayBillingCloseDocumentReader.FormatBillCreditNoteReferences(doc),
-            SyncStatus = "Synced",
+            SyncStatus = creditCollected
+                ? $"{syncStatus} · credit collected"
+                : syncStatus,
             HasReturn = hasReturn,
             ReturnNo = returnNo ?? "",
             HasAdjustment = false,
             AdjustmentNo = "",
             SortUtc = sortUtc,
         };
+    }
+
+    private static string ReadReportString(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
+            ? p.GetString() ?? ""
+            : el.TryGetProperty(name, out var n) && n.ValueKind == JsonValueKind.Number
+                ? n.ToString()
+                : "";
+
+    private static decimal ParseReportMoney(JsonElement el, string name)
+    {
+        var s = ReadReportString(el, name).Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal).Trim();
+        return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0m;
     }
 
     private static List<BsonDocument> ExtractDocs(JsonDocument json, Func<JsonElement, BsonDocument> mapper)

@@ -176,6 +176,206 @@ public static class DayBillingCloseDocumentReader
         return new PaymentDayTotals(cash, card, upi, creditNote);
     }
 
+    /// <summary>
+    /// Day-close tender for one bill on <paramref name="localDate"/>.
+    /// Credit bills attribute cash/card/UPI/CN by <c>creditBilling.payments[].receivedAtUtc</c>;
+    /// other bills (and legacy credit without dated payments) keep bill-day <see cref="SumBillPayments"/>.
+    /// </summary>
+    public static PaymentDayTotals SumBillPaymentsForLocalDay(BsonDocument doc, DateTime localDate)
+    {
+        if (TryGetCreditBillingPaymentEntries(doc, out var entries) && entries.Count > 0)
+            return SumCreditPaymentEntriesForLocalDay(entries, localDate);
+
+        if (!MatchesLocalDay(doc, localDate))
+            return new PaymentDayTotals(0m, 0m, 0m, 0m);
+
+        return SumBillPayments(doc);
+    }
+
+    public static bool HasCreditBilling(BsonDocument doc) =>
+        doc.TryGetValue("creditBilling", out var cb) && cb.IsBsonDocument;
+
+    /// <summary>
+    /// Credit collections received on <paramref name="localDate"/> for bills posted on an earlier day.
+    /// Same-day credit post + collection is already included via <see cref="SumBillPaymentsForLocalDay"/>.
+    /// </summary>
+    public static OnlineCodReceivedDayTotals AggregatePriorCreditPaymentsReceivedOnLocalDay(
+        IEnumerable<BsonDocument> billDocs,
+        DateTime localDate,
+        string? posCounterFilter,
+        IReadOnlyDictionary<string, string> outboxByBillNo)
+    {
+        decimal cash = 0m, card = 0m, upi = 0m, creditNote = 0m, totalAmount = 0m;
+        var invoiceRows = new List<DayCloseInvoiceRow>();
+
+        foreach (var doc in billDocs)
+        {
+            if (!IsPostedBill(doc))
+                continue;
+            if (!HasCreditBilling(doc))
+                continue;
+            if (!MatchesPosCounterFilter(doc, posCounterFilter))
+                continue;
+            if (MatchesLocalDay(doc, localDate))
+                continue;
+
+            if (!TryGetCreditBillingPaymentEntries(doc, out var entries) || entries.Count == 0)
+                continue;
+
+            var dayPayments = SumCreditPaymentEntriesForLocalDay(entries, localDate);
+            var collected = dayPayments.Cash + dayPayments.Card + dayPayments.Upi + dayPayments.CreditNote;
+            if (collected <= 0m)
+                continue;
+
+            cash += dayPayments.Cash;
+            card += dayPayments.Card;
+            upi += dayPayments.Upi;
+            creditNote += dayPayments.CreditNote;
+            totalAmount += collected;
+
+            var receivedUtc = MaxCreditPaymentReceivedUtcOnLocalDay(entries, localDate);
+            var receivedLocal = receivedUtc == default
+                ? "—"
+                : receivedUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+
+            var billNo = ReadString(doc, "billNo") ?? "";
+            var pos = ReadString(doc, "posCounter") ?? "";
+            var dev = ReadString(doc, "deviceId") ?? "";
+            var modeLabel = FormatCreditCollectionPaymentMode(dayPayments);
+
+            invoiceRows.Add(new DayCloseInvoiceRow
+            {
+                BillNo = billNo,
+                CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
+                PostedAtLocal = receivedLocal,
+                TotalQty = 0m,
+                Payable = collected,
+                PaymentMode = modeLabel,
+                SyncStatus = ResolveSyncStatus(doc, outboxByBillNo),
+                SortUtc = receivedUtc == default ? DateTime.MinValue : receivedUtc,
+            });
+        }
+
+        return new OnlineCodReceivedDayTotals(
+            new PaymentDayTotals(cash, card, upi, creditNote),
+            totalAmount,
+            invoiceRows);
+    }
+
+    private static bool TryGetCreditBillingPaymentEntries(BsonDocument doc, out List<BsonDocument> entries)
+    {
+        entries = new List<BsonDocument>();
+        if (!doc.TryGetValue("creditBilling", out var cbVal) || !cbVal.IsBsonDocument)
+            return false;
+        var cb = cbVal.AsBsonDocument;
+        if (!cb.TryGetValue("payments", out var payVal) || !payVal.IsBsonArray)
+            return false;
+
+        foreach (BsonDocument p in payVal.AsBsonArray.OfType<BsonDocument>())
+            entries.Add(p);
+
+        return entries.Count > 0;
+    }
+
+    private static PaymentDayTotals SumCreditPaymentEntriesForLocalDay(
+        IReadOnlyList<BsonDocument> entries,
+        DateTime localDate)
+    {
+        decimal cash = 0m, card = 0m, upi = 0m, creditNote = 0m;
+        foreach (var entry in entries)
+        {
+            if (!TryGetCreditPaymentReceivedUtc(entry, out var receivedUtc))
+                continue;
+            if (receivedUtc.ToLocalTime().Date != localDate.Date)
+                continue;
+
+            if (entry.TryGetValue("legs", out var legsVal) && legsVal.IsBsonArray && legsVal.AsBsonArray.Count > 0)
+            {
+                foreach (BsonDocument leg in legsVal.AsBsonArray.OfType<BsonDocument>())
+                {
+                    var amount = ReadDecimal(leg, "amount");
+                    if (amount <= 0m)
+                        continue;
+                    var mode = ReadString(leg, "mode") ?? ReadString(leg, "provider") ?? "";
+                    AddTenderByMode(ref cash, ref card, ref upi, ref creditNote, mode, amount);
+                }
+            }
+            else
+            {
+                var amount = ReadDecimal(entry, "amount");
+                if (amount <= 0m)
+                    continue;
+                var mode = ReadString(entry, "mode") ?? ReadString(entry, "provider") ?? "";
+                AddTenderByMode(ref cash, ref card, ref upi, ref creditNote, mode, amount);
+            }
+        }
+
+        return new PaymentDayTotals(cash, card, upi, creditNote);
+    }
+
+    private static DateTime MaxCreditPaymentReceivedUtcOnLocalDay(
+        IReadOnlyList<BsonDocument> entries,
+        DateTime localDate)
+    {
+        var max = DateTime.MinValue;
+        foreach (var entry in entries)
+        {
+            if (!TryGetCreditPaymentReceivedUtc(entry, out var receivedUtc))
+                continue;
+            if (receivedUtc.ToLocalTime().Date != localDate.Date)
+                continue;
+            if (receivedUtc > max)
+                max = receivedUtc;
+        }
+
+        return max;
+    }
+
+    private static bool TryGetCreditPaymentReceivedUtc(BsonDocument entry, out DateTime utc)
+    {
+        if (TryGetUtcDate(entry, "receivedAtUtc", out utc))
+            return true;
+        if (TryGetUtcDate(entry, "receivedAt", out utc))
+            return true;
+        if (TryGetUtcDate(entry, "createdAtUtc", out utc))
+            return true;
+        utc = default;
+        return false;
+    }
+
+    private static void AddTenderByMode(
+        ref decimal cash,
+        ref decimal card,
+        ref decimal upi,
+        ref decimal creditNote,
+        string mode,
+        decimal amount)
+    {
+        var normalized = (mode ?? "").Trim().ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);
+        if (normalized.Length == 0)
+            return;
+
+        if (normalized == "cash")
+            cash += amount;
+        else if (normalized is "card" or "pinelabs" || normalized.Contains("pine", StringComparison.Ordinal))
+            card += amount;
+        else if (normalized is "upi" or "razorpay" || normalized.Contains("razor", StringComparison.Ordinal))
+            upi += amount;
+        else if (normalized is "creditnote" or "credit_note")
+            creditNote += amount;
+    }
+
+    private static string FormatCreditCollectionPaymentMode(PaymentDayTotals payments)
+    {
+        var parts = new List<string>();
+        if (payments.Cash > 0) parts.Add("Cash");
+        if (payments.Card > 0) parts.Add("Card");
+        if (payments.Upi > 0) parts.Add("UPI");
+        if (payments.CreditNote > 0) parts.Add("CN");
+        var mode = parts.Count > 0 ? string.Join("+", parts) : "Payment";
+        return $"{mode} (credit collected)";
+    }
+
     public static Dictionary<string, string> BuildOutboxSyncByBillNo(IEnumerable<BsonDocument> outboxEvents)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

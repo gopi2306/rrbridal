@@ -194,7 +194,7 @@ public sealed class AppServices
         var customerCreditNotes = new CustomerCreditNoteService(localDb, billingOutbox);
         var saleReturnHistory = new SaleReturnHistoryService(localDb);
         var daySessions = new DaySessionService(localDb, productCatalog, billingOutbox, storeContext, storeAuditLog);
-        var dayCloseReports = new DayCloseReportService(localDb, daySessions, storeBillList);
+        var dayCloseReports = new DayCloseReportService(localDb, daySessions);
         var cashMovements = new CashMovementService(localDb, billNumberGenerator, billingOutbox, storeContext, daySessions);
         var dailyExpenses = new DailyExpenseService(localDb, storeContext, billNumberGenerator, billingOutbox, storeAuditLog);
         var outboundDispatches = new OutboundDispatchService(
