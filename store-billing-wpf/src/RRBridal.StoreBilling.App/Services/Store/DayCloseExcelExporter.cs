@@ -16,7 +16,9 @@ public static class DayCloseExcelExporter
     {
         var workbook = new XLWorkbook();
         AddKeyValueSheet(workbook, "METADATA", DayCloseReportSectionBuilder.BuildMetadataRows(data));
-        AddKeyValueSheet(workbook, "SUMMARY", DayCloseReportSectionBuilder.BuildSummaryRows(data));
+
+        foreach (var (sheetName, rows) in DayCloseReportSectionBuilder.BuildSummarySheets(data))
+            AddKeyValueSheet(workbook, sheetName, rows);
 
         foreach (var section in DayCloseReportSectionBuilder.BuildAllDetailSections(data))
             AddTableSheet(workbook, SanitizeSheetName(section.Name), section.Headers, section.Rows);

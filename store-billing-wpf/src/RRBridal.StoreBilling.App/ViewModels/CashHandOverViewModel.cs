@@ -55,7 +55,9 @@ public partial class CashHandOverViewModel : ObservableObject
         _onClosed = onClosed;
         IsReadOnly = isReadOnly;
 
-        CounterDisplay = $"POS{services.StoreContext.PosCounter}";
+        CounterDisplay = DayCloseSummaryScope.ResolveCounterDisplay(
+            services.StoreContext.IsPrimaryCounter,
+            services.StoreContext.PosCounter);
         UserDisplay = services.UserSession?.LoggedInUser.Name ?? "";
         DateDisplay = localDate.ToString("dd/MM/yyyy", InCulture);
         MorningCashSummary = MoneyMath.FormatRupee(snapshot.OpeningCash);
@@ -108,7 +110,8 @@ public partial class CashHandOverViewModel : ObservableObject
             _snapshot.OpeningCash,
             _snapshot.ExpectedCash,
             DateDisplay,
-            string.IsNullOrWhiteSpace(CashTaken) ? null : CashTaken.Trim());
+            string.IsNullOrWhiteSpace(CashTaken) ? null : CashTaken.Trim(),
+            CounterDisplay);
 
         var printed = await CashHandOverPrintFlow.ShowAsync(_services, input);
         if (printed && _session != null && string.Equals(_session.Status, DaySessionStatus.Closed, StringComparison.OrdinalIgnoreCase))

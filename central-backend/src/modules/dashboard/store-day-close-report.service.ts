@@ -397,7 +397,7 @@ export class StoreDayCloseReportService {
     const netCashInHand = roundMoney(cashTotal - cashRefundTotal + exchangeCash - dailyExpenseCashTotal);
     const netCardInHand = roundMoney(cardTotal + exchangeCard);
     const netUpiInHand = roundMoney(upiTotal + exchangeUpi);
-    const expectedCash = roundMoney(openingCash + netCashInHand - depositsTotal + withdrawalsTotal);
+    const expectedCash = roundMoney(openingCash + netCashInHand - depositsTotal - withdrawalsTotal);
     const actualCashCounted = roundMoney(dashboard.totals.actualCashCounted);
     const cashDifference = roundMoney(dashboard.totals.cashDifference);
 

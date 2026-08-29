@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using MongoDB.Bson;
 using RRBridal.StoreBilling.App.Services.Store;
 using Xunit;
@@ -351,6 +352,56 @@ public class DayBillingCloseDocumentReaderTests
     }
 
     [Fact]
+    public void DayCloseSummaryScope_primary_counter_is_store_wide()
+    {
+        Assert.Null(DayCloseSummaryScope.ResolvePosCounterFilter(isPrimaryCounter: true, posCounter: "1"));
+        Assert.Equal("2", DayCloseSummaryScope.ResolvePosCounterFilter(isPrimaryCounter: false, posCounter: "2"));
+        Assert.Equal("All counters", DayCloseSummaryScope.ResolveCounterDisplay(isPrimaryCounter: true, posCounter: "1"));
+        Assert.Equal("POS2", DayCloseSummaryScope.ResolveCounterDisplay(isPrimaryCounter: false, posCounter: "2"));
+    }
+
+    [Fact]
+    public void StoreDayCloseDashboardReader_reads_report_summary()
+    {
+        using var doc = JsonDocument.Parse("""
+            {
+              "summary": {
+                "openingCash": 100,
+                "cashTotal": 5000,
+                "returnCashRefundTotal": 50,
+                "creditNoteCashoutTotal": 25,
+                "dailyExpensesTotal": 200,
+                "dailyExpenseCashTotal": 150,
+                "depositsTotal": 300,
+                "withdrawalsTotal": 40,
+                "expectedCash": 4735,
+                "actualCashCounted": 4700,
+                "cashDifference": -35,
+                "netCashInHand": 4975,
+                "netCardInHand": 1000,
+                "netUpiInHand": 2000,
+                "actualHandInTotal": 7975,
+                "billCount": 12,
+                "returnCount": 1,
+                "cardTotal": 1000,
+                "upiTotal": 2000,
+                "creditNoteTotal": 100,
+                "returnTotalAmount": 50,
+                "creditNoteIssuedTotal": 50
+              }
+            }
+            """);
+
+        var summary = StoreDayCloseDashboardReader.ReadReportSummary(doc.RootElement);
+        Assert.Equal(12, summary.BillCount);
+        Assert.Equal(4975m, summary.NetCashInHand);
+        Assert.Equal(4735m, summary.ExpectedCash);
+        Assert.Equal(7975m, summary.ActualHandInTotal);
+        Assert.Equal(150m, summary.DailyExpenseCashTotal);
+        Assert.Equal(StoreDayCloseDashboardReader.ReadReportExpectedCash(doc.RootElement), summary.ExpectedCash);
+    }
+
+    [Fact]
     public void CashDenominationDefaults_validate_and_sum()
     {
         var lines = new[]
@@ -525,7 +576,7 @@ public class DayBillingCloseDocumentReaderTests
         Assert.Equal(200m, totals.Card);
         Assert.Equal(300m, totals.Upi);
         Assert.Equal(400m, totals.BankTransfer);
-    }
+    }
 
     [Fact]
     public void SumBillPaymentsForLocalDay_credit_zero_advance_excludes_later_collection_from_bill_day()

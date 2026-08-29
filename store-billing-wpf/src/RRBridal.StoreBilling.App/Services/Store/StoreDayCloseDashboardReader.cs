@@ -18,6 +18,33 @@ public sealed class StoreDayCloseCounterFigures
     public string? ClosedAtUtc { get; init; }
 }
 
+/// <summary>Summary shape from GET /api/dashboard/store/day-close/report.</summary>
+public sealed class StoreDayCloseReportSummaryFigures
+{
+    public decimal OpeningCash { get; init; }
+    public decimal CashTotal { get; init; }
+    public decimal ReturnCashRefundTotal { get; init; }
+    public decimal CreditNoteCashoutTotal { get; init; }
+    public decimal DailyExpensesTotal { get; init; }
+    public decimal DailyExpenseCashTotal { get; init; }
+    public decimal DepositsTotal { get; init; }
+    public decimal WithdrawalsTotal { get; init; }
+    public decimal ExpectedCash { get; init; }
+    public decimal ActualCashCounted { get; init; }
+    public decimal CashDifference { get; init; }
+    public decimal NetCashInHand { get; init; }
+    public decimal NetCardInHand { get; init; }
+    public decimal NetUpiInHand { get; init; }
+    public decimal ActualHandInTotal { get; init; }
+    public int BillCount { get; init; }
+    public int ReturnCount { get; init; }
+    public decimal CardTotal { get; init; }
+    public decimal UpiTotal { get; init; }
+    public decimal CreditNoteTotal { get; init; }
+    public decimal ReturnTotalAmount { get; init; }
+    public decimal CreditNoteIssuedTotal { get; init; }
+}
+
 /// <summary>Pure helpers for parsing CentralDashboardClient.GetStoreDayCloseAsync responses.</summary>
 public static class StoreDayCloseDashboardReader
 {
@@ -63,6 +90,41 @@ public static class StoreDayCloseDashboardReader
         if (root.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Object)
             return CentralDashboardClient.ReadDecimal(summary, "expectedCash");
         return CentralDashboardClient.ReadDecimal(root, "expectedCash");
+    }
+
+    /// <summary>Full summary from GET /api/dashboard/store/day-close/report.</summary>
+    public static StoreDayCloseReportSummaryFigures ReadReportSummary(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("summary", out var summary)
+            || summary.ValueKind != JsonValueKind.Object)
+            return new StoreDayCloseReportSummaryFigures();
+
+        return new StoreDayCloseReportSummaryFigures
+        {
+            OpeningCash = CentralDashboardClient.ReadDecimal(summary, "openingCash"),
+            CashTotal = CentralDashboardClient.ReadDecimal(summary, "cashTotal"),
+            ReturnCashRefundTotal = CentralDashboardClient.ReadDecimal(summary, "returnCashRefundTotal"),
+            CreditNoteCashoutTotal = CentralDashboardClient.ReadDecimal(summary, "creditNoteCashoutTotal"),
+            DailyExpensesTotal = CentralDashboardClient.ReadDecimal(summary, "dailyExpensesTotal"),
+            DailyExpenseCashTotal = CentralDashboardClient.ReadDecimal(summary, "dailyExpenseCashTotal"),
+            DepositsTotal = CentralDashboardClient.ReadDecimal(summary, "depositsTotal"),
+            WithdrawalsTotal = CentralDashboardClient.ReadDecimal(summary, "withdrawalsTotal"),
+            ExpectedCash = CentralDashboardClient.ReadDecimal(summary, "expectedCash"),
+            ActualCashCounted = CentralDashboardClient.ReadDecimal(summary, "actualCashCounted"),
+            CashDifference = CentralDashboardClient.ReadDecimal(summary, "cashDifference"),
+            NetCashInHand = CentralDashboardClient.ReadDecimal(summary, "netCashInHand"),
+            NetCardInHand = CentralDashboardClient.ReadDecimal(summary, "netCardInHand"),
+            NetUpiInHand = CentralDashboardClient.ReadDecimal(summary, "netUpiInHand"),
+            ActualHandInTotal = CentralDashboardClient.ReadDecimal(summary, "actualHandInTotal"),
+            BillCount = CentralDashboardClient.ReadInt(summary, "billCount"),
+            ReturnCount = CentralDashboardClient.ReadInt(summary, "returnCount"),
+            CardTotal = CentralDashboardClient.ReadDecimal(summary, "cardTotal"),
+            UpiTotal = CentralDashboardClient.ReadDecimal(summary, "upiTotal"),
+            CreditNoteTotal = CentralDashboardClient.ReadDecimal(summary, "creditNoteTotal"),
+            ReturnTotalAmount = CentralDashboardClient.ReadDecimal(summary, "returnTotalAmount"),
+            CreditNoteIssuedTotal = CentralDashboardClient.ReadDecimal(summary, "creditNoteIssuedTotal"),
+        };
     }
 
     private static StoreDayCloseCounterFigures ReadCounterRow(JsonElement row) => new()

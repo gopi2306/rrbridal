@@ -88,6 +88,7 @@ public static class BillingPayloadBuilder
             CustomerCode = doc.GetValue("customerCode", "").AsString,
             CustomerName = doc.GetValue("customerName", "").AsString,
             CustomerPhone = doc.GetValue("customerPhone", "").AsString,
+            CustomerGstin = doc.GetValue("customerGstin", "").AsString,
             Salesman = doc.GetValue("salesman", "").AsString,
             SalesmanCode = doc.GetValue("salesmanCode", "").AsString,
             SalesmanId = doc.GetValue("salesmanId", "").AsString,
@@ -141,6 +142,7 @@ public sealed class BillingHeaderSnap
     public string CustomerCode { get; init; } = "";
     public string CustomerName { get; init; } = "";
     public string CustomerPhone { get; init; } = "";
+    public string CustomerGstin { get; init; } = "";
     public string Salesman { get; init; } = "";
     public string SalesmanCode { get; init; } = "";
     public string SalesmanId { get; init; } = "";

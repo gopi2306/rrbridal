@@ -70,6 +70,11 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private string _salesmanId = "";
     [ObservableProperty] private SalesmanRecord? _selectedSalesman;
     [ObservableProperty] private string _customerPhone = "";
+    [ObservableProperty] private string _customerGstin = "";
+
+    public ObservableCollection<CustomerMatch> CustomerNameSuggestions { get; } = new();
+
+    [ObservableProperty] private bool _isCustomerNameSuggestionsOpen;
 
     [ObservableProperty] private bool _holdBills;
     [ObservableProperty] private bool _doorDelivery;
@@ -157,6 +162,10 @@ public partial class BillingViewModel : ObservableObject
     private bool _suppressDiscountTextSync;
     private bool _suppressPhoneAutoSearch;
     private bool _suppressCustomerFieldSync;
+    private bool _suppressNameSuggestions;
+    private CustomerMatch? _loadedCustomer;
+    private string _loadedCustomerGstin = "";
+    private CancellationTokenSource? _nameSuggestCts;
     private bool _phoneCaptureInProgress;
     private string _lastCommittedPhoneNorm = "";
     private bool _phoneWasComplete;
@@ -1036,15 +1045,33 @@ public partial class BillingViewModel : ObservableObject
     public void ApplyCustomerRegistration(CustomerRegistrationResult result)
     {
         _suppressPhoneAutoSearch = true;
+        _suppressNameSuggestions = true;
         try
         {
             CustomerCode = result.BillingCustomerCode;
             CustomerName = result.CustomerName;
             CustomerPhone = result.CustomerPhone;
+            CustomerGstin = result.Gstin ?? "";
+            _loadedCustomerGstin = CustomerGstin;
+            _loadedCustomer = new CustomerMatch
+            {
+                Source = string.IsNullOrWhiteSpace(result.CentralCustomerId) ? "Local" : "Central",
+                Id = result.CentralCustomerId ?? result.LocalMongoId ?? "",
+                LocalMongoId = result.LocalMongoId ?? "",
+                Code = result.BillingCustomerCode,
+                Name = result.CustomerName,
+                Phone = result.CustomerPhone,
+                Gstin = result.Gstin ?? "",
+                DoorNo = result.DoorNo,
+                Street = result.Street,
+                FullAddress = result.FullAddress,
+            };
+            CloseNameSuggestions();
         }
         finally
         {
             _suppressPhoneAutoSearch = false;
+            _suppressNameSuggestions = false;
         }
         _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
@@ -1053,39 +1080,51 @@ public partial class BillingViewModel : ObservableObject
     public void ApplyCustomerMatch(CustomerMatch match)
     {
         _suppressPhoneAutoSearch = true;
+        _suppressNameSuggestions = true;
         try
         {
+            _loadedCustomer = match;
             CustomerCode = !string.IsNullOrWhiteSpace(match.Code) ? match.Code : match.Id;
             CustomerName = match.Name;
             CustomerPhone = match.Phone;
+            CustomerGstin = match.Gstin ?? "";
+            _loadedCustomerGstin = CustomerGstin;
+            CloseNameSuggestions();
         }
         finally
         {
             _suppressPhoneAutoSearch = false;
+            _suppressNameSuggestions = false;
         }
         _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
     }
 
-    /** Clears customer code, name, and phone from the bill (e.g. user deleted phone or name). */
+    /** Clears customer code, name, phone, and GSTIN from the bill (e.g. user deleted phone or name). */
     private void ClearCustomerProfile()
     {
         _suppressCustomerFieldSync = true;
         _suppressPhoneAutoSearch = true;
+        _suppressNameSuggestions = true;
         try
         {
             CustomerCode = "";
             CustomerName = "";
             CustomerPhone = "";
+            CustomerGstin = "";
+            _loadedCustomer = null;
+            _loadedCustomerGstin = "";
             _lastCommittedPhoneNorm = "";
             _phoneWasComplete = false;
             IsPhoneComplete = false;
             IsPhoneIncompleteHighlight = false;
+            CloseNameSuggestions();
         }
         finally
         {
             _suppressPhoneAutoSearch = false;
             _suppressCustomerFieldSync = false;
+            _suppressNameSuggestions = false;
         }
         ClearCreditSelection();
         AvailableCreditNotes.Clear();
@@ -1105,6 +1144,115 @@ public partial class BillingViewModel : ObservableObject
             ClearCustomerProfile();
         else
             NotifyPostBillCanExecute();
+
+        if (!_suppressNameSuggestions && !_suppressCustomerFieldSync)
+            _ = RefreshCustomerNameSuggestionsAsync(value);
+    }
+
+    private void CloseNameSuggestions()
+    {
+        CustomerNameSuggestions.Clear();
+        IsCustomerNameSuggestionsOpen = false;
+        _nameSuggestCts?.Cancel();
+    }
+
+    private async Task RefreshCustomerNameSuggestionsAsync(string? raw)
+    {
+        var query = (raw ?? "").Trim();
+        if (query.Length < 2 || PhoneMatchHelper.IsPhoneLikeQuery(query))
+        {
+            CloseNameSuggestions();
+            return;
+        }
+
+        _nameSuggestCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _nameSuggestCts = cts;
+        try
+        {
+            await Task.Delay(280, cts.Token);
+            var results = await _customerLookup.SearchAsync(query, cts.Token);
+            if (cts.IsCancellationRequested)
+                return;
+
+            CustomerNameSuggestions.Clear();
+            foreach (var match in results
+                         .Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                         .Take(12))
+                CustomerNameSuggestions.Add(match);
+
+            IsCustomerNameSuggestionsOpen = CustomerNameSuggestions.Count > 0;
+        }
+        catch (OperationCanceledException)
+        {
+            // Debounced / superseded.
+        }
+        catch
+        {
+            CloseNameSuggestions();
+        }
+    }
+
+    [RelayCommand]
+    private void SelectCustomerNameSuggestion(CustomerMatch? match)
+    {
+        if (match == null)
+            return;
+        ApplyCustomerMatch(match);
+        _lastCommittedPhoneNorm = PhoneMatchHelper.NormalizePhone(match.Phone);
+    }
+
+    /// <summary>Saves GSTIN entered on the bill back to the linked customer profile when it changed.</summary>
+    public async Task PersistCustomerGstinIfNeededAsync()
+    {
+        if (_loadedCustomer == null)
+            return;
+
+        var gstin = (CustomerGstin ?? "").Trim().ToUpperInvariant();
+        if (string.Equals(gstin, (_loadedCustomerGstin ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            var result = await _customerRegistration.UpdateGstinFromMatchAsync(_loadedCustomer, gstin);
+            CustomerGstin = result.Gstin ?? gstin;
+            _loadedCustomerGstin = CustomerGstin;
+            _loadedCustomer = new CustomerMatch
+            {
+                Source = _loadedCustomer.Source,
+                Id = result.CentralCustomerId ?? _loadedCustomer.Id,
+                LocalMongoId = !string.IsNullOrWhiteSpace(result.LocalMongoId)
+                    ? result.LocalMongoId
+                    : _loadedCustomer.LocalMongoId,
+                Code = result.BillingCustomerCode,
+                Name = result.CustomerName,
+                Phone = result.CustomerPhone,
+                Gstin = CustomerGstin,
+                Email = _loadedCustomer.Email,
+                DoorNo = result.DoorNo,
+                Street = result.Street,
+                FullAddress = result.FullAddress,
+                Place = _loadedCustomer.Place,
+                City = _loadedCustomer.City,
+                State = _loadedCustomer.State,
+                Pincode = _loadedCustomer.Pincode,
+                IsCreditCustomer = _loadedCustomer.IsCreditCustomer,
+            };
+
+            if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
+            {
+                AppDialog.Show(result.CentralSyncWarning, "RR Bridal Billing",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Show(
+                $"Could not save customer GSTIN: {ex.Message}",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     partial void OnCustomerCodeChanged(string value)
@@ -1714,6 +1862,8 @@ public partial class BillingViewModel : ObservableObject
             return;
         }
 
+        await PersistCustomerGstinIfNeededAsync();
+
         if (_services.StoreMongoOptions.RequireReady
             && !_services.CentralMode.IsOnlineMode
             && !_services.MongoHealth.IsOnline)
@@ -1935,6 +2085,7 @@ public partial class BillingViewModel : ObservableObject
                 { "customerCode", CustomerCode },
                 { "customerName", CustomerName },
                 { "customerPhone", CustomerPhone },
+                { "customerGstin", CustomerGstin ?? "" },
                 { "doorNo", "" },
                 { "street", "" },
                 { "fullAddress", "" },
@@ -2313,6 +2464,7 @@ public partial class BillingViewModel : ObservableObject
             Counter = _services.StoreContext.PosCounter,
             CustomerName = CustomerName ?? "",
             CustomerPhone = CustomerPhone ?? "",
+            CustomerGstin = CustomerGstin ?? "",
             Lines = snaps,
             SubTotal = totals.SubTotal,
             OriginalTaxTotal = totals.OriginalTaxTotal,
@@ -2356,6 +2508,8 @@ public partial class BillingViewModel : ObservableObject
 
         try
         {
+            await PersistCustomerGstinIfNeededAsync();
+
             if (string.IsNullOrEmpty(_activeHoldNo))
             {
                 _activeHoldNo = await _services.BillNumberGenerator.NextHoldAsync();
@@ -2422,6 +2576,8 @@ public partial class BillingViewModel : ObservableObject
         CustomerCode = header.CustomerCode;
         CustomerName = header.CustomerName;
         CustomerPhone = header.CustomerPhone;
+        CustomerGstin = header.CustomerGstin;
+        _loadedCustomerGstin = header.CustomerGstin;
         ApplySalesmanFromDocument(doc);
         HoldBills = header.HoldBills;
         DoorDelivery = header.DoorDelivery;
@@ -2468,6 +2624,8 @@ public partial class BillingViewModel : ObservableObject
         CustomerCode = header.CustomerCode;
         CustomerName = header.CustomerName;
         CustomerPhone = header.CustomerPhone;
+        CustomerGstin = header.CustomerGstin;
+        _loadedCustomerGstin = header.CustomerGstin;
         ApplySalesmanFromDocument(doc);
         HoldBills = header.HoldBills;
         DoorDelivery = header.DoorDelivery;
@@ -2555,6 +2713,7 @@ public partial class BillingViewModel : ObservableObject
             { "customerCode", CustomerCode },
             { "customerName", CustomerName },
             { "customerPhone", CustomerPhone },
+            { "customerGstin", CustomerGstin ?? "" },
             { "doorNo", "" },
             { "street", "" },
             { "fullAddress", "" },

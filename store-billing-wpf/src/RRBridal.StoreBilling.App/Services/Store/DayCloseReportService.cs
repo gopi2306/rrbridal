@@ -116,6 +116,9 @@ public sealed class DayCloseReportService
             ? "All counters"
             : $"POS{posCounterFilter.Trim()}";
 
+        var counterSummaries = await LoadCounterSummariesAsync(
+            storeId, localDate, posCounterFilter, rollup, ct);
+
         return new DayCloseReportData
         {
             Metadata = new DayCloseReportMetadata
@@ -130,6 +133,7 @@ public sealed class DayCloseReportService
             Snapshot = snapshot,
             Session = session,
             StoreRollup = rollup,
+            CounterSummaries = counterSummaries,
             Bills = bills,
             Returns = returns,
             Adjustments = adjustments,
@@ -223,6 +227,9 @@ public sealed class DayCloseReportService
             ? "All counters"
             : $"POS{posCounterFilter.Trim()}";
 
+        var counterSummaries = await LoadCounterSummariesAsync(
+            storeId, localDate, posCounterFilter, rollup, ct);
+
         return new DayCloseReportData
         {
             Metadata = new DayCloseReportMetadata
@@ -237,6 +244,7 @@ public sealed class DayCloseReportService
             Snapshot = snapshot,
             Session = session,
             StoreRollup = rollup,
+            CounterSummaries = counterSummaries,
             Bills = billRows,
             Returns = returns,
             Adjustments = adjustments,
@@ -246,6 +254,37 @@ public sealed class DayCloseReportService
             Denominations = denominations,
             StockExceptions = snapshot.StockExceptions,
         };
+    }
+
+    private async Task<IReadOnlyList<DayCloseCounterSummary>> LoadCounterSummariesAsync(
+        string storeId,
+        DateTime localDate,
+        string? posCounterFilter,
+        StoreDaySessionRollup? rollup,
+        CancellationToken ct)
+    {
+        // Only for store-wide exports: overall snapshot + one summary per POS.
+        if (!string.IsNullOrWhiteSpace(posCounterFilter) || rollup == null || rollup.Counters.Count == 0)
+            return Array.Empty<DayCloseCounterSummary>();
+
+        var list = new List<DayCloseCounterSummary>();
+        foreach (var row in rollup.Counters.OrderBy(c => c.PosCounter, StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(row.PosCounter))
+                continue;
+
+            var snap = await _daySessions.LoadDayCloseWithSessionAsync(
+                storeId, localDate, row.PosCounter.Trim(), ct);
+            list.Add(new DayCloseCounterSummary
+            {
+                PosCounter = row.PosCounter.Trim(),
+                CounterDisplay = $"POS{row.PosCounter.Trim()}",
+                Snapshot = snap,
+                SessionStatus = row.Status,
+            });
+        }
+
+        return list;
     }
 
     private static IReadOnlyList<DayCloseReportAdjustmentRow> MapOnlineReportAdjustments(JsonElement root)

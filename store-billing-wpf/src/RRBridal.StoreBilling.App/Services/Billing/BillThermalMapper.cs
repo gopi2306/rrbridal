@@ -99,6 +99,7 @@ public static class BillThermalMapper
             Counter = ReadString(doc, "posCounter") ?? "",
             CustomerName = ReadString(doc, "customerName") ?? "",
             CustomerPhone = ReadString(doc, "customerPhone") ?? "",
+            CustomerGstin = ReadString(doc, "customerGstin") ?? "",
             Lines = active,
             SubTotal = ReadDecimal(doc, "subTotal"),
             OriginalTaxTotal = ReadDecimal(doc, "originalTaxTotal"),

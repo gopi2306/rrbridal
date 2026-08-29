@@ -90,12 +90,23 @@ public sealed class DayCloseReportDenominationRow
     public decimal Subtotal { get; init; }
 }
 
+/// <summary>Per-counter day-close snapshot used when exporting store-wide (overall + POS-wise).</summary>
+public sealed class DayCloseCounterSummary
+{
+    public required string PosCounter { get; init; }
+    public required string CounterDisplay { get; init; }
+    public required DayBillingCloseSnapshot Snapshot { get; init; }
+    public string? SessionStatus { get; init; }
+}
+
 public sealed class DayCloseReportData
 {
     public required DayCloseReportMetadata Metadata { get; init; }
     public required DayBillingCloseSnapshot Snapshot { get; init; }
     public DaySessionRecord? Session { get; init; }
     public StoreDaySessionRollup? StoreRollup { get; init; }
+    /// <summary>Populated for All-counters exports: one summary slice per POS after the overall snapshot.</summary>
+    public IReadOnlyList<DayCloseCounterSummary> CounterSummaries { get; init; } = Array.Empty<DayCloseCounterSummary>();
     public IReadOnlyList<StoreBillListRow> Bills { get; init; } = Array.Empty<StoreBillListRow>();
     public IReadOnlyList<DayCloseReportReturnRow> Returns { get; init; } = Array.Empty<DayCloseReportReturnRow>();
     public IReadOnlyList<DayCloseReportAdjustmentRow> Adjustments { get; init; } = Array.Empty<DayCloseReportAdjustmentRow>();

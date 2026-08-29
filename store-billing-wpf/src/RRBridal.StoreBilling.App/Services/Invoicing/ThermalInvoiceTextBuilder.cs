@@ -85,6 +85,9 @@ public sealed class ThermalInvoiceInput
 
     public string CustomerPhone { get; init; } = "";
 
+    /// <summary>Buyer / bill-to GSTIN when known.</summary>
+    public string CustomerGstin { get; init; } = "";
+
     public IReadOnlyList<InvoiceLineSnap> Lines { get; init; } = Array.Empty<InvoiceLineSnap>();
 
     public decimal SubTotal { get; init; }
@@ -210,6 +213,8 @@ public static class ThermalInvoiceTextBuilder
                 sb.AppendLine(LabeledRow("Customer:", input.CustomerName, "", "", w));
             if (!string.IsNullOrWhiteSpace(input.CustomerPhone))
                 sb.AppendLine(LabeledRow("Phone:", input.CustomerPhone, "", "", w));
+            if (!string.IsNullOrWhiteSpace(input.CustomerGstin))
+                sb.AppendLine(LabeledRow("GSTIN:", input.CustomerGstin, "", "", w));
         }
 
         AddRule();

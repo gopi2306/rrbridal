@@ -277,10 +277,11 @@ public static class CommercialA4InvoiceDocumentBuilder
         stack.Children.Add(CommercialA4InvoiceVisuals.Text(label, bodyPt, FontWeights.Bold, verticalAlign: VerticalAlignment.Top));
         stack.Children.Add(CommercialA4InvoiceVisuals.Text(FormatPartyNameLine(input), bodyPt, verticalAlign: VerticalAlignment.Top));
 
-        var stateLine = GstStateCodeResolver.FormatStateLine(input.Store.StateName, input.Store.Gstin);
-        stack.Children.Add(CommercialA4InvoiceVisuals.Text("GSTIN/UIN:", smallPt, verticalAlign: VerticalAlignment.Top));
-        if (!string.IsNullOrWhiteSpace(stateLine))
-            stack.Children.Add(CommercialA4InvoiceVisuals.Text(stateLine, smallPt, verticalAlign: VerticalAlignment.Top));
+        var buyerGstin = (input.CustomerGstin ?? "").Trim();
+        stack.Children.Add(CommercialA4InvoiceVisuals.Text(
+            string.IsNullOrEmpty(buyerGstin) ? "GSTIN/UIN:" : $"GSTIN/UIN: {buyerGstin}",
+            smallPt,
+            verticalAlign: VerticalAlignment.Top));
 
         return CommercialA4InvoiceVisuals.MetaBlockCell(stack, sectionPad, drawBottomBorder);
     }

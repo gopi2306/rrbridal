@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using RRBridal.StoreBilling.App.Models;
 using RRBridal.StoreBilling.App.Services;
 using RRBridal.StoreBilling.App.Services.Billing;
+using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.ViewModels;
 
 namespace RRBridal.StoreBilling.App.Views;
@@ -325,7 +326,61 @@ public partial class BillingView
         if (e.Key != Key.Enter)
             return;
         e.Handled = true;
+        if (_wiredVm == null)
+            return;
+
+        if (_wiredVm.IsCustomerNameSuggestionsOpen
+            && CustomerNameSuggestionsList.SelectedItem is CustomerMatch selected)
+        {
+            _wiredVm.SelectCustomerNameSuggestionCommand.Execute(selected);
+            return;
+        }
+
+        await _wiredVm.SearchCustomerByNameAsync();
+    }
+
+    private void CustomerNameBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_wiredVm?.IsCustomerNameSuggestionsOpen != true)
+            return;
+
+        if (e.Key == Key.Down)
+        {
+            e.Handled = true;
+            if (CustomerNameSuggestionsList.Items.Count == 0)
+                return;
+            CustomerNameSuggestionsList.Focus();
+            CustomerNameSuggestionsList.SelectedIndex = 0;
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            _wiredVm.IsCustomerNameSuggestionsOpen = false;
+        }
+    }
+
+    private void CustomerNameSuggestionsList_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_wiredVm == null)
+            return;
+        if (CustomerNameSuggestionsList.SelectedItem is CustomerMatch match)
+            _wiredVm.SelectCustomerNameSuggestionCommand.Execute(match);
+    }
+
+    private void CustomerNameSuggestionsList_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _wiredVm == null)
+            return;
+        e.Handled = true;
+        if (CustomerNameSuggestionsList.SelectedItem is CustomerMatch match)
+            _wiredVm.SelectCustomerNameSuggestionCommand.Execute(match);
+    }
+
+    private async void CustomerGstinBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
         if (_wiredVm != null)
-            await _wiredVm.SearchCustomerByNameAsync();
+            await _wiredVm.PersistCustomerGstinIfNeededAsync();
     }
 }

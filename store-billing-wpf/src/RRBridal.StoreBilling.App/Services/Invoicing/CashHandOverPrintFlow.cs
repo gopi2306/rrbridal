@@ -83,9 +83,15 @@ public static class CashHandOverPrintFlow
         decimal morningCash,
         decimal expectedCash,
         string businessDateDisplay,
-        string? cashTaken = null)
+        string? cashTaken = null,
+        string? counterDisplay = null)
     {
         var difference = cashInHand - expectedCash;
+        var counter = string.IsNullOrWhiteSpace(counterDisplay)
+            ? DayCloseSummaryScope.ResolveCounterDisplay(
+                services.StoreContext.IsPrimaryCounter,
+                services.StoreContext.PosCounter)
+            : counterDisplay.Trim();
         return new CashHandOverThermalInput
         {
             Store = services.ReceiptConfig.Current.Store,
@@ -93,7 +99,7 @@ public static class CashHandOverPrintFlow
                 ? services.ReceiptConfig.Current.Print.ReceiptCharWidth
                 : 48,
             BusinessDate = businessDateDisplay,
-            Counter = services.StoreContext.PosCounter,
+            Counter = counter,
             UserName = services.UserSession?.LoggedInUser.Name ?? "",
             Denominations = denominations,
             CashInHand = cashInHand,

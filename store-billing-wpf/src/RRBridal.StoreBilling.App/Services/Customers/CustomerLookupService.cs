@@ -16,6 +16,8 @@ public sealed class CustomerMatch
 {
     public string Source { get; init; } = "";
     public string Id { get; init; } = "";
+    /// <summary>Local Mongo <c>_id</c> when known (offline / hybrid). Empty for central-only rows.</summary>
+    public string LocalMongoId { get; init; } = "";
     public string Code { get; init; } = "";
     public string Name { get; init; } = "";
     public string Phone { get; init; } = "";
@@ -33,6 +35,16 @@ public sealed class CustomerMatch
     public string DisplayLine => string.IsNullOrWhiteSpace(Phone)
         ? Name
         : $"{Name}  —  {Phone}";
+
+    public string SuggestionLine
+    {
+        get
+        {
+            var baseLine = DisplayLine;
+            var gstin = (Gstin ?? "").Trim();
+            return string.IsNullOrEmpty(gstin) ? baseLine : $"{baseLine}  ·  GSTIN {gstin}";
+        }
+    }
 }
 
 public sealed class CustomerLookupService
@@ -142,25 +154,31 @@ public sealed class CustomerLookupService
         );
 
         var docs = await coll.Find(filter).Limit(50).ToListAsync(ct);
-        return docs.Select(d => new CustomerMatch
+        return docs.Select(d =>
         {
-            Source = "Local",
-            Id = d.GetValue("centralCustomerId", BsonNull.Value).IsBsonNull
-                ? d["_id"].ToString()!
-                : d["centralCustomerId"].AsString,
-            Code = d.GetValue("customerCode", "").AsString,
-            Name = d.GetValue("name", "").AsString,
-            Phone = d.GetValue("phone", "").AsString,
-            Email = d.GetValue("email", "").AsString,
-            DoorNo = d.GetValue("doorNo", "").AsString,
-            Street = d.GetValue("street", "").AsString,
-            FullAddress = d.GetValue("fullAddress", "").AsString,
-            Place = d.GetValue("place", "").AsString,
-            City = d.GetValue("city", "").AsString,
-            State = d.GetValue("state", "").AsString,
-            Pincode = d.GetValue("pincode", "").AsString,
-            Gstin = d.GetValue("gstin", "").AsString,
-            IsCreditCustomer = d.Contains("isCreditCustomer") && d["isCreditCustomer"].ToBoolean(),
+            var localId = d["_id"].ToString()!;
+            var centralId = d.GetValue("centralCustomerId", BsonNull.Value).IsBsonNull
+                ? ""
+                : d["centralCustomerId"].AsString;
+            return new CustomerMatch
+            {
+                Source = "Local",
+                LocalMongoId = localId,
+                Id = string.IsNullOrWhiteSpace(centralId) ? localId : centralId,
+                Code = d.GetValue("customerCode", "").AsString,
+                Name = d.GetValue("name", "").AsString,
+                Phone = d.GetValue("phone", "").AsString,
+                Email = d.GetValue("email", "").AsString,
+                DoorNo = d.GetValue("doorNo", "").AsString,
+                Street = d.GetValue("street", "").AsString,
+                FullAddress = d.GetValue("fullAddress", "").AsString,
+                Place = d.GetValue("place", "").AsString,
+                City = d.GetValue("city", "").AsString,
+                State = d.GetValue("state", "").AsString,
+                Pincode = d.GetValue("pincode", "").AsString,
+                Gstin = d.GetValue("gstin", "").AsString,
+                IsCreditCustomer = d.Contains("isCreditCustomer") && d["isCreditCustomer"].ToBoolean(),
+            };
         }).ToList();
     }
 

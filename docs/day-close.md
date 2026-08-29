@@ -29,6 +29,8 @@ expectedCash = openingCash + netCashInHand - depositsToBank - cashWithdrawals
 ## UI
 
 - **Day Close** nav tab — visible on every till.
+- **POS 1 (manager till)** — Day Close summary cards, full report export, and **cash hand over / close day** use **all counters** (store-wide Expected Cash and Morning Cash). Status shows “Store totals (all counters)”; hand-over Counter label is “All counters”. Open day and cash movements remain **this till only**.
+- **Other tills** — Day Close summary and close stay scoped to that till’s `posCounter`.
 - **Dashboard → Day close** — manager rollup of all counters (POS 1).
 - Header chip **Day: Open / Closed / Not opened** — links to Day Close page.
 
@@ -52,9 +54,11 @@ Returns counter session rows and store totals from synced `store_day_closes`. Re
 **WPF POS**
 
 - **Dashboard → Day close** — **Download full report** (respects business date and counter filter).
-- **Day Close** page — **Download full report** (current counter only).
+- **Day Close** page — **Download full report** (POS 1 = all counters; other tills = current counter).
 
-Save dialog supports `*.csv` or `*.xlsx`. Default filename: `day-close-{storeId}-{yyyy-MM-dd}[-pos{n}].csv|xlsx`.
+Save dialog supports `*.csv` or `*.xlsx`. Default filename: `day-close-{storeId}-{yyyy-MM-dd}[-pos{n}|-all].csv|xlsx`.
+
+For **All counters** Excel/CSV exports: **SUMMARY_OVERALL** first, then **SUMMARY_POS{n}** for each counter, then detail sheets (COUNTER_ROLLUP, BILLS, …). Single-counter exports keep a single **SUMMARY** sheet.
 
 **Central API**
 
@@ -67,7 +71,7 @@ curl -O -J "http://localhost:3000/api/dashboard/store/day-close?storeId=store-00
 curl -O -J "http://localhost:3000/api/dashboard/store/day-close/export?format=csv&storeId=store-001&date=2026-06-03"
 ```
 
-**Report sections:** METADATA, SUMMARY (reconciliation), COUNTER_ROLLUP, BILLS, RETURNS, ADJUSTMENTS, EXPENSES, CASH_MOVEMENTS, CREDIT_NOTE_CASHOUTS (if any), DENOMINATIONS (if closed), STOCK_EXCEPTIONS (if any).
+**Report sections:** METADATA, SUMMARY (or SUMMARY_OVERALL + SUMMARY_POS{n} for all-counters), COUNTER_ROLLUP, BILLS, RETURNS, ADJUSTMENTS, EXPENSES, CASH_MOVEMENTS, CREDIT_NOTE_CASHOUTS (if any), DENOMINATIONS (if closed), STOCK_EXCEPTIONS (if any).
 
 Bills include cash/card/UPI/credit-note amounts and credit note number(s). Returns include credit note numbers when issued. Expenses include supplier/invoice details, taxable value, CGST/SGST/IGST, gross amount, payment summary, and cash outflow.
 

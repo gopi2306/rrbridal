@@ -18,7 +18,8 @@ public static class DayCloseCsvExporter
         var sb = new StringBuilder();
 
         AppendKeyValueSection(sb, "METADATA", DayCloseReportSectionBuilder.BuildMetadataRows(data));
-        AppendKeyValueSection(sb, "SUMMARY", DayCloseReportSectionBuilder.BuildSummaryRows(data));
+        foreach (var (sheetName, rows) in DayCloseReportSectionBuilder.BuildSummarySheets(data))
+            AppendKeyValueSection(sb, sheetName, rows);
 
         foreach (var section in DayCloseReportSectionBuilder.BuildAllDetailSections(data))
             AppendTableSection(sb, section.Name, section.Headers, section.Rows);

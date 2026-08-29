@@ -307,10 +307,11 @@ public static class TaxInvoiceA4DocumentBuilder
         stack.Children.Add(TaxInvoiceA4Visuals.Text(label, bodyPt, FontWeights.Bold, verticalAlign: VerticalAlignment.Top));
         stack.Children.Add(TaxInvoiceA4Visuals.Text(FormatPartyNameLine(input), bodyPt, verticalAlign: VerticalAlignment.Top));
 
-        var stateLine = GstStateCodeResolver.FormatStateLine(input.Store.StateName, input.Store.Gstin);
-        stack.Children.Add(TaxInvoiceA4Visuals.Text("GSTIN/UIN:", smallPt, verticalAlign: VerticalAlignment.Top));
-        if (!string.IsNullOrWhiteSpace(stateLine))
-            stack.Children.Add(TaxInvoiceA4Visuals.Text(stateLine, smallPt, verticalAlign: VerticalAlignment.Top));
+        var buyerGstin = (input.CustomerGstin ?? "").Trim();
+        stack.Children.Add(TaxInvoiceA4Visuals.Text(
+            string.IsNullOrEmpty(buyerGstin) ? "GSTIN/UIN:" : $"GSTIN/UIN: {buyerGstin}",
+            smallPt,
+            verticalAlign: VerticalAlignment.Top));
 
         return TaxInvoiceA4Visuals.MetaBlockCell(stack, sectionPad, drawBottomBorder);
     }

@@ -42,7 +42,7 @@ export function buildSummaryRows(data: StoreDayCloseReportData): KeyValueRow[] {
     { label: 'Gross daily expenses', value: formatMoney(s.dailyExpensesTotal) },
     { label: 'Expense cash outflow', value: formatMoney(-s.dailyExpenseCashTotal) },
     { label: 'Deposits to bank', value: formatMoney(-s.depositsTotal) },
-    { label: 'Cash withdrawals', value: formatMoney(s.withdrawalsTotal) },
+    { label: 'Cash withdrawals', value: formatMoney(-s.withdrawalsTotal) },
     { label: 'Expected cash (drawer)', value: formatMoney(s.expectedCash) },
     { label: 'Actual cash counted', value: formatMoney(s.actualCashCounted) },
     { label: 'Difference', value: formatMoney(s.cashDifference) },

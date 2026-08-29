@@ -45,7 +45,7 @@ public static class CashHandOverThermalTextBuilder
         AddCenter("CASH HAND OVER");
         AddRule();
 
-        sb.AppendLine(TwoCols($"Date: {input.BusinessDate}", $"Counter: POS{input.Counter}", w));
+        sb.AppendLine(TwoCols($"Date: {input.BusinessDate}", $"Counter: {input.Counter}", w));
         sb.AppendLine($"User: {Truncate(input.UserName, w - 6)}");
         AddRule();
 

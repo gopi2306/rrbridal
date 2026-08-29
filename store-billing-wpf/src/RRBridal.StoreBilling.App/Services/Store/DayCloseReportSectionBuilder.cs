@@ -24,9 +24,11 @@ internal static class DayCloseReportSectionBuilder
         ];
     }
 
-    public static IReadOnlyList<(string Label, string Value)> BuildSummaryRows(DayCloseReportData data)
+    public static IReadOnlyList<(string Label, string Value)> BuildSummaryRows(DayCloseReportData data) =>
+        BuildSummaryRows(data.Snapshot);
+
+    public static IReadOnlyList<(string Label, string Value)> BuildSummaryRows(DayBillingCloseSnapshot s)
     {
-        var s = data.Snapshot;
         return
         [
             ("Opening cash", F(s.OpeningCash)),
@@ -60,6 +62,35 @@ internal static class DayCloseReportSectionBuilder
             ("Return total amount", F(s.ReturnTotalAmount)),
             ("Credit notes issued", F(s.CreditNoteIssuedTotal)),
         ];
+    }
+
+    /// <summary>
+    /// Key-value summary sheets: overall first (when store-wide), then one sheet per POS.
+    /// </summary>
+    public static IReadOnlyList<(string SheetName, IReadOnlyList<(string Label, string Value)> Rows)> BuildSummarySheets(
+        DayCloseReportData data)
+    {
+        var sheets = new List<(string SheetName, IReadOnlyList<(string Label, string Value)> Rows)>();
+        if (data.CounterSummaries.Count > 0)
+        {
+            sheets.Add(("SUMMARY_OVERALL", BuildSummaryRows(data.Snapshot)));
+            foreach (var counter in data.CounterSummaries)
+            {
+                var rows = new List<(string Label, string Value)>
+                {
+                    ("Counter", counter.CounterDisplay),
+                    ("Session status", counter.SessionStatus ?? counter.Snapshot.SessionStatus ?? "—"),
+                };
+                rows.AddRange(BuildSummaryRows(counter.Snapshot));
+                sheets.Add(($"SUMMARY_POS{counter.PosCounter}", rows));
+            }
+        }
+        else
+        {
+            sheets.Add(("SUMMARY", BuildSummaryRows(data.Snapshot)));
+        }
+
+        return sheets;
     }
 
     public static SheetSection BuildCounterRollupSection(DayCloseReportData data)

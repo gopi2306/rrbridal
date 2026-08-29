@@ -172,6 +172,10 @@ public sealed class DaySessionService
 
         var storeId = _storeContext.StoreId;
         var posCounter = _storeContext.PosCounter;
+        // POS1 closes against store-wide Expected Cash; other tills stay counter-scoped.
+        var expectedCashFilter = DayCloseSummaryScope.ResolvePosCounterFilter(
+            _storeContext.IsPrimaryCounter,
+            posCounter);
         var date = (localDate ?? DateTime.Today).Date;
         var businessDate = FormatBusinessDate(date);
         var session = await GetSessionAsync(storeId, businessDate, posCounter, ct);
@@ -188,19 +192,19 @@ public sealed class DaySessionService
                 return (false, "Central dashboard is not configured for online day close.", session);
 
             // Same gate as Offline: pending stock exceptions must be approved on central first.
-            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, posCounter, session, ct);
+            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, expectedCashFilter, session, ct);
             if (snapshot.StockExceptions.Any(e => e.CanApprove))
                 return (false, "Approve or resolve stock exceptions before closing the day.", session);
 
             // Prefer computed expected cash from the day-close report (payload expectedCash is often 0 while open).
-            using var reportJson = await _dashboardApi.GetStoreDayCloseReportAsync(businessDate, posCounter, ct);
+            using var reportJson = await _dashboardApi.GetStoreDayCloseReportAsync(businessDate, expectedCashFilter, ct);
             expectedCash = StoreDayCloseDashboardReader.ReadReportExpectedCash(reportJson.RootElement);
             if (expectedCash <= 0 && snapshot.ExpectedCash > 0)
                 expectedCash = snapshot.ExpectedCash;
         }
         else
         {
-            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, posCounter, session, ct);
+            snapshot = await _dayClose.LoadDayCloseAsync(storeId, date, expectedCashFilter, session, ct);
             if (snapshot.StockExceptions.Any(e => e.CanApprove))
                 return (false, "Approve or resolve stock exceptions before closing the day.", session);
             expectedCash = snapshot.ExpectedCash;

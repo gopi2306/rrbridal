@@ -82,6 +82,7 @@ public sealed class CustomerRegistrationService
                 CentralSyncWarning = null,
                 CustomerName = p.CustomerName.Trim(),
                 CustomerPhone = phoneCombined,
+                Gstin = p.Gstin.Trim(),
                 DoorNo = p.DoorNo.Trim(),
                 Street = p.Street.Trim(),
                 FullAddress = p.FullAddress.Trim(),
@@ -132,6 +133,7 @@ public sealed class CustomerRegistrationService
                 CentralSyncWarning = "Saved locally (Central mode is Offline).",
                 CustomerName = p.CustomerName.Trim(),
                 CustomerPhone = phoneCombined,
+                Gstin = p.Gstin.Trim(),
                 DoorNo = p.DoorNo.Trim(),
                 Street = p.Street.Trim(),
                 FullAddress = p.FullAddress.Trim(),
@@ -192,11 +194,48 @@ public sealed class CustomerRegistrationService
             CentralSyncWarning = syncWarning,
             CustomerName = p.CustomerName.Trim(),
             CustomerPhone = phoneCombined,
+            Gstin = p.Gstin.Trim(),
             DoorNo = p.DoorNo.Trim(),
             Street = p.Street.Trim(),
             FullAddress = p.FullAddress.Trim(),
             BillingCustomerCode = billingCustomerCode,
         };
+    }
+
+    /// <summary>Persists GSTIN for an existing customer matched from billing search.</summary>
+    public Task<CustomerRegistrationResult> UpdateGstinFromMatchAsync(
+        CustomerMatch customer,
+        string gstin,
+        CancellationToken ct = default)
+    {
+        var payload = new CustomerRegistrationPayload
+        {
+            CustomerCode = customer.Code ?? "",
+            CustomerName = customer.Name ?? "",
+            Mobile = customer.Phone ?? "",
+            Email = customer.Email ?? "",
+            Gstin = (gstin ?? "").Trim().ToUpperInvariant(),
+            DoorNo = customer.DoorNo ?? "",
+            Street = customer.Street ?? "",
+            FullAddress = customer.FullAddress ?? "",
+            Place = customer.Place ?? "",
+            City = customer.City ?? "",
+            State = customer.State ?? "",
+            Pincode = customer.Pincode ?? "",
+            IsCreditCustomer = customer.IsCreditCustomer,
+        };
+
+        var localId = !string.IsNullOrWhiteSpace(customer.LocalMongoId)
+            ? customer.LocalMongoId
+            : (string.Equals(customer.Source, "Local", StringComparison.OrdinalIgnoreCase) ? customer.Id : "");
+        var centralId = !string.IsNullOrWhiteSpace(customer.Id)
+            && (string.Equals(customer.Source, "Central", StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(customer.LocalMongoId)
+                    && !string.Equals(customer.Id, customer.LocalMongoId, StringComparison.Ordinal)))
+            ? customer.Id
+            : null;
+
+        return UpdateAsync(localId, payload, centralId, ct);
     }
 
     public async Task<CustomerRegistrationResult> UpdateAsync(
@@ -330,6 +369,7 @@ public sealed class CustomerRegistrationService
             CentralSyncWarning = syncWarning,
             CustomerName = p.CustomerName.Trim(),
             CustomerPhone = phoneCombined,
+            Gstin = p.Gstin.Trim(),
             DoorNo = p.DoorNo.Trim(),
             Street = p.Street.Trim(),
             FullAddress = p.FullAddress.Trim(),
@@ -382,6 +422,7 @@ public sealed class CustomerRegistrationService
             CentralSyncWarning = null,
             CustomerName = p.CustomerName.Trim(),
             CustomerPhone = phoneCombined,
+            Gstin = p.Gstin.Trim(),
             DoorNo = p.DoorNo.Trim(),
             Street = p.Street.Trim(),
             FullAddress = p.FullAddress.Trim(),

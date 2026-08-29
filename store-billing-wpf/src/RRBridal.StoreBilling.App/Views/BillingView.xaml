@@ -69,6 +69,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
@@ -84,8 +85,8 @@
                                       DisplayMemberPath="DisplayLabel"
                                       IsEditable="False" Margin="0,0,0,4"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" Style="{StaticResource FormFieldLabel}"/>
-                            <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Margin="0,0,0,0"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Phone" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
+                            <Border x:Name="PhoneInputBorder" Grid.Row="1" Grid.Column="1" Margin="0,0,0,4"
                                     CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" SnapsToDevicePixels="True">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -123,13 +124,51 @@
                                          LostFocus="CustomerPhoneBox_OnLostFocus"/>
                             </Border>
 
-                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" Style="{StaticResource FormFieldLabel}"/>
-                            <TextBox x:Name="CustomerNameBox" Grid.Row="1" Grid.Column="4"
-                                     AutomationProperties.AutomationId="billing-customer-name-input"
-                                     AutomationProperties.Name="Customer name"
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Customer name" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
+                            <Grid Grid.Row="1" Grid.Column="4" Margin="0,0,0,4">
+                                <TextBox x:Name="CustomerNameBox"
+                                         AutomationProperties.AutomationId="billing-customer-name-input"
+                                         AutomationProperties.Name="Customer name"
+                                         Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                         KeyDown="CustomerNameBox_OnKeyDown"
+                                         PreviewKeyDown="CustomerNameBox_OnPreviewKeyDown"/>
+                                <Popup IsOpen="{Binding IsCustomerNameSuggestionsOpen}"
+                                       PlacementTarget="{Binding ElementName=CustomerNameBox}"
+                                       Placement="Bottom"
+                                       StaysOpen="False"
+                                       AllowsTransparency="True"
+                                       PopupAnimation="Fade">
+                                    <Border Background="{StaticResource BrushSurface}"
+                                            BorderBrush="{StaticResource BrushBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            MinWidth="{Binding ActualWidth, ElementName=CustomerNameBox}"
+                                            MaxHeight="220"
+                                            Padding="0,4">
+                                        <ListBox x:Name="CustomerNameSuggestionsList"
+                                                 ItemsSource="{Binding CustomerNameSuggestions}"
+                                                 DisplayMemberPath="SuggestionLine"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 MaxHeight="200"
+                                                 MouseLeftButtonUp="CustomerNameSuggestionsList_OnMouseLeftButtonUp"
+                                                 KeyDown="CustomerNameSuggestionsList_OnKeyDown"
+                                                 AutomationProperties.AutomationId="billing-customer-name-suggestions"
+                                                 AutomationProperties.Name="Customer name suggestions"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="GSTIN" Style="{StaticResource FormFieldLabel}"/>
+                            <TextBox x:Name="CustomerGstinBox" Grid.Row="2" Grid.Column="1"
                                      Style="{StaticResource RoundedTextBoxCompact}"
-                                     Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="CustomerNameBox_OnKeyDown"/>
+                                     Text="{Binding CustomerGstin, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="15"
+                                     CharacterCasing="Upper"
+                                     LostFocus="CustomerGstinBox_OnLostFocus"
+                                     AutomationProperties.AutomationId="billing-customer-gstin-input"
+                                     AutomationProperties.Name="Customer GSTIN"/>
                         </Grid>
                     </Grid>
                 </Border>

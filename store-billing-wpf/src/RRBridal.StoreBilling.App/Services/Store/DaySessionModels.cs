@@ -135,3 +135,18 @@ public static class DaySessionCashMath
         decimal withdrawalsTotal)
         => openingCash + netCashInHand - depositsTotal - withdrawalsTotal;
 }
+
+/// <summary>
+/// Day Close / cash hand-over scope: manager till (POS 1) is store-wide; other tills stay counter-scoped.
+/// Open-day session identity still uses the till's own <c>posCounter</c>.
+/// </summary>
+public static class DayCloseSummaryScope
+{
+    public static string? ResolvePosCounterFilter(bool isPrimaryCounter, string? posCounter) =>
+        isPrimaryCounter ? null : (string.IsNullOrWhiteSpace(posCounter) ? null : posCounter.Trim());
+
+    public static string ResolveCounterDisplay(bool isPrimaryCounter, string? posCounter) =>
+        isPrimaryCounter
+            ? "All counters"
+            : $"POS{(string.IsNullOrWhiteSpace(posCounter) ? "?" : posCounter.Trim())}";
+}

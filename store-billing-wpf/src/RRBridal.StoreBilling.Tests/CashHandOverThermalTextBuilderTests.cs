@@ -15,7 +15,7 @@ public class CashHandOverThermalTextBuilderTests
             Store = new StoreProfile { StoreName = "RR Bridal Test" },
             CharWidth = 48,
             BusinessDate = "09/06/2026",
-            Counter = "4",
+            Counter = "POS4",
             UserName = "SFAISAL",
             Denominations = new[]
             {
@@ -32,6 +32,7 @@ public class CashHandOverThermalTextBuilderTests
         var text = CashHandOverThermalTextBuilder.Build(input);
 
         Assert.Contains("CASH HAND OVER", text);
+        Assert.Contains("Counter: POS4", text);
         Assert.Contains("500", text);
         Assert.Contains("42,000.00", text);
         Assert.Contains("Cash In Hand:", text);

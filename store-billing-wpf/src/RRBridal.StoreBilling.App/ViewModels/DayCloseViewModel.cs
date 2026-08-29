@@ -59,6 +59,15 @@ public partial class DayCloseViewModel : ObservableObject
 
     public ObservableCollection<CashMovementRow> CashMovements { get; } = new();
 
+    /// <summary>
+    /// POS1 (manager till) shows store-wide summary, export, and cash hand-over;
+    /// other tills stay counter-scoped. Open day / cash movements still use this till's PosCounter.
+    /// </summary>
+    private string? SummaryPosCounterFilter =>
+        DayCloseSummaryScope.ResolvePosCounterFilter(
+            _storeContext.IsPrimaryCounter,
+            _storeContext.PosCounter);
+
     public DayCloseViewModel(AppServices services)
     {
         _services = services;
@@ -85,7 +94,7 @@ public partial class DayCloseViewModel : ObservableObject
             var businessDate = DaySessionService.FormatBusinessDate(SelectedDate);
             _session = await _services.DaySessions.GetSessionAsync(storeId, businessDate, posCounter);
             _snapshot = await _services.DaySessions.LoadDayCloseWithSessionAsync(
-                storeId, SelectedDate, posCounter);
+                storeId, SelectedDate, SummaryPosCounterFilter);
 
             UpdateSessionUi();
             await UpdateSummaryUiAsync(_snapshot);
@@ -107,7 +116,9 @@ public partial class DayCloseViewModel : ObservableObject
                 });
             }
 
-            StatusMessage = $"Updated {DateTime.Now:T}";
+            StatusMessage = _storeContext.IsPrimaryCounter
+                ? $"Updated {DateTime.Now:T} · Store totals (all counters)"
+                : $"Updated {DateTime.Now:T}";
         }
         catch (Exception ex)
         {
@@ -169,16 +180,13 @@ public partial class DayCloseViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenCashHandOver()
+    private async Task OpenCashHandOver()
     {
-        if (_snapshot == null)
-            return;
-
         if (_session == null || !string.Equals(_session.Status, DaySessionStatus.Open, StringComparison.OrdinalIgnoreCase))
         {
             if (_session != null && string.Equals(_session.Status, DaySessionStatus.Closed, StringComparison.OrdinalIgnoreCase))
             {
-                ShowCashHandOver(readOnly: true);
+                await ShowCashHandOverAsync(readOnly: true);
                 return;
             }
 
@@ -186,17 +194,27 @@ public partial class DayCloseViewModel : ObservableObject
             return;
         }
 
-        ShowCashHandOver(readOnly: false);
+        await ShowCashHandOverAsync(readOnly: false);
     }
 
-    private void ShowCashHandOver(bool readOnly)
+    private async Task ShowCashHandOverAsync(bool readOnly)
     {
-        if (_snapshot == null)
+        // POS1: overall (all counters) Expected / Morning cash. Other tills: this counter only.
+        DayBillingCloseSnapshot handOverSnapshot;
+        try
+        {
+            handOverSnapshot = await _services.DaySessions.LoadDayCloseWithSessionAsync(
+                _storeContext.StoreId, SelectedDate, SummaryPosCounterFilter);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not load day close for cash hand over: " + ex.Message;
             return;
+        }
 
         var vm = new CashHandOverViewModel(
             _services,
-            _snapshot,
+            handOverSnapshot,
             _session,
             SelectedDate,
             readOnly,
@@ -219,7 +237,10 @@ public partial class DayCloseViewModel : ObservableObject
     private async Task DownloadReport()
     {
         var dateStr = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var baseName = $"day-close-{_storeContext.StoreId}-{dateStr}-pos{_storeContext.PosCounter}";
+        var scopeSuffix = _storeContext.IsPrimaryCounter
+            ? "all"
+            : $"pos{_storeContext.PosCounter}";
+        var baseName = $"day-close-{_storeContext.StoreId}-{dateStr}-{scopeSuffix}";
 
         var dlg = new SaveFileDialog
         {
@@ -234,7 +255,7 @@ public partial class DayCloseViewModel : ObservableObject
             var data = await _services.DayCloseReports.LoadAsync(
                 _storeContext.StoreId,
                 SelectedDate,
-                _storeContext.PosCounter,
+                SummaryPosCounterFilter,
                 StoreDisplayName);
 
             if (dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))

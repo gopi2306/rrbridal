@@ -15,6 +15,8 @@ public sealed class CustomerRegistrationResult
 
     public required string CustomerPhone { get; init; }
 
+    public string Gstin { get; init; } = "";
+
     public required string DoorNo { get; init; }
 
     public required string Street { get; init; }
