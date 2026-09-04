@@ -1040,8 +1040,40 @@
                                               SelectedValuePath="Level"
                                               SelectedValue="{Binding BillingLineItemDetailLevel}"/>
                                     <TextBlock Text="{Binding BillingLineItemDetailDescription}"
-                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,14"
                                                Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBlock Text="Low-stock match qty" Style="{StaticResource FilterFieldLabel}"/>
+                                    <TextBox Style="{StaticResource SettingsFieldInput}" Width="120" HorizontalAlignment="Left"
+                                             Text="{Binding BillingGoingOutOfStockMatchQtyText, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Going out of stock lists SKUs at or below this qty (unless the product has its own MOQ/min/reorder). Fast sellers flags Low stock the same way. 0 disables the store-wide fallback / flag."/>
+                                    <TextBlock Text="Shared by Reports → Going out of stock and Fast sellers. Used when product MOQ / min / reorder is blank or zero. Default 5."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,14"
+                                               Foreground="{StaticResource BrushTextMuted}"/>
+                                    <TextBlock Text="Card charges" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Applied only for Card payment or Split with a card amount. Cashier can override the suggested ₹ in Payment."
+                                               Style="{StaticResource TextCaption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Enable card charges"
+                                              Style="{StaticResource ThemedCheckBox}"
+                                              IsChecked="{Binding BillingEnableCardCharge}" Margin="0,0,0,10"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Card charge %" Style="{StaticResource FilterFieldLabel}"/>
+                                            <TextBox Style="{StaticResource SettingsFieldInput}"
+                                                     Text="{Binding BillingCardChargePercentText, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding BillingEnableCardCharge}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Card charge flat ₹" Style="{StaticResource FilterFieldLabel}"/>
+                                            <TextBox Style="{StaticResource SettingsFieldInput}"
+                                                     Text="{Binding BillingCardChargeFlatAmountText, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding BillingEnableCardCharge}"/>
+                                        </StackPanel>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
 

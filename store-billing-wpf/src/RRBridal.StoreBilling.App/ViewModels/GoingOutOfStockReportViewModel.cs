@@ -77,7 +77,7 @@ public partial class GoingOutOfStockReportViewModel : ObservableObject
 
             var filter = SelectedStatusFilter?.Label ?? "All statuses";
             StatusMessage = IsEmpty
-                ? $"No SKUs at or below shelf/reorder threshold · {filter}."
+                ? $"No SKUs at or below match qty / product threshold · {filter}."
                 : $"{response.Totals.SkuCount:N0} SKU(s) · {filter} · as of {response.Period.AsOf} · updated {DateTime.Now.ToString("T", InCulture)}";
         }
         catch (Exception ex)

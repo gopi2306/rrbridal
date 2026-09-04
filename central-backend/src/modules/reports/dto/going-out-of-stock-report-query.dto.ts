@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { TABULAR_EXPORT_MAX_ROWS } from '../../../common/tabular-export';
 
 export class GoingOutOfStockReportQueryDto {
@@ -19,6 +19,18 @@ export class GoingOutOfStockReportQueryDto {
   @IsIn(['low', 'critical'])
   @IsOptional()
   status?: 'low' | 'critical';
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Store-wide match qty when product MOQ/min/reorder is unset or ≤ 0. When > 0, all active products are considered.',
+    minimum: 0,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  matchQty?: number;
 
   @ApiProperty({
     required: false,

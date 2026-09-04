@@ -37,8 +37,8 @@ public static class TaxInvoiceA4Layout
     public const double MetaLeftColumnWeight = 0.52;
     public const double MetaRightColumnWeight = 0.48;
 
-    /// <summary>SI No, Description, HSN/SAC, Qty, Rate, per, Amount.</summary>
-    public static readonly double[] LineColumnWeights = { 0.45, 2.9, 0.9, 0.75, 0.95, 0.45, 1.35 };
+    /// <summary>SI No, Description, HSN/SAC, Qty, MRP, Rate, per, Amount.</summary>
+    public static readonly double[] LineColumnWeights = { 0.45, 2.6, 0.9, 0.75, 0.7, 0.9, 0.45, 1.25 };
 
     public static double[] ComputeColumnWidths(double contentWidth)
     {

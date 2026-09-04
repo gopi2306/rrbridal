@@ -32,6 +32,7 @@ public partial class FastSellersReportViewModel : ObservableObject
     [ObservableProperty] private string _returnQty = "—";
     [ObservableProperty] private string _netQty = "—";
     [ObservableProperty] private string _netAmount = "—";
+    [ObservableProperty] private string _lowStockSkuCount = "—";
 
     public ObservableCollection<PosCounterFilterOption> PosCounterFilterOptions { get; } = new();
     public ObservableCollection<SkuSalesRow> SellerRows { get; } = new();
@@ -86,7 +87,7 @@ public partial class FastSellersReportViewModel : ObservableObject
             foreach (var row in response.Data)
                 SellerRows.Add(row);
 
-            ApplyTotals(response.Totals);
+            ApplyTotals(response.Totals, SellerRows.Count(row => row.IsLowStock));
             IsEmpty = SellerRows.Count == 0;
             IsTruncated = response.Truncated;
             TruncatedMessage = response.Truncated
@@ -176,18 +177,19 @@ public partial class FastSellersReportViewModel : ObservableObject
         return true;
     }
 
-    private void ApplyTotals(SkuSalesTotals totals)
+    private void ApplyTotals(SkuSalesTotals totals, int lowStockSkuCount)
     {
         SkuCount = totals.SkuCount.ToString("N0", InCulture);
         SoldQty = totals.SoldQty.ToString("N2", InCulture);
         ReturnQty = totals.ReturnQty.ToString("N2", InCulture);
         NetQty = totals.NetQty.ToString("N2", InCulture);
         NetAmount = FormatMoney(totals.NetAmount);
+        LowStockSkuCount = lowStockSkuCount.ToString("N0", InCulture);
     }
 
     private void ResetTotals()
     {
-        SkuCount = SoldQty = ReturnQty = NetQty = NetAmount = "—";
+        SkuCount = SoldQty = ReturnQty = NetQty = NetAmount = LowStockSkuCount = "—";
     }
 
     private static string FormatMoney(decimal value) => value.ToString("C2", InCulture);

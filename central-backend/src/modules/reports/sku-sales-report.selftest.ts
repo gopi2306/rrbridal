@@ -9,6 +9,7 @@ import { UNMAPPED_VENDOR_ID, UNMAPPED_VENDOR_NAME } from '../dashboard/store-ven
 import { FastSellersReportExportService } from './fast-sellers-report-export.service';
 import { SupplierWiseSalesReportExportService } from './supplier-wise-sales-report-export.service';
 import {
+  attachStockLevels,
   collectSkuSales,
   filterSkuRowsForSupplierSearch,
   groupSupplierWise,
@@ -92,6 +93,23 @@ async function run() {
     ['SKU-A', 'SKU-C', 'SKU-B'],
   );
 
+  const withStock = attachStockLevels(
+    ranked,
+    new Map([
+      ['SKU-A', 3],
+      ['SKU-C', 20],
+    ]),
+    5,
+  );
+  assert.equal(withStock[0]?.availableQty, 3);
+  assert.equal(withStock[0]?.isLowStock, true);
+  assert.equal(withStock[1]?.availableQty, 20);
+  assert.equal(withStock[1]?.isLowStock, false);
+  assert.equal(withStock[2]?.availableQty, 0);
+  assert.equal(withStock[2]?.isLowStock, true);
+  const neverFlagged = attachStockLevels(ranked.slice(0, 1), new Map([['SKU-A', 0]]), 0);
+  assert.equal(neverFlagged[0]?.isLowStock, false);
+
   const period = {
     from: '2026-08-01',
     to: '2026-08-31',
@@ -129,7 +147,7 @@ async function run() {
   assert.ok(detailCells.some((cell) => String(cell) === 'SKU-A'));
   assert.ok(detailCells.some((cell) => String(cell) === 'SKU-B'));
 
-  const fastData = ranked.map((row, index) => ({ ...row, rank: index + 1 }));
+  const fastData = withStock.map((row, index) => ({ ...row, rank: index + 1 }));
   const fastReport = {
     period,
     filters: {},
@@ -150,6 +168,9 @@ async function run() {
   const fastCells = XLSX.utils.sheet_to_json<string[]>(fastBook.Sheets['Fast Sellers']!, { header: 1 }).flat();
   assert.ok(fastCells.some((cell) => String(cell) === 'SKU-A'));
   assert.ok(fastCells.some((cell) => String(cell) === '1'));
+  assert.ok(fastCells.some((cell) => String(cell) === 'Available Qty'));
+  assert.ok(fastCells.some((cell) => String(cell) === 'Low Stock'));
+  assert.ok(fastCells.some((cell) => String(cell) === 'Yes'));
 
   console.log('sku-sales-report.selftest: ok');
 }

@@ -14,6 +14,150 @@ namespace RRBridal.StoreBilling.Tests;
 public class TaxInvoiceA4DocumentTests
 {
     [Fact]
+    public void LineProductAmount_uses_billed_amount_when_set()
+    {
+        var line = new InvoiceLineSnap { Qty = 4, Rate = 877.10m, Amount = 3508.40m };
+        Assert.Equal(3508.40m, TaxInvoiceA4GstBreakdown.LineProductAmount(line));
+    }
+
+    [Fact]
+    public void LineProductAmount_computes_from_qty_and_rate_when_amount_missing()
+    {
+        var line = new InvoiceLineSnap { Qty = 4, Rate = 877.10m };
+        Assert.Equal(3508.40m, TaxInvoiceA4GstBreakdown.LineProductAmount(line));
+    }
+
+    [Fact]
+    public void Document_shows_mrp_rate_and_product_line_amount()
+    {
+        var text = OnSta(() =>
+        {
+            var line = new InvoiceLineSnap
+            {
+                LineNo = 1,
+                Description = "Sample Product",
+                Hsn = "540710",
+                Qty = 4m,
+                Rate = 877.10m,
+                Mrp = 1200m,
+                Amount = 3508.40m,
+                TaxableAmount = 3508.40m,
+                TaxAmount = 175.42m,
+                TaxPercent = 5m,
+            };
+            var input = SampleBillWithLines(new[] { line }, isInterState: false);
+            return CollectDocumentText(TaxInvoiceA4DocumentBuilder.Create(input));
+        });
+
+        Assert.Contains("MRP", text);
+        Assert.Contains("877.10", text);
+        Assert.Contains("3,508.40", text);
+        Assert.Contains("1,200.00", text);
+    }
+
+    [Fact]
+    public void Document_subtotal_matches_sum_of_line_product_amounts()
+    {
+        var text = OnSta(() =>
+        {
+            var lines = new[]
+            {
+                new InvoiceLineSnap
+                {
+                    LineNo = 1,
+                    Description = "Item A",
+                    Hsn = "540710",
+                    Qty = 4m,
+                    Rate = 877.10m,
+                    Amount = 3508.40m,
+                    TaxableAmount = 3508.40m,
+                    TaxAmount = 175.42m,
+                    TaxPercent = 5m,
+                },
+                new InvoiceLineSnap
+                {
+                    LineNo = 2,
+                    Description = "Item B",
+                    Hsn = "540710",
+                    Qty = 2m,
+                    Rate = 500m,
+                    Amount = 1000m,
+                    TaxableAmount = 1000m,
+                    TaxAmount = 50m,
+                    TaxPercent = 5m,
+                },
+            };
+            var input = SampleBillWithLines(lines, isInterState: false);
+            return CollectDocumentText(TaxInvoiceA4DocumentBuilder.Create(input));
+        });
+
+        Assert.Contains("Subtotal", text);
+        Assert.Contains("4,508.40", text);
+    }
+
+    [Fact]
+    public void Document_shows_discounted_subtotal_after_discount()
+    {
+        var text = OnSta(() =>
+        {
+            var line = new InvoiceLineSnap
+            {
+                LineNo = 1,
+                Description = "Sample Product",
+                Hsn = "540710",
+                Qty = 1m,
+                Rate = 895m,
+                Amount = 895m,
+                TaxableAmount = 805.50m,
+                TaxAmount = 144.50m,
+                TaxPercent = 18m,
+            };
+            var input = new ThermalInvoiceInput
+            {
+                Store = new StoreProfile
+                {
+                    StoreName = "RR Bridal Test",
+                    Address = "Hyderabad",
+                    Gstin = "36ABFFR4340C1ZI",
+                    StateName = "Telangana",
+                },
+                CharWidth = 48,
+                BillNo = "198",
+                BillDate = "20-AUG-26",
+                UserName = "Cashier",
+                Time = "20:30",
+                Counter = "01",
+                CustomerName = "Sample Customer",
+                CustomerPhone = "9876543210",
+                IsInterState = false,
+                SubTotal = 895m,
+                ItemDiscount = 89.50m,
+                RevisedSubTotal = 805.50m,
+                CgstTotal = 72.50m,
+                SgstTotal = 72.50m,
+                TotalTaxableAmount = 805.50m,
+                TotalQty = 1m,
+                Payable = 950m,
+                Lines = new List<InvoiceLineSnap> { line },
+            };
+            return CollectDocumentText(TaxInvoiceA4DocumentBuilder.Create(input));
+        });
+
+        Assert.Contains("Discounted Subtotal", text);
+        Assert.Contains("(-) 89.50", text);
+        Assert.Contains("805.50", text);
+        Assert.Contains("CGST", text);
+        Assert.Contains("SGST", text);
+
+        var discountIndex = text.IndexOf("(-) 89.50", StringComparison.Ordinal);
+        var discountedSubtotalIndex = text.IndexOf("805.50", StringComparison.Ordinal);
+        var cgstIndex = text.IndexOf("CGST", StringComparison.Ordinal);
+        Assert.True(discountIndex >= 0);
+        Assert.True(discountedSubtotalIndex > discountIndex);
+        Assert.True(cgstIndex > discountedSubtotalIndex);
+    }
+
+    [Fact]
     public void GstBreakdown_intra_state_splits_cgst_and_sgst()
     {
         var input = SampleBill(isInterState: false);
@@ -235,6 +379,39 @@ public class TaxInvoiceA4DocumentTests
         if (error != null)
             throw new Exception(error.ToString());
         return result!;
+    }
+
+    private static ThermalInvoiceInput SampleBillWithLines(IReadOnlyList<InvoiceLineSnap> lines, bool isInterState)
+    {
+        var taxable = lines.Sum(l => l.TaxableAmount);
+        var tax = lines.Sum(l => l.TaxAmount);
+        return new ThermalInvoiceInput
+        {
+            Store = new StoreProfile
+            {
+                StoreName = "RR Bridal Test",
+                Address = "Hyderabad",
+                Gstin = "36ABFFR4340C1ZI",
+                StateName = "Telangana",
+            },
+            CharWidth = 48,
+            BillNo = "198",
+            BillDate = "20-AUG-26",
+            UserName = "Cashier",
+            Time = "20:30",
+            Counter = "01",
+            CustomerName = "Sample Customer",
+            CustomerPhone = "9876543210",
+            IsInterState = isInterState,
+            CgstTotal = isInterState ? 0m : tax / 2m,
+            SgstTotal = isInterState ? 0m : tax / 2m,
+            IgstTotal = isInterState ? tax : 0m,
+            TotalTaxableAmount = taxable,
+            TotalQty = lines.Sum(l => l.Qty),
+            Payable = taxable + tax,
+            SubTotal = taxable,
+            Lines = lines.ToList(),
+        };
     }
 
     private static ThermalInvoiceInput SampleBill(bool isInterState, StoreProfile? store = null, int lineCount = 1)

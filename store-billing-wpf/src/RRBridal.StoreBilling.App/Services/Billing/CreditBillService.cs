@@ -413,16 +413,13 @@ public sealed class CreditBillService
     {
         if (IsCentralOnline && _storePos != null)
         {
-            using var json = await _storePos.ListBillsAsync(null, 200, ct);
+            using var json = await _storePos.ListBillsAsync(
+                search: null, limit: 1000, creditBillingOnly: true, ct: ct);
             var docs = new List<BsonDocument>();
             if (json.RootElement.ValueKind == JsonValueKind.Array)
             {
                 foreach (var el in json.RootElement.EnumerateArray())
-                {
-                    var doc = BillDocumentService.MapCentralBillToDoc(el);
-                    if (doc.Contains("creditBilling"))
-                        docs.Add(doc);
-                }
+                    docs.Add(BillDocumentService.MapCentralBillToDoc(el));
             }
 
             return docs;

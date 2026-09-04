@@ -63,6 +63,21 @@ public sealed class PosBillingSettingsDocument
     /// <summary>Max balance due per bill (0 = no limit).</summary>
     public decimal CreditBillingMaxBalancePerBill { get; set; }
 
+    /// <summary>
+    /// Default Going Out of Stock threshold when product MOQ/min/reorder is unset or ≤ 0.
+    /// SKUs appear when store qty is at or below this value. 0 disables the store-wide fallback.
+    /// </summary>
+    public decimal GoingOutOfStockMatchQty { get; set; } = 5m;
+
+    /// <summary>When true, Card / Split-with-card payments may add a card processing charge.</summary>
+    public bool EnableCardCharge { get; set; }
+
+    /// <summary>Percent of card base amount charged when EnableCardCharge is true (0 = none).</summary>
+    public decimal CardChargePercent { get; set; }
+
+    /// <summary>Flat ₹ added when card base &gt; 0 and EnableCardCharge is true (0 = none).</summary>
+    public decimal CardChargeFlatAmount { get; set; }
+
     /// <summary>Admin (counter 1) matrix: which counters may open which screens.</summary>
     public CounterScreenAccessSettings ScreenAccess { get; set; } = new();
 }

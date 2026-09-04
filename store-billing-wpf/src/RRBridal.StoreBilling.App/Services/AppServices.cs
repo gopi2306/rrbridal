@@ -186,8 +186,8 @@ public sealed class AppServices
         var billDocuments = new BillDocumentService(localDb, storeContext, receiptConfig);
         var storeBillList = new StoreBillListService(localDb);
         var customerBillingReports = new CustomerBillingReportService(localDb, http, storeContext);
-        var skuSalesReports = new SkuSalesReportService(localDb, http, storeContext);
-        var goingOutOfStockReports = new GoingOutOfStockReportService(localDb, http, storeContext);
+        var skuSalesReports = new SkuSalesReportService(localDb, http, storeContext, posBillingSettings);
+        var goingOutOfStockReports = new GoingOutOfStockReportService(localDb, http, storeContext, posBillingSettings);
         var billDelete = new BillDeleteService(
             localDb, storeContext, billDocuments, storeBillList, productCatalog, billingOutbox);
         var heldBills = new HeldBillService(localDb, storeContext, billNumberGenerator);

@@ -116,6 +116,26 @@ public static class SkuSalesReportAggregator
             .Select((row, index) => Clone(row, index + 1))
             .ToList();
 
+    /// <summary>
+    /// Attaches store available qty and low-stock flag (qty ≤ matchQty when matchQty &gt; 0).
+    /// Missing SKUs in the qty map are treated as 0 available.
+    /// </summary>
+    public static IReadOnlyList<SkuSalesRow> AttachStockLevels(
+        IEnumerable<SkuSalesRow> rows,
+        IReadOnlyDictionary<string, decimal> qtyBySku,
+        decimal matchQty)
+    {
+        var threshold = Math.Max(0m, matchQty);
+        return rows.Select(row =>
+            {
+                var available = 0m;
+                if (qtyBySku.TryGetValue(row.Sku, out var qty))
+                    available = Round(qty);
+                return Clone(row, row.Rank, available, threshold > 0 && available <= threshold);
+            })
+            .ToList();
+    }
+
     public static IReadOnlyList<SupplierWiseSupplierRow> GroupSupplierWise(IEnumerable<SkuSalesRow> rows)
     {
         var groups = new Dictionary<string, List<SkuSalesRow>>(StringComparer.Ordinal);
@@ -209,7 +229,11 @@ public static class SkuSalesReportAggregator
         return current;
     }
 
-    private static SkuSalesRow Clone(SkuSalesRow row, int rank) => new()
+    private static SkuSalesRow Clone(
+        SkuSalesRow row,
+        int rank,
+        decimal? availableQty = null,
+        bool? isLowStock = null) => new()
     {
         Rank = rank,
         Sku = row.Sku,
@@ -222,6 +246,8 @@ public static class SkuSalesReportAggregator
         SoldAmount = row.SoldAmount,
         ReturnAmount = row.ReturnAmount,
         NetAmount = row.NetAmount,
+        AvailableQty = availableQty ?? row.AvailableQty,
+        IsLowStock = isLowStock ?? row.IsLowStock,
     };
 
     private static string ReadSupplierId(BsonDocument doc)

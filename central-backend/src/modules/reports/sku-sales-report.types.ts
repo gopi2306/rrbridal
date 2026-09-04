@@ -67,7 +67,11 @@ export type SupplierWiseReportResponse = {
   data: SupplierWiseSupplierRow[];
 };
 
-export type FastSellerRow = SkuSalesRow & { rank: number };
+export type FastSellerRow = SkuSalesRow & {
+  rank: number;
+  availableQty: number;
+  isLowStock: boolean;
+};
 
 export type FastSellersReportResponse = {
   period: SkuSalesPeriod;

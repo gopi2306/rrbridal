@@ -128,6 +128,12 @@
                         </Border>
                         <Border Style="{StaticResource MetricCard}">
                             <StackPanel>
+                                <TextBlock Text="CREDIT COLLECTIONS" Style="{StaticResource FilterFieldLabel}"/>
+                                <TextBlock Text="{Binding SummaryCreditCollections}" Style="{StaticResource MetricValue}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCard}">
+                            <StackPanel>
                                 <TextBlock Text="ONLINE COD PENDING" Style="{StaticResource FilterFieldLabel}"/>
                                 <TextBlock Text="{Binding SummaryOnlineCodPending}" Style="{StaticResource MetricValue}"/>
                             </StackPanel>

@@ -81,6 +81,6 @@ Sessions use explicit `businessDate` (`YYYY-MM-DD`). Bill/return day-close **rep
 
 ### Credit (pay-later) collections
 
-Credit bill **invoice count / payable** stay on the bill post date. Cash / Card / UPI (and CN applied at collection) attribute to the **payment received date** (`creditBilling.payments[].receivedAtUtc`), not the bill date.
+Credit bill **invoice count / payable (SALES)** stay on the bill post date. Cash / Card / UPI (and CN applied at collection) attribute to the **payment received date** (`creditBilling.payments[].receivedAtUtc`), not the bill date. Prior-day credit collections appear under **Credit collections** and tender totals for that day; they are **not** added to SALES.
 
 Example: credit bill on 25-Feb with collection on 27-Aug → tender appears in 27-Aug day close (and expected cash), not 25-Feb. Same-day advance at post stays on the bill day.

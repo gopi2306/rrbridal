@@ -711,4 +711,118 @@ public class DayBillingCloseDocumentReaderTests
         Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, billDay).Cash);
         Assert.Equal(8000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, payDay).Cash);
     }
+
+    [Fact]
+    public void SumBillPaymentsForLocalDay_credit_multi_partials_attribute_each_to_own_day()
+    {
+        var billDay = new DateTime(2026, 8, 1);
+        var day2 = new DateTime(2026, 8, 5);
+        var day3 = new DateTime(2026, 8, 10);
+        var day4 = new DateTime(2026, 8, 15);
+        var day5 = new DateTime(2026, 8, 20);
+        var createdUtc = new DateTime(2026, 8, 1, 6, 0, 0, DateTimeKind.Utc);
+
+        var doc = new BsonDocument
+        {
+            { "status", "posted" },
+            { "billNo", "B-CR-MULTI" },
+            { "createdAtUtc", createdUtc.ToString("O") },
+            { "payable", 10000 },
+            { "creditBilling", new BsonDocument
+                {
+                    { "payments", new BsonArray
+                        {
+                            CreditPay("advance", createdUtc, 2000, "Cash"),
+                            CreditPay("partial", new DateTime(2026, 8, 5, 8, 0, 0, DateTimeKind.Utc), 2000, "Cash"),
+                            CreditPay("partial", new DateTime(2026, 8, 10, 8, 0, 0, DateTimeKind.Utc), 2000, "Card"),
+                            CreditPay("partial", new DateTime(2026, 8, 15, 8, 0, 0, DateTimeKind.Utc), 2000, "UPI"),
+                            CreditPay("partial", new DateTime(2026, 8, 20, 8, 0, 0, DateTimeKind.Utc), 2000, "Cash"),
+                        }},
+                }},
+        };
+
+        Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, billDay).Cash);
+        Assert.Equal(0m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, billDay).Card);
+
+        Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, day2).Cash);
+        Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, day3).Card);
+        Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, day4).Upi);
+        Assert.Equal(2000m, DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, day5).Cash);
+
+        var priorOnDay5 = DayBillingCloseDocumentReader.AggregatePriorCreditPaymentsReceivedOnLocalDay(
+            new[] { doc },
+            day5,
+            posCounterFilter: null,
+            outboxByBillNo: new Dictionary<string, string>());
+        Assert.Equal(2000m, priorOnDay5.TotalAmount);
+        Assert.Equal(2000m, priorOnDay5.Payments.Cash);
+        Assert.Single(priorOnDay5.InvoiceRows);
+
+        // Sale day must not treat later collections as prior (bill MatchesLocalDay).
+        var priorOnBillDay = DayBillingCloseDocumentReader.AggregatePriorCreditPaymentsReceivedOnLocalDay(
+            new[] { doc },
+            billDay,
+            posCounterFilter: null,
+            outboxByBillNo: new Dictionary<string, string>());
+        Assert.Equal(0m, priorOnBillDay.TotalAmount);
+        Assert.Empty(priorOnBillDay.InvoiceRows);
+    }
+
+    [Fact]
+    public void SumBillPaymentsForLocalDay_credit_split_advance_legs_attribute_by_mode()
+    {
+        var billDay = new DateTime(2026, 8, 25);
+        var advanceUtc = new DateTime(2026, 8, 25, 9, 0, 0, DateTimeKind.Utc);
+
+        var doc = new BsonDocument
+        {
+            { "status", "posted" },
+            { "billNo", "B-CR-SPLIT" },
+            { "createdAtUtc", advanceUtc.ToString("O") },
+            { "payable", 5000 },
+            { "creditBilling", new BsonDocument
+                {
+                    { "payments", new BsonArray
+                        {
+                            new BsonDocument
+                            {
+                                { "kind", "advance" },
+                                { "receivedAtUtc", advanceUtc.ToString("O") },
+                                { "amount", 3000 },
+                                { "mode", "Split" },
+                                { "legs", new BsonArray
+                                    {
+                                        new BsonDocument { { "mode", "Cash" }, { "amount", 1000 } },
+                                        new BsonDocument { { "mode", "PineLabs" }, { "amount", 1000 } },
+                                        new BsonDocument { { "mode", "Razorpay" }, { "amount", 1000 } },
+                                    }},
+                            },
+                        }},
+                }},
+        };
+
+        var totals = DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, billDay);
+        Assert.Equal(1000m, totals.Cash);
+        Assert.Equal(1000m, totals.Card);
+        Assert.Equal(1000m, totals.Upi);
+        Assert.Equal(3000m, DayBillingCloseDocumentReader.SumPaymentDayTotals(totals));
+        Assert.Contains("credit collected", DayBillingCloseDocumentReader.FormatCreditCollectionPaymentMode(totals));
+    }
+
+    [Fact]
+    public void FormatCreditCollectionPaymentMode_zero_collected_is_pending()
+    {
+        var label = DayBillingCloseDocumentReader.FormatCreditCollectionPaymentMode(
+            new PaymentDayTotals(0m, 0m, 0m, 0m));
+        Assert.Equal("Credit (pending)", label);
+    }
+
+    private static BsonDocument CreditPay(string kind, DateTime receivedUtc, decimal amount, string mode) =>
+        new()
+        {
+            { "kind", kind },
+            { "receivedAtUtc", receivedUtc.ToString("O") },
+            { "amount", (double)amount },
+            { "mode", mode },
+        };
 }

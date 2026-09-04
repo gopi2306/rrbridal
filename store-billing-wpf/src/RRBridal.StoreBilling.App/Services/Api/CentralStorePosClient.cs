@@ -211,12 +211,21 @@ public sealed class CentralStorePosClient
         return JsonDocument.Parse(raw);
     }
 
-    public async Task<JsonDocument> ListBillsAsync(string? search = null, int limit = 50, CancellationToken ct = default)
+    public Task<JsonDocument> ListBillsAsync(string? search = null, int limit = 50, CancellationToken ct = default) =>
+        ListBillsAsync(search, limit, creditBillingOnly: false, ct);
+
+    public async Task<JsonDocument> ListBillsAsync(
+        string? search,
+        int limit,
+        bool creditBillingOnly,
+        CancellationToken ct = default)
     {
         var url =
             $"/api/store-pos/bills?storeCode={Uri.EscapeDataString(_storeContext.StoreId)}&limit={limit}";
         if (!string.IsNullOrWhiteSpace(search))
             url += $"&search={Uri.EscapeDataString(search.Trim())}";
+        if (creditBillingOnly)
+            url += "&creditBillingOnly=true";
         using var res = await _http.GetAsync(url, ct);
         var raw = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)

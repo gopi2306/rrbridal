@@ -61,13 +61,24 @@ export class StorePosController {
   @ApiQuery({ name: 'storeCode', required: true })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'creditBillingOnly', required: false })
   async listBills(
     @Query('storeCode') storeCode: string,
     @Query('search') search?: string,
     @Query('limit') limit?: string,
+    @Query('creditBillingOnly') creditBillingOnly?: string,
   ) {
     const parsed = limit ? Number(limit) : 50;
-    return await this.storePosQuery.listBills(storeCode, search, Number.isFinite(parsed) ? parsed : 50);
+    const creditOnly =
+      creditBillingOnly === '1' ||
+      creditBillingOnly === 'true' ||
+      creditBillingOnly === 'yes';
+    return await this.storePosQuery.listBills(
+      storeCode,
+      search,
+      Number.isFinite(parsed) ? parsed : 50,
+      creditOnly,
+    );
   }
 
   @Get('bills/:billNo')

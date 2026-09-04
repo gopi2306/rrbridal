@@ -13,6 +13,12 @@ public sealed class DayBillingCloseSnapshot
 
     public decimal TotalAmount { get; init; }
 
+    /// <summary>
+    /// Credit collections received on this local day for bills posted on earlier days.
+    /// Not included in <see cref="TotalAmount"/> (SALES).
+    /// </summary>
+    public decimal CreditCollectionsTotal { get; init; }
+
     public decimal CashTotal { get; init; }
 
     public decimal CardTotal { get; init; }

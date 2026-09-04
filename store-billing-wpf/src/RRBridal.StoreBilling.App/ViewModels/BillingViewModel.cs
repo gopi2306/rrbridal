@@ -2007,7 +2007,10 @@ public partial class BillingViewModel : ObservableObject
                 creditBillingMinAdvancePercent: settings.CreditBillingMinimumAdvancePercent,
                 creditBillingMinAdvanceAmount: settings.CreditBillingMinimumAdvanceAmount,
                 creditBillingAllowZeroAdvance: settings.CreditBillingAllowZeroAdvance,
-                creditBillingMaxBalancePerBill: settings.CreditBillingMaxBalancePerBill);
+                creditBillingMaxBalancePerBill: settings.CreditBillingMaxBalancePerBill,
+                enableCardCharge: settings.EnableCardCharge,
+                cardChargePercent: settings.CardChargePercent,
+                cardChargeFlatAmount: settings.CardChargeFlatAmount);
             await paymentVm.InitializeAsync();
             var paymentDlg = new PaymentDialog(paymentVm) { Owner = Application.Current.MainWindow };
             var paymentResult = paymentDlg.ShowDialog();
@@ -2074,6 +2077,9 @@ public partial class BillingViewModel : ObservableObject
             var storeId = _services.StoreContext.StoreId;
             var deviceId = _services.StoreContext.DeviceId;
             var posCounter = _services.StoreContext.PosCounter;
+            var billingSettings = _services.PosBillingSettings.Current;
+            var cardCharge = MoneyMath.RoundDisplayAmount(Math.Max(0m, paymentOutcome.CardChargeAmount));
+            var billPayable = MoneyMath.RoundDisplayAmount(totals.Payable + cardCharge);
 
             var doc = new BsonDocument
             {
@@ -2113,7 +2119,10 @@ public partial class BillingViewModel : ObservableObject
                 { "alterationTotal", (double)totals.AlterationTotal },
                 { "alterationGstIncluded", _alterationGstIncluded },
                 { "priceGstMode", _priceGstMode.ToString() },
-                { "payable", (double)totals.Payable },
+                { "cardCharge", (double)cardCharge },
+                { "cardChargePercent", (double)Math.Max(0m, billingSettings.CardChargePercent) },
+                { "cardChargeFlatAmount", (double)Math.Max(0m, billingSettings.CardChargeFlatAmount) },
+                { "payable", (double)billPayable },
                 { "lines", linesArr },
                 { "payments", paymentsArr },
                 { "paymentMode", paymentOutcome.Mode.ToString() },
@@ -2139,35 +2148,52 @@ public partial class BillingViewModel : ObservableObject
                 doc["onlineCod"] = new BsonDocument
                 {
                     { "status", OnlineCodDocumentReader.StatusPending },
-                    { "amount", (double)totals.Payable },
+                    { "amount", (double)billPayable },
                 };
             }
             else if (paymentOutcome.IsCreditBilling)
             {
                 doc["salesChannel"] = "store";
                 doc["paymentMode"] = PaymentMode.Credit.ToString();
-                var advance = paymentOutcome.CreditAdvanceAmount;
-                var balance = paymentOutcome.CreditBalanceDue;
+                var merchandiseAdvance = paymentOutcome.CreditAdvanceAmount;
+                var amountPaid = MoneyMath.RoundDisplayAmount(merchandiseAdvance + cardCharge);
                 var isCreditCustomer = await _customerRegistration.IsCreditCustomerAsync(CustomerCode, CustomerPhone);
                 var creditPayments = new BsonArray();
-                if (advance > 0)
+                if (amountPaid > 0)
                 {
-                    creditPayments.Add(new BsonDocument
+                    var advanceEntry = new BsonDocument
                     {
                         { "kind", "advance" },
                         { "receivedAtUtc", DateTime.UtcNow.ToString("O") },
-                        { "amount", (double)advance },
+                        { "amount", (double)amountPaid },
                         { "mode", paymentOutcome.Legs.FirstOrDefault()?.Provider.ToString() ?? "Cash" },
                         { "reference", paymentOutcome.Legs.FirstOrDefault()?.Reference ?? "" },
                         { "receivedBy", _services.UserSession?.LoggedInUser.Name ?? "" },
                         { "receiptNo", "" },
-                    });
+                    };
+                    if (paymentOutcome.Legs.Count > 1)
+                    {
+                        advanceEntry["legs"] = new BsonArray(paymentOutcome.Legs.Select(l => new BsonDocument
+                        {
+                            { "mode", l.Provider.ToString() },
+                            { "amount", (double)l.Amount },
+                            { "reference", l.Reference ?? "" },
+                        }));
+                        advanceEntry["mode"] = "Split";
+                        advanceEntry["reference"] = string.Join(", ",
+                            paymentOutcome.Legs.Select(l =>
+                                string.IsNullOrWhiteSpace(l.Reference)
+                                    ? l.Provider.ToString()
+                                    : $"{l.Provider}:{l.Reference}"));
+                    }
+
+                    creditPayments.Add(advanceEntry);
                 }
 
                 doc["creditBilling"] = CreditBillDocumentReader.BuildCreditBillingDocument(
-                    totals.Payable,
-                    advance,
-                    advance,
+                    billPayable,
+                    amountPaid,
+                    amountPaid,
                     isCreditCustomer,
                     creditPayments);
             }

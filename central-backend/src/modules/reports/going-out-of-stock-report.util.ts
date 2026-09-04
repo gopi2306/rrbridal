@@ -37,6 +37,7 @@ export type GoingOutOfStockReportResponse = {
   filters: {
     search?: string;
     status?: GoingOutOfStockStatus;
+    matchQty?: number;
   };
   limit: number;
   truncated: boolean;
@@ -45,31 +46,34 @@ export type GoingOutOfStockReportResponse = {
   data: GoingOutOfStockRow[];
 };
 
-export function getShelfThreshold(product: GoingOutOfStockProductInput): number | undefined {
-  if (typeof product.minimumShelfFit === 'number' && Number.isFinite(product.minimumShelfFit)) {
-    return product.minimumShelfFit;
-  }
-  if (typeof product.minStock === 'number' && Number.isFinite(product.minStock)) {
-    return product.minStock;
-  }
-  if (typeof product.reorderLevel === 'number' && Number.isFinite(product.reorderLevel)) {
-    return product.reorderLevel;
-  }
+function isPositive(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * First positive product MOQ/min/reorder; otherwise defaultMatchQty when > 0.
+ */
+export function getShelfThreshold(
+  product: GoingOutOfStockProductInput,
+  defaultMatchQty = 0,
+): number | undefined {
+  if (isPositive(product.minimumShelfFit)) return product.minimumShelfFit;
+  if (isPositive(product.minStock)) return product.minStock;
+  if (isPositive(product.reorderLevel)) return product.reorderLevel;
+  if (isPositive(defaultMatchQty)) return defaultMatchQty;
   return undefined;
 }
 
 export function evaluateGoingOutOfStockRow(
   product: GoingOutOfStockProductInput,
   storeQty: number,
+  defaultMatchQty = 0,
 ): GoingOutOfStockRow | null {
-  const threshold = getShelfThreshold(product);
+  const threshold = getShelfThreshold(product, defaultMatchQty);
   if (threshold === undefined) return null;
   if (storeQty > threshold) return null;
 
-  const criticalLevel =
-    typeof product.minStock === 'number' && Number.isFinite(product.minStock)
-      ? product.minStock
-      : threshold;
+  const criticalLevel = isPositive(product.minStock) ? product.minStock : threshold;
   const status: GoingOutOfStockStatus = storeQty <= criticalLevel ? 'critical' : 'low';
   const supplierId = product.supplierId?.trim() || '__unmapped__';
   const supplierName =
@@ -91,11 +95,12 @@ export function evaluateGoingOutOfStockRow(
 export function collectGoingOutOfStock(
   products: readonly GoingOutOfStockProductInput[],
   storeQtyBySku: ReadonlyMap<string, number>,
+  defaultMatchQty = 0,
 ): GoingOutOfStockRow[] {
   const rows: GoingOutOfStockRow[] = [];
   for (const product of products) {
     const qty = storeQtyBySku.get(product.sku) ?? 0;
-    const row = evaluateGoingOutOfStockRow(product, qty);
+    const row = evaluateGoingOutOfStockRow(product, qty, defaultMatchQty);
     if (row) rows.push(row);
   }
   rows.sort(

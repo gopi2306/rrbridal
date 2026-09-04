@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="SKUs ranked by net quantity sold in the date range, with returns netted from posted bills."
+            <TextBlock Text="SKUs ranked by net quantity sold in the date range, with returns netted from posted bills. Low stock uses Settings low-stock match qty."
                        Style="{StaticResource PageSubtitle}" VerticalAlignment="Center"
                        TextWrapping="Wrap" Margin="0,0,280,0"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -87,7 +87,7 @@
                          ui:UniformGridColumnsBehavior.IsEnabled="True"
                          ui:UniformGridColumnsBehavior.CompactColumns="2"
                          ui:UniformGridColumnsBehavior.MediumColumns="3"
-                         ui:UniformGridColumnsBehavior.WideColumns="5">
+                         ui:UniformGridColumnsBehavior.WideColumns="6">
                 <Border Style="{StaticResource MetricCardAccent}">
                     <StackPanel>
                         <TextBlock Text="SKUs" Style="{StaticResource FilterFieldLabel}"/>
@@ -118,6 +118,12 @@
                         <TextBlock Text="{Binding NetAmount}" Style="{StaticResource MetricValue}"/>
                     </StackPanel>
                 </Border>
+                <Border Style="{StaticResource MetricCard}">
+                    <StackPanel>
+                        <TextBlock Text="Low stock SKUs" Style="{StaticResource FilterFieldLabel}"/>
+                        <TextBlock Text="{Binding LowStockSkuCount}" Style="{StaticResource MetricValue}"/>
+                    </StackPanel>
+                </Border>
             </UniformGrid>
         </StackPanel>
 
@@ -140,6 +146,8 @@
                         <DataGridTextColumn Header="Return qty" Binding="{Binding ReturnQty, StringFormat=N2}" Width="90"/>
                         <DataGridTextColumn Header="Net qty" Binding="{Binding NetQty, StringFormat=N2}" Width="90"/>
                         <DataGridTextColumn Header="Net amount" Binding="{Binding NetAmount, StringFormat=₹ {0:N2}}" Width="120"/>
+                        <DataGridTextColumn Header="Available qty" Binding="{Binding AvailableQty, StringFormat=N2}" Width="100"/>
+                        <DataGridTextColumn Header="Low stock" Binding="{Binding LowStockDisplay}" Width="90"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>

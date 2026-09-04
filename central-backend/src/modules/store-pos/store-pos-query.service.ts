@@ -62,10 +62,19 @@ export class StorePosQueryService {
     return code;
   }
 
-  async listBills(storeCode: string, search?: string, limit = 50) {
+  async listBills(
+    storeCode: string,
+    search?: string,
+    limit = 50,
+    creditBillingOnly = false,
+  ) {
     const storeId = await this.requireStore(storeCode);
-    const take = Math.min(200, Math.max(1, limit));
+    const maxTake = creditBillingOnly ? 1000 : 200;
+    const take = Math.min(maxTake, Math.max(1, limit));
     const filter: Record<string, unknown> = { storeId };
+    if (creditBillingOnly) {
+      filter['payload.creditBilling'] = { $exists: true };
+    }
     if (search?.trim()) {
       const q = search.trim();
       filter.$or = [

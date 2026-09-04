@@ -21,6 +21,8 @@ const HEADERS = [
   'Return Qty',
   'Net Qty',
   'Net Amount',
+  'Available Qty',
+  'Low Stock',
 ] as const;
 
 @Injectable()
@@ -53,6 +55,8 @@ export class FastSellersReportExportService {
       formatExportMoney(totals.returnQty),
       formatExportMoney(totals.netQty),
       formatExportMoney(totals.netAmount),
+      '',
+      '',
     ];
     const rows = report.data.map((row) => [
       String(row.rank),
@@ -62,6 +66,8 @@ export class FastSellersReportExportService {
       formatExportMoney(row.returnQty),
       formatExportMoney(row.netQty),
       formatExportMoney(row.netAmount),
+      formatExportMoney(row.availableQty),
+      row.isLowStock ? 'Yes' : 'No',
     ]);
 
     const workbook = XLSX.utils.book_new();

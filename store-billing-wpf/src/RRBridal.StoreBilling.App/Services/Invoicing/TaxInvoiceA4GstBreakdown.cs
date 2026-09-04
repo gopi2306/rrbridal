@@ -117,4 +117,22 @@ public static class TaxInvoiceA4GstBreakdown
             return MoneyMath.RoundAmount(taxable / line.Qty);
         return line.Rate;
     }
+
+    /// <summary>Pre-GST line product total for Tax Invoice Amount column (qty × billed rate).</summary>
+    public static decimal LineProductAmount(InvoiceLineSnap line)
+    {
+        if (line.Amount > 0)
+            return line.Amount;
+        if (line.Qty > 0 && line.Rate > 0)
+            return MoneyMath.RoundAmount(line.Qty * line.Rate);
+        return LineTaxableAmount(line);
+    }
+
+    public static decimal SumLineProductAmounts(IEnumerable<InvoiceLineSnap> lines)
+    {
+        var sum = 0m;
+        foreach (var line in lines)
+            sum = MoneyMath.RoundAmount(sum + LineProductAmount(line));
+        return sum;
+    }
 }

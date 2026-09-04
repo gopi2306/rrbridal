@@ -135,6 +135,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingCreditAllowZeroAdvance = true;
     [ObservableProperty] private bool _billingCreditAllowPartialCollection = true;
     [ObservableProperty] private string _billingCreditMaxBalancePerBillText = "0";
+    [ObservableProperty] private string _billingGoingOutOfStockMatchQtyText = "5";
+    [ObservableProperty] private bool _billingEnableCardCharge;
+    [ObservableProperty] private string _billingCardChargePercentText = "0";
+    [ObservableProperty] private string _billingCardChargeFlatAmountText = "0";
 
     [ObservableProperty] private bool _uiShowSidebarMenu;
 
@@ -1167,6 +1171,10 @@ public partial class SettingsViewModel : ObservableObject
         BillingCreditAllowZeroAdvance = _services.PosBillingSettings.Current.CreditBillingAllowZeroAdvance;
         BillingCreditAllowPartialCollection = _services.PosBillingSettings.Current.CreditBillingAllowPartialCollection;
         BillingCreditMaxBalancePerBillText = _services.PosBillingSettings.Current.CreditBillingMaxBalancePerBill.ToString("0.##");
+        BillingGoingOutOfStockMatchQtyText = _services.PosBillingSettings.Current.GoingOutOfStockMatchQty.ToString("0.##");
+        BillingEnableCardCharge = _services.PosBillingSettings.Current.EnableCardCharge;
+        BillingCardChargePercentText = _services.PosBillingSettings.Current.CardChargePercent.ToString("0.##");
+        BillingCardChargeFlatAmountText = _services.PosBillingSettings.Current.CardChargeFlatAmount.ToString("0.##");
 
         LoadCounterScreenAccessEditor();
 
@@ -1318,6 +1326,9 @@ public partial class SettingsViewModel : ObservableObject
         decimal.TryParse(BillingCreditMinAdvancePercentText, out var minPct);
         decimal.TryParse(BillingCreditMinAdvanceAmountText, out var minAmt);
         decimal.TryParse(BillingCreditMaxBalancePerBillText, out var maxBal);
+        decimal.TryParse(BillingGoingOutOfStockMatchQtyText, out var matchQty);
+        decimal.TryParse(BillingCardChargePercentText, out var cardChargePct);
+        decimal.TryParse(BillingCardChargeFlatAmountText, out var cardChargeFlat);
         var previousOnlineMode = _services.PosBillingSettings.Current.PreferCentralOnline;
         _services.PosBillingSettings.Update(s =>
         {
@@ -1335,6 +1346,10 @@ public partial class SettingsViewModel : ObservableObject
             s.CreditBillingAllowZeroAdvance = BillingCreditAllowZeroAdvance;
             s.CreditBillingAllowPartialCollection = BillingCreditAllowPartialCollection;
             s.CreditBillingMaxBalancePerBill = Math.Max(0m, maxBal);
+            s.GoingOutOfStockMatchQty = Math.Max(0m, matchQty);
+            s.EnableCardCharge = BillingEnableCardCharge;
+            s.CardChargePercent = Math.Max(0m, cardChargePct);
+            s.CardChargeFlatAmount = Math.Max(0m, cardChargeFlat);
             if (ShowCounterScreenAccessEditor)
                 ApplyCounterScreenAccessToDocument(s);
         });
@@ -1395,6 +1410,10 @@ public partial class SettingsViewModel : ObservableObject
                 { "creditBillingAllowZeroAdvance", BillingCreditAllowZeroAdvance },
                 { "creditBillingAllowPartialCollection", BillingCreditAllowPartialCollection },
                 { "creditBillingMaxBalancePerBill", (double)Math.Max(0m, maxBal) },
+                { "goingOutOfStockMatchQty", (double)Math.Max(0m, matchQty) },
+                { "enableCardCharge", BillingEnableCardCharge },
+                { "cardChargePercent", (double)Math.Max(0m, cardChargePct) },
+                { "cardChargeFlatAmount", (double)Math.Max(0m, cardChargeFlat) },
             },
         });
         if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))

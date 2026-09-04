@@ -165,6 +165,10 @@ public sealed class DayCloseReportService
 
         using var billsJson = await _storePos.ListBillsAsync(null, 200, ct);
         var billDocs = ExtractDocs(billsJson, BillDocumentService.MapCentralBillToDoc);
+        using var creditBillsJson = await _storePos.ListBillsAsync(
+            search: null, limit: 1000, creditBillingOnly: true, ct: ct);
+        var creditBillDocs = ExtractDocs(creditBillsJson, BillDocumentService.MapCentralBillToDoc);
+        billDocs = MergeBillDocsByBillNo(billDocs, creditBillDocs);
 
         using var returnsJson = await _storePos.ListSaleReturnsAsync(null, 200, ct);
         var returnDocs = ExtractDocs(returnsJson, MapCentralReturnToDoc);
@@ -439,6 +443,18 @@ public sealed class DayCloseReportService
             : DayBillingCloseDocumentReader.ResolveSyncStatus(doc, outboxByBillNo);
 
         var collected = payments.Cash + payments.Card + payments.Upi + payments.CreditNote;
+        var isSaleDayCredit = !creditCollected && DayBillingCloseDocumentReader.HasCreditBilling(doc);
+        var payable = creditCollected || isSaleDayCredit
+            ? collected
+            : DayBillingCloseDocumentReader.ReadDecimal(doc, "payable");
+        var syncStatusLabel = syncStatus;
+        if (creditCollected)
+            syncStatusLabel = $"{syncStatus} · credit collected";
+        else if (isSaleDayCredit)
+            syncStatusLabel = collected > 0
+                ? $"{syncStatus} · {DayBillingCloseDocumentReader.FormatCreditCollectionPaymentMode(payments)}"
+                : $"{syncStatus} · Credit (pending)";
+
         return new StoreBillListRow
         {
             BillNo = billNo,
@@ -451,15 +467,13 @@ public sealed class DayCloseReportService
             CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
             PostedAtLocal = postedLocal,
             TotalQty = creditCollected ? 0m : DayBillingCloseDocumentReader.SumBillLineQty(doc),
-            Payable = creditCollected ? collected : DayBillingCloseDocumentReader.ReadDecimal(doc, "payable"),
+            Payable = payable,
             CashAmount = payments.Cash,
             CardAmount = payments.Card,
             UpiAmount = payments.Upi,
             CreditNoteAmount = payments.CreditNote,
             CreditNoteRefs = DayBillingCloseDocumentReader.FormatBillCreditNoteReferences(doc),
-            SyncStatus = creditCollected
-                ? $"{syncStatus} · credit collected"
-                : syncStatus,
+            SyncStatus = syncStatusLabel,
             HasReturn = hasReturn,
             ReturnNo = returnNo ?? "",
             HasAdjustment = false,
@@ -491,6 +505,30 @@ public sealed class DayCloseReportService
         }
 
         return docs;
+    }
+
+    private static List<BsonDocument> MergeBillDocsByBillNo(
+        IEnumerable<BsonDocument> primary,
+        IEnumerable<BsonDocument> extra)
+    {
+        var map = new Dictionary<string, BsonDocument>(StringComparer.OrdinalIgnoreCase);
+        foreach (var doc in primary)
+        {
+            var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+            if (string.IsNullOrWhiteSpace(billNo))
+                continue;
+            map[billNo] = doc;
+        }
+
+        foreach (var doc in extra)
+        {
+            var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+            if (string.IsNullOrWhiteSpace(billNo) || map.ContainsKey(billNo))
+                continue;
+            map[billNo] = doc;
+        }
+
+        return map.Values.ToList();
     }
 
     private static BsonDocument MapCentralReturnToDoc(JsonElement el)

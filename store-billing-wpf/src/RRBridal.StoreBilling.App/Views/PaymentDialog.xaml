@@ -105,6 +105,18 @@
                                    AutomationProperties.AutomationId="payment-collectible-total-text"
                                    AutomationProperties.Name="{Binding CollectibleFormatted, StringFormat=Amount to collect {0}}"
                                    HorizontalAlignment="Center"/>
+                        <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch" MaxWidth="280"
+                                    Visibility="{Binding ShowCardCharge, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Card charges" FontSize="13" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center"/>
+                            <TextBox Style="{StaticResource RoundedTextBox}" Margin="0,4,0,0"
+                                     HorizontalContentAlignment="Right"
+                                     AutomationProperties.AutomationId="payment-card-charge-input"
+                                     AutomationProperties.Name="Card charges amount"
+                                     Text="{Binding CardChargeText, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="Suggested from Settings; edit to override." FontSize="12"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

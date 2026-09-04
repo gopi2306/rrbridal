@@ -8,6 +8,7 @@ public static class FastSellersReportExcelExporter
     private static readonly string[] Headers =
     [
         "Rank", "SKU", "Description", "Sold Qty", "Return Qty", "Net Qty", "Net Amount",
+        "Available Qty", "Low Stock",
     ];
 
     public static void ExportToFile(string filePath, FastSellersReportResponse report)
@@ -34,7 +35,7 @@ public static class FastSellersReportExcelExporter
         var totals = report.Totals;
         SupplierWiseReportExcelExporter.SetRow(ws, row++, [
             "", $"TOTAL ({totals.SkuCount} SKUs)", "", totals.SoldQty, totals.ReturnQty,
-            totals.NetQty, totals.NetAmount,
+            totals.NetQty, totals.NetAmount, "", "",
         ]);
         SupplierWiseReportExcelExporter.SetRow(ws, row++, Headers.Cast<object>().ToArray());
         ws.Row(row - 1).Style.Font.Bold = true;
@@ -42,10 +43,10 @@ public static class FastSellersReportExcelExporter
         {
             SupplierWiseReportExcelExporter.SetRow(ws, row++, [
                 item.Rank, item.Sku, item.Description, item.SoldQty, item.ReturnQty,
-                item.NetQty, item.NetAmount,
+                item.NetQty, item.NetAmount, item.AvailableQty, item.LowStockDisplay,
             ]);
         }
-        SupplierWiseReportExcelExporter.Format(ws, row - 1, 4, 7);
+        SupplierWiseReportExcelExporter.Format(ws, row - 1, 4, 8);
         return workbook;
     }
 }

@@ -48,12 +48,16 @@ export class GoingOutOfStockReportService {
 
   async buildReport(query: GoingOutOfStockReportQueryDto): Promise<GoingOutOfStockReportResponse> {
     const store = await resolveDashboardStore(this.storeModel, query.storeCode);
+    const matchQty =
+      typeof query.matchQty === 'number' && Number.isFinite(query.matchQty)
+        ? Math.max(0, query.matchQty)
+        : 0;
     const [storeQtyMap, products] = await Promise.all([
       this.inventoryService.getStoreSkuQtyMap(store.code),
-      this.loadProducts(),
+      this.loadProducts(matchQty > 0),
     ]);
 
-    const allRows = collectGoingOutOfStock(products, storeQtyMap);
+    const allRows = collectGoingOutOfStock(products, storeQtyMap, matchQty);
     const search = query.search?.trim();
     const status = query.status;
     const filtered = filterGoingOutOfStockRows(allRows, {
@@ -75,6 +79,7 @@ export class GoingOutOfStockReportService {
       filters: {
         ...(search ? { search } : {}),
         ...(status ? { status } : {}),
+        ...(matchQty > 0 ? { matchQty } : {}),
       },
       limit,
       truncated: filtered.length > limit,
@@ -84,16 +89,18 @@ export class GoingOutOfStockReportService {
     };
   }
 
-  private async loadProducts(): Promise<GoingOutOfStockProductInput[]> {
+  private async loadProducts(includeAllActive: boolean): Promise<GoingOutOfStockProductInput[]> {
+    const filter: Record<string, unknown> = { isActive: true };
+    if (!includeAllActive) {
+      filter.$or = [
+        { minimumShelfFit: { $gt: 0 } },
+        { minStock: { $gt: 0 } },
+        { reorderLevel: { $gt: 0 } },
+      ];
+    }
+
     const products = await this.productModel
-      .find({
-        isActive: true,
-        $or: [
-          { minimumShelfFit: { $exists: true, $ne: null } },
-          { minStock: { $exists: true, $ne: null } },
-          { reorderLevel: { $exists: true, $ne: null } },
-        ],
-      })
+      .find(filter)
       .select('sku itemName minimumShelfFit minStock reorderLevel supplierNameId')
       .populate('supplierNameId', 'name')
       .lean();

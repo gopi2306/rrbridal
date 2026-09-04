@@ -1,5 +1,5 @@
 /**
- * Threshold priority, critical vs low, missing ledger = 0, search, workbook sheet.
+ * Threshold priority, critical vs low, missing ledger = 0, matchQty fallback, search, workbook sheet.
  */
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
@@ -29,6 +29,8 @@ async function run() {
   );
   assert.equal(getShelfThreshold({ sku: 'A', itemName: 'A', reorderLevel: 5 }), 5);
   assert.equal(getShelfThreshold({ sku: 'A', itemName: 'A' }), undefined);
+  assert.equal(getShelfThreshold({ sku: 'A', itemName: 'A', reorderLevel: 0 }, 5), 5);
+  assert.equal(getShelfThreshold({ sku: 'A', itemName: 'A', minStock: 2 }, 5), 2);
 
   const products = [
     {
@@ -82,6 +84,29 @@ async function run() {
   assert.equal(rows[2]?.status, 'low');
   assert.equal(rows.find((row) => row.sku === 'SKU-OK'), undefined);
   assert.equal(rows.find((row) => row.sku === 'SKU-NONE'), undefined);
+
+  const withMatch = collectGoingOutOfStock(
+    [
+      { sku: 'SKU-FALLBACK', itemName: 'Uses settings' },
+      { sku: 'SKU-ZERO', itemName: 'Zero reorder', reorderLevel: 0 },
+      { sku: 'SKU-ABOVE', itemName: 'Above' },
+      { sku: 'SKU-PRODUCT', itemName: 'Product wins', minStock: 2 },
+    ],
+    new Map([
+      ['SKU-FALLBACK', 3],
+      ['SKU-ZERO', 4],
+      ['SKU-ABOVE', 6],
+      ['SKU-PRODUCT', 2],
+    ]),
+    5,
+  );
+  assert.deepEqual(
+    withMatch.map((row) => row.sku),
+    ['SKU-PRODUCT', 'SKU-FALLBACK', 'SKU-ZERO'],
+  );
+  assert.equal(withMatch.find((row) => row.sku === 'SKU-FALLBACK')?.threshold, 5);
+  assert.equal(withMatch.find((row) => row.sku === 'SKU-PRODUCT')?.threshold, 2);
+  assert.equal(withMatch.find((row) => row.sku === 'SKU-ABOVE'), undefined);
 
   const searched = filterGoingOutOfStockRows(rows, { search: 'critical' });
   assert.equal(searched.length, 1);

@@ -183,6 +183,23 @@ export function rankFastSellers(rows: readonly SkuSalesRow[]): SkuSalesRow[] {
   );
 }
 
+/** Attach store available qty and low-stock flag (qty ≤ matchQty when matchQty > 0). Missing SKUs = 0. */
+export function attachStockLevels(
+  rows: readonly SkuSalesRow[],
+  qtyBySku: ReadonlyMap<string, number>,
+  matchQty: number,
+): Array<SkuSalesRow & { availableQty: number; isLowStock: boolean }> {
+  const threshold = Math.max(0, matchQty);
+  return rows.map((row) => {
+    const availableQty = qtyBySku.get(row.sku) ?? 0;
+    return {
+      ...row,
+      availableQty,
+      isLowStock: threshold > 0 && availableQty <= threshold,
+    };
+  });
+}
+
 export function groupSupplierWise(rows: readonly SkuSalesRow[]): {
   data: SupplierWiseSupplierRow[];
 } {

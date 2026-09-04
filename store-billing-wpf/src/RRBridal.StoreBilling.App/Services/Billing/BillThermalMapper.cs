@@ -115,6 +115,7 @@ public static class BillThermalMapper
             AlterationTotal = alterationTotal,
             AlterationGstIncluded = doc.GetValue("alterationGstIncluded", false).AsBoolean,
             RoundOff = ReadDecimal(doc, "roundOff"),
+            CardCharge = ReadDecimal(doc, "cardCharge"),
             Payable = ReadDecimal(doc, "payable"),
             TotalQty = active.Sum(l => l.Qty),
             ItemCount = active.Count,

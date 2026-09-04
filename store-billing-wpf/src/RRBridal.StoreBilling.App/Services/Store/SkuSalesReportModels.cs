@@ -42,6 +42,11 @@ public sealed class SkuSalesRow
     public decimal SoldAmount { get; init; }
     public decimal ReturnAmount { get; init; }
     public decimal NetAmount { get; init; }
+    /// <summary>Current store available qty (Fast Sellers enrichment).</summary>
+    public decimal AvailableQty { get; init; }
+    /// <summary>True when AvailableQty is at or below Settings GoingOutOfStockMatchQty.</summary>
+    public bool IsLowStock { get; init; }
+    public string LowStockDisplay => IsLowStock ? "Yes" : "No";
 }
 
 public sealed class SkuSalesTotals

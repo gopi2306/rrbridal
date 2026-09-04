@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
@@ -22,16 +23,19 @@ public sealed class GoingOutOfStockReportService
     private readonly IMongoDatabase _db;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
+    private readonly PosBillingSettingsStore _billingSettings;
     private CentralOnlineModeService? _centralMode;
 
     public GoingOutOfStockReportService(
         IMongoDatabase localDb,
         HttpClient centralApi,
-        StoreContext storeContext)
+        StoreContext storeContext,
+        PosBillingSettingsStore billingSettings)
     {
         _db = localDb;
         _centralApi = centralApi;
         _storeContext = storeContext;
+        _billingSettings = billingSettings;
     }
 
     public void ConfigureOnline(CentralOnlineModeService centralMode) => _centralMode = centralMode;
@@ -85,6 +89,7 @@ public sealed class GoingOutOfStockReportService
         CancellationToken ct)
     {
         var storeCode = EffectiveStoreCode(query);
+        var defaultMatchQty = ResolveMatchQty(query);
         var products = await _db.GetCollection<BsonDocument>("local_products_cache")
             .Find(Builders<BsonDocument>.Filter.Exists("sku"))
             .ToListAsync(ct)
@@ -106,7 +111,7 @@ public sealed class GoingOutOfStockReportService
                 qtyBySku[sku] = ReadDecimal(doc, "stockQty");
         }
 
-        var allRows = GoingOutOfStockReportEvaluator.Collect(inputs, qtyBySku);
+        var allRows = GoingOutOfStockReportEvaluator.Collect(inputs, qtyBySku, defaultMatchQty);
         var filtered = GoingOutOfStockReportEvaluator.Filter(allRows, query.Search, query.Status);
         var limit = Math.Clamp(query.Limit, 1, MaxRows);
         var data = filtered.Take(limit).ToList();
@@ -134,18 +139,23 @@ public sealed class GoingOutOfStockReportService
 
     private string BuildUri(GoingOutOfStockReportQuery query, bool export)
     {
+        var matchQty = ResolveMatchQty(query);
         var values = new List<(string Key, string? Value)>
         {
             ("storeCode", EffectiveStoreCode(query)),
             ("search", TrimOrNull(query.Search)),
             ("status", TrimOrNull(query.Status)),
             ("limit", Math.Clamp(query.Limit, 1, MaxRows).ToString(CultureInfo.InvariantCulture)),
+            ("matchQty", matchQty.ToString(CultureInfo.InvariantCulture)),
         };
         var qs = string.Join("&", values
             .Where(pair => pair.Value != null)
             .Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}"));
         return $"/api/reports/going-out-of-stock{(export ? "/export" : "")}?{qs}";
     }
+
+    private decimal ResolveMatchQty(GoingOutOfStockReportQuery query) =>
+        query.MatchQty ?? Math.Max(0m, _billingSettings.Current.GoingOutOfStockMatchQty);
 
     private string EffectiveStoreCode(GoingOutOfStockReportQuery query) =>
         string.IsNullOrWhiteSpace(query.StoreCode) ? _storeContext.StoreId : query.StoreCode.Trim();
@@ -185,5 +195,7 @@ public sealed class GoingOutOfStockReportService
             && !status.Equals("low", StringComparison.OrdinalIgnoreCase)
             && !status.Equals("critical", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Status must be low or critical.", nameof(query));
+        if (query.MatchQty is < 0)
+            throw new ArgumentOutOfRangeException(nameof(query), "MatchQty cannot be negative.");
     }
 }

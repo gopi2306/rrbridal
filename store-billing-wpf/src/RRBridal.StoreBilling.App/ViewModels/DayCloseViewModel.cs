@@ -52,6 +52,7 @@ public partial class DayCloseViewModel : ObservableObject
     [ObservableProperty] private string _summaryExpenses = "—";
     [ObservableProperty] private string _summaryExpectedTender = "—";
     [ObservableProperty] private string _summaryOnlineCodPending = "—";
+    [ObservableProperty] private string _summaryCreditCollections = "—";
 
     [ObservableProperty] private string _movementDescription = "";
     [ObservableProperty] private string _movementAmountText = "";
@@ -313,6 +314,9 @@ public partial class DayCloseViewModel : ObservableObject
         SummaryWithdrawals = snap.WithdrawalsTotal > 0 ? MoneyMath.FormatRupee(snap.WithdrawalsTotal) : "—";
         SummaryExpenses = snap.DailyExpensesTotal > 0 ? MoneyMath.FormatRupee(snap.DailyExpensesTotal) : "—";
         SummaryExpectedTender = MoneyMath.FormatRupee(snap.ActualHandInTotal);
+        SummaryCreditCollections = snap.CreditCollectionsTotal > 0
+            ? MoneyMath.FormatRupee(snap.CreditCollectionsTotal)
+            : "—";
 
         var pending = await _services.OnlineCodBills.GetPendingTotalForBusinessDateAsync(
             _storeContext.StoreId, SelectedDate);

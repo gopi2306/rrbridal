@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Store SKUs at or below shelf/reorder threshold (including zero qty). Critical uses min stock when set."
+            <TextBlock Text="Store SKUs at or below product MOQ/min/reorder, or Settings match qty when those are blank (including zero qty)."
                        Style="{StaticResource PageSubtitle}" VerticalAlignment="Center"
                        TextWrapping="Wrap" Margin="0,0,280,0"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">

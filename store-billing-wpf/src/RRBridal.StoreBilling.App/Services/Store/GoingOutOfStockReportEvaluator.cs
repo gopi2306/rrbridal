@@ -21,21 +21,25 @@ public static class GoingOutOfStockReportEvaluator
         string SupplierId,
         string SupplierName);
 
-    public static decimal? GetShelfThreshold(ProductInput product)
+    /// <summary>
+    /// First positive product MOQ/min/reorder; otherwise <paramref name="defaultMatchQty"/> when &gt; 0.
+    /// </summary>
+    public static decimal? GetShelfThreshold(ProductInput product, decimal defaultMatchQty = 0m)
     {
-        if (product.MinimumShelfFit.HasValue) return product.MinimumShelfFit;
-        if (product.MinStock.HasValue) return product.MinStock;
-        if (product.ReorderLevel.HasValue) return product.ReorderLevel;
+        if (IsPositive(product.MinimumShelfFit)) return product.MinimumShelfFit;
+        if (IsPositive(product.MinStock)) return product.MinStock;
+        if (IsPositive(product.ReorderLevel)) return product.ReorderLevel;
+        if (defaultMatchQty > 0m) return Round(defaultMatchQty);
         return null;
     }
 
-    public static GoingOutOfStockRow? Evaluate(ProductInput product, decimal storeQty)
+    public static GoingOutOfStockRow? Evaluate(ProductInput product, decimal storeQty, decimal defaultMatchQty = 0m)
     {
-        var threshold = GetShelfThreshold(product);
+        var threshold = GetShelfThreshold(product, defaultMatchQty);
         if (!threshold.HasValue) return null;
         if (storeQty > threshold.Value) return null;
 
-        var criticalLevel = product.MinStock ?? threshold.Value;
+        var criticalLevel = IsPositive(product.MinStock) ? product.MinStock!.Value : threshold.Value;
         var status = storeQty <= criticalLevel ? "critical" : "low";
         var supplierId = string.IsNullOrWhiteSpace(product.SupplierId)
             ? UnmappedVendorId
@@ -58,13 +62,14 @@ public static class GoingOutOfStockReportEvaluator
 
     public static IReadOnlyList<GoingOutOfStockRow> Collect(
         IEnumerable<ProductInput> products,
-        IReadOnlyDictionary<string, decimal> storeQtyBySku)
+        IReadOnlyDictionary<string, decimal> storeQtyBySku,
+        decimal defaultMatchQty = 0m)
     {
         var rows = new List<GoingOutOfStockRow>();
         foreach (var product in products)
         {
             storeQtyBySku.TryGetValue(product.Sku, out var qty);
-            var row = Evaluate(product, qty);
+            var row = Evaluate(product, qty, defaultMatchQty);
             if (row != null) rows.Add(row);
         }
 
@@ -108,26 +113,25 @@ public static class GoingOutOfStockReportEvaluator
         };
     }
 
+    /// <summary>Maps a product cache/API document; always returns when SKU is present (threshold applied later).</summary>
     public static ProductInput? ReadProduct(BsonDocument doc)
     {
         var sku = FirstNonEmpty(ReadString(doc, "sku"), ReadString(doc, "productCode"));
         if (string.IsNullOrWhiteSpace(sku)) return null;
 
-        var minShelf = ReadNullableDecimal(doc, "minimumShelfFit");
-        var minStock = ReadNullableDecimal(doc, "minStock");
-        var reorder = ReadNullableDecimal(doc, "reorderLevel");
-        if (!minShelf.HasValue && !minStock.HasValue && !reorder.HasValue)
-            return null;
-
         return new ProductInput(
             sku,
             FirstNonEmpty(ReadString(doc, "itemName"), ReadString(doc, "description"), sku),
-            minShelf,
-            minStock,
-            reorder,
+            PositiveOrNull(ReadNullableDecimal(doc, "minimumShelfFit")),
+            PositiveOrNull(ReadNullableDecimal(doc, "minStock")),
+            PositiveOrNull(ReadNullableDecimal(doc, "reorderLevel")),
             ReadSupplierId(doc),
             ReadSupplierName(doc));
     }
+
+    private static bool IsPositive(decimal? value) => value is > 0m;
+
+    private static decimal? PositiveOrNull(decimal? value) => IsPositive(value) ? value : null;
 
     private static string ReadSupplierId(BsonDocument doc)
     {

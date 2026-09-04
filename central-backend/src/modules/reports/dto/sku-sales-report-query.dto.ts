@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 import { TABULAR_EXPORT_MAX_ROWS } from '../../../common/tabular-export';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,4 +44,16 @@ export class SkuSalesReportQueryDto {
   @Max(TABULAR_EXPORT_MAX_ROWS)
   @IsOptional()
   limit?: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Store-wide match qty for Fast Sellers low-stock flag (availableQty ≤ matchQty). 0 disables flagging.',
+    minimum: 0,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  matchQty?: number;
 }

@@ -365,16 +365,23 @@ public static class DayBillingCloseDocumentReader
             creditNote += amount;
     }
 
-    private static string FormatCreditCollectionPaymentMode(PaymentDayTotals payments)
+    /// <summary>
+    /// Payment-mode label for credit tender received on a day (advance or later collection).
+    /// </summary>
+    public static string FormatCreditCollectionPaymentMode(PaymentDayTotals payments)
     {
         var parts = new List<string>();
         if (payments.Cash > 0) parts.Add("Cash");
         if (payments.Card > 0) parts.Add("Card");
         if (payments.Upi > 0) parts.Add("UPI");
         if (payments.CreditNote > 0) parts.Add("CN");
-        var mode = parts.Count > 0 ? string.Join("+", parts) : "Payment";
-        return $"{mode} (credit collected)";
+        var mode = parts.Count > 0 ? string.Join("+", parts) : "Credit";
+        var collected = payments.Cash + payments.Card + payments.Upi + payments.CreditNote;
+        return collected > 0m ? $"{mode} (credit collected)" : "Credit (pending)";
     }
+
+    public static decimal SumPaymentDayTotals(PaymentDayTotals payments) =>
+        payments.Cash + payments.Card + payments.Upi + payments.CreditNote;
 
     public static Dictionary<string, string> BuildOutboxSyncByBillNo(IEnumerable<BsonDocument> outboxEvents)
     {

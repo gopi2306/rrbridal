@@ -113,6 +113,8 @@ public sealed class ThermalInvoiceInput
 
     public decimal RoundOff { get; init; }
 
+    public decimal CardCharge { get; init; }
+
     public decimal Payable { get; init; }
 
     public decimal TotalQty { get; init; }
@@ -249,8 +251,10 @@ public static class ThermalInvoiceTextBuilder
             sb.AppendLine(TwoCols($"Alteration: {input.AlterationTotal:0.00}", "", w));
         if (input.RoundOff != 0)
             sb.AppendLine(TwoCols($"Round off: {input.RoundOff:0.00}", "", w));
-
-        sb.AppendLine(TwoCols("Other charges:", "0.00", w));
+        if (input.CardCharge > 0)
+            sb.AppendLine(TwoCols($"Card charges: {input.CardCharge:0.00}", "", w));
+        else
+            sb.AppendLine(TwoCols("Other charges:", "0.00", w));
         AddRule();
         sb.AppendLine(Center($"Bill Amount .: {input.Payable:0.00}", w));
         AddRule();

@@ -55,6 +55,8 @@ internal static class DayCloseReportSectionBuilder
             ("Net UPI", F(s.NetUpiInHand)),
             ("Expected tender total", F(s.ActualHandInTotal)),
             ("Bill count", s.BillCount.ToString(InCulture)),
+            ("Sales (bill payables)", F(s.TotalAmount)),
+            ("Credit collections (prior bills)", F(s.CreditCollectionsTotal)),
             ("Return count", s.ReturnCount.ToString(InCulture)),
             ("Gross card from bills", F(s.CardTotal)),
             ("Gross UPI from bills", F(s.UpiTotal)),

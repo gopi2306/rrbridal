@@ -44,6 +44,8 @@ public sealed class PaymentOutcome
     public bool IsCreditBilling { get; init; }
     public decimal CreditAdvanceAmount { get; init; }
     public decimal CreditBalanceDue { get; init; }
+    /// <summary>Card processing fee included in payable / card tender (0 when not applied).</summary>
+    public decimal CardChargeAmount { get; init; }
 }
 
 public sealed class PaymentLegResult
@@ -73,10 +75,15 @@ public partial class PaymentDialogViewModel : ObservableObject
     public string PayableFormatted { get; }
 
     [ObservableProperty] private decimal _paymentCreditAmount;
+    [ObservableProperty] private decimal _merchandiseCollectibleAmount;
     [ObservableProperty] private decimal _collectibleAmount;
     [ObservableProperty] private string _collectibleFormatted = "";
     [ObservableProperty] private string _paymentCreditAppliedFormatted = "";
     [ObservableProperty] private bool _hasPaymentCreditApplied;
+    [ObservableProperty] private decimal _cardChargeAmount;
+    [ObservableProperty] private string _cardChargeText = "";
+    [ObservableProperty] private bool _showCardCharge;
+    [ObservableProperty] private string _cardChargeFormatted = "₹ 0.00";
 
     public ObservableCollection<CustomerCreditNoteOption> AvailableCreditNotes { get; } = new();
 
@@ -147,7 +154,10 @@ public partial class PaymentDialogViewModel : ObservableObject
         decimal creditBillingMinAdvancePercent = 0,
         decimal creditBillingMinAdvanceAmount = 0,
         bool creditBillingAllowZeroAdvance = true,
-        decimal creditBillingMaxBalancePerBill = 0)
+        decimal creditBillingMaxBalancePerBill = 0,
+        bool enableCardCharge = false,
+        decimal cardChargePercent = 0,
+        decimal cardChargeFlatAmount = 0)
     {
         _router = router;
         _creditNotes = creditNotes;
@@ -164,6 +174,9 @@ public partial class PaymentDialogViewModel : ObservableObject
         _creditBillingMinAdvanceAmount = creditBillingMinAdvanceAmount;
         _creditBillingAllowZeroAdvance = creditBillingAllowZeroAdvance;
         _creditBillingMaxBalancePerBill = creditBillingMaxBalancePerBill;
+        _enableCardCharge = enableCardCharge;
+        _cardChargePercent = Math.Max(0m, cardChargePercent);
+        _cardChargeFlatAmount = Math.Max(0m, cardChargeFlatAmount);
         InvoicePayableAmount = payableAmount;
         PayableFormatted = MoneyMath.FormatPayable(payableAmount);
         AmountReceived = payableAmount;
@@ -193,6 +206,11 @@ public partial class PaymentDialogViewModel : ObservableObject
     private readonly decimal _creditBillingMinAdvanceAmount;
     private readonly bool _creditBillingAllowZeroAdvance;
     private readonly decimal _creditBillingMaxBalancePerBill;
+    private readonly bool _enableCardCharge;
+    private readonly decimal _cardChargePercent;
+    private readonly decimal _cardChargeFlatAmount;
+    private bool _cardChargeManualOverride;
+    private bool _suppressCardChargeTextSync;
 
     public bool ShowCreditBillingOption => _allowCreditBilling;
 
@@ -209,14 +227,19 @@ public partial class PaymentDialogViewModel : ObservableObject
             CreditAdvanceAmountText = value == 0 ? "" : MoneyMath.FormatEditableAmount(value);
         if (SelectedMode == PaymentMode.Credit)
             ApplyCreditAdvancePaymentInputs();
+        if (SelectedMode == PaymentMode.Credit
+            && (CreditAdvanceMode == PaymentMode.Card || CreditAdvanceMode == PaymentMode.Split))
+            RefreshCardCharge();
     }
 
     partial void OnCreditAdvanceModeChanged(PaymentMode value)
     {
         ErrorMessage = "";
         Status = PaymentStatus.Idle;
+        _cardChargeManualOverride = false;
         if (SelectedMode == PaymentMode.Credit)
             ApplyCreditAdvancePaymentInputs();
+        RefreshCardCharge(forceSuggested: true);
     }
 
     partial void OnCreditAdvanceAmountTextChanged(string value)
@@ -309,7 +332,108 @@ public partial class PaymentDialogViewModel : ObservableObject
     }
 
     private decimal GetPaymentTargetAmount() =>
-        SelectedMode == PaymentMode.Credit ? CreditAdvanceAmount : CollectibleAmount;
+        SelectedMode == PaymentMode.Credit ? CreditAdvanceAmount : MerchandiseCollectibleAmount;
+
+    /// <summary>Card base used for suggested fee (merchandise card portion).</summary>
+    private decimal ResolveCardBaseForCharge()
+    {
+        if (!_enableCardCharge)
+            return 0m;
+
+        if (SelectedMode == PaymentMode.Card)
+            return MerchandiseCollectibleAmount;
+
+        if (SelectedMode == PaymentMode.Split && SplitCardAmount > 0)
+            return SplitCardAmount;
+
+        if (SelectedMode == PaymentMode.Credit)
+        {
+            if (CreditAdvanceMode == PaymentMode.Card)
+                return CreditAdvanceAmount;
+            if (CreditAdvanceMode == PaymentMode.Split && SplitCardAmount > 0)
+                return SplitCardAmount;
+        }
+
+        return 0m;
+    }
+
+    private void RefreshCardCharge(bool forceSuggested = false)
+    {
+        var cardBase = ResolveCardBaseForCharge();
+        var applies = _enableCardCharge && cardBase > 0;
+        ShowCardCharge = applies;
+
+        if (!applies)
+        {
+            _cardChargeManualOverride = false;
+            SetCardChargeAmountInternal(0);
+            RefreshCollectibleWithCharge();
+            return;
+        }
+
+        if (forceSuggested || !_cardChargeManualOverride)
+        {
+            var suggested = CardChargeCalculator.ComputeSuggested(
+                cardBase, _enableCardCharge, _cardChargePercent, _cardChargeFlatAmount);
+            SetCardChargeAmountInternal(suggested);
+        }
+
+        RefreshCollectibleWithCharge();
+    }
+
+    private void SetCardChargeAmountInternal(decimal amount)
+    {
+        var rounded = MoneyMath.RoundDisplayAmount(Math.Max(0m, amount));
+        if (CardChargeAmount != rounded)
+            CardChargeAmount = rounded;
+        else
+            SyncCardChargeDisplays();
+    }
+
+    private void SyncCardChargeDisplays()
+    {
+        CardChargeFormatted = MoneyMath.FormatRupee(CardChargeAmount);
+        if (!_suppressCardChargeTextSync)
+        {
+            _suppressCardChargeTextSync = true;
+            CardChargeText = CardChargeAmount == 0 ? "" : MoneyMath.FormatEditableAmount(CardChargeAmount);
+            _suppressCardChargeTextSync = false;
+        }
+    }
+
+    private void RefreshCollectibleWithCharge()
+    {
+        var charge = ShowCardCharge ? CardChargeAmount : 0m;
+        CollectibleAmount = Math.Max(0m, MerchandiseCollectibleAmount + charge);
+        CollectibleFormatted = MoneyMath.FormatRupee(CollectibleAmount);
+        if (SelectedMode == PaymentMode.Cash)
+            UpdateCashChange();
+        else if (SelectedMode == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Cash)
+            UpdateCashChange();
+        else if (SelectedMode == PaymentMode.Split || (SelectedMode == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Split))
+            RecalcSplitBalance();
+    }
+
+    partial void OnCardChargeAmountChanged(decimal value) => SyncCardChargeDisplays();
+
+    partial void OnCardChargeTextChanged(string value)
+    {
+        if (_suppressCardChargeTextSync)
+            return;
+        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amt)
+            || decimal.TryParse(value, NumberStyles.Number, InCulture, out amt))
+        {
+            _cardChargeManualOverride = true;
+            CardChargeAmount = MoneyMath.RoundDisplayAmount(Math.Max(0m, amt));
+            RefreshCollectibleWithCharge();
+        }
+        else if (string.IsNullOrWhiteSpace(value))
+        {
+            _cardChargeManualOverride = true;
+            CardChargeAmount = 0;
+            RefreshCollectibleWithCharge();
+        }
+    }
 
     private void ApplyCreditAdvancePaymentInputs()
     {
@@ -514,10 +638,10 @@ public partial class PaymentDialogViewModel : ObservableObject
         PaymentCreditAmount = string.IsNullOrEmpty(_selectedPaymentCreditNoteNo)
             ? 0
             : GetMaxCreditForNote(_selectedPaymentCreditNoteNo);
-        CollectibleAmount = Math.Max(0, InvoicePayableAmount - PaymentCreditAmount);
-        CollectibleFormatted = MoneyMath.FormatRupee(CollectibleAmount);
+        MerchandiseCollectibleAmount = Math.Max(0, InvoicePayableAmount - PaymentCreditAmount);
         PaymentCreditAppliedFormatted = MoneyMath.FormatRupee(PaymentCreditAmount);
         HasPaymentCreditApplied = PaymentCreditAmount > 0;
+        RefreshCardCharge();
     }
 
     private void ApplyPaymentCreditToPaymentInputs()
@@ -525,7 +649,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         switch (SelectedMode)
         {
             case PaymentMode.Cash:
-                AmountReceived = CollectibleAmount;
+                AmountReceived = MerchandiseCollectibleAmount;
                 UpdateCashChange();
                 break;
 
@@ -548,7 +672,9 @@ public partial class PaymentDialogViewModel : ObservableObject
 
     private void UpdateCashChange()
     {
-        var target = GetPaymentTargetAmount();
+        var target = SelectedMode == PaymentMode.Credit
+            ? CreditAdvanceAmount
+            : MerchandiseCollectibleAmount;
         var change = AmountReceived - target;
         ChangeDueFormatted = change >= 0 ? MoneyMath.FormatRupee(change) : "-" + MoneyMath.FormatRupee(Math.Abs(change));
         IsCashShortfall = change < 0;
@@ -582,6 +708,7 @@ public partial class PaymentDialogViewModel : ObservableObject
     {
         ErrorMessage = "";
         Status = PaymentStatus.Idle;
+        _cardChargeManualOverride = false;
 
         if (value == PaymentMode.Split || (value == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Split))
         {
@@ -593,6 +720,7 @@ public partial class PaymentDialogViewModel : ObservableObject
         ApplyPaymentCreditToPaymentInputs();
         if (value == PaymentMode.Credit)
             ApplyCreditAdvancePaymentInputs();
+        RefreshCardCharge(forceSuggested: true);
     }
 
     partial void OnAmountReceivedChanged(decimal value) => UpdateCashChange();
@@ -631,6 +759,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         if (_isCappingSplit)
         {
             RecalcSplitBalance();
+            if (editedProperty == nameof(SplitCardAmount))
+                RefreshCardCharge();
             return;
         }
 
@@ -669,6 +799,8 @@ public partial class PaymentDialogViewModel : ObservableObject
         {
             _isCappingSplit = false;
             RecalcSplitBalance();
+            if (editedProperty == nameof(SplitCardAmount))
+                RefreshCardCharge();
         }
     }
 
@@ -953,17 +1085,20 @@ public partial class PaymentDialogViewModel : ObservableObject
             }
 
             case PaymentMode.Card:
+            {
+                var cardAmount = MoneyMath.RoundDisplayAmount(advance + (ShowCardCharge ? CardChargeAmount : 0m));
                 if (IsRazorpayPosConfigured)
                     return await ExecuteRazorpayPosPaymentAsync(
                         RazorpayPosPayMode.Card,
                         PaymentProviderKind.PineLabs,
-                        advance,
+                        cardAmount,
                         legs);
 
                 return await ExecuteManualCardOrUpiPaymentAsync(
                     PaymentProviderKind.PineLabs,
-                    advance,
+                    cardAmount,
                     legs);
+            }
 
             case PaymentMode.Upi:
                 if (IsRazorpayPosConfigured)
@@ -1011,7 +1146,10 @@ public partial class PaymentDialogViewModel : ObservableObject
                 if (SplitCashAmount > 0)
                     splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null, null));
                 if (SplitCardAmount > 0)
-                    splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null, RazorpayPosPayMode.Card));
+                {
+                    var cardLeg = MoneyMath.RoundDisplayAmount(SplitCardAmount + (ShowCardCharge ? CardChargeAmount : 0m));
+                    splitEntries.Add((PaymentProviderKind.PineLabs, cardLeg, null, RazorpayPosPayMode.Card));
+                }
                 if (SplitUpiAmount > 0)
                     splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null, RazorpayPosPayMode.Upi));
                 if (SplitCreditNoteAmount > 0)
@@ -1040,7 +1178,7 @@ public partial class PaymentDialogViewModel : ObservableObject
             switch (SelectedMode)
             {
                 case PaymentMode.Cash:
-                    if (CollectibleAmount > 0 && AmountReceived < CollectibleAmount)
+                    if (MerchandiseCollectibleAmount > 0 && AmountReceived < MerchandiseCollectibleAmount)
                     {
                         ErrorMessage = "Amount received is less than the amount to collect.";
                         Status = PaymentStatus.Failed;
@@ -1051,17 +1189,17 @@ public partial class PaymentDialogViewModel : ObservableObject
                         Status = PaymentStatus.Failed;
                         return;
                     }
-                    if (CollectibleAmount > 0)
+                    if (MerchandiseCollectibleAmount > 0)
                     {
                         var cashResult = await _router.PayAndRecordAsync(
                             PaymentProviderKind.Cash,
-                            new PaymentRequest(_invoiceNo, CollectibleAmount, "INR"),
+                            new PaymentRequest(_invoiceNo, MerchandiseCollectibleAmount, "INR"),
                             CancellationToken.None,
                             enqueueOutbox: !_skipPaymentOutbox);
                         legs.Add(new PaymentLegResult
                         {
                             Provider = PaymentProviderKind.Cash,
-                            Amount = CollectibleAmount,
+                            Amount = MerchandiseCollectibleAmount,
                             Reference = cashResult.ProviderReference,
                             Status = cashResult.Status,
                         });
@@ -1104,14 +1242,14 @@ public partial class PaymentDialogViewModel : ObservableObject
                         Status = PaymentStatus.Failed;
                         return;
                     }
-                    if (CollectibleAmount <= 0)
+                    if (MerchandiseCollectibleAmount <= 0)
                         break;
                     if (IsRazorpayPosConfigured)
                     {
                         if (!await ExecuteRazorpayPosPaymentAsync(
                                 RazorpayPosPayMode.Upi,
                                 PaymentProviderKind.Razorpay,
-                                CollectibleAmount,
+                                MerchandiseCollectibleAmount,
                                 legs))
                         {
                             Status = PaymentStatus.Failed;
@@ -1120,7 +1258,7 @@ public partial class PaymentDialogViewModel : ObservableObject
                     }
                     else if (!await ExecuteManualCardOrUpiPaymentAsync(
                                  PaymentProviderKind.Razorpay,
-                                 CollectibleAmount,
+                                 MerchandiseCollectibleAmount,
                                  legs))
                     {
                         Status = PaymentStatus.Failed;
@@ -1187,7 +1325,10 @@ public partial class PaymentDialogViewModel : ObservableObject
                     if (SplitCashAmount > 0)
                         splitEntries.Add((PaymentProviderKind.Cash, SplitCashAmount, null, null));
                     if (SplitCardAmount > 0)
-                        splitEntries.Add((PaymentProviderKind.PineLabs, SplitCardAmount, null, RazorpayPosPayMode.Card));
+                    {
+                        var cardLeg = MoneyMath.RoundDisplayAmount(SplitCardAmount + (ShowCardCharge ? CardChargeAmount : 0m));
+                        splitEntries.Add((PaymentProviderKind.PineLabs, cardLeg, null, RazorpayPosPayMode.Card));
+                    }
                     if (SplitUpiAmount > 0)
                         splitEntries.Add((PaymentProviderKind.Razorpay, SplitUpiAmount, null, RazorpayPosPayMode.Upi));
                     if (SplitCreditNoteAmount > 0)
@@ -1237,7 +1378,7 @@ public partial class PaymentDialogViewModel : ObservableObject
             if (SelectedMode == PaymentMode.Cash)
             {
                 cashReceived = AmountReceived;
-                changeReturned = Math.Max(0m, AmountReceived - CollectibleAmount);
+                changeReturned = Math.Max(0m, AmountReceived - MerchandiseCollectibleAmount);
             }
             else if (SelectedMode == PaymentMode.Credit && CreditAdvanceMode == PaymentMode.Cash && CreditAdvanceAmount > 0)
             {
@@ -1245,6 +1386,7 @@ public partial class PaymentDialogViewModel : ObservableObject
                 changeReturned = Math.Max(0m, AmountReceived - CreditAdvanceAmount);
             }
 
+            var appliedCardCharge = ShowCardCharge ? CardChargeAmount : 0m;
             Outcome = new PaymentOutcome
             {
                 Confirmed = true,
@@ -1261,6 +1403,7 @@ public partial class PaymentDialogViewModel : ObservableObject
                 CreditBalanceDue = SelectedMode == PaymentMode.Credit
                     ? MoneyMath.RoundDisplayAmount(InvoicePayableAmount - CreditAdvanceAmount)
                     : 0,
+                CardChargeAmount = appliedCardCharge,
             };
             Status = PaymentStatus.Success;
             CloseDialog?.Invoke(true);

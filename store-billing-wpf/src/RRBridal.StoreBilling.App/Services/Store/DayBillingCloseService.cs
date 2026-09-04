@@ -117,7 +117,13 @@ public sealed class DayBillingCloseService
 
             var pos = DayBillingCloseDocumentReader.ReadString(doc, "posCounter") ?? "";
             var dev = DayBillingCloseDocumentReader.ReadString(doc, "deviceId") ?? "";
-            var paymentMode = DayBillingCloseDocumentReader.ReadString(doc, "paymentMode") ?? "";
+            var isCredit = DayBillingCloseDocumentReader.HasCreditBilling(doc);
+            var rowPayable = isCredit
+                ? DayBillingCloseDocumentReader.SumPaymentDayTotals(payments)
+                : payable;
+            var paymentMode = isCredit
+                ? DayBillingCloseDocumentReader.FormatCreditCollectionPaymentMode(payments)
+                : DayBillingCloseDocumentReader.ReadString(doc, "paymentMode") ?? "";
 
             invoices.Add(new DayCloseInvoiceRow
             {
@@ -125,7 +131,7 @@ public sealed class DayBillingCloseService
                 CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
                 PostedAtLocal = postedLocal,
                 TotalQty = qty,
-                Payable = payable,
+                Payable = rowPayable,
                 PaymentMode = paymentMode,
                 SyncStatus = DayBillingCloseDocumentReader.ResolveSyncStatus(doc, outboxByBillNo),
                 SortUtc = sortUtc,
@@ -155,7 +161,8 @@ public sealed class DayBillingCloseService
         card += priorCreditCollected.Payments.Card;
         upi += priorCreditCollected.Payments.Upi;
         creditNote += priorCreditCollected.Payments.CreditNote;
-        totalAmount += priorCreditCollected.TotalAmount;
+        // Collections stay in tender + invoice rows; do not inflate SALES (TotalAmount).
+        var creditCollectionsTotal = priorCreditCollected.TotalAmount;
         invoices.AddRange(priorCreditCollected.InvoiceRows);
 
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
@@ -249,6 +256,7 @@ public sealed class DayBillingCloseService
             BillCount = dayBills.Count,
             TotalQty = totalQty,
             TotalAmount = totalAmount,
+            CreditCollectionsTotal = creditCollectionsTotal,
             CashTotal = cash,
             CardTotal = card,
             UpiTotal = upi,
@@ -329,6 +337,13 @@ public sealed class DayBillingCloseService
 
         using var billsJson = await _storePos.ListBillsAsync(null, 200, ct);
         var billDocs = ExtractDocs(billsJson, BillDocumentService.MapCentralBillToDoc);
+
+        // Credit bills may be older than the recent-bills window; fetch them for prior-collection invoice rows.
+        using var creditBillsJson = await _storePos.ListBillsAsync(
+            search: null, limit: 1000, creditBillingOnly: true, ct: ct);
+        var creditBillDocs = ExtractDocs(creditBillsJson, BillDocumentService.MapCentralBillToDoc);
+        billDocs = MergeBillDocsByBillNo(billDocs, creditBillDocs);
+
         var dayBills = billDocs
             .Where(DayBillingCloseDocumentReader.IsPostedBill)
             .Where(d => DayBillingCloseDocumentReader.MatchesLocalDay(d, localDate))
@@ -353,14 +368,23 @@ public sealed class DayBillingCloseService
             totalQty += qty;
             totalAmount += payable;
 
+            var payments = DayBillingCloseDocumentReader.SumBillPaymentsForLocalDay(doc, localDate);
+            var isCredit = DayBillingCloseDocumentReader.HasCreditBilling(doc);
+            var rowPayable = isCredit
+                ? DayBillingCloseDocumentReader.SumPaymentDayTotals(payments)
+                : payable;
+            var paymentMode = isCredit
+                ? DayBillingCloseDocumentReader.FormatCreditCollectionPaymentMode(payments)
+                : DayBillingCloseDocumentReader.ReadString(doc, "paymentMode") ?? "";
+
             invoices.Add(new DayCloseInvoiceRow
             {
                 BillNo = billNo,
                 CounterDisplay = CounterDisplayFormatter.Format(pos, dev),
                 PostedAtLocal = postedLocal,
                 TotalQty = qty,
-                Payable = payable,
-                PaymentMode = DayBillingCloseDocumentReader.ReadString(doc, "paymentMode") ?? "",
+                Payable = rowPayable,
+                PaymentMode = paymentMode,
                 SyncStatus = "Synced",
                 SortUtc = sortUtc,
             });
@@ -373,7 +397,7 @@ public sealed class DayBillingCloseService
             localDate,
             posCounterFilter,
             outboxByBillNo: new Dictionary<string, string>());
-        totalAmount += priorCreditCollected.TotalAmount;
+        var creditCollectionsTotal = priorCreditCollected.TotalAmount;
         invoices.AddRange(priorCreditCollected.InvoiceRows);
 
         invoices.Sort((a, b) => b.SortUtc.CompareTo(a.SortUtc));
@@ -428,6 +452,7 @@ public sealed class DayBillingCloseService
             BillCount = report.BillCount,
             TotalQty = totalQty,
             TotalAmount = totalAmount,
+            CreditCollectionsTotal = creditCollectionsTotal,
             CashTotal = report.CashTotal + dispatchCharges.Cash,
             CardTotal = report.CardTotal + dispatchCharges.Card,
             UpiTotal = report.UpiTotal + dispatchCharges.Upi,
@@ -462,6 +487,31 @@ public sealed class DayBillingCloseService
             Returns = returnRows,
             StockExceptions = stockExceptions,
         };
+    }
+
+    private static List<BsonDocument> MergeBillDocsByBillNo(
+        IEnumerable<BsonDocument> primary,
+        IEnumerable<BsonDocument> extra)
+    {
+        var map = new Dictionary<string, BsonDocument>(StringComparer.OrdinalIgnoreCase);
+        foreach (var doc in primary)
+        {
+            var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+            if (string.IsNullOrWhiteSpace(billNo))
+                continue;
+            map[billNo] = doc;
+        }
+
+        foreach (var doc in extra)
+        {
+            var billNo = DayBillingCloseDocumentReader.ReadString(doc, "billNo") ?? "";
+            if (string.IsNullOrWhiteSpace(billNo))
+                continue;
+            if (!map.ContainsKey(billNo))
+                map[billNo] = doc;
+        }
+
+        return map.Values.ToList();
     }
 
     private static List<BsonDocument> ExtractDocs(JsonDocument json, Func<JsonElement, BsonDocument> mapper)

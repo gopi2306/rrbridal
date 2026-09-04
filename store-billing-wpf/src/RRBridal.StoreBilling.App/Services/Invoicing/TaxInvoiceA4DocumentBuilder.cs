@@ -15,7 +15,8 @@ public static class TaxInvoiceA4DocumentBuilder
 {
     private static readonly CultureInfo In = CultureInfo.GetCultureInfo("en-IN");
     private const string UnitPer = "NOS";
-    private const int LineColCount = 7;
+    private const int LineColCount = 8;
+    private const int AmountColIndex = LineColCount - 1;
 
     public static FlowDocument Create(ThermalInvoiceInput input, int linesPerPage = TaxInvoiceA4Layout.LinesPerPage)
     {
@@ -360,7 +361,7 @@ public static class TaxInvoiceA4DocumentBuilder
             table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(rowH) });
         table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        var headers = new[] { "SI No.", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount" };
+        var headers = new[] { "SI No.", "Description of Goods", "HSN/SAC", "Quantity", "MRP", "Rate", "per", "Amount" };
         for (var c = 0; c < LineColCount; c++)
             AddTableCell(table, 0, c, headers[c], headerPt, FontWeights.Bold, TableColumnAlign(c), TableCellBorder.Header, cellPadding: cellPadding);
 
@@ -371,9 +372,10 @@ public static class TaxInvoiceA4DocumentBuilder
             AddTableCell(table, rowIndex, 1, line.Description, rowPt, FontWeights.Normal, TableColumnAlign(1), TableCellBorder.Body, cellPadding: cellPadding);
             AddTableCell(table, rowIndex, 2, line.Hsn, rowPt, FontWeights.Normal, TableColumnAlign(2), TableCellBorder.Body, cellPadding: cellPadding);
             AddTableCell(table, rowIndex, 3, FormatQty(line.Qty), rowPt, FontWeights.Normal, TableColumnAlign(3), TableCellBorder.Body, cellPadding: cellPadding);
-            AddTableCell(table, rowIndex, 4, Money(TaxInvoiceA4GstBreakdown.LineExclusiveRate(line)), rowPt, FontWeights.Normal, TableColumnAlign(4), TableCellBorder.Body, cellPadding: cellPadding);
-            AddTableCell(table, rowIndex, 5, UnitPer, rowPt, FontWeights.Normal, TableColumnAlign(5), TableCellBorder.Body, cellPadding: cellPadding);
-            AddTableCell(table, rowIndex, 6, Money(TaxInvoiceA4GstBreakdown.LineTaxableAmount(line)), rowPt, FontWeights.Normal, TableColumnAlign(6), TableCellBorder.Body, cellPadding: cellPadding);
+            AddTableCell(table, rowIndex, 4, line.Mrp > 0 ? Money(line.Mrp) : "", rowPt, FontWeights.Normal, TableColumnAlign(4), TableCellBorder.Body, cellPadding: cellPadding);
+            AddTableCell(table, rowIndex, 5, Money(line.Rate), rowPt, FontWeights.Normal, TableColumnAlign(5), TableCellBorder.Body, cellPadding: cellPadding);
+            AddTableCell(table, rowIndex, 6, UnitPer, rowPt, FontWeights.Normal, TableColumnAlign(6), TableCellBorder.Body, cellPadding: cellPadding);
+            AddTableCell(table, rowIndex, 7, Money(TaxInvoiceA4GstBreakdown.LineProductAmount(line)), rowPt, FontWeights.Normal, TableColumnAlign(7), TableCellBorder.Body, cellPadding: cellPadding);
             rowIndex++;
         }
 
@@ -399,7 +401,7 @@ public static class TaxInvoiceA4DocumentBuilder
         var cellPadding = new Thickness(cellPadH, cellPadV, cellPadH, cellPadV);
         var showDiscount = input.ManualDiscountAmount > 0;
         var taxFooterRows = input.IsInterState ? 1 : 2;
-        var footerRows = 1 + (showDiscount ? 1 : 0) + taxFooterRows + 1;
+        var footerRows = 1 + (showDiscount ? 2 : 0) + taxFooterRows + 1;
 
         var table = new Grid
         {
@@ -413,7 +415,7 @@ public static class TaxInvoiceA4DocumentBuilder
             table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(rowH) });
 
         var footerRow = 0;
-        var subtotal = ComputeTaxableSubtotal(input, taxTotals);
+        var subtotal = ComputeDisplayedSubtotal(input, taxTotals);
         AddLabelAmountFooterRow(table, footerRow, "Subtotal", Money(subtotal), rowPt, TableCellBorder.Footer, cellPadding, labelBold: true, labelAlign: TextAlignment.Right);
         footerRow++;
 
@@ -427,6 +429,19 @@ public static class TaxInvoiceA4DocumentBuilder
                 rowPt,
                 TableCellBorder.Footer,
                 cellPadding);
+            footerRow++;
+
+            var discountedSubtotal = ComputeDiscountedSubtotal(subtotal, input, taxTotals);
+            AddLabelAmountFooterRow(
+                table,
+                footerRow,
+                "Discounted Subtotal",
+                Money(discountedSubtotal),
+                rowPt,
+                TableCellBorder.Footer,
+                cellPadding,
+                labelBold: true,
+                labelAlign: TextAlignment.Right);
             footerRow++;
         }
 
@@ -449,7 +464,8 @@ public static class TaxInvoiceA4DocumentBuilder
         AddTableCell(table, footerRow, 3, $"{FormatQty(input.TotalQty)} {UnitPer}", rowPt, FontWeights.Bold, TableColumnAlign(3), TableCellBorder.FooterLast, cellPadding: cellPadding);
         AddTableCell(table, footerRow, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), TableCellBorder.FooterLast, cellPadding: cellPadding);
         AddTableCell(table, footerRow, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), TableCellBorder.FooterLast, cellPadding: cellPadding);
-        AddTableCell(table, footerRow, 6, Money(input.Payable), rowPt, FontWeights.Bold, TableColumnAlign(6), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, 6, "", rowPt, FontWeights.Normal, TableColumnAlign(6), TableCellBorder.FooterLast, cellPadding: cellPadding);
+        AddTableCell(table, footerRow, AmountColIndex, Money(input.Payable), rowPt, FontWeights.Bold, TableColumnAlign(AmountColIndex), TableCellBorder.FooterLast, cellPadding: cellPadding);
 
         return SectionBorder(table, new Thickness(1, 0, 1, 0), new Thickness(0));
     }
@@ -480,7 +496,8 @@ public static class TaxInvoiceA4DocumentBuilder
         AddTableCell(table, row, 3, "", rowPt, FontWeights.Normal, TableColumnAlign(3), border, cellPadding: cellPadding);
         AddTableCell(table, row, 4, "", rowPt, FontWeights.Normal, TableColumnAlign(4), border, cellPadding: cellPadding);
         AddTableCell(table, row, 5, "", rowPt, FontWeights.Normal, TableColumnAlign(5), border, cellPadding: cellPadding);
-        AddTableCell(table, row, 6, amountValue, rowPt, FontWeights.Normal, TableColumnAlign(6), border, cellPadding: cellPadding);
+        AddTableCell(table, row, 6, "", rowPt, FontWeights.Normal, TableColumnAlign(6), border, cellPadding: cellPadding);
+        AddTableCell(table, row, AmountColIndex, amountValue, rowPt, FontWeights.Normal, TableColumnAlign(AmountColIndex), border, cellPadding: cellPadding);
     }
 
     private static UIElement BuildAmountInWords(ThermalInvoiceInput input, double contentWidth, double bodyPt)
@@ -817,6 +834,28 @@ public static class TaxInvoiceA4DocumentBuilder
         return stack;
     }
 
+    private static decimal ComputeDisplayedSubtotal(ThermalInvoiceInput input, TaxInvoiceA4GstBreakdown.BillTaxTotals taxTotals)
+    {
+        var fromProductLines = TaxInvoiceA4GstBreakdown.SumLineProductAmounts(InvoiceLinePagination.ActiveLines(input));
+        if (fromProductLines > 0)
+            return fromProductLines;
+        return ComputeTaxableSubtotal(input, taxTotals);
+    }
+
+    private static decimal ComputeDiscountedSubtotal(
+        decimal productSubtotal,
+        ThermalInvoiceInput input,
+        TaxInvoiceA4GstBreakdown.BillTaxTotals taxTotals)
+    {
+        if (input.RevisedSubTotal > 0)
+            return input.RevisedSubTotal;
+        if (input.TotalTaxableAmount > 0)
+            return input.TotalTaxableAmount;
+        if (taxTotals.Taxable > 0)
+            return taxTotals.Taxable;
+        return MoneyMath.RoundAmount(productSubtotal - input.ManualDiscountAmount);
+    }
+
     private static decimal ComputeTaxableSubtotal(ThermalInvoiceInput input, TaxInvoiceA4GstBreakdown.BillTaxTotals taxTotals)
     {
         if (taxTotals.Taxable > 0)
@@ -836,8 +875,9 @@ public static class TaxInvoiceA4DocumentBuilder
         2 => TextAlignment.Center,
         3 => TextAlignment.Center,
         4 => TextAlignment.Right,
-        5 => TextAlignment.Center,
-        6 => TextAlignment.Right,
+        5 => TextAlignment.Right,
+        6 => TextAlignment.Center,
+        7 => TextAlignment.Right,
         _ => TextAlignment.Left,
     };
 

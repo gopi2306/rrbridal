@@ -50,6 +50,50 @@ public sealed class GoingOutOfStockReportTests
     }
 
     [Fact]
+    public void Collect_uses_default_match_qty_when_product_thresholds_missing_or_zero()
+    {
+        var products = new[]
+        {
+            new GoingOutOfStockReportEvaluator.ProductInput(
+                "SKU-FALLBACK", "Uses settings", null, null, null, "sup-1", "Acme"),
+            new GoingOutOfStockReportEvaluator.ProductInput(
+                "SKU-ZERO-REORDER", "Zero reorder ignored", null, null, 0, "sup-1", "Acme"),
+            new GoingOutOfStockReportEvaluator.ProductInput(
+                "SKU-ABOVE", "Above match", null, null, null, "sup-1", "Acme"),
+            new GoingOutOfStockReportEvaluator.ProductInput(
+                "SKU-PRODUCT", "Product wins", null, 2, null, "sup-1", "Acme"),
+        };
+        var qty = new Dictionary<string, decimal>
+        {
+            ["SKU-FALLBACK"] = 3,
+            ["SKU-ZERO-REORDER"] = 4,
+            ["SKU-ABOVE"] = 6,
+            ["SKU-PRODUCT"] = 2,
+        };
+
+        var rows = GoingOutOfStockReportEvaluator.Collect(products, qty, defaultMatchQty: 5m);
+
+        Assert.Equal(["SKU-PRODUCT", "SKU-FALLBACK", "SKU-ZERO-REORDER"], rows.Select(r => r.Sku));
+        Assert.Equal(5m, rows.Single(r => r.Sku == "SKU-FALLBACK").Threshold);
+        Assert.Equal("critical", rows.Single(r => r.Sku == "SKU-FALLBACK").Status);
+        Assert.Equal(5m, rows.Single(r => r.Sku == "SKU-ZERO-REORDER").Threshold);
+        Assert.Equal(2m, rows.Single(r => r.Sku == "SKU-PRODUCT").Threshold);
+        Assert.Equal("critical", rows.Single(r => r.Sku == "SKU-PRODUCT").Status);
+        Assert.DoesNotContain(rows, r => r.Sku == "SKU-ABOVE");
+    }
+
+    [Fact]
+    public void GetShelfThreshold_ignores_non_positive_product_fields()
+    {
+        var product = new GoingOutOfStockReportEvaluator.ProductInput(
+            "SKU-1", "Item", 0, 0, 0, "", "");
+        Assert.Null(GoingOutOfStockReportEvaluator.GetShelfThreshold(product));
+        Assert.Equal(5m, GoingOutOfStockReportEvaluator.GetShelfThreshold(product, 5m));
+        Assert.Equal(2m, GoingOutOfStockReportEvaluator.GetShelfThreshold(
+            product with { MinStock = 2m }, 5m));
+    }
+
+    [Fact]
     public void Export_builds_going_out_of_stock_sheet()
     {
         var report = new GoingOutOfStockReportResponse

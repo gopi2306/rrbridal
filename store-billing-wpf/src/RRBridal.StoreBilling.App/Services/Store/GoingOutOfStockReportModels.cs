@@ -10,6 +10,9 @@ public sealed class GoingOutOfStockReportQuery
     public string? Search { get; init; }
     public string? Status { get; init; }
     public int Limit { get; init; } = 10_000;
+
+    /// <summary>Optional override; when null, Settings GoingOutOfStockMatchQty is used.</summary>
+    public decimal? MatchQty { get; init; }
 }
 
 public sealed class GoingOutOfStockReportResponse

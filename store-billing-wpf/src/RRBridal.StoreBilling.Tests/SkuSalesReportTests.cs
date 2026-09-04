@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using MongoDB.Bson;
@@ -76,6 +77,35 @@ public sealed class SkuSalesReportTests
     }
 
     [Fact]
+    public void AttachStockLevels_flags_low_stock_against_match_qty()
+    {
+        var rows = new[]
+        {
+            new SkuSalesRow { Rank = 1, Sku = "SKU-A", NetQty = 10 },
+            new SkuSalesRow { Rank = 2, Sku = "SKU-B", NetQty = 5 },
+            new SkuSalesRow { Rank = 3, Sku = "SKU-C", NetQty = 1 },
+        };
+        var qtyBySku = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SKU-A"] = 3,
+            ["SKU-B"] = 20,
+        };
+
+        var attached = SkuSalesReportAggregator.AttachStockLevels(rows, qtyBySku, matchQty: 5);
+        Assert.Equal(3m, attached[0].AvailableQty);
+        Assert.True(attached[0].IsLowStock);
+        Assert.Equal("Yes", attached[0].LowStockDisplay);
+        Assert.Equal(20m, attached[1].AvailableQty);
+        Assert.False(attached[1].IsLowStock);
+        Assert.Equal("No", attached[1].LowStockDisplay);
+        Assert.Equal(0m, attached[2].AvailableQty);
+        Assert.True(attached[2].IsLowStock);
+
+        var neverFlagged = SkuSalesReportAggregator.AttachStockLevels(rows, qtyBySku, matchQty: 0);
+        Assert.All(neverFlagged, row => Assert.False(row.IsLowStock));
+    }
+
+    [Fact]
     public void Export_builds_supplier_summary_product_details_and_fast_sellers_sheets()
     {
         var product = new SkuSalesRow
@@ -91,6 +121,8 @@ public sealed class SkuSalesReportTests
             SoldAmount = 500,
             ReturnAmount = 100,
             NetAmount = 400,
+            AvailableQty = 3,
+            IsLowStock = true,
         };
         var supplierReport = new SupplierWiseReportResponse
         {
@@ -132,9 +164,11 @@ public sealed class SkuSalesReportTests
         };
         using var fastBook = FastSellersReportExcelExporter.BuildWorkbook(fastReport);
         Assert.Equal("Fast Sellers", Assert.Single(fastBook.Worksheets).Name);
-        Assert.Contains("Fast Sellers Report", fastBook.Worksheet("Fast Sellers").CellsUsed()
-            .Select(cell => cell.GetString()));
-        Assert.Contains("SKU-1", fastBook.Worksheet("Fast Sellers").CellsUsed()
-            .Select(cell => cell.GetString()));
+        var fastCells = fastBook.Worksheet("Fast Sellers").CellsUsed().Select(cell => cell.GetString()).ToList();
+        Assert.Contains("Fast Sellers Report", fastCells);
+        Assert.Contains("SKU-1", fastCells);
+        Assert.Contains("Available Qty", fastCells);
+        Assert.Contains("Low Stock", fastCells);
+        Assert.Contains("Yes", fastCells);
     }
 }

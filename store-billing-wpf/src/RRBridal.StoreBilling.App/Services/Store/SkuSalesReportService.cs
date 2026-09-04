@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using RRBridal.StoreBilling.App.Services;
+using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
 
 namespace RRBridal.StoreBilling.App.Services.Store;
@@ -23,16 +24,19 @@ public sealed class SkuSalesReportService
     private readonly IMongoDatabase _db;
     private readonly HttpClient _centralApi;
     private readonly StoreContext _storeContext;
+    private readonly PosBillingSettingsStore _billingSettings;
     private CentralOnlineModeService? _centralMode;
 
     public SkuSalesReportService(
         IMongoDatabase localDb,
         HttpClient centralApi,
-        StoreContext storeContext)
+        StoreContext storeContext,
+        PosBillingSettingsStore billingSettings)
     {
         _db = localDb;
         _centralApi = centralApi;
         _storeContext = storeContext;
+        _billingSettings = billingSettings;
     }
 
     public void ConfigureOnline(CentralOnlineModeService centralMode) => _centralMode = centralMode;
@@ -138,7 +142,8 @@ public sealed class SkuSalesReportService
         var filtered = SkuSalesReportAggregator.FilterForFastSearch(loaded.Rows, query.Search);
         var ranked = SkuSalesReportAggregator.RankFastSellers(filtered);
         var limit = Math.Clamp(query.Limit, 1, MaxRows);
-        var data = ranked.Take(limit).ToList();
+        var page = ranked.Take(limit).ToList();
+        var data = SkuSalesReportAggregator.AttachStockLevels(page, loaded.QtyBySku, ResolveMatchQty());
         return new FastSellersReportResponse
         {
             Period = loaded.Period,
@@ -206,6 +211,7 @@ public sealed class SkuSalesReportService
                 .ToListAsync(ct).ConfigureAwait(false);
 
         var catalog = SkuSalesReportAggregator.ReadCatalog(productDocs);
+        var qtyBySku = ReadStockQtyBySku(productDocs);
         var (rows, _) = SkuSalesReportAggregator.Collect(selected, returnDocs.Where(IsPosted), catalog);
         return new OfflineSkuSales(
             new SkuSalesReportPeriod
@@ -220,7 +226,8 @@ public sealed class SkuSalesReportService
             invoiceLimit,
             invoiceTotal,
             invoiceTotal > invoiceLimit,
-            rows);
+            rows,
+            qtyBySku);
     }
 
     private string BuildUri(SkuSalesReportQuery query, string path, bool export)
@@ -234,14 +241,31 @@ public sealed class SkuSalesReportService
             ("posCounter", TrimOrNull(query.PosCounter)),
             ("limit", Math.Clamp(query.Limit, 1, MaxRows).ToString(CultureInfo.InvariantCulture)),
         };
+        if (string.Equals(path, "fast-sellers", StringComparison.Ordinal))
+            values.Add(("matchQty", ResolveMatchQty().ToString(CultureInfo.InvariantCulture)));
         var qs = string.Join("&", values
             .Where(pair => pair.Value != null)
             .Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}"));
         return $"/api/reports/{path}{(export ? "/export" : "")}?{qs}";
     }
 
+    private decimal ResolveMatchQty() =>
+        Math.Max(0m, _billingSettings.Current.GoingOutOfStockMatchQty);
+
     private string EffectiveStoreCode(SkuSalesReportQuery query) =>
         string.IsNullOrWhiteSpace(query.StoreCode) ? _storeContext.StoreId : query.StoreCode.Trim();
+
+    private static Dictionary<string, decimal> ReadStockQtyBySku(IEnumerable<BsonDocument> products)
+    {
+        var qtyBySku = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var doc in products)
+        {
+            var sku = FirstNonEmpty(ReadString(doc, "sku"), ReadString(doc, "productCode"));
+            if (string.IsNullOrWhiteSpace(sku) || qtyBySku.ContainsKey(sku)) continue;
+            qtyBySku[sku] = ReadDecimal(doc, "stockQty");
+        }
+        return qtyBySku;
+    }
 
     private static bool MatchesCounter(BsonDocument doc, string? posCounter)
     {
@@ -278,6 +302,16 @@ public sealed class SkuSalesReportService
             ? (value.IsString ? value.AsString : value.ToString() ?? "").Trim()
             : "";
 
+    private static decimal ReadDecimal(BsonDocument doc, string field)
+    {
+        if (!doc.TryGetValue(field, out var value) || value.IsBsonNull) return 0;
+        if (value.IsNumeric) return (decimal)value.ToDouble();
+        return decimal.TryParse((value.ToString() ?? "").Replace(",", ""), NumberStyles.Any,
+            CultureInfo.InvariantCulture, out var parsed)
+            ? Math.Round(parsed, 4, MidpointRounding.AwayFromZero)
+            : 0;
+    }
+
     private static string FirstNonEmpty(params string[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
@@ -312,5 +346,6 @@ public sealed class SkuSalesReportService
         int InvoiceLimit,
         int InvoiceTotal,
         bool InvoiceTruncated,
-        IReadOnlyList<SkuSalesRow> Rows);
+        IReadOnlyList<SkuSalesRow> Rows,
+        IReadOnlyDictionary<string, decimal> QtyBySku);
 }
