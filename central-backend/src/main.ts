@@ -10,6 +10,9 @@ import { AppModule } from './modules/app/app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Honor X-Forwarded-* from AWS ALB / reverse proxy (public host for till CENTRAL_API_BASE).
+  app.set('trust proxy', 1);
+
   // Store sync push can send hundreds of InvoiceDeleted / bill events (~MB).
   // Express's default 100kb JSON limit rejects those as a misleading 404.
   app.useBodyParser('json', { limit: '25mb' });
@@ -24,6 +27,7 @@ async function bootstrap() {
     origin: true,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Disposition'],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   });
 

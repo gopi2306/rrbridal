@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ResourceLimitsModule } from '../resource-limits/resource-limits.module';
 import { Store, StoreSchema } from './schemas/store.schema';
 import { AdminStoresController } from './admin-stores.controller';
+import { BillingClientPackageService } from './billing-client-package.service';
 import { StoresController } from './stores.controller';
 import { StoresService } from './stores.service';
 
@@ -15,7 +16,7 @@ import { StoresService } from './stores.service';
     MongooseModule.forFeature([{ name: Store.name, schema: StoreSchema }]),
   ],
   controllers: [AdminStoresController, StoresController],
-  providers: [StoresService, JwtAuthGuard],
+  providers: [StoresService, BillingClientPackageService, JwtAuthGuard],
   exports: [StoresService],
 })
 export class StoresModule {}
