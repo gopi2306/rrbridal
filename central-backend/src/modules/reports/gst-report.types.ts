@@ -29,14 +29,35 @@ export type GstItemRow = GstTaxBreakdown & {
   qty: number;
 };
 
+/** B2B when the buyer GSTIN is on the bill, otherwise B2C. */
+export type GstSupplyCategory = 'B2B' | 'B2C';
+
 export type GstSalesInvoiceRow = GstTaxBreakdown & {
   storeId: string;
   documentType: 'invoice' | 'return' | 'exchange';
   documentNo: string;
   documentDate: string;
+  customerCode?: string;
   customerName?: string;
+  customerPhone?: string;
+  customerGstin?: string;
+  supplyCategory: GstSupplyCategory;
   isInterState?: boolean;
   lineCount: number;
+};
+
+/** One row per buyer: grouped by GSTIN, else phone, else code, else walk-in. */
+export type GstSalesCustomerRow = GstTaxBreakdown & {
+  customerKey: string;
+  customerCode?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerGstin?: string;
+  supplyCategory: GstSupplyCategory;
+  invoiceCount: number;
+  returnCount: number;
+  firstDocumentDate: string;
+  lastDocumentDate: string;
 };
 
 export type GstPurchaseInvoiceRow = GstTaxBreakdown & {
@@ -58,6 +79,7 @@ export type GstSalesReportSection = {
   byHsn: GstHsnRow[];
   byItem: GstItemRow[];
   byInvoice: GstSalesInvoiceRow[];
+  byCustomer: GstSalesCustomerRow[];
 };
 
 export type GstPurchaseReportSection = {

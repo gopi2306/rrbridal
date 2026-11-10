@@ -15,6 +15,10 @@ import { StoreSaleReturn, StoreSaleReturnDocument } from './schemas/store-sale-r
 import { StoreSalesInventoryService } from './store-sales-inventory.service';
 import { readNumber } from '../dashboard/store-sales-payload.util';
 import { normalizeDailyExpensePayload } from './daily-expense-payload';
+import { applyAdjustmentToBillPayload } from './adjustment-bill-payload.util';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { billRateChanges, type CatalogPrice } from '../audit-logs/bill-rate-audit.util';
+import { ProductsService } from '../products/products.service';
 
 export type StoreSyncEventMeta = {
   eventId: string;
@@ -40,6 +44,8 @@ export class StoreSalesSyncService {
     @InjectModel(StoreGatewayPayment.name)
     private readonly gatewayPaymentModel: Model<StoreGatewayPaymentDocument>,
     private readonly storeSalesInventoryService: StoreSalesInventoryService,
+    private readonly productsService: ProductsService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   private requireString(payload: Record<string, unknown>, key: string): string {
@@ -90,6 +96,7 @@ export class StoreSalesSyncService {
         payload,
       });
       await this.storeSalesInventoryService.postInvoiceLedger(meta, payload);
+      await this.logBillRateChanges(meta, invoiceNo, payload);
     } catch (err: unknown) {
       const dup =
         err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
@@ -101,6 +108,56 @@ export class StoreSalesSyncService {
         );
       }
       throw err;
+    }
+  }
+
+  private async logBillRateChanges(
+    meta: StoreSyncEventMeta,
+    billNo: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const lines = payload.lines;
+      if (!Array.isArray(lines) || lines.length === 0) return;
+      const skus = [
+        ...new Set(
+          lines
+            .map((line) =>
+              line && typeof line === 'object' && typeof (line as { sku?: unknown }).sku === 'string'
+                ? (line as { sku: string }).sku.trim()
+                : '',
+            )
+            .filter(Boolean),
+        ),
+      ];
+      const catalogBySku = new Map<string, CatalogPrice>();
+      for (const sku of skus) {
+        const product = await this.productsService.findBySku(sku);
+        if (!product) continue;
+        const idRaw = product._id;
+        const productId =
+          idRaw && typeof idRaw === 'object' && 'toString' in idRaw ? String(idRaw) : String(idRaw ?? sku);
+        catalogBySku.set(sku.toLowerCase(), {
+          productId,
+          sku,
+          storePrice: typeof product.storePrice === 'number' ? product.storePrice : null,
+          sellingPrice: typeof product.sellingPrice === 'number' ? product.sellingPrice : null,
+        });
+      }
+      const posCounter = this.optionalString(payload, 'posCounter');
+      const events = billRateChanges({
+        billNo,
+        storeId: meta.storeId,
+        deviceId: meta.deviceId,
+        ...(posCounter ? { posCounter } : {}),
+        lines,
+        catalogBySku,
+      });
+      for (const event of events) {
+        await this.auditLogs.logEvent(event);
+      }
+    } catch {
+      /* rate audit must not reject a saved bill */
     }
   }
 
@@ -161,16 +218,18 @@ export class StoreSalesSyncService {
 
   async applyAdjustmentCreated(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {
     const existing = await this.adjustmentModel.findOne({ sourceEventId: meta.eventId }).lean();
-    if (existing) return;
+    if (existing) {
+      await this.patchInvoiceForAdjustment(meta, payload);
+      return;
+    }
 
     const adjustmentNo = this.requireString(payload, 'adjustmentNo');
     const duplicate = await this.adjustmentModel
       .findOne({ storeId: meta.storeId, adjustmentNo })
       .lean();
     if (duplicate) {
-      throw new ConflictException(
-        `Adjustment '${adjustmentNo}' already exists for store '${meta.storeId}'`,
-      );
+      await this.patchInvoiceForAdjustment(meta, payload);
+      return;
     }
 
     try {
@@ -186,13 +245,59 @@ export class StoreSalesSyncService {
         err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000;
       if (dup) {
         const again = await this.adjustmentModel.findOne({ sourceEventId: meta.eventId }).lean();
-        if (again) return;
+        if (again) {
+          await this.patchInvoiceForAdjustment(meta, payload);
+          return;
+        }
         throw new ConflictException(
           `Adjustment '${adjustmentNo}' already exists for store '${meta.storeId}'`,
         );
       }
       throw err;
     }
+
+    await this.patchInvoiceForAdjustment(meta, payload);
+  }
+
+  private async patchInvoiceForAdjustment(
+    meta: StoreSyncEventMeta,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const originalBillNo = this.requireString(payload, 'originalBillNo');
+    const adjustmentNo = this.requireString(payload, 'adjustmentNo');
+
+    const invoice = await this.invoiceModel
+      .findOne({ storeId: meta.storeId, invoiceNo: originalBillNo })
+      .lean();
+    if (!invoice) {
+      throw new BadRequestException(
+        `Invoice '${originalBillNo}' not found for store '${meta.storeId}'`,
+      );
+    }
+
+    const currentPayload = (invoice.payload ?? {}) as Record<string, unknown>;
+    const appliedEventIds = Array.isArray(currentPayload.adjustmentAppliedEventIds)
+      ? (currentPayload.adjustmentAppliedEventIds as unknown[]).map((id) => String(id))
+      : [];
+    if (appliedEventIds.includes(meta.eventId)) return;
+
+    const existingAdjustmentNo =
+      typeof currentPayload.lastAdjustmentNo === 'string'
+        ? currentPayload.lastAdjustmentNo.trim()
+        : '';
+    if (existingAdjustmentNo && existingAdjustmentNo !== adjustmentNo) {
+      throw new ConflictException(
+        `Invoice '${originalBillNo}' already has adjustment '${existingAdjustmentNo}'`,
+      );
+    }
+
+    const mergedPayload = applyAdjustmentToBillPayload(currentPayload, payload);
+    mergedPayload.adjustmentAppliedEventIds = [...appliedEventIds, meta.eventId];
+
+    await this.invoiceModel.updateOne(
+      { storeId: meta.storeId, invoiceNo: originalBillNo },
+      { $set: { payload: mergedPayload } },
+    );
   }
 
   async applyCreditNoteCreated(meta: StoreSyncEventMeta, payload: Record<string, unknown>): Promise<void> {

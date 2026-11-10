@@ -9,6 +9,32 @@ import {
 } from './audit-change.util';
 import { AuditLog, AuditLogDocument } from './schemas/audit-log.schema';
 
+export function createdAtRange(from?: string, to?: string): { $gte?: Date; $lte?: Date } | undefined {
+  const gte = parseRangeBound(from, 'start');
+  const lte = parseRangeBound(to, 'end');
+  if (!gte && !lte) return undefined;
+  const range: { $gte?: Date; $lte?: Date } = {};
+  if (gte) range.$gte = gte;
+  if (lte) range.$lte = lte;
+  return range;
+}
+
+function parseRangeBound(value: string | undefined, edge: 'start' | 'end'): Date | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnly) {
+    const year = Number(dateOnly[1]);
+    const month = Number(dateOnly[2]);
+    const day = Number(dateOnly[3]);
+    if (edge === 'start') return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed;
+}
+
 export type LogProductChangeInput = {
   productId: string;
   sku?: string;
@@ -25,6 +51,13 @@ export type ListAuditLogsParams = {
   entityId?: string;
   sku?: string;
   action?: string;
+  source?: string;
+  storeId?: string;
+  deviceId?: string;
+  from?: string;
+  to?: string;
+  billNo?: string;
+  posCounter?: string;
   page?: number;
   limit?: number;
 };
@@ -63,18 +96,30 @@ export class AuditLogsService {
     entityType: string;
     entityId: string;
     action: string;
+    sku?: string;
     metadata?: Record<string, unknown>;
     actor?: AuditActor;
+    source?: string;
+    storeId?: string;
+    deviceId?: string;
+    billNo?: string;
+    posCounter?: string;
   }): Promise<void> {
     await this.auditModel.create({
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
+      sku: input.sku?.trim() || undefined,
       changes: [],
       metadata: input.metadata,
       actorUserId: input.actor?.sub,
       actorEmail: input.actor?.email,
       actorRole: input.actor?.role,
+      source: input.source?.trim() || undefined,
+      storeId: input.storeId?.trim() || undefined,
+      deviceId: input.deviceId?.trim() || undefined,
+      billNo: input.billNo?.trim() || undefined,
+      posCounter: input.posCounter?.trim() || undefined,
     });
   }
 
@@ -84,6 +129,13 @@ export class AuditLogsService {
     if (params.entityId?.trim()) filter.entityId = params.entityId.trim();
     if (params.sku?.trim()) filter.sku = params.sku.trim();
     if (params.action?.trim()) filter.action = params.action.trim();
+    if (params.source?.trim()) filter.source = params.source.trim();
+    if (params.storeId?.trim()) filter.storeId = params.storeId.trim();
+    if (params.deviceId?.trim()) filter.deviceId = params.deviceId.trim();
+    if (params.billNo?.trim()) filter.billNo = params.billNo.trim();
+    if (params.posCounter?.trim()) filter.posCounter = params.posCounter.trim();
+    const createdAt = createdAtRange(params.from, params.to);
+    if (createdAt) filter.createdAt = createdAt;
 
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(200, Math.max(1, params.limit ?? 50));

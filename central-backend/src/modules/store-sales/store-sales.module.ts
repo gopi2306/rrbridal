@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { ProductsModule } from '../products/products.module';
 import { InventoryLedgerEntry, InventoryLedgerSchema } from '../inventory/schemas/inventory-ledger.schema';
 import { StoreDailyExpense, StoreDailyExpenseSchema } from './schemas/store-daily-expense.schema';
 import { StoreDayClose, StoreDayCloseSchema } from './schemas/store-day-close.schema';
@@ -19,6 +21,8 @@ import { StoreSalesSyncService } from './store-sales-sync.service';
 
 @Module({
   imports: [
+    AuditLogsModule,
+    ProductsModule,
     InventoryModule,
     MongooseModule.forFeature([
       { name: InventoryLedgerEntry.name, schema: InventoryLedgerSchema },

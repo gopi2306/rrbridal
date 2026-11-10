@@ -276,11 +276,21 @@ public sealed class CentralStorePosClient
         throw new InvalidOperationException($"Central held-bill delete failed ({(int)res.StatusCode}): {Truncate(raw, 300)}");
     }
 
+    /// <summary>
+    /// Lists held bills. Primary counter (POS1) omits deviceId so holds from every till are returned.
+    /// Other counters keep the device filter and only see their own holds.
+    /// </summary>
+    internal static string HeldBillsListUrl(string storeId, string deviceId, bool isPrimaryCounter)
+    {
+        var url = $"/api/store-pos/held-bills?storeCode={Uri.EscapeDataString(storeId.Trim())}";
+        if (!isPrimaryCounter)
+            url += $"&deviceId={Uri.EscapeDataString(deviceId.Trim())}";
+        return url;
+    }
+
     public async Task<JsonDocument> ListHeldBillsAsync(CancellationToken ct = default)
     {
-        var url =
-            $"/api/store-pos/held-bills?storeCode={Uri.EscapeDataString(_storeContext.StoreId)}" +
-            $"&deviceId={Uri.EscapeDataString(_storeContext.DeviceId)}";
+        var url = HeldBillsListUrl(_storeContext.StoreId, _storeContext.DeviceId, _storeContext.IsPrimaryCounter);
         using var res = await _http.GetAsync(url, ct);
         var raw = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)

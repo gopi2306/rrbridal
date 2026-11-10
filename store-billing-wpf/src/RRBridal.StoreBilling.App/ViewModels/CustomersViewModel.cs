@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
@@ -54,9 +55,16 @@ public partial class CustomersViewModel : ObservableObject
     [ObservableProperty] private string _syncStatus = "";
     [ObservableProperty] private string _resultsCountSummary = "0 customers";
     [ObservableProperty] private string _detailPanelTitle = "Customer details";
+    [ObservableProperty] private string _gstinLookupStatus = "";
+    [ObservableProperty] private bool _isGstinLookupBusy;
+
+    private string _lastLookedUpGstin = "";
 
     public bool ShowDetailForm => IsNewCustomer || SelectedCustomer != null;
     public bool ShowDetailPlaceholder => !ShowDetailForm;
+
+    /// <summary>Hide when 2+ customers are checkbox-selected (Broadcast multi-select).</summary>
+    public bool ShowUseInBilling => Results.Count(r => r.IsSelected) <= 1;
     public string CustomerCodeHint => string.IsNullOrWhiteSpace(CustomerCode)
         ? "Assigned automatically when you save."
         : "Customer code cannot be edited after it is assigned.";
@@ -64,6 +72,36 @@ public partial class CustomersViewModel : ObservableObject
     public ObservableCollection<CustomerListRow> Results { get; } = new();
 
     private bool _suppressSelection;
+
+    private static readonly HashSet<string> DetailFieldNames = new(StringComparer.Ordinal)
+    {
+        nameof(CustomerName), nameof(Telephone), nameof(Mobile), nameof(Email), nameof(Gstin),
+        nameof(DoorNo), nameof(Street), nameof(FullAddress), nameof(Place), nameof(City),
+        nameof(Pincode), nameof(State), nameof(Landmark), nameof(IsCreditCustomer),
+    };
+
+    private bool _loadingDetail;
+    private int _detailEditVersion;
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (!_loadingDetail && e.PropertyName != null && DetailFieldNames.Contains(e.PropertyName))
+            _detailEditVersion++;
+    }
+
+    private void LoadDetail(Action load)
+    {
+        _loadingDetail = true;
+        try
+        {
+            load();
+        }
+        finally
+        {
+            _loadingDetail = false;
+        }
+    }
 
     public CustomersViewModel(AppServices services, BillingViewModel billing, Action navigateToBilling)
     {
@@ -76,6 +114,102 @@ public partial class CustomersViewModel : ObservableObject
             () => services.CentralMode.IsOnlineMode);
         _billing = billing;
         _navigateToBilling = navigateToBilling;
+        _services.PosBillingSettings.Changed += OnPosBillingSettingsChanged;
+    }
+
+    private void OnPosBillingSettingsChanged()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+            RefreshGstinLookupUi();
+        else
+            dispatcher.BeginInvoke(RefreshGstinLookupUi);
+    }
+
+    private void RefreshGstinLookupUi()
+    {
+        OnPropertyChanged(nameof(ShowGstinLookup));
+        SearchGstinCommand.NotifyCanExecuteChanged();
+    }
+
+    public bool ShowGstinLookup => _services.GstinLookup.IsEnabled && !IsDetailReadOnly;
+
+    partial void OnIsDetailReadOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowGstinLookup));
+        SearchGstinCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsGstinLookupBusyChanged(bool value) => SearchGstinCommand.NotifyCanExecuteChanged();
+
+    private bool CanSearchGstin() => ShowGstinLookup && !IsGstinLookupBusy;
+
+    [RelayCommand(CanExecute = nameof(CanSearchGstin))]
+    private Task SearchGstin() => LookupGstinAsync(GstinLookupApplyMode.OverwriteAddress, showErrors: true);
+
+    [RelayCommand]
+    private Task LookupGstinOnLostFocus() =>
+        LookupGstinAsync(GstinLookupApplyMode.FillEmpty, showErrors: false);
+
+    private async Task LookupGstinAsync(GstinLookupApplyMode mode, bool showErrors)
+    {
+        if (!_services.GstinLookup.IsEnabled || IsDetailReadOnly)
+            return;
+
+        var gstin = GstinLookupMapper.Normalize(Gstin);
+        if (!showErrors && !GstinLookupMapper.IsValidGstin(gstin))
+            return;
+        if (!showErrors
+            && string.Equals(gstin, _lastLookedUpGstin, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IsGstinLookupBusy = true;
+        GstinLookupStatus = "Searching GSTIN…";
+        try
+        {
+            var (data, error) = await _services.GstinLookup.LookupAsync(gstin);
+            if (data == null)
+            {
+                GstinLookupStatus = showErrors ? (error ?? "GSTIN not found.") : "";
+                if (showErrors && !string.IsNullOrWhiteSpace(GstinLookupStatus))
+                    StatusMessage = GstinLookupStatus;
+                return;
+            }
+
+            ApplyGstinLookup(data, mode);
+            _lastLookedUpGstin = GstinLookupMapper.Normalize(data.Gstin);
+            Gstin = _lastLookedUpGstin;
+            GstinLookupStatus = GstinLookupMapper.StatusMessage(data);
+            StatusMessage = GstinLookupStatus;
+        }
+        finally
+        {
+            IsGstinLookupBusy = false;
+        }
+    }
+
+    private void ApplyGstinLookup(GstinLookupDetails data, GstinLookupApplyMode mode)
+    {
+        var applied = GstinLookupMapper.Apply(
+            data,
+            new GstinLookupFieldSet
+            {
+                Name = CustomerName,
+                DoorNo = DoorNo,
+                Street = Street,
+                FullAddress = FullAddress,
+                City = City,
+                State = State,
+                Pincode = Pincode,
+            },
+            mode);
+        CustomerName = applied.Name;
+        DoorNo = applied.DoorNo;
+        Street = applied.Street;
+        FullAddress = applied.FullAddress;
+        City = applied.City;
+        State = applied.State;
+        Pincode = applied.Pincode;
     }
 
     public void StartNewRegistration()
@@ -103,7 +237,6 @@ public partial class CustomersViewModel : ObservableObject
 
         NotifyDetailVisibility();
         SaveCommand.NotifyCanExecuteChanged();
-        UseInBillingCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyNewCustomerFormState()
@@ -147,9 +280,14 @@ public partial class CustomersViewModel : ObservableObject
             _suppressSelection = true;
             try
             {
+                foreach (var existing in Results)
+                    existing.PropertyChanged -= OnCustomerRowPropertyChanged;
                 Results.Clear();
                 foreach (var row in rows)
+                {
+                    row.PropertyChanged += OnCustomerRowPropertyChanged;
                     Results.Add(row);
+                }
             }
             finally
             {
@@ -159,9 +297,12 @@ public partial class CustomersViewModel : ObservableObject
             ResultsCountSummary = rows.Count == 0 ? "No matches" : $"{rows.Count} customer(s)";
             if (IsNewCustomer)
             {
-                SelectedCustomer = null;
+                if (SelectedCustomer != null)
+                {
+                    SelectedCustomer = null;
+                    NotifyDetailVisibility();
+                }
                 ApplyNewCustomerFormState();
-                NotifyDetailVisibility();
             }
             else if (autoSelectFirst)
             {
@@ -176,12 +317,23 @@ public partial class CustomersViewModel : ObservableObject
                     ? "No customers found."
                     : $"{rows.Count} customer(s) found.";
             }
+
+            NotifyUseInBillingVisibility();
         }
         catch (Exception ex)
         {
             StatusMessage = "Search failed: " + ex.Message;
         }
     }
+
+    private void OnCustomerRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CustomerListRow.IsSelected))
+            NotifyUseInBillingVisibility();
+    }
+
+    private void NotifyUseInBillingVisibility() =>
+        OnPropertyChanged(nameof(ShowUseInBilling));
 
     partial void OnSelectedCustomerChanged(CustomerListRow? value)
     {
@@ -191,8 +343,6 @@ public partial class CustomersViewModel : ObservableObject
         if (value != null)
             IsNewCustomer = false;
         _ = LoadSelectedDetailAsync(value);
-        UseInBillingCommand.NotifyCanExecuteChanged();
-        SaveCommand.NotifyCanExecuteChanged();
         NotifyDetailVisibility();
     }
 
@@ -200,73 +350,92 @@ public partial class CustomersViewModel : ObservableObject
 
     private async Task LoadSelectedDetailAsync(CustomerListRow? row)
     {
-        if (row == null)
+        try
         {
-            if (IsNewCustomer)
-                return;
-
-            ClearDetailForm();
-            DetailSourceLabel = "";
-            DetailPanelTitle = "Customer details";
-            IsDetailReadOnly = true;
-            StatusMessage = "Select a customer from the list or click New customer.";
-            return;
-        }
-
-        DetailPanelTitle = row.Name;
-
-        if (row.Source == "Central" || string.IsNullOrWhiteSpace(row.LocalMongoId))
-        {
-            LoadDetailFromRow(row);
-
-            if (_services.CentralMode.IsOnlineMode && !string.IsNullOrWhiteSpace(row.CentralCustomerId))
+            if (row == null)
             {
-                try
+                if (IsNewCustomer)
+                    return;
+
+                ClearDetailForm();
+                DetailSourceLabel = "";
+                DetailPanelTitle = "Customer details";
+                IsDetailReadOnly = true;
+                StatusMessage = "Select a customer from the list or click New customer.";
+                return;
+            }
+
+            DetailPanelTitle = row.Name;
+
+            if (row.Source == "Central" || string.IsNullOrWhiteSpace(row.LocalMongoId))
+            {
+                LoadDetail(() => LoadDetailFromRow(row));
+
+                if (_services.CentralMode.IsOnlineMode && !string.IsNullOrWhiteSpace(row.CentralCustomerId))
                 {
-                    StatusMessage = $"Loading {row.Name}…";
-                    var central = await _lookup.GetCentralByIdAsync(row.CentralCustomerId);
-                    if (central != null
-                        && SelectedCustomer?.CentralCustomerId == row.CentralCustomerId)
+                    try
                     {
-                        LoadDetailFromCentralMatch(central);
-                        DetailPanelTitle = CustomerName;
+                        StatusMessage = $"Loading {row.Name}…";
+                        var editVersion = _detailEditVersion;
+                        var central = await _lookup.GetCentralByIdAsync(row.CentralCustomerId);
+                        if (central != null
+                            && SelectedCustomer?.CentralCustomerId == row.CentralCustomerId
+                            && editVersion == _detailEditVersion)
+                        {
+                            LoadDetail(() => LoadDetailFromCentralMatch(central));
+                            DetailPanelTitle = CustomerName;
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    StatusMessage = $"Loaded list fields only — full detail failed: {ex.Message}";
+                    catch (Exception ex)
+                    {
+                        StatusMessage = $"Loaded list fields only — full detail failed: {ex.Message}";
+                        DetailSourceLabel = "Central customer — editable (Online mode).";
+                        IsDetailReadOnly = false;
+                        return;
+                    }
+
                     DetailSourceLabel = "Central customer — editable (Online mode).";
                     IsDetailReadOnly = false;
-                    return;
+                    StatusMessage = $"Viewing {CustomerName} (central).";
                 }
-
-                DetailSourceLabel = "Central customer — editable (Online mode).";
-                IsDetailReadOnly = false;
-                StatusMessage = $"Viewing {CustomerName} (central).";
+                else
+                {
+                    DetailSourceLabel = "Central customer (register locally to edit)";
+                    IsDetailReadOnly = true;
+                    StatusMessage = $"{row.Name} — central record only.";
+                }
+                return;
             }
-            else
+
+            var localEditVersion = _detailEditVersion;
+            var doc = await _directory.GetLocalByIdAsync(row.LocalMongoId);
+            if (!ReferenceEquals(SelectedCustomer, row))
+                return;
+            if (localEditVersion != _detailEditVersion)
             {
-                DetailSourceLabel = "Central customer (register locally to edit)";
-                IsDetailReadOnly = true;
-                StatusMessage = $"{row.Name} — central record only.";
+                DetailSourceLabel = "Local customer — edits sync to central when linked.";
+                IsDetailReadOnly = false;
+                return;
             }
-            return;
-        }
 
-        var doc = await _directory.GetLocalByIdAsync(row.LocalMongoId);
-        if (doc == null)
-        {
-            LoadDetailFromRow(row);
-            DetailSourceLabel = "Local";
+            if (doc == null)
+            {
+                LoadDetail(() => LoadDetailFromRow(row));
+                DetailSourceLabel = "Local";
+                IsDetailReadOnly = false;
+                return;
+            }
+
+            LoadDetail(() => LoadDetailFromDocument(doc));
+            DetailPanelTitle = CustomerName;
+            DetailSourceLabel = "Local customer — edits sync to central when linked.";
             IsDetailReadOnly = false;
-            return;
+            StatusMessage = $"Viewing {CustomerName}.";
         }
-
-        LoadDetailFromDocument(doc);
-        DetailPanelTitle = CustomerName;
-        DetailSourceLabel = "Local customer — edits sync to central when linked.";
-        IsDetailReadOnly = false;
-        StatusMessage = $"Viewing {CustomerName}.";
+        finally
+        {
+            SaveCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private void LoadDetailFromRow(CustomerListRow row)
@@ -421,7 +590,6 @@ public partial class CustomersViewModel : ObservableObject
             var savedRow = FindSavedRow(result);
             if (savedRow != null)
                 SelectedCustomer = savedRow;
-            UseInBillingCommand.NotifyCanExecuteChanged();
             SaveCommand.NotifyCanExecuteChanged();
             StatusMessage = $"Customer {CustomerName} saved.";
         }
@@ -435,11 +603,37 @@ public partial class CustomersViewModel : ObservableObject
     private bool CanSave() => IsNewCustomer
         || (!IsDetailReadOnly && (!string.IsNullOrWhiteSpace(LocalMongoId) || !string.IsNullOrWhiteSpace(CentralCustomerId)));
 
-    [RelayCommand(CanExecute = nameof(CanUseInBilling))]
+    [RelayCommand]
     private void UseInBilling()
     {
-        if (string.IsNullOrWhiteSpace(CustomerName))
+        if (!ShowUseInBilling)
             return;
+
+        // Prefer the single checkbox selection; otherwise the focused/detail row.
+        var checkedRows = Results.Where(r => r.IsSelected).ToList();
+        var row = checkedRows.Count == 1
+            ? checkedRows[0]
+            : SelectedCustomer;
+
+        if (row != null
+            && (string.IsNullOrWhiteSpace(CustomerName)
+                || !string.Equals(CustomerCode, row.CustomerCode, StringComparison.OrdinalIgnoreCase)))
+        {
+            LoadDetailFromRow(row);
+        }
+
+        if (string.IsNullOrWhiteSpace(CustomerName)
+            || (string.IsNullOrWhiteSpace(CustomerCode)
+                && string.IsNullOrWhiteSpace(LocalMongoId)
+                && string.IsNullOrWhiteSpace(CentralCustomerId)))
+        {
+            AppDialog.Show(
+                "Select one customer, then Use in billing.",
+                "Use in billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
 
         _billing.ApplyCustomerRegistration(new CustomerRegistrationResult
         {
@@ -455,14 +649,6 @@ public partial class CustomersViewModel : ObservableObject
         });
         _navigateToBilling();
     }
-
-    private bool CanUseInBilling() =>
-        !IsNewCustomer
-        && !string.IsNullOrWhiteSpace(CustomerName)
-        && (SelectedCustomer != null
-            || !string.IsNullOrWhiteSpace(LocalMongoId)
-            || !string.IsNullOrWhiteSpace(CentralCustomerId)
-            || !string.IsNullOrWhiteSpace(CustomerCode));
 
     private CustomerRegistrationPayload BuildPayload() => new()
     {
@@ -489,6 +675,7 @@ public partial class CustomersViewModel : ObservableObject
         foreach (var row in Results)
             row.IsSelected = true;
         StatusMessage = $"{Results.Count} customer(s) selected.";
+        NotifyUseInBillingVisibility();
     }
 
     [RelayCommand]
@@ -497,6 +684,7 @@ public partial class CustomersViewModel : ObservableObject
         foreach (var row in Results)
             row.IsSelected = false;
         StatusMessage = "Selection cleared.";
+        NotifyUseInBillingVisibility();
     }
 
     [RelayCommand]
@@ -570,6 +758,8 @@ public partial class CustomersViewModel : ObservableObject
         Landmark = "";
         IsCreditCustomer = false;
         SyncStatus = "";
+        GstinLookupStatus = "";
+        _lastLookedUpGstin = "";
         OnPropertyChanged(nameof(CustomerCodeHint));
     }
 

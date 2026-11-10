@@ -6,9 +6,10 @@ import { join, relative, resolve, sep } from 'path';
 import { once } from 'events';
 import { StoresService } from './stores.service';
 
-const EXE_NAME = 'RRBridal.StoreBilling.App.exe';
+const EXE_NAME = 'trubill.exe';
+const SETUP_NAME = 'setup.exe';
 
-export type BillingClientFormat = 'exe' | 'zip';
+export type BillingClientFormat = 'exe' | 'zip' | 'setup';
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -72,12 +73,16 @@ export class BillingClientPackageService {
     const zipPath = join(workDir, 'package.zip');
     const filename =
       format === 'exe'
-        ? `RRBridal-StoreBilling-${code}-counter-${padded}-exe.zip`
-        : `RRBridal-StoreBilling-${code}-counter-${padded}.zip`;
+        ? `trubill-${code}-counter-${padded}-exe.zip`
+        : format === 'setup'
+          ? `trubill-${code}-counter-${padded}-setup.zip`
+          : `trubill-${code}-counter-${padded}.zip`;
 
     try {
       if (format === 'exe') {
         await this.writeExeZip(envContents, zipPath);
+      } else if (format === 'setup') {
+        await this.writeSetupZip(envContents, zipPath);
       } else {
         await this.writeFolderZip(envContents, zipPath);
       }
@@ -131,7 +136,7 @@ export class BillingClientPackageService {
     const raw = (process.env.BILLING_CLIENT_SINGLE_EXE_PATH ?? '').trim();
     if (!raw) {
       throw new ServiceUnavailableException(
-        'BILLING_CLIENT_SINGLE_EXE_PATH is not set. Point it at the PublishSingleFile RRBridal.StoreBilling.App.exe from publish-store-billing-client.ps1.',
+        'BILLING_CLIENT_SINGLE_EXE_PATH is not set. Point it at the PublishSingleFile trubill.exe from publish-store-billing-client.ps1.',
       );
     }
     return resolve(raw);
@@ -159,6 +164,16 @@ export class BillingClientPackageService {
     await this.writeZipEntries(entries, zipPath);
   }
 
+  private resolveSetupExePath(): string {
+    const raw = (process.env.BILLING_CLIENT_SETUP_EXE_PATH ?? '').trim();
+    if (!raw) {
+      throw new ServiceUnavailableException(
+        'BILLING_CLIENT_SETUP_EXE_PATH is not set. Point it at setup.exe from publish-store-billing-client.ps1 (Inno Setup).',
+      );
+    }
+    return resolve(raw);
+  }
+
   private async writeExeZip(envContents: string, zipPath: string): Promise<void> {
     const singleExePath = this.resolveSingleExePath();
     if (!existsSync(singleExePath)) {
@@ -171,6 +186,23 @@ export class BillingClientPackageService {
     const exeBytes = await readFile(singleExePath);
     const entries: Array<{ name: string; data: Buffer }> = [
       { name: EXE_NAME, data: exeBytes },
+      { name: '.env', data: Buffer.from(envContents, 'utf8') },
+    ];
+    await this.writeZipEntries(entries, zipPath);
+  }
+
+  private async writeSetupZip(envContents: string, zipPath: string): Promise<void> {
+    const setupExePath = this.resolveSetupExePath();
+    if (!existsSync(setupExePath)) {
+      throw new ServiceUnavailableException(
+        `Billing client setup.exe not found at BILLING_CLIENT_SETUP_EXE_PATH (${setupExePath}). ` +
+          'Publish on Windows with store-billing-wpf/scripts/publish-store-billing-client.ps1 (Inno Setup 6) and copy setup.exe to this host.',
+      );
+    }
+
+    const setupBytes = await readFile(setupExePath);
+    const entries: Array<{ name: string; data: Buffer }> = [
+      { name: SETUP_NAME, data: setupBytes },
       { name: '.env', data: Buffer.from(envContents, 'utf8') },
     ];
     await this.writeZipEntries(entries, zipPath);

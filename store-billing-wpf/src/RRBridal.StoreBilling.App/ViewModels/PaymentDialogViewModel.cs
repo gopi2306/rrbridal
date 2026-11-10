@@ -246,14 +246,24 @@ public partial class PaymentDialogViewModel : ObservableObject
     {
         if (_suppressCreditAdvanceTextSync)
             return;
-        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amt)
-            || decimal.TryParse(value, NumberStyles.Number, InCulture, out amt))
+
+        // Keep exactly what the user typed; only the numeric amount follows the text.
+        _suppressCreditAdvanceTextSync = true;
+        try
         {
-            CreditAdvanceAmount = MoneyMath.RoundDisplayAmount(Math.Max(0m, amt));
+            if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amt)
+                || decimal.TryParse(value, NumberStyles.Number, InCulture, out amt))
+            {
+                CreditAdvanceAmount = MoneyMath.RoundDisplayAmount(Math.Max(0m, amt));
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                CreditAdvanceAmount = 0;
+            }
         }
-        else if (string.IsNullOrWhiteSpace(value))
+        finally
         {
-            CreditAdvanceAmount = 0;
+            _suppressCreditAdvanceTextSync = false;
         }
     }
 

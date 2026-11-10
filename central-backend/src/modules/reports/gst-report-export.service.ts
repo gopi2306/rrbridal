@@ -12,12 +12,14 @@ import {
   GstPurchaseInvoiceRow,
   GstPurchaseReportSection,
   GstRateSummaryRow,
+  GstSalesCustomerRow,
   GstSalesInvoiceRow,
   GstSalesReportSection,
   GstSectionSummary,
   GstTaxBreakdown,
   GstHsnRow,
 } from './gst-report.types';
+import { WALK_IN_CUSTOMER_KEY } from './gst-report.util';
 
 const SUMMARY_HEADERS = [
   'Taxable Amount',
@@ -79,9 +81,35 @@ const SALES_INVOICE_HEADERS = [
   'Document Type',
   'Document No',
   'Document Date',
+  'Customer Code',
   'Customer Name',
+  'Customer Phone',
+  'Customer GSTIN',
+  'B2B / B2C',
   'Inter-state',
   'Line Count',
+  'GST %',
+  'SGST %',
+  'CGST %',
+  'IGST %',
+  'Taxable Amount',
+  'Tax Amount',
+  'SGST Amount',
+  'CGST Amount',
+  'IGST Amount',
+  'Total Inclusive',
+] as const;
+
+const SALES_CUSTOMER_HEADERS = [
+  'Customer Code',
+  'Customer Name',
+  'Customer Phone',
+  'Customer GSTIN',
+  'B2B / B2C',
+  'Invoices',
+  'Returns',
+  'First Date',
+  'Last Date',
   'GST %',
   'SGST %',
   'CGST %',
@@ -182,6 +210,11 @@ export class GstReportExportService {
         headers: SALES_INVOICE_HEADERS,
         rows: section.byInvoice.map((row) => this.salesInvoiceRow(row)),
       },
+      {
+        name: 'Sales Customer wise',
+        headers: SALES_CUSTOMER_HEADERS,
+        rows: section.byCustomer.map((row) => this.salesCustomerRow(row)),
+      },
     ];
   }
 
@@ -280,9 +313,37 @@ export class GstReportExportService {
       row.documentType,
       row.documentNo,
       row.documentDate,
+      row.customerCode ?? '',
       row.customerName ?? '',
+      row.customerPhone ?? '',
+      row.customerGstin ?? '',
+      row.supplyCategory,
       row.isInterState ? 'Yes' : 'No',
       String(row.lineCount),
+      String(row.gstPercent),
+      String(row.sgstPercent),
+      String(row.cgstPercent),
+      String(row.igstPercent),
+      formatExportMoney(row.taxableAmount),
+      formatExportMoney(row.taxAmount),
+      formatExportMoney(row.sgstAmount),
+      formatExportMoney(row.cgstAmount),
+      formatExportMoney(row.igstAmount),
+      formatExportMoney(row.totalInclusive),
+    ];
+  }
+
+  private salesCustomerRow(row: GstSalesCustomerRow): string[] {
+    return [
+      row.customerCode ?? '',
+      row.customerName ?? (row.customerKey === WALK_IN_CUSTOMER_KEY ? 'Walk-in' : ''),
+      row.customerPhone ?? '',
+      row.customerGstin ?? '',
+      row.supplyCategory,
+      String(row.invoiceCount),
+      String(row.returnCount),
+      row.firstDocumentDate,
+      row.lastDocumentDate,
       String(row.gstPercent),
       String(row.sgstPercent),
       String(row.cgstPercent),

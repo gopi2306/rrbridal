@@ -57,6 +57,22 @@ export class AuditLog {
 
   @Prop()
   actorRole?: string;
+
+  @ApiProperty({ required: false, example: 'central' })
+  @Prop({ index: true })
+  source?: string;
+
+  @Prop({ index: true })
+  storeId?: string;
+
+  @Prop()
+  deviceId?: string;
+
+  @Prop({ index: true })
+  billNo?: string;
+
+  @Prop({ index: true })
+  posCounter?: string;
 }
 
 export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);

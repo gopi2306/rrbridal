@@ -232,6 +232,29 @@ public class TaxInvoiceA4DocumentTests
     }
 
     [Fact]
+    public void Document_shows_store_and_buyer_phone_and_salesperson_footer()
+    {
+        var text = OnSta(() =>
+        {
+            var input = SampleBill(
+                isInterState: false,
+                store: new StoreProfile
+                {
+                    StoreName = "RR Bridal Test",
+                    Address = "Hyderabad",
+                    Gstin = "36ABFFR4340C1ZI",
+                    StateName = "Telangana",
+                    CustomerCarePhone = "9000012345",
+                });
+            return CollectDocumentText(TaxInvoiceA4DocumentBuilder.Create(input));
+        });
+
+        Assert.Contains("Mobile No. 1: 9000012345", text);
+        Assert.Contains("Phone: 9876543210", text);
+        Assert.Contains("Salesperson: Cashier", text);
+    }
+
+    [Fact]
     public void Document_typical_line_count_stays_single_page_with_totals()
     {
         var (pageCount, text) = OnSta(() =>

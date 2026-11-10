@@ -37,9 +37,9 @@ npm run seed
 
 The desktop POS lives in [`store-billing-wpf`](../store-billing-wpf/).
 
-- **Publish (Windows/CI only):** `store-billing-wpf/scripts/publish-store-billing-client.ps1` → folder (`format=zip`) + PublishSingleFile EXE (`format=exe`).
-- **Deploy artifacts** to the Linux API host paths used by `BILLING_CLIENT_ARTIFACT_DIR` and `BILLING_CLIENT_SINGLE_EXE_PATH`.
-- **Download API:** `GET /api/admin/stores/:code/billing-client?posCounter=1&format=exe|zip` — see [store-billing-client-download.md](store-billing-client-download.md).
+- **Publish (Windows/CI only):** `store-billing-wpf/scripts/publish-store-billing-client.ps1` → folder (`format=zip`) + PublishSingleFile EXE (`format=exe`) + Inno Setup `setup.exe` (`format=setup`, when ISCC is installed).
+- **Deploy artifacts** to the Linux API host paths used by `BILLING_CLIENT_ARTIFACT_DIR`, `BILLING_CLIENT_SINGLE_EXE_PATH`, and `BILLING_CLIENT_SETUP_EXE_PATH`.
+- **Download API:** `GET /api/admin/stores/:code/billing-client?posCounter=1&format=exe|zip|setup` — see [store-billing-client-download.md](store-billing-client-download.md).
 
 Till config is runtime `.env` beside the EXE (`CENTRAL_API_BASE`, `STORE_ID`, `POS_COUNTER`, …). The Nest API on Linux AWS does **not** run `dotnet publish`.
 

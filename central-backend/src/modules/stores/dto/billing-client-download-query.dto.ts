@@ -11,12 +11,12 @@ export class BillingClientDownloadQueryDto {
   posCounter!: number;
 
   @ApiPropertyOptional({
-    enum: ['exe', 'zip'],
+    enum: ['exe', 'zip', 'setup'],
     default: 'zip',
     description:
-      'zip = full self-contained folder + .env. exe = tiny zip with PublishSingleFile EXE + .env only.',
+      'zip = full self-contained folder + .env. exe = tiny zip with PublishSingleFile EXE + .env only. setup = zip with setup.exe + .env.',
   })
   @IsOptional()
-  @IsIn(['exe', 'zip'])
-  format?: 'exe' | 'zip';
+  @IsIn(['exe', 'zip', 'setup'])
+  format?: 'exe' | 'zip' | 'setup';
 }

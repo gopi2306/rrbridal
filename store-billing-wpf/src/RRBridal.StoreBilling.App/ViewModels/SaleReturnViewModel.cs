@@ -50,6 +50,8 @@ public partial class SaleReturnViewModel : ObservableObject
     private bool _legacyPhoneCaptureInProgress;
     private bool _legacyPhoneWasComplete;
     private string _lastCommittedLegacyPhoneNorm = "";
+    private string _loadedLegacyCustomerCode = "";
+    private string _loadedLegacyPhoneNorm = "";
 
     [ObservableProperty] private string _originalBillNo = "";
     [ObservableProperty] private string _searchCustomerName = "";
@@ -248,6 +250,10 @@ public partial class SaleReturnViewModel : ObservableObject
         if (norm != _lastCommittedLegacyPhoneNorm)
             _lastCommittedLegacyPhoneNorm = "";
 
+        // The customer code belongs to the looked-up phone; drop it (but keep the name) while the phone differs.
+        if (!_suppressLegacyPhoneAutoSearch && _loadedLegacyPhoneNorm.Length > 0)
+            LegacyCustomerCode = norm == _loadedLegacyPhoneNorm ? _loadedLegacyCustomerCode : "";
+
         var isComplete = PhoneMatchHelper.IsPhoneLikeQuery((value ?? "").Trim());
         if (isComplete && !_legacyPhoneWasComplete)
             _ = HandleLegacyPhoneCommittedAsync();
@@ -415,7 +421,8 @@ public partial class SaleReturnViewModel : ObservableObject
                 initialName,
                 existingMatch: null,
                 isNewCustomer: isNewCustomer,
-                exactMatchCount: 0)
+                exactMatchCount: 0,
+                gstinLookup: _services.GstinLookup)
             {
                 Owner = Application.Current.MainWindow
             };
@@ -464,8 +471,15 @@ public partial class SaleReturnViewModel : ObservableObject
         }
 
         _lastCommittedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(match.Phone);
+        RememberLoadedLegacyCustomer();
         _legacyPhoneWasComplete = PhoneMatchHelper.IsPhoneLikeQuery(LegacyCustomerPhone);
         StatusMessage = $"Customer loaded: {LegacyCustomerName.Trim()}. Enter invoice details and press Start return.";
+    }
+
+    private void RememberLoadedLegacyCustomer()
+    {
+        _loadedLegacyCustomerCode = LegacyCustomerCode;
+        _loadedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(LegacyCustomerPhone);
     }
 
     private void ApplyLegacyCustomerRegistration(CustomerRegistrationResult result)
@@ -483,6 +497,7 @@ public partial class SaleReturnViewModel : ObservableObject
         }
 
         _lastCommittedLegacyPhoneNorm = PhoneMatchHelper.NormalizePhone(result.CustomerPhone);
+        RememberLoadedLegacyCustomer();
         _legacyPhoneWasComplete = PhoneMatchHelper.IsPhoneLikeQuery(LegacyCustomerPhone);
         StatusMessage = $"New customer saved: {result.CustomerName.Trim()}. Enter invoice details and press Start return.";
     }
@@ -1794,6 +1809,8 @@ public partial class SaleReturnViewModel : ObservableObject
 
         OriginalBillNo = "";
         OriginalBillDate = null;
+        _loadedLegacyCustomerCode = "";
+        _loadedLegacyPhoneNorm = "";
         LegacyCustomerName = "";
         LegacyCustomerPhone = "";
         LegacyCustomerCode = "";

@@ -26,7 +26,10 @@ import {
   parseExchangeGstLines,
   parseInvoiceGstLines,
   parseReturnGstLines,
+  readSalesCustomerDetails,
+  SalesCustomerDetails,
   summarizeGstRows,
+  aggregateSalesByCustomer,
 } from './gst-report.util';
 import {
   GstPurchaseReportResult,
@@ -110,12 +113,14 @@ export class GstReportService {
     const summarized = summarizeGstRows(salesRows.contributions, salesRows.documentCount, {
       section: 'sales',
     });
+    const byInvoice = summarized.byInvoice as GstSalesReportSection['byInvoice'];
     return {
       summary: summarized.summary,
       byGstRate: summarized.byGstRate,
       byHsn: summarized.byHsn,
       byItem: summarized.byItem,
-      byInvoice: summarized.byInvoice as GstSalesReportSection['byInvoice'],
+      byInvoice,
+      byCustomer: aggregateSalesByCustomer(byInvoice),
     };
   }
 
@@ -159,15 +164,21 @@ export class GstReportService {
       contributions.push(...parseInvoiceGstLines(payload, document));
     }
 
+    const originalBillCustomers = await this.loadOriginalBillCustomers(returns, invoices);
+
     for (const doc of returns) {
       const payload = (doc.payload ?? {}) as Record<string, unknown>;
       const documentType = doc.kind === 'exchange' ? 'exchange' : 'return';
+      const originalBillNo = readString(payload.originalBillNo);
       const document = this.salesDocumentContext(
         doc.storeId,
         doc.returnNo,
         documentType,
         payload,
         readDocCreatedAt(doc),
+        originalBillNo
+          ? originalBillCustomers.get(`${doc.storeId}|${originalBillNo}`)
+          : undefined,
       );
       contributions.push(...parseReturnGstLines(payload, document));
       if (doc.kind === 'exchange') {
@@ -184,11 +195,16 @@ export class GstReportService {
     documentType: GstDocumentContext['documentType'],
     payload: Record<string, unknown>,
     createdAt?: Date,
+    originalBillCustomer?: SalesCustomerDetails,
   ): GstDocumentContext {
     const documentDate =
       formatDocumentDateYmd(payload.createdAtUtc, createdAt) ||
       formatDocumentDateYmd(createdAt);
-    const customerName = readString(payload.customerName);
+    const own = readSalesCustomerDetails(payload);
+    const customerCode = own.customerCode ?? originalBillCustomer?.customerCode;
+    const customerName = own.customerName ?? originalBillCustomer?.customerName;
+    const customerPhone = own.customerPhone ?? originalBillCustomer?.customerPhone;
+    const customerGstin = own.customerGstin ?? originalBillCustomer?.customerGstin;
     const isInterState =
       payload.isInterState === true || payload.isInterState === 'true';
     const documentKey = `${storeId}|${documentType}|${documentNo}`;
@@ -199,9 +215,51 @@ export class GstReportService {
       documentDate,
       storeId,
     };
+    if (customerCode) context.customerCode = customerCode;
     if (customerName) context.customerName = customerName;
+    if (customerPhone) context.customerPhone = customerPhone;
+    if (customerGstin) context.customerGstin = customerGstin;
     if (isInterState) context.isInterState = true;
     return context;
+  }
+
+  /** Customer details of the bills that returns point at, keyed `storeId|invoiceNo`. */
+  private async loadOriginalBillCustomers(
+    returns: Array<{ storeId: string; payload?: unknown }>,
+    invoicesInRange: Array<{ storeId: string; invoiceNo: string; payload?: unknown }>,
+  ): Promise<Map<string, SalesCustomerDetails>> {
+    const byKey = new Map<string, SalesCustomerDetails>();
+    const remember = (doc: { storeId: string; invoiceNo: string; payload?: unknown }) => {
+      const payload = (doc.payload ?? {}) as Record<string, unknown>;
+      byKey.set(`${doc.storeId}|${doc.invoiceNo}`, readSalesCustomerDetails(payload));
+    };
+    invoicesInRange.forEach(remember);
+
+    const missingNos = new Set<string>();
+    for (const doc of returns) {
+      const payload = (doc.payload ?? {}) as Record<string, unknown>;
+      const originalBillNo = readString(payload.originalBillNo);
+      if (originalBillNo && !byKey.has(`${doc.storeId}|${originalBillNo}`)) {
+        missingNos.add(originalBillNo);
+      }
+    }
+    if (missingNos.size === 0) return byKey;
+
+    const originals = await this.invoiceModel
+      .find(
+        { invoiceNo: { $in: [...missingNos] } },
+        {
+          storeId: 1,
+          invoiceNo: 1,
+          'payload.customerCode': 1,
+          'payload.customerName': 1,
+          'payload.customerPhone': 1,
+          'payload.customerGstin': 1,
+        },
+      )
+      .lean();
+    originals.forEach(remember);
+    return byKey;
   }
 
   private async buildPurchaseContributions(

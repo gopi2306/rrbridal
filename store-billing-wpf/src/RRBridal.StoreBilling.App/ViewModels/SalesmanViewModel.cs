@@ -17,6 +17,7 @@ public partial class SalesmanViewModel : ObservableObject
     private readonly SalesmanCodeGenerator _codeGenerator;
 
     [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private string _searchError = "";
     [ObservableProperty] private string _editName = "";
     [ObservableProperty] private string _editPhone = "";
     [ObservableProperty] private string _editCode = "";
@@ -56,13 +57,23 @@ public partial class SalesmanViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowEditIsActive));
     }
 
+    partial void OnSearchTextChanged(string value) => SearchError = "";
+
     [RelayCommand]
     private async Task Refresh()
     {
+        var searchError = SalesmanInputRules.ValidateSearch(SearchText);
+        if (searchError != null)
+        {
+            SearchError = searchError;
+            return;
+        }
+
+        SearchError = "";
         try
         {
             StatusMessage = "Loading salesman records…";
-            var rows = await _salesmanService.ListAsync(SearchText);
+            var rows = await _salesmanService.ListAsync(SearchText.Trim());
             Salesmen.Clear();
             foreach (var row in rows)
                 Salesmen.Add(row);
@@ -101,23 +112,26 @@ public partial class SalesmanViewModel : ObservableObject
     [RelayCommand]
     private async Task Save()
     {
-        if (string.IsNullOrWhiteSpace(EditName))
+        var validationError = SalesmanInputRules.ValidateName(EditName) ?? SalesmanInputRules.ValidatePhone(EditPhone);
+        if (validationError != null)
         {
-            AppDialog.Show("Salesman name is required.", "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
+            AppDialog.Show(validationError, "RR Bridal Billing", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
+        var name = EditName.Trim();
+        var phone = EditPhone.Trim();
         try
         {
             StatusMessage = "Saving…";
             SalesmanSaveResult result;
             if (SelectedSalesman == null)
             {
-                result = await _salesmanService.CreateAsync(EditName, EditPhone, EditCode);
+                result = await _salesmanService.CreateAsync(name, phone, EditCode);
             }
             else
             {
-                result = await _salesmanService.UpdateAsync(SelectedSalesman, EditName, EditPhone, EditIsActive);
+                result = await _salesmanService.UpdateAsync(SelectedSalesman, name, phone, EditIsActive);
             }
 
             if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))

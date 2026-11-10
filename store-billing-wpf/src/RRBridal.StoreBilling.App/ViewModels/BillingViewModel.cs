@@ -71,6 +71,14 @@ public partial class BillingViewModel : ObservableObject
     [ObservableProperty] private SalesmanRecord? _selectedSalesman;
     [ObservableProperty] private string _customerPhone = "";
     [ObservableProperty] private string _customerGstin = "";
+    [ObservableProperty] private bool _isGstinLookupBusy;
+
+    public bool ShowGstinLookup => _services.GstinLookup.IsEnabled;
+
+    public bool ShowHoldBills => _services.PosBillingSettings.Current.EnableHoldBills;
+
+    private GstinLookupDetails? _lastGstinLookup;
+    private string _lastLookedUpGstin = "";
 
     public ObservableCollection<CustomerMatch> CustomerNameSuggestions { get; } = new();
 
@@ -219,6 +227,23 @@ public partial class BillingViewModel : ObservableObject
         EnsureEntryRow();
         RecalculateTotals();
         NotifyPostBillCanExecute();
+        _services.PosBillingSettings.Changed += OnPosBillingSettingsChanged;
+    }
+
+    private void OnPosBillingSettingsChanged()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+            RefreshBillingSettingsUi();
+        else
+            dispatcher.BeginInvoke(RefreshBillingSettingsUi);
+    }
+
+    private void RefreshBillingSettingsUi()
+    {
+        OnPropertyChanged(nameof(ShowGstinLookup));
+        OnPropertyChanged(nameof(ShowHoldBills));
+        SearchCustomerGstinCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>View focuses the trailing entry row Product code cell.</summary>
@@ -304,7 +329,7 @@ public partial class BillingViewModel : ObservableObject
         _sourceQuotationNo = null;
         HoldNo = "";
         DraftLabel = "DRAFT";
-        BillDateDisplay = DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
+        BillDateDisplay = HeldBillResume.BillDateForResume(DateTime.Now);
         BillNo = "—";
     }
 
@@ -1044,6 +1069,7 @@ public partial class BillingViewModel : ObservableObject
 
     public void ApplyCustomerRegistration(CustomerRegistrationResult result)
     {
+        _suppressCustomerFieldSync = true;
         _suppressPhoneAutoSearch = true;
         _suppressNameSuggestions = true;
         try
@@ -1072,6 +1098,7 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
             _suppressNameSuggestions = false;
+            _suppressCustomerFieldSync = false;
         }
         _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
@@ -1079,6 +1106,7 @@ public partial class BillingViewModel : ObservableObject
 
     public void ApplyCustomerMatch(CustomerMatch match)
     {
+        _suppressCustomerFieldSync = true;
         _suppressPhoneAutoSearch = true;
         _suppressNameSuggestions = true;
         try
@@ -1095,12 +1123,13 @@ public partial class BillingViewModel : ObservableObject
         {
             _suppressPhoneAutoSearch = false;
             _suppressNameSuggestions = false;
+            _suppressCustomerFieldSync = false;
         }
         _ = RefreshCustomerCreditAsync();
         NotifyPostBillCanExecute();
     }
 
-    /** Clears customer code, name, phone, and GSTIN from the bill (e.g. user deleted phone or name). */
+    /** Clears customer code, name, phone, and GSTIN from the bill (explicit reset only). */
     private void ClearCustomerProfile()
     {
         _suppressCustomerFieldSync = true;
@@ -1114,6 +1143,9 @@ public partial class BillingViewModel : ObservableObject
             CustomerGstin = "";
             _loadedCustomer = null;
             _loadedCustomerGstin = "";
+            _lastGstinLookup = null;
+            _lastLookedUpGstin = "";
+            CloseNameSuggestions();
             _lastCommittedPhoneNorm = "";
             _phoneWasComplete = false;
             IsPhoneComplete = false;
@@ -1133,17 +1165,40 @@ public partial class BillingViewModel : ObservableObject
         NotifyPostBillCanExecute();
     }
 
-    private bool HasLoadedCustomerOnBill() =>
-        !string.IsNullOrWhiteSpace(CustomerCode)
-        || !string.IsNullOrWhiteSpace(CustomerName)
-        || !string.IsNullOrWhiteSpace(CustomerPhone);
+    /// <summary>
+    /// Detaches the saved customer (code, credit notes, GSTIN tracking) while keeping
+    /// whatever the cashier typed in name, phone and GSTIN.
+    /// </summary>
+    private void UnlinkLoadedCustomer()
+    {
+        if (_loadedCustomer == null)
+            return;
+
+        _suppressCustomerFieldSync = true;
+        try
+        {
+            _loadedCustomer = null;
+            _loadedCustomerGstin = "";
+            _lastGstinLookup = null;
+            _lastLookedUpGstin = "";
+            _lastCommittedPhoneNorm = "";
+            CustomerCode = "";
+        }
+        finally
+        {
+            _suppressCustomerFieldSync = false;
+        }
+        ClearCreditSelection();
+        AvailableCreditNotes.Clear();
+        HasAvailableCredit = false;
+        RecalculateTotals();
+    }
 
     partial void OnCustomerNameChanged(string value)
     {
-        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value) && HasLoadedCustomerOnBill())
-            ClearCustomerProfile();
-        else
-            NotifyPostBillCanExecute();
+        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value))
+            UnlinkLoadedCustomer();
+        NotifyPostBillCanExecute();
 
         if (!_suppressNameSuggestions && !_suppressCustomerFieldSync)
             _ = RefreshCustomerNameSuggestionsAsync(value);
@@ -1215,35 +1270,7 @@ public partial class BillingViewModel : ObservableObject
         try
         {
             var result = await _customerRegistration.UpdateGstinFromMatchAsync(_loadedCustomer, gstin);
-            CustomerGstin = result.Gstin ?? gstin;
-            _loadedCustomerGstin = CustomerGstin;
-            _loadedCustomer = new CustomerMatch
-            {
-                Source = _loadedCustomer.Source,
-                Id = result.CentralCustomerId ?? _loadedCustomer.Id,
-                LocalMongoId = !string.IsNullOrWhiteSpace(result.LocalMongoId)
-                    ? result.LocalMongoId
-                    : _loadedCustomer.LocalMongoId,
-                Code = result.BillingCustomerCode,
-                Name = result.CustomerName,
-                Phone = result.CustomerPhone,
-                Gstin = CustomerGstin,
-                Email = _loadedCustomer.Email,
-                DoorNo = result.DoorNo,
-                Street = result.Street,
-                FullAddress = result.FullAddress,
-                Place = _loadedCustomer.Place,
-                City = _loadedCustomer.City,
-                State = _loadedCustomer.State,
-                Pincode = _loadedCustomer.Pincode,
-                IsCreditCustomer = _loadedCustomer.IsCreditCustomer,
-            };
-
-            if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
-            {
-                AppDialog.Show(result.CentralSyncWarning, "RR Bridal Billing",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+            ApplyPersistedCustomer(result, gstin, _loadedCustomer);
         }
         catch (Exception ex)
         {
@@ -1255,12 +1282,195 @@ public partial class BillingViewModel : ObservableObject
         }
     }
 
+    public async Task OnCustomerGstinLostFocusAsync()
+    {
+        await LookupCustomerGstinAsync(overwrite: false, showErrors: false);
+        await PersistCustomerGstinIfNeededAsync();
+    }
+
+    private bool CanSearchCustomerGstin() => ShowGstinLookup && !IsGstinLookupBusy;
+
+    [RelayCommand(CanExecute = nameof(CanSearchCustomerGstin))]
+    private async Task SearchCustomerGstin()
+    {
+        await LookupCustomerGstinAsync(overwrite: true, showErrors: true);
+        await PersistCustomerGstinIfNeededAsync();
+    }
+
+    partial void OnIsGstinLookupBusyChanged(bool value) => SearchCustomerGstinCommand.NotifyCanExecuteChanged();
+
+    private async Task LookupCustomerGstinAsync(bool overwrite, bool showErrors)
+    {
+        if (!_services.GstinLookup.IsEnabled)
+            return;
+
+        var gstin = GstinLookupMapper.Normalize(CustomerGstin);
+        if (!showErrors && !GstinLookupMapper.IsValidGstin(gstin))
+            return;
+        if (!showErrors
+            && string.Equals(gstin, _lastLookedUpGstin, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IsGstinLookupBusy = true;
+        try
+        {
+            var (data, error) = await _services.GstinLookup.LookupAsync(gstin);
+            if (data == null)
+            {
+                if (showErrors)
+                {
+                    AppDialog.Show(
+                        error ?? "GSTIN not found.",
+                        "GST lookup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                return;
+            }
+
+            ApplyGstinLookupToBill(data);
+            _lastGstinLookup = data;
+            _lastLookedUpGstin = GstinLookupMapper.Normalize(data.Gstin);
+            CustomerGstin = _lastLookedUpGstin;
+
+            if (_loadedCustomer != null)
+                await PersistLoadedCustomerFromLookupAsync(data, overwrite);
+
+            if (showErrors && !data.IsActive)
+            {
+                AppDialog.Show(
+                    GstinLookupMapper.StatusMessage(data),
+                    "GST lookup",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+        finally
+        {
+            IsGstinLookupBusy = false;
+        }
+    }
+
+    private void ApplyGstinLookupToBill(GstinLookupDetails data)
+    {
+        var applied = GstinLookupMapper.Apply(
+            data,
+            new GstinLookupFieldSet { Name = CustomerName },
+            GstinLookupApplyMode.FillEmpty);
+        CustomerName = applied.Name;
+    }
+
+    private async Task PersistLoadedCustomerFromLookupAsync(GstinLookupDetails data, bool overwrite)
+    {
+        if (_loadedCustomer == null)
+            return;
+
+        var mode = overwrite ? GstinLookupApplyMode.OverwriteAddress : GstinLookupApplyMode.FillEmpty;
+        var applied = GstinLookupMapper.Apply(
+            data,
+            new GstinLookupFieldSet
+            {
+                Name = string.IsNullOrWhiteSpace(CustomerName) ? _loadedCustomer.Name : CustomerName,
+                DoorNo = _loadedCustomer.DoorNo,
+                Street = _loadedCustomer.Street,
+                FullAddress = _loadedCustomer.FullAddress,
+                City = _loadedCustomer.City,
+                State = _loadedCustomer.State,
+                Pincode = _loadedCustomer.Pincode,
+            },
+            mode);
+
+        var match = new CustomerMatch
+        {
+            Source = _loadedCustomer.Source,
+            Id = _loadedCustomer.Id,
+            LocalMongoId = _loadedCustomer.LocalMongoId,
+            Code = _loadedCustomer.Code,
+            Name = applied.Name,
+            Phone = _loadedCustomer.Phone,
+            Email = _loadedCustomer.Email,
+            Gstin = GstinLookupMapper.Normalize(data.Gstin),
+            DoorNo = applied.DoorNo,
+            Street = applied.Street,
+            FullAddress = applied.FullAddress,
+            Place = _loadedCustomer.Place,
+            City = applied.City,
+            State = applied.State,
+            Pincode = applied.Pincode,
+            IsCreditCustomer = _loadedCustomer.IsCreditCustomer,
+        };
+
+        try
+        {
+            var result = await _customerRegistration.UpdateGstinFromMatchAsync(match, match.Gstin);
+            ApplyPersistedCustomer(result, match.Gstin, match);
+        }
+        catch (Exception ex)
+        {
+            AppDialog.Show(
+                $"Could not save customer GST details: {ex.Message}",
+                "RR Bridal Billing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void ApplyPersistedCustomer(CustomerRegistrationResult result, string gstin, CustomerMatch previous)
+    {
+        CustomerGstin = result.Gstin ?? gstin;
+        _loadedCustomerGstin = CustomerGstin;
+        if (string.IsNullOrWhiteSpace(CustomerName))
+            CustomerName = result.CustomerName;
+        _loadedCustomer = new CustomerMatch
+        {
+            Source = previous.Source,
+            Id = result.CentralCustomerId ?? previous.Id,
+            LocalMongoId = !string.IsNullOrWhiteSpace(result.LocalMongoId)
+                ? result.LocalMongoId
+                : previous.LocalMongoId,
+            Code = result.BillingCustomerCode,
+            Name = result.CustomerName,
+            Phone = result.CustomerPhone,
+            Gstin = CustomerGstin,
+            Email = previous.Email,
+            DoorNo = result.DoorNo,
+            Street = result.Street,
+            FullAddress = result.FullAddress,
+            Place = previous.Place,
+            City = previous.City,
+            State = previous.State,
+            Pincode = previous.Pincode,
+            IsCreditCustomer = previous.IsCreditCustomer,
+        };
+
+        if (!string.IsNullOrWhiteSpace(result.CentralSyncWarning))
+        {
+            AppDialog.Show(result.CentralSyncWarning, "RR Bridal Billing",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private CustomerQuickCaptureDialog CreateCustomerQuickCaptureDialog(
+        string initialPhone,
+        string initialName,
+        CustomerMatch? existingMatch,
+        bool isNewCustomer,
+        int exactMatchCount) =>
+        new(
+            initialPhone,
+            initialName,
+            existingMatch,
+            isNewCustomer,
+            exactMatchCount,
+            _services.GstinLookup,
+            CustomerGstin,
+            _lastGstinLookup);
+
     partial void OnCustomerCodeChanged(string value)
     {
-        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value) && HasLoadedCustomerOnBill())
-            ClearCustomerProfile();
-        else
-            NotifyPostBillCanExecute();
+        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value))
+            UnlinkLoadedCustomer();
+        NotifyPostBillCanExecute();
         RecalculateTotals();
     }
 
@@ -1308,16 +1518,15 @@ public partial class BillingViewModel : ObservableObject
 
     partial void OnCustomerPhoneChanged(string value)
     {
-        if (!_suppressCustomerFieldSync && string.IsNullOrWhiteSpace(value))
+        var norm = PhoneMatchHelper.NormalizePhone(value);
+        if (!_suppressCustomerFieldSync
+            && _loadedCustomer != null
+            && (string.IsNullOrWhiteSpace(value)
+                || (norm.Length >= 10 && norm != PhoneMatchHelper.NormalizePhone(_loadedCustomer.Phone))))
         {
-            if (HasLoadedCustomerOnBill())
-            {
-                ClearCustomerProfile();
-                return;
-            }
+            UnlinkLoadedCustomer();
         }
 
-        var norm = PhoneMatchHelper.NormalizePhone(value);
         if (norm != _lastCommittedPhoneNorm)
             _lastCommittedPhoneNorm = "";
 
@@ -1379,15 +1588,13 @@ public partial class BillingViewModel : ObservableObject
                 return;
             }
 
-            var dlg = new CustomerQuickCaptureDialog(
+            var dlg = CreateCustomerQuickCaptureDialog(
                 phone,
                 "",
                 existingMatch: null,
                 isNewCustomer: true,
-                exactMatchCount: 0)
-            {
-                Owner = Application.Current.MainWindow
-            };
+                exactMatchCount: 0);
+            dlg.Owner = Application.Current.MainWindow;
 
             _suppressPhoneAutoSearch = true;
             var dialogResult = dlg.ShowDialog();
@@ -1485,15 +1692,13 @@ public partial class BillingViewModel : ObservableObject
 
     private async Task<bool> OpenNewCustomerQuickCaptureFromSearchAsync(string initialPhone, string initialName)
     {
-        var dlg = new CustomerQuickCaptureDialog(
+        var dlg = CreateCustomerQuickCaptureDialog(
             initialPhone,
             initialName,
             existingMatch: null,
             isNewCustomer: true,
-            exactMatchCount: 0)
-        {
-            Owner = Application.Current.MainWindow
-        };
+            exactMatchCount: 0);
+        dlg.Owner = Application.Current.MainWindow;
 
         _suppressPhoneAutoSearch = true;
         var dialogResult = dlg.ShowDialog();
@@ -2561,7 +2766,10 @@ public partial class BillingViewModel : ObservableObject
         try
         {
             var rows = await _services.HeldBills.ListAsync();
-            var dlg = new HeldBillsDialog(rows) { Owner = Application.Current.MainWindow };
+            var dlg = new HeldBillsDialog(rows, showAllCounters: _services.StoreContext.IsPrimaryCounter)
+            {
+                Owner = Application.Current.MainWindow,
+            };
             if (dlg.ShowDialog() != true)
                 return;
 
@@ -2598,7 +2806,7 @@ public partial class BillingViewModel : ObservableObject
         DraftLabel = "HELD";
         BillNo = "—";
         var header = BillingPayloadBuilder.ReadHeader(doc);
-        BillDateDisplay = string.IsNullOrWhiteSpace(header.BillDate) ? BillDateDisplay : header.BillDate;
+        BillDateDisplay = HeldBillResume.BillDateForResume(DateTime.Now);
         CustomerCode = header.CustomerCode;
         CustomerName = header.CustomerName;
         CustomerPhone = header.CustomerPhone;

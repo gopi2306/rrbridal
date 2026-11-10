@@ -26,6 +26,19 @@ public static class InvoicePrintFlow
 
             var printSettings = services.ReceiptConfig.Current.Print;
             var printFormat = printSettings.PrintFormat;
+            if (printFormat == InvoicePrintFormat.A4TaxInvoice
+                && !string.IsNullOrEmpty(services.CentralAuthSession.AccessToken))
+            {
+                try
+                {
+                    await services.ReceiptConfigSync.RefreshCompanyProfileFromCentralAsync();
+                }
+                catch
+                {
+                    /* best-effort — print local bank details if central is unreachable */
+                }
+            }
+
             var isA4PrePrinted = printFormat == InvoicePrintFormat.A4 && printSettings.A4PrePrintedEnabled;
             var isA5PrePrinted = printFormat == InvoicePrintFormat.A5 && printSettings.A5PrePrintedEnabled;
             var isOfficeFormat = printFormat is InvoicePrintFormat.A4 or InvoicePrintFormat.A5

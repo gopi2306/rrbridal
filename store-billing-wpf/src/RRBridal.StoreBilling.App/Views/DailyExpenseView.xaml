@@ -9,11 +9,14 @@
              AutomationProperties.AutomationId="daily-expense-page"
              AutomationProperties.Name="Daily expenses"
              Background="{StaticResource BrushBackground}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0,0,0,8">
     <Grid Margin="0,0,0,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="*" MinHeight="240"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
@@ -203,4 +206,5 @@
             </Grid>
         </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>

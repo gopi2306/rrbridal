@@ -44,6 +44,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _receiptAddress = "";
 
     [ObservableProperty] private string _receiptCustomerCarePhone = "";
+    [ObservableProperty] private string _receiptCustomerCarePhone2 = "";
 
     [ObservableProperty] private string _receiptGstin = "";
 
@@ -92,6 +93,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _receiptPrinterWarningText = "";
 
     [ObservableProperty] private bool _billingAllowDuplicatePrint = true;
+    [ObservableProperty] private bool _billingEnableHoldBills = true;
     [ObservableProperty] private bool _billingPreferCentralOnline;
     [ObservableProperty] private bool _canEditPreferCentralOnline = true;
     [ObservableProperty] private string _preferCentralOnlineHint =
@@ -139,6 +141,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _billingEnableCardCharge;
     [ObservableProperty] private string _billingCardChargePercentText = "0";
     [ObservableProperty] private string _billingCardChargeFlatAmountText = "0";
+    [ObservableProperty] private bool _billingEnableGstinLookup;
 
     [ObservableProperty] private bool _uiShowSidebarMenu;
 
@@ -453,6 +456,7 @@ public partial class SettingsViewModel : ObservableObject
         ReceiptStoreName = s.StoreName;
         ReceiptAddress = s.Address;
         ReceiptCustomerCarePhone = s.CustomerCarePhone;
+        ReceiptCustomerCarePhone2 = s.CustomerCarePhone2;
         ReceiptGstin = s.Gstin;
         ReceiptFssaiNo = s.FssaiNo;
         ReceiptBranchCode = s.BranchCode;
@@ -584,6 +588,7 @@ public partial class SettingsViewModel : ObservableObject
         c.Store.StoreName = ReceiptStoreName.Trim();
         c.Store.Address = ReceiptAddress.Trim();
         c.Store.CustomerCarePhone = ReceiptCustomerCarePhone.Trim();
+        c.Store.CustomerCarePhone2 = ReceiptCustomerCarePhone2.Trim();
         c.Store.Gstin = ReceiptGstin.Trim();
         c.Store.FssaiNo = ReceiptFssaiNo.Trim();
         c.Store.BranchCode = ReceiptBranchCode.Trim();
@@ -632,6 +637,10 @@ public partial class SettingsViewModel : ObservableObject
             payload,
             CancellationToken.None);
 
+        var (bankOk, bankErr) = await _services.ReceiptConfigSync.PushCompanyBankDetailsAsync(
+            c.Store,
+            CancellationToken.None);
+
         var (actorName, actorEmail) = StoreAuditLogService.ActorFromSession(_services.UserSession);
         await _services.StoreAuditLog.LogEventAsync(new StoreAuditEvent
         {
@@ -649,24 +658,39 @@ public partial class SettingsViewModel : ObservableObject
                 { "thermalPrinter", SelectedThermalPrinterFullName ?? "" },
                 { "officePrinter", SelectedOfficePrinterFullName ?? "" },
                 { "pushedToCentral", pushOk },
+                { "bankPushedToCentral", bankOk },
             },
         });
         UpdatePrinterWarning();
-        if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))
+        LastActionText = ReceiptSaveStatusText(pushOk, pushErr, bankOk, bankErr);
+    }
+
+    private static string ReceiptSaveStatusText(bool pushOk, string? pushErr, bool bankOk, string? bankErr)
+    {
+        if (pushOk && bankOk)
         {
-            LastActionText =
-                "Receipt settings saved locally. Could not push to central (Central connection login required): "
+            return "Receipt print settings and bank details saved to central — formats and Tax Invoice bank details sync to all counters (printer queues stay per PC).";
+        }
+
+        if (!pushOk && !string.IsNullOrWhiteSpace(pushErr) && !bankOk && !string.IsNullOrWhiteSpace(bankErr))
+        {
+            return "Receipt settings saved locally. Could not push to central (Central connection login required): "
                 + pushErr;
         }
-        else if (pushOk)
+
+        if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))
         {
-            LastActionText =
-                "Receipt print settings saved to central — formats/layouts sync to all counters (printer queues stay per PC).";
+            return "Receipt settings saved locally. Could not push print settings to central (Central connection login required): "
+                + pushErr;
         }
-        else
+
+        if (!bankOk && !string.IsNullOrWhiteSpace(bankErr))
         {
-            LastActionText = "Receipt and printer settings saved.";
+            return "Receipt print settings saved to central. Could not push bank details (Central connection login required): "
+                + bankErr;
         }
+
+        return "Receipt and printer settings saved.";
     }
 
     partial void OnSelectedThermalPrinterFullNameChanged(string? value) => UpdatePrinterWarning();
@@ -859,6 +883,7 @@ public partial class SettingsViewModel : ObservableObject
             StoreName = string.IsNullOrWhiteSpace(ReceiptStoreName) ? saved.StoreName : ReceiptStoreName.Trim(),
             Address = ReceiptAddress.Trim(),
             CustomerCarePhone = ReceiptCustomerCarePhone.Trim(),
+            CustomerCarePhone2 = ReceiptCustomerCarePhone2.Trim(),
             Gstin = ReceiptGstin.Trim(),
             StateName = saved.StateName,
             FssaiNo = ReceiptFssaiNo.Trim(),
@@ -1153,6 +1178,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         _services.PosBillingSettings.Load();
         BillingAllowDuplicatePrint = _services.PosBillingSettings.Current.AllowDuplicatePrint;
+        BillingEnableHoldBills = _services.PosBillingSettings.Current.EnableHoldBills;
         BillingPreferCentralOnline = _services.PosBillingSettings.Current.PreferCentralOnline;
         CanEditPreferCentralOnline = !_services.PosBillingSettings.IsEnvOnlineOverride;
         PreferCentralOnlineHint = _services.PosBillingSettings.IsEnvOnlineOverride
@@ -1175,6 +1201,7 @@ public partial class SettingsViewModel : ObservableObject
         BillingEnableCardCharge = _services.PosBillingSettings.Current.EnableCardCharge;
         BillingCardChargePercentText = _services.PosBillingSettings.Current.CardChargePercent.ToString("0.##");
         BillingCardChargeFlatAmountText = _services.PosBillingSettings.Current.CardChargeFlatAmount.ToString("0.##");
+        BillingEnableGstinLookup = _services.PosBillingSettings.Current.EnableGstinLookup;
 
         LoadCounterScreenAccessEditor();
 
@@ -1333,6 +1360,7 @@ public partial class SettingsViewModel : ObservableObject
         _services.PosBillingSettings.Update(s =>
         {
             s.AllowDuplicatePrint = BillingAllowDuplicatePrint;
+            s.EnableHoldBills = BillingEnableHoldBills;
             s.ConfirmDuplicateProductAdd = BillingConfirmDuplicateProductAdd;
             s.AllowCreditNoteRemainingCashout = BillingAllowCreditNoteRemainingCashout;
             s.AllowMultipleReturnsPerBill = BillingAllowMultipleReturnsPerBill;
@@ -1350,6 +1378,7 @@ public partial class SettingsViewModel : ObservableObject
             s.EnableCardCharge = BillingEnableCardCharge;
             s.CardChargePercent = Math.Max(0m, cardChargePct);
             s.CardChargeFlatAmount = Math.Max(0m, cardChargeFlat);
+            s.EnableGstinLookup = BillingEnableGstinLookup;
             if (ShowCounterScreenAccessEditor)
                 ApplyCounterScreenAccessToDocument(s);
         });
@@ -1397,6 +1426,7 @@ public partial class SettingsViewModel : ObservableObject
                 { "preferCentralOnlineFromEnv", _services.PosBillingSettings.IsEnvOnlineOverride },
                 { "billingSettingsPushedToCentral", pushOk },
                 { "allowDuplicatePrint", BillingAllowDuplicatePrint },
+                { "enableHoldBills", BillingEnableHoldBills },
                 { "confirmDuplicateProductAdd", BillingConfirmDuplicateProductAdd },
                 { "allowCreditNoteRemainingCashout", BillingAllowCreditNoteRemainingCashout },
                 { "allowMultipleReturnsPerBill", BillingAllowMultipleReturnsPerBill },
@@ -1414,6 +1444,7 @@ public partial class SettingsViewModel : ObservableObject
                 { "enableCardCharge", BillingEnableCardCharge },
                 { "cardChargePercent", (double)Math.Max(0m, cardChargePct) },
                 { "cardChargeFlatAmount", (double)Math.Max(0m, cardChargeFlat) },
+                { "enableGstinLookup", BillingEnableGstinLookup },
             },
         });
         if (!pushOk && !string.IsNullOrWhiteSpace(pushErr))

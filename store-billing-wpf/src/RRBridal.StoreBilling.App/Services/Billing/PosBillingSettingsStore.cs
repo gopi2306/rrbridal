@@ -171,11 +171,18 @@ public sealed class PosBillingSettingsStore
             _current.CreditBillingAllowZeroAdvance = central.CreditBillingAllowZeroAdvance;
             _current.CreditBillingAllowPartialCollection = central.CreditBillingAllowPartialCollection;
             _current.CreditBillingMaxBalancePerBill = central.CreditBillingMaxBalancePerBill;
+            _current.GoingOutOfStockMatchQty = central.GoingOutOfStockMatchQty;
+            _current.EnableCardCharge = central.EnableCardCharge;
+            _current.CardChargePercent = central.CardChargePercent;
+            _current.CardChargeFlatAmount = central.CardChargeFlatAmount;
+            _current.EnableGstinLookup = central.EnableGstinLookup;
             _current.ScreenAccess = central.ScreenAccess ?? CounterScreenAccessSettings.CreateDefaults();
             ApplyEnvOnlineModeOverrideUnlocked();
             if (keepOnline.HasValue)
                 _current.PreferCentralOnline = keepOnline.Value;
         }
+
+        Changed?.Invoke();
     }
 
     public void Update(Action<PosBillingSettingsDocument> mutate)

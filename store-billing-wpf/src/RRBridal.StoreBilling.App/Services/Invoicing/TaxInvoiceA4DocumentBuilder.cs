@@ -151,10 +151,7 @@ public static class TaxInvoiceA4DocumentBuilder
             content.Children.Add(declaration);
 
             var footerNote = SectionBorder(
-                TaxInvoiceA4Visuals.Text(
-                    "This is a Computer Generated Invoice",
-                    footerSmallPt,
-                    align: TextAlignment.Center),
+                BuildFooterNote(input, footerPt, footerSmallPt),
                 new Thickness(1, 0, 1, 1),
                 FooterSectionPadding());
             Grid.SetRow(footerNote, footerStartRow + 5);
@@ -190,6 +187,46 @@ public static class TaxInvoiceA4DocumentBuilder
         grid.Children.Add(printed);
 
         return SectionBorder(grid, new Thickness(1, 1, 1, 1));
+    }
+
+    private static UIElement BuildFooterNote(ThermalInvoiceInput input, double bodyPt, double smallPt)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var salesperson = input.UserName?.Trim() ?? "";
+        if (salesperson.Length > 0)
+        {
+            var salespersonText = TaxInvoiceA4Visuals.Text($"Salesperson: {salesperson}", bodyPt, FontWeights.SemiBold);
+            Grid.SetColumn(salespersonText, 0);
+            grid.Children.Add(salespersonText);
+        }
+
+        var storeMobiles = FormatStoreMobiles(input.Store);
+        if (storeMobiles.Length > 0)
+        {
+            var mobileText = TaxInvoiceA4Visuals.Text(storeMobiles, bodyPt, align: TextAlignment.Right);
+            Grid.SetColumn(mobileText, 2);
+            grid.Children.Add(mobileText);
+        }
+
+        var note = TaxInvoiceA4Visuals.Text("This is a Computer Generated Invoice", smallPt, align: TextAlignment.Center);
+        Grid.SetColumn(note, 1);
+        grid.Children.Add(note);
+
+        return grid;
+    }
+
+    private static string FormatStoreMobiles(StoreProfile store)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone))
+            parts.Add($"Mobile No. 1: {store.CustomerCarePhone.Trim()}");
+        if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone2))
+            parts.Add($"Mobile No. 2: {store.CustomerCarePhone2.Trim()}");
+        return string.Join("   ", parts);
     }
 
     private static Thickness SectionPadding()
@@ -296,6 +333,11 @@ public static class TaxInvoiceA4DocumentBuilder
         if (!string.IsNullOrWhiteSpace(stateLine))
             stack.Children.Add(TaxInvoiceA4Visuals.Text(stateLine, smallPt, verticalAlign: VerticalAlignment.Top));
 
+        if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone))
+            stack.Children.Add(TaxInvoiceA4Visuals.Text($"Mobile No. 1: {store.CustomerCarePhone.Trim()}", smallPt, verticalAlign: VerticalAlignment.Top));
+        if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone2))
+            stack.Children.Add(TaxInvoiceA4Visuals.Text($"Mobile No. 2: {store.CustomerCarePhone2.Trim()}", smallPt, verticalAlign: VerticalAlignment.Top));
+
         if (!string.IsNullOrWhiteSpace(store.Gstin))
             stack.Children.Add(TaxInvoiceA4Visuals.Text($"GSTIN/UIN: {store.Gstin}", smallPt, verticalAlign: VerticalAlignment.Top));
 
@@ -306,7 +348,11 @@ public static class TaxInvoiceA4DocumentBuilder
     {
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
         stack.Children.Add(TaxInvoiceA4Visuals.Text(label, bodyPt, FontWeights.Bold, verticalAlign: VerticalAlignment.Top));
-        stack.Children.Add(TaxInvoiceA4Visuals.Text(FormatPartyNameLine(input), bodyPt, verticalAlign: VerticalAlignment.Top));
+        stack.Children.Add(TaxInvoiceA4Visuals.Text(input.CustomerName?.Trim() ?? "", bodyPt, verticalAlign: VerticalAlignment.Top));
+
+        var buyerPhone = input.CustomerPhone?.Trim() ?? "";
+        if (buyerPhone.Length > 0)
+            stack.Children.Add(TaxInvoiceA4Visuals.Text($"Phone: {buyerPhone}", smallPt, verticalAlign: VerticalAlignment.Top));
 
         var buyerGstin = (input.CustomerGstin ?? "").Trim();
         stack.Children.Add(TaxInvoiceA4Visuals.Text(
@@ -315,19 +361,6 @@ public static class TaxInvoiceA4DocumentBuilder
             verticalAlign: VerticalAlignment.Top));
 
         return TaxInvoiceA4Visuals.MetaBlockCell(stack, sectionPad, drawBottomBorder);
-    }
-
-    private static string FormatPartyNameLine(ThermalInvoiceInput input)
-    {
-        var name = input.CustomerName?.Trim() ?? "";
-        var phone = input.CustomerPhone?.Trim() ?? "";
-        if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(phone))
-            return "";
-        if (string.IsNullOrEmpty(phone))
-            return name;
-        if (string.IsNullOrEmpty(name))
-            return phone;
-        return $"{name} {phone}";
     }
 
     private static UIElement BuildLineTable(

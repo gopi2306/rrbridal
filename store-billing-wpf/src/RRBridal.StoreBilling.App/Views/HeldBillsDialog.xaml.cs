@@ -14,10 +14,13 @@ public partial class HeldBillsDialog
 
     public bool DeleteRequested { get; private set; }
 
-    public HeldBillsDialog(IReadOnlyList<HeldBillRow> rows)
+    public HeldBillsDialog(IReadOnlyList<HeldBillRow> rows, bool showAllCounters = false)
     {
         InitializeComponent();
         BillsGrid.ItemsSource = rows;
+        IntroText.Text = showAllCounters
+            ? "Showing held bills from all counters. Select one to resume or delete."
+            : "Select a held bill to resume or delete.";
         StatusText.Text = rows.Count == 0 ? "No held bills." : $"{rows.Count} held bill(s).";
         if (rows.Count > 0)
             BillsGrid.SelectedIndex = 0;

@@ -10,6 +10,7 @@ using RRBridal.StoreBilling.App.Services.PurchaseIntents;
 using RRBridal.StoreBilling.App.Services.Invoicing;
 using RRBridal.StoreBilling.App.Services.Masters;
 using RRBridal.StoreBilling.App.Services.Api;
+using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Notifications;
 using RRBridal.StoreBilling.App.Services.Billing;
 using RRBridal.StoreBilling.App.Services.Sync;
@@ -92,6 +93,7 @@ public sealed class AppServices
     public required WhatsAppBillService WhatsAppBills { get; init; }
     public required WhatsAppLocalPreferencesStore WhatsAppPreferences { get; init; }
     public required WhatsAppSettingsClient WhatsAppClient { get; init; }
+    public required GstinLookupService GstinLookup { get; init; }
     public UserSession? UserSession { get; set; }
 
     public Action? NotifyDaySessionChanged { get; set; }
@@ -148,6 +150,7 @@ public sealed class AppServices
         var receiptConfig = new ReceiptConfigStore();
         var receiptLogoCache = new ReceiptLogoCache(http);
         var companyProfileClient = new CompanyProfileClient(http);
+        var gstinLookupClient = new GstinLookupClient(http);
         var storeReceiptClient = new StoreReceiptSettingsClient(http);
         var storeInfoClient = new StoreInfoClient(http);
         var shellBranding = new ShellBrandingService(
@@ -259,6 +262,7 @@ public sealed class AppServices
         outboundDispatches.ConfigureOnline(centralMode, storePos);
         paymentRouter.ConfigureOnline(centralMode, storePos);
         var periodicSync = new PeriodicSyncService(storeContext, syncSchedule, storeSyncRunner, localDb, shellBranding, centralMode);
+        var gstinLookup = new GstinLookupService(gstinLookupClient, posBillingSettings, centralMode);
         var outboxNotifications = new OutboxNotificationService(localDb, storeContext);
 
         try { _ = StoreIndexEnsurer.EnsureAsync(localDb); } catch { /* best-effort index */ }
@@ -323,6 +327,7 @@ public sealed class AppServices
             WhatsAppBills = whatsappBills,
             WhatsAppPreferences = whatsappPrefs,
             WhatsAppClient = whatsappClient,
+            GstinLookup = gstinLookup,
         };
         billingOutbox.ConfigureOnlineDispatch(
             () => servicesRef.CentralMode.IsOnlineMode,

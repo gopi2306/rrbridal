@@ -25,6 +25,13 @@ public sealed class HeldBillRow
     public DateTime SortUtc { get; init; }
 }
 
+/// <summary>Invoice date when a hold is resumed — the resume/post day, not the original hold date.</summary>
+public static class HeldBillResume
+{
+    public static string BillDateForResume(DateTime now) =>
+        now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
+}
+
 public sealed class HeldBillService
 {
     private const string CollectionName = "held_bills";

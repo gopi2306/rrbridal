@@ -31,15 +31,27 @@ public partial class CustomersView
         }
     }
 
+    private async void GstinBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is CustomersViewModel vm)
+            await vm.LookupGstinOnLostFocusCommand.ExecuteAsync(null);
+    }
+
     private void FocusNewCustomerName()
     {
-        if (DataContext is CustomersViewModel vm
-            && vm.IsNewCustomer
-            && !vm.IsDetailReadOnly
-            && CustomerNameInput.IsVisible)
-        {
-            CustomerNameInput.Focus();
-            CustomerNameInput.SelectAll();
-        }
+        if (DataContext is not CustomersViewModel vm
+            || !vm.IsNewCustomer
+            || vm.IsDetailReadOnly
+            || !CustomerNameInput.IsVisible)
+            return;
+
+        // Never pull focus away from a field the user is already typing in.
+        if (DetailForm.IsKeyboardFocusWithin)
+            return;
+
+        CustomerNameInput.Focus();
+        if (string.IsNullOrEmpty(CustomerNameInput.Text))
+            return;
+        CustomerNameInput.CaretIndex = CustomerNameInput.Text.Length;
     }
 }

@@ -119,6 +119,54 @@ public sealed class ReceiptConfigSyncService
         return (true, $"Synced: {name} → receipt_config.json");
     }
 
+    /// <summary>
+    /// Best-effort company master pull (bank details, GSTIN, header). Does not block print on failure.
+    /// </summary>
+    public async Task<(bool Ok, string Message)> RefreshCompanyProfileFromCentralAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(_authSession.AccessToken))
+            return (false, "Central login required for company master refresh.");
+
+        _authSession.ApplyTo(_centralHttp);
+        try
+        {
+            var (profile, profileErr) = await _companyProfile.GetAsync(ct).ConfigureAwait(false);
+            if (profile == null)
+                return (false, profileErr ?? "Could not load company profile from central.");
+
+            ApplyCompanyProfile(profile.Value);
+            await _config.SaveAsync(ct).ConfigureAwait(false);
+            return (true, $"Company profile refreshed: {_config.Current.Store.StoreName}");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool Ok, string? Error)> PushCompanyBankDetailsAsync(
+        StoreProfile store,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(_authSession.AccessToken))
+            return (false, "Central login required.");
+
+        _authSession.ApplyTo(_centralHttp);
+        return await _companyProfile.PatchAsync(BuildCentralCompanyBankPayload(store), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Company-profile bank fields for Tax Invoice (store-wide, not per PC).</summary>
+    public static object BuildCentralCompanyBankPayload(StoreProfile store)
+    {
+        return new
+        {
+            bankAccountHolderName = store.BankAccountHolderName ?? "",
+            bankAccountNumber = store.BankAccountNumber ?? "",
+            bankIfsc = store.BankIfsc ?? "",
+            bankBranchName = store.BankBranchName ?? "",
+        };
+    }
+
     private void ApplyCompanyProfile(JsonElement profile)
     {
         var store = _config.Current.Store;

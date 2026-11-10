@@ -72,6 +72,8 @@ function serviceWith(model: FakeExpenseModel): StoreSalesSyncService {
     undefined as never,
     undefined as never,
     undefined as never,
+    undefined as never,
+    undefined as never,
   );
 }
 

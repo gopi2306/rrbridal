@@ -188,10 +188,15 @@ public static class A4InvoiceDocumentBuilder
             }
         }
 
+        var contacts = new List<string>();
         if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone))
+            contacts.Add(store.CustomerCarePhone.Trim());
+        if (!string.IsNullOrWhiteSpace(store.CustomerCarePhone2))
+            contacts.Add(store.CustomerCarePhone2.Trim());
+        if (contacts.Count > 0)
         {
             stack.Children.Add(RetailInvoiceVisuals.Text(
-                $"CONTACT: {store.CustomerCarePhone}",
+                $"CONTACT: {string.Join(" / ", contacts)}",
                 Pt(RetailInvoiceLayout.SubHeaderPt, scale),
                 align: TextAlignment.Center));
         }

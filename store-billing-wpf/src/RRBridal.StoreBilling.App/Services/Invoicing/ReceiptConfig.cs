@@ -43,6 +43,9 @@ public sealed class StoreProfile
 
     public string CustomerCarePhone { get; set; } = "";
 
+    /// <summary>Second store mobile printed on invoices (Mobile No. 2).</summary>
+    public string CustomerCarePhone2 { get; set; } = "";
+
     public string Gstin { get; set; } = "";
 
     public string StateName { get; set; } = "";

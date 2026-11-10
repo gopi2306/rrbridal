@@ -6,6 +6,7 @@ import type {
   GstItemRow,
   GstPurchaseInvoiceRow,
   GstRateSummaryRow,
+  GstSalesCustomerRow,
   GstSalesInvoiceRow,
   GstSectionSummary,
   GstTaxBreakdown,
@@ -23,7 +24,10 @@ export type GstLineContribution = GstTaxBreakdown & {
   documentNo: string;
   documentDate: string;
   storeId?: string;
+  customerCode?: string;
   customerName?: string;
+  customerPhone?: string;
+  customerGstin?: string;
   isInterState?: boolean;
   grnNumber?: string;
   receiptNo?: string;
@@ -40,7 +44,10 @@ export type GstDocumentContext = {
   documentNo: string;
   documentDate: string;
   storeId?: string;
+  customerCode?: string;
   customerName?: string;
+  customerPhone?: string;
+  customerGstin?: string;
   isInterState?: boolean;
   grnNumber?: string;
   receiptNo?: string;
@@ -339,7 +346,10 @@ function parseGstLine(
   };
   if (itemName) line.itemName = itemName;
   if (doc?.storeId) line.storeId = doc.storeId;
+  if (doc?.customerCode) line.customerCode = doc.customerCode;
   if (doc?.customerName) line.customerName = doc.customerName;
+  if (doc?.customerPhone) line.customerPhone = doc.customerPhone;
+  if (doc?.customerGstin) line.customerGstin = doc.customerGstin;
   if (doc?.isInterState) line.isInterState = doc.isInterState;
   if (doc?.grnNumber) line.grnNumber = doc.grnNumber;
   if (doc?.receiptNo) line.receiptNo = doc.receiptNo;
@@ -527,10 +537,14 @@ export function aggregateSalesByInvoice(rows: GstLineContribution[]): GstSalesIn
             : 'invoice',
         documentNo: row.documentNo,
         documentDate: row.documentDate,
+        supplyCategory: row.customerGstin ? 'B2B' : 'B2C',
         lineCount: 1,
         ...toTaxBreakdown(row, row.gstPercent),
       };
+      if (row.customerCode) invoiceRow.customerCode = row.customerCode;
       if (row.customerName) invoiceRow.customerName = row.customerName;
+      if (row.customerPhone) invoiceRow.customerPhone = row.customerPhone;
+      if (row.customerGstin) invoiceRow.customerGstin = row.customerGstin;
       if (row.isInterState) invoiceRow.isInterState = row.isInterState;
       byDoc.set(row.documentKey, invoiceRow);
       continue;
@@ -542,6 +556,82 @@ export function aggregateSalesByInvoice(rows: GstLineContribution[]): GstSalesIn
   }
   return [...byDoc.values()].sort(
     (a, b) => a.documentDate.localeCompare(b.documentDate) || a.documentNo.localeCompare(b.documentNo),
+  );
+}
+
+export type SalesCustomerDetails = {
+  customerCode?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerGstin?: string;
+};
+
+export function readSalesCustomerDetails(payload: Record<string, unknown>): SalesCustomerDetails {
+  const details: SalesCustomerDetails = {};
+  const code = readString(payload.customerCode);
+  const name = readString(payload.customerName);
+  const phone = readString(payload.customerPhone)?.replace(/\D/g, '');
+  const gstin = readString(payload.customerGstin)?.replace(/\s/g, '').toUpperCase();
+  if (code) details.customerCode = code;
+  if (name) details.customerName = name;
+  if (phone) details.customerPhone = phone;
+  if (gstin) details.customerGstin = gstin;
+  return details;
+}
+
+export const WALK_IN_CUSTOMER_KEY = 'WALK-IN';
+
+export function salesCustomerKey(row: {
+  customerGstin?: string;
+  customerPhone?: string;
+  customerCode?: string;
+}): string {
+  if (row.customerGstin) return `GSTIN:${row.customerGstin}`;
+  if (row.customerPhone) return `PHONE:${row.customerPhone}`;
+  if (row.customerCode) return `CODE:${row.customerCode.toUpperCase()}`;
+  return WALK_IN_CUSTOMER_KEY;
+}
+
+export function aggregateSalesByCustomer(invoices: GstSalesInvoiceRow[]): GstSalesCustomerRow[] {
+  const byCustomer = new Map<string, GstSalesCustomerRow & MonetaryTotals>();
+  for (const invoice of invoices) {
+    const customerKey = salesCustomerKey(invoice);
+    let existing = byCustomer.get(customerKey);
+    if (!existing) {
+      existing = {
+        customerKey,
+        supplyCategory: invoice.supplyCategory,
+        invoiceCount: 0,
+        returnCount: 0,
+        firstDocumentDate: invoice.documentDate,
+        lastDocumentDate: invoice.documentDate,
+        ...toTaxBreakdown(emptyMonetaryTotals()),
+      };
+      byCustomer.set(customerKey, existing);
+    }
+    if (invoice.customerCode) existing.customerCode = invoice.customerCode;
+    if (invoice.customerName) existing.customerName = invoice.customerName;
+    if (invoice.customerPhone) existing.customerPhone = invoice.customerPhone;
+    if (invoice.customerGstin) {
+      existing.customerGstin = invoice.customerGstin;
+      existing.supplyCategory = 'B2B';
+    }
+    if (invoice.documentType === 'return') existing.returnCount += 1;
+    else existing.invoiceCount += 1;
+    if (invoice.documentDate < existing.firstDocumentDate) {
+      existing.firstDocumentDate = invoice.documentDate;
+    }
+    if (invoice.documentDate > existing.lastDocumentDate) {
+      existing.lastDocumentDate = invoice.documentDate;
+    }
+    addMonetary(existing, invoice);
+    Object.assign(existing, deriveTaxPercents(existing));
+  }
+  return [...byCustomer.values()].sort(
+    (a, b) =>
+      a.supplyCategory.localeCompare(b.supplyCategory) ||
+      (a.customerName ?? '').localeCompare(b.customerName ?? '') ||
+      a.customerKey.localeCompare(b.customerKey),
   );
 }
 

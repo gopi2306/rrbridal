@@ -50,8 +50,23 @@
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="Search" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,8"/>
                         <TextBlock Text="Name or phone" Style="{StaticResource FilterFieldLabel}"/>
-                        <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="SearchBox"
+                                 Style="{StaticResource RoundedTextBox}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="50"
+                                 ToolTip="Salesman name or mobile number (max 10 digits)"
+                                 KeyDown="SearchBox_OnKeyDown"
                                  Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding SearchError}" TextWrapping="Wrap" Margin="0,0,0,8">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource AlertTextError}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SearchError}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <Button Content="Search" Style="{StaticResource OutlineButton}" HorizontalAlignment="Left"
                                 Command="{Binding RefreshCommand}" MinWidth="90"/>
                     </StackPanel>
@@ -81,11 +96,17 @@
                              Margin="0,0,0,12"/>
 
                     <TextBlock Text="Name *" Style="{StaticResource FormFieldLabel}"/>
-                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="NameBox"
+                             Style="{StaticResource RoundedTextBox}" Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="50"
+                             ToolTip="Letters, spaces, dot, apostrophe and hyphen (max 50)"
                              Margin="0,0,0,12"/>
 
                     <TextBlock Text="Phone" Style="{StaticResource FormFieldLabel}"/>
-                    <TextBox Style="{StaticResource RoundedTextBox}" Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="PhoneBox"
+                             Style="{StaticResource RoundedTextBox}" Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="10"
+                             ToolTip="10-digit mobile number"
                              Margin="0,0,0,12"/>
 
                     <CheckBox Content="Active" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding EditIsActive}" Margin="0,0,0,16"

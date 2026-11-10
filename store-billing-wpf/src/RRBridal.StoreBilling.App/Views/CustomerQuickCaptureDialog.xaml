@@ -1,6 +1,7 @@
 <Window x:Class="RRBridal.StoreBilling.App.Views.CustomerQuickCaptureDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:RRBridal.StoreBilling.App.Services.Ui"
         Title="Customer"
         Width="520"
         Height="640"
@@ -34,6 +35,8 @@
                 <TextBlock Text="Mobile no *" Style="{StaticResource FormFieldLabel}"/>
                 <TextBox x:Name="MobileBox" Style="{StaticResource RoundedTextBox}"
                          Text="{Binding MobileNo, UpdateSourceTrigger=PropertyChanged}"
+                         MaxLength="10"
+                         ui:InputRestriction.Kind="Mobile"
                          Margin="0,0,0,8"
                          AutomationProperties.AutomationId="customer-quick-capture-mobile-input"
                          AutomationProperties.Name="Mobile"/>
@@ -41,6 +44,8 @@
                 <TextBlock Text="Customer name *" Style="{StaticResource FormFieldLabel}"/>
                 <TextBox x:Name="NameBox" Style="{StaticResource RoundedTextBox}"
                          Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                         MaxLength="60"
+                         ui:InputRestriction.Kind="Name"
                          Margin="0,0,0,8"
                          AutomationProperties.AutomationId="customer-quick-capture-name-input"
                          AutomationProperties.Name="Name"/>
@@ -49,6 +54,8 @@
                     <TextBlock Text="Telephone" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"
                              Text="{Binding Telephone, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="15"
+                             ui:InputRestriction.Kind="Telephone"
                              Margin="0,0,0,8"
                              AutomationProperties.AutomationId="customer-quick-capture-telephone-input"
                              AutomationProperties.Name="Telephone"/>
@@ -65,11 +72,29 @@
                     <TextBlock Text="Address &amp; tax" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,10"/>
 
                     <TextBlock Text="GSTIN" Style="{StaticResource FormFieldLabel}"/>
-                    <TextBox Style="{StaticResource RoundedTextBox}"
-                             Text="{Binding Gstin, UpdateSourceTrigger=PropertyChanged}"
-                             Margin="0,0,0,8"
-                             AutomationProperties.AutomationId="customer-quick-capture-gstin-input"
-                             AutomationProperties.Name="GSTIN"/>
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Style="{StaticResource RoundedTextBox}"
+                                 Text="{Binding Gstin, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="15"
+                                 CharacterCasing="Upper"
+                                 ui:InputRestriction.Kind="Gstin"
+                                 LostFocus="GstinBox_OnLostFocus"
+                                 AutomationProperties.AutomationId="customer-quick-capture-gstin-input"
+                                 AutomationProperties.Name="GSTIN"/>
+                        <Button Grid.Column="1" Content="Search GST" Style="{StaticResource OutlineButton}"
+                                MinWidth="96" Margin="8,0,0,0" VerticalAlignment="Center"
+                                Click="SearchGstin_OnClick"
+                                Visibility="{Binding ShowGstinLookup, Converter={StaticResource BoolToVis}}"
+                                IsEnabled="{Binding CanSearchGstin}"
+                                AutomationProperties.AutomationId="customer-quick-capture-gstin-search-button"
+                                AutomationProperties.Name="Search GST"/>
+                    </Grid>
+                    <TextBlock Text="{Binding GstinLookupStatus}" Style="{StaticResource TextCaption}"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                     <TextBlock Text="Door / plot" Style="{StaticResource FormFieldLabel}"/>
                     <TextBox Style="{StaticResource RoundedTextBox}"

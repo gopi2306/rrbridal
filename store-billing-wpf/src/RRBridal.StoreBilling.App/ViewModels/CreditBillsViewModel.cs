@@ -46,7 +46,19 @@ public partial class CreditBillsViewModel : ObservableObject
     [RelayCommand]
     private async Task Refresh()
     {
+        // Preserve filters across reload (defensive against any TwoWay binding wipe during UI update).
+        var billNo = SearchBillNo;
+        var customerName = SearchCustomerName;
+        var customerPhone = SearchCustomerPhone;
+        var status = SelectedStatusFilter;
+
         await LoadBalanceAsync();
+
+        SearchBillNo = billNo;
+        SearchCustomerName = customerName;
+        SearchCustomerPhone = customerPhone;
+        SelectedStatusFilter = status;
+
         await Search();
     }
 

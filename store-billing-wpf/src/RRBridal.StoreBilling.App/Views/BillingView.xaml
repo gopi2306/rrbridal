@@ -36,11 +36,13 @@
                                 <Button Content="Resume held" Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
                                         AutomationProperties.AutomationId="billing-resume-held-button"
                                         AutomationProperties.Name="Resume held bill"
-                                        Padding="10,4" FontSize="12" Command="{Binding ResumeHeldBillsCommand}"/>
+                                        Padding="10,4" FontSize="12" Command="{Binding ResumeHeldBillsCommand}"
+                                        Visibility="{Binding ShowHoldBills, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                             <WrapPanel Grid.Row="1">
                                 <CheckBox Content="Hold bills" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding HoldBills}" Margin="0,0,12,4" VerticalAlignment="Center"
-                                          AutomationProperties.AutomationId="billing-hold-bill-checkbox" AutomationProperties.Name="Hold bill"/>
+                                          AutomationProperties.AutomationId="billing-hold-bill-checkbox" AutomationProperties.Name="Hold bill"
+                                          Visibility="{Binding ShowHoldBills, Converter={StaticResource BoolToVis}}"/>
                                 <CheckBox Content="Door delivery" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding DoorDelivery}" Margin="0,0,12,4" VerticalAlignment="Center"
                                           AutomationProperties.AutomationId="billing-door-delivery-checkbox" AutomationProperties.Name="Door delivery"/>
                                 <CheckBox Content="Online COD" Style="{StaticResource ThemedCheckBox}" IsChecked="{Binding OnlineCodOrder}" Margin="0,0,12,4" VerticalAlignment="Center"
@@ -74,6 +76,9 @@
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Customer code" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource RoundedTextBoxCompact}" Text="{Binding CustomerCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"
+                                     MaxLength="9" CharacterCasing="Upper"
+                                     ui:InputRestriction.Kind="CustomerCode"
+                                     ToolTip="Letters, digits and hyphen (e.g. CUST-0001), max 9"
                                      AutomationProperties.AutomationId="billing-customer-code-input" AutomationProperties.Name="Customer code"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="3" Text="Salesman" Style="{StaticResource FormFieldLabel}" Margin="0,0,0,4"/>
@@ -120,6 +125,7 @@
                                          AutomationProperties.Name="Customer phone"
                                          Text="{Binding CustomerPhone, UpdateSourceTrigger=PropertyChanged}"
                                          MaxLength="10"
+                                         ui:InputRestriction.Kind="Mobile"
                                          KeyDown="CustomerPhoneBox_OnKeyDown"
                                          LostFocus="CustomerPhoneBox_OnLostFocus"/>
                             </Border>
@@ -131,6 +137,8 @@
                                          AutomationProperties.Name="Customer name"
                                          Style="{StaticResource RoundedTextBoxCompact}"
                                          Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="60"
+                                         ui:InputRestriction.Kind="Name"
                                          KeyDown="CustomerNameBox_OnKeyDown"
                                          PreviewKeyDown="CustomerNameBox_OnPreviewKeyDown"/>
                                 <Popup IsOpen="{Binding IsCustomerNameSuggestionsOpen}"
@@ -161,14 +169,27 @@
                             </Grid>
 
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="GSTIN" Style="{StaticResource FormFieldLabel}"/>
-                            <TextBox x:Name="CustomerGstinBox" Grid.Row="2" Grid.Column="1"
-                                     Style="{StaticResource RoundedTextBoxCompact}"
-                                     Text="{Binding CustomerGstin, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="15"
-                                     CharacterCasing="Upper"
-                                     LostFocus="CustomerGstinBox_OnLostFocus"
-                                     AutomationProperties.AutomationId="billing-customer-gstin-input"
-                                     AutomationProperties.Name="Customer GSTIN"/>
+                            <Grid Grid.Row="2" Grid.Column="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="CustomerGstinBox"
+                                         Style="{StaticResource RoundedTextBoxCompact}"
+                                         Text="{Binding CustomerGstin, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="15"
+                                         CharacterCasing="Upper"
+                                         ui:InputRestriction.Kind="Gstin"
+                                         LostFocus="CustomerGstinBox_OnLostFocus"
+                                         AutomationProperties.AutomationId="billing-customer-gstin-input"
+                                         AutomationProperties.Name="Customer GSTIN"/>
+                                <Button Grid.Column="1" Content="Search GST" Style="{StaticResource OutlineButton}"
+                                        MinWidth="88" Margin="8,0,0,0" Padding="8,4"
+                                        Command="{Binding SearchCustomerGstinCommand}"
+                                        Visibility="{Binding ShowGstinLookup, Converter={StaticResource BoolToVis}}"
+                                        AutomationProperties.AutomationId="billing-customer-gstin-search-button"
+                                        AutomationProperties.Name="Search GST"/>
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Border>

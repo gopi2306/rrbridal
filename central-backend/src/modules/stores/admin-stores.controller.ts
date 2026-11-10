@@ -47,11 +47,12 @@ export class AdminStoresController {
 
   @Get(':code/billing-client')
   @ApiOperation({
-    summary: 'Download store billing WPF client (format=exe|zip)',
+    summary: 'Download store billing WPF client (format=exe|zip|setup)',
     description:
       'format=zip (default): full self-contained folder + .env. format=exe: tiny zip with PublishSingleFile EXE + .env. ' +
+      'format=setup: zip with Inno Setup setup.exe + .env (installer copies .env on first install and keeps it on upgrade). ' +
       'Till CENTRAL_API_BASE defaults from PUBLIC_CENTRAL_API_BASE, else API_PUBLIC_ORIGIN, else this request host. ' +
-      'zip needs BILLING_CLIENT_ARTIFACT_DIR; exe needs BILLING_CLIENT_SINGLE_EXE_PATH.',
+      'zip needs BILLING_CLIENT_ARTIFACT_DIR; exe needs BILLING_CLIENT_SINGLE_EXE_PATH; setup needs BILLING_CLIENT_SETUP_EXE_PATH.',
   })
   @ApiProduces('application/zip')
   async downloadBillingClient(

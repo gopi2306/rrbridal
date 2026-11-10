@@ -167,6 +167,19 @@ public partial class AdjustmentBillViewModel : ObservableObject
             return false;
         }
 
+        var storeId = _services.StoreContext.StoreId;
+        var existingAdj = await _services.StoreBillList.GetAdjustmentByBillNoAsync(storeId, billNo);
+        if (existingAdj != null)
+        {
+            var adjNo = DayBillingCloseDocumentReader.ReadString(existingAdj, "adjustmentNo") ?? "—";
+            AppDialog.Show(
+                $"Bill '{billNo}' already has adjustment {adjNo}. Only one adjustment is allowed per bill.",
+                "Adjustment Bill",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
+        }
+
         OriginalBillNo = billNo;
         _originalBillDoc = doc;
         IsInterState = doc.Contains("isInterState") && doc["isInterState"].AsBoolean;
@@ -267,7 +280,20 @@ public partial class AdjustmentBillViewModel : ObservableObject
             var storeId = _services.StoreContext.StoreId;
             var deviceId = _services.StoreContext.DeviceId;
             var posCounter = _services.StoreContext.PosCounter;
-            var createdAt = DateTime.UtcNow.ToString("O");
+            var createdAtUtc = DateTime.UtcNow;
+            var createdAt = createdAtUtc.ToString("O");
+
+            var existingAdj = await _services.StoreBillList.GetAdjustmentByBillNoAsync(storeId, OriginalBillNo.Trim());
+            if (existingAdj != null)
+            {
+                var adjNo = DayBillingCloseDocumentReader.ReadString(existingAdj, "adjustmentNo") ?? "—";
+                AppDialog.Show(
+                    $"Bill '{OriginalBillNo.Trim()}' already has adjustment {adjNo}.",
+                    "Adjustment Bill",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
 
             var linesArr = new BsonArray();
             foreach (var l in AdjustmentLines)
@@ -325,6 +351,26 @@ public partial class AdjustmentBillViewModel : ObservableObject
             var adjColl = _services.LocalDb.GetCollection<BsonDocument>("store_adjustments");
             if (!_services.CentralMode.IsOnlineMode)
                 await adjColl.InsertOneAsync(adjDoc);
+
+            if (_originalBillDoc != null)
+            {
+                var billToUpdate = (BsonDocument)_originalBillDoc.DeepClone();
+                BillAdjustmentApplier.ApplyToBill(
+                    billToUpdate,
+                    BillAdjustmentApplier.FromAdjustmentLineItems(AdjustmentLines),
+                    IsInterState,
+                    AdjustmentNo,
+                    (decimal)adjustedPayable,
+                    createdAtUtc);
+
+                var billColl = _services.LocalDb.GetCollection<BsonDocument>("store_bills");
+                var billFilter = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Eq("storeId", storeId),
+                    Builders<BsonDocument>.Filter.Eq("billNo", OriginalBillNo.Trim()));
+                var updated = await billColl.ReplaceOneAsync(billFilter, billToUpdate);
+                if (updated.MatchedCount > 0)
+                    _originalBillDoc = billToUpdate;
+            }
 
             var payload = new BsonDocument
             {

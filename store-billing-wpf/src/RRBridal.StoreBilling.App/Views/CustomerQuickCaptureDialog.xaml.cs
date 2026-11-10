@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Net.Mail;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using RRBridal.StoreBilling.App.Services.Customers;
 using RRBridal.StoreBilling.App.Services.Ui;
@@ -9,6 +10,7 @@ namespace RRBridal.StoreBilling.App.Views;
 
 public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
 {
+    private readonly GstinLookupService? _gstinLookup;
     private string _customerName = "";
     private string _mobileNo = "";
     private string _telephone = "";
@@ -22,6 +24,9 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
     private string _state = "";
     private bool _isCreditCustomer;
     private string _statusText = "";
+    private string _gstinLookupStatus = "";
+    private bool _isGstinLookupBusy;
+    private string _lastLookedUpGstin = "";
 
     public CustomerMatch? ExistingMatch { get; }
 
@@ -111,6 +116,27 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
         set { _statusText = value; OnPropChanged(); }
     }
 
+    public string GstinLookupStatus
+    {
+        get => _gstinLookupStatus;
+        set { _gstinLookupStatus = value; OnPropChanged(); }
+    }
+
+    public bool IsGstinLookupBusy
+    {
+        get => _isGstinLookupBusy;
+        set
+        {
+            _isGstinLookupBusy = value;
+            OnPropChanged();
+            OnPropChanged(nameof(CanSearchGstin));
+        }
+    }
+
+    public bool ShowGstinLookup => _gstinLookup?.IsEnabled == true && IsNewCustomer;
+
+    public bool CanSearchGstin => ShowGstinLookup && !IsGstinLookupBusy;
+
     public Visibility ShowAdvancedSearch => ExactMatchCount > 1 ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility ShowExtendedFields => IsNewCustomer ? Visibility.Visible : Visibility.Collapsed;
@@ -122,17 +148,23 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
         string initialName,
         CustomerMatch? existingMatch,
         bool isNewCustomer,
-        int exactMatchCount)
+        int exactMatchCount,
+        GstinLookupService? gstinLookup = null,
+        string? initialGstin = null,
+        GstinLookupDetails? prefillLookup = null)
     {
         ExistingMatch = existingMatch;
         IsNewCustomer = isNewCustomer;
         ExactMatchCount = exactMatchCount;
+        _gstinLookup = gstinLookup;
 
         InitializeComponent();
         DataContext = this;
 
         MobileNo = initialPhone;
         CustomerName = initialName;
+        if (!string.IsNullOrWhiteSpace(initialGstin))
+            Gstin = GstinLookupMapper.Normalize(initialGstin);
 
         StatusText = isNewCustomer
             ? "New customer — enter details and save to add to the store."
@@ -140,8 +172,19 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
                 ? $"{exactMatchCount} customers match this mobile. Showing the first — use Advanced search to pick another."
                 : "Existing customer found — confirm or edit name, then save.";
 
+        if (prefillLookup != null && IsNewCustomer)
+        {
+            ApplyGstinLookup(prefillLookup, GstinLookupApplyMode.OverwriteAddress);
+            if (string.IsNullOrWhiteSpace(Gstin))
+                Gstin = GstinLookupMapper.Normalize(prefillLookup.Gstin);
+            _lastLookedUpGstin = GstinLookupMapper.Normalize(prefillLookup.Gstin);
+            GstinLookupStatus = GstinLookupMapper.StatusMessage(prefillLookup);
+        }
+
         OnPropChanged(nameof(ShowAdvancedSearch));
         OnPropChanged(nameof(ShowExtendedFields));
+        OnPropChanged(nameof(ShowGstinLookup));
+        OnPropChanged(nameof(CanSearchGstin));
 
         Loaded += (_, _) =>
         {
@@ -154,6 +197,73 @@ public partial class CustomerQuickCaptureDialog : Window, INotifyPropertyChanged
                 NameBox.SelectAll();
             }
         };
+    }
+
+    private async void SearchGstin_OnClick(object sender, RoutedEventArgs e) =>
+        await LookupGstinAsync(GstinLookupApplyMode.OverwriteAddress, showErrors: true);
+
+    private async void GstinBox_OnLostFocus(object sender, RoutedEventArgs e) =>
+        await LookupGstinAsync(GstinLookupApplyMode.FillEmpty, showErrors: false);
+
+    private async Task LookupGstinAsync(GstinLookupApplyMode mode, bool showErrors)
+    {
+        if (_gstinLookup == null || !ShowGstinLookup)
+            return;
+
+        var gstin = GstinLookupMapper.Normalize(Gstin);
+        if (!showErrors && !GstinLookupMapper.IsValidGstin(gstin))
+            return;
+        if (!showErrors
+            && string.Equals(gstin, _lastLookedUpGstin, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IsGstinLookupBusy = true;
+        GstinLookupStatus = "Searching GSTIN…";
+        try
+        {
+            var (data, error) = await _gstinLookup.LookupAsync(gstin);
+            if (data == null)
+            {
+                GstinLookupStatus = showErrors ? (error ?? "GSTIN not found.") : "";
+                if (showErrors && !string.IsNullOrWhiteSpace(GstinLookupStatus))
+                    StatusText = GstinLookupStatus;
+                return;
+            }
+
+            ApplyGstinLookup(data, mode);
+            _lastLookedUpGstin = GstinLookupMapper.Normalize(data.Gstin);
+            Gstin = _lastLookedUpGstin;
+            GstinLookupStatus = GstinLookupMapper.StatusMessage(data);
+            StatusText = GstinLookupStatus;
+        }
+        finally
+        {
+            IsGstinLookupBusy = false;
+        }
+    }
+
+    private void ApplyGstinLookup(GstinLookupDetails data, GstinLookupApplyMode mode)
+    {
+        var applied = GstinLookupMapper.Apply(
+            data,
+            new GstinLookupFieldSet
+            {
+                Name = CustomerName,
+                DoorNo = DoorNo,
+                Street = Street,
+                FullAddress = FullAddress,
+                City = City,
+                State = State,
+                Pincode = Pincode,
+            },
+            mode);
+        CustomerName = applied.Name;
+        DoorNo = applied.DoorNo;
+        Street = applied.Street;
+        FullAddress = applied.FullAddress;
+        City = applied.City;
+        State = applied.State;
+        Pincode = applied.Pincode;
     }
 
     public CustomerRegistrationPayload ToPayload(string customerCode) => new()

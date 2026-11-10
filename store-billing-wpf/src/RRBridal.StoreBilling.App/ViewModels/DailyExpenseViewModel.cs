@@ -51,6 +51,7 @@ public partial class DailyExpenseViewModel : ObservableObject
     private readonly IMongoCollection<BsonDocument> _expenses;
     private readonly List<BsonDocument> _loadedDocuments = [];
     private bool _loadingEntry;
+    private bool _cashLegUserEdited;
 
     [ObservableProperty] private DateTime _selectedDate = DateTime.Today;
     [ObservableProperty] private DateTime _supplierInvoiceDate = DateTime.Today;
@@ -276,6 +277,7 @@ public partial class DailyExpenseViewModel : ObservableObject
     [RelayCommand]
     public void ClearEntryForm()
     {
+        _cashLegUserEdited = false;
         _loadingEntry = true;
         EditingExpenseNo = "";
         SupplierName = "";
@@ -303,6 +305,7 @@ public partial class DailyExpenseViewModel : ObservableObject
 
     private void LoadEntry(BsonDocument doc)
     {
+        _cashLegUserEdited = false;
         _loadingEntry = true;
         EditingExpenseNo = DailyExpenseDomain.ReadString(doc, "expenseNo") ?? "";
         SupplierName = DailyExpenseDomain.ReadString(doc, "supplierName") ?? "";
@@ -409,7 +412,7 @@ public partial class DailyExpenseViewModel : ObservableObject
             rate,
             SelectedSupplyType.StartsWith("Inter", StringComparison.OrdinalIgnoreCase) ? ExpenseSupplyType.InterState : ExpenseSupplyType.IntraState);
         var cashLeg = PaymentLegs[0];
-        if (cashLeg.IsSelected)
+        if (cashLeg.IsSelected && !_cashLegUserEdited)
         {
             var nonCashTotal = PaymentLegs
                 .Skip(1)
@@ -435,6 +438,13 @@ public partial class DailyExpenseViewModel : ObservableObject
     private void OnPaymentLegChanged(ExpensePaymentLegInput leg, string? propertyName)
     {
         if (_loadingEntry) return;
+        if (ReferenceEquals(leg, PaymentLegs[0]))
+        {
+            if (propertyName == nameof(ExpensePaymentLegInput.IsSelected) && !leg.IsSelected)
+                _cashLegUserEdited = false;
+            else if (propertyName == nameof(ExpensePaymentLegInput.AmountText))
+                _cashLegUserEdited = !string.IsNullOrWhiteSpace(leg.AmountText);
+        }
         if (propertyName == nameof(ExpensePaymentLegInput.IsSelected) && !leg.IsSelected)
         {
             _loadingEntry = true;

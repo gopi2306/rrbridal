@@ -18,7 +18,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="Select a held bill to resume or delete." Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12"/>
+        <TextBlock x:Name="IntroText" Text="Select a held bill to resume or delete." Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,12" TextWrapping="Wrap"/>
         <DataGrid x:Name="BillsGrid" Grid.Row="1" Style="{StaticResource ThemedDataGrid}"
                   AutomationProperties.AutomationId="held-bills-grid"
                   AutomationProperties.Name="Held bills"
@@ -28,7 +28,7 @@
                 <DataGridTextColumn Header="Hold no" Binding="{Binding HoldNo}" Width="160"/>
                 <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*"/>
                 <DataGridTextColumn Header="Payable" Binding="{Binding Payable, StringFormat=₹ {0:N2}}" Width="100"/>
-                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="80"/>
+                <DataGridTextColumn Header="Counter" Binding="{Binding CounterDisplay}" Width="120"/>
                 <DataGridTextColumn Header="Held" Binding="{Binding HeldAtUtc}" Width="140"/>
             </DataGrid.Columns>
         </DataGrid>

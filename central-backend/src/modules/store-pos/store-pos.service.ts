@@ -279,10 +279,7 @@ export class StorePosService {
           ? String(idRaw)
           : '';
 
-    const hsn =
-      (typeof p.hsnSac === 'string' && p.hsnSac) ||
-      (typeof p.hsnCode === 'string' && p.hsnCode) ||
-      null;
+    const hsn = this.readHsnSac(p);
 
     const storePrice =
       this.asNumber(p.storePrice) ?? this.asNumber(p.sellingPrice) ?? null;
@@ -307,6 +304,19 @@ export class StorePosService {
       stockQty,
       mediaItems: this.readMedia(p),
     };
+  }
+
+  private readHsnSac(p: Record<string, unknown>): string | null {
+    if (typeof p.hsnSac === 'string' && p.hsnSac.trim()) return p.hsnSac.trim();
+    if (typeof p.hsnCode === 'string' && p.hsnCode.trim()) return p.hsnCode.trim();
+
+    const ref = p.hsnCodeId;
+    if (ref && typeof ref === 'object' && 'hsnCode' in ref) {
+      const code = (ref as { hsnCode?: unknown }).hsnCode;
+      if (typeof code === 'string' && code.trim()) return code.trim();
+    }
+
+    return null;
   }
 
   private asId(v: unknown): string | null {

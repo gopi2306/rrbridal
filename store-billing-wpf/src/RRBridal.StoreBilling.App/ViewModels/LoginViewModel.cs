@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,7 +25,38 @@ public partial class LoginViewModel : ObservableObject
 
     public StoreUserRecord? AuthenticatedUser { get; private set; }
 
-    public string Password { private get; set; } = "";
+    private static readonly TimeSpan ErrorDisplayDuration = TimeSpan.FromSeconds(5);
+    private int _errorVersion;
+    private string _password = "";
+
+    public string Password
+    {
+        private get => _password;
+        set
+        {
+            if (_password == value)
+                return;
+            _password = value;
+            ErrorMessage = "";
+        }
+    }
+
+    partial void OnEmailChanged(string value) => ErrorMessage = "";
+
+    partial void OnErrorMessageChanged(string value)
+    {
+        var version = ++_errorVersion;
+        if (string.IsNullOrEmpty(value))
+            return;
+        _ = HideErrorAfterDelayAsync(version);
+    }
+
+    private async Task HideErrorAfterDelayAsync(int version)
+    {
+        await Task.Delay(ErrorDisplayDuration);
+        if (version == _errorVersion)
+            ErrorMessage = "";
+    }
 
     public LoginViewModel(AppServices services)
     {
@@ -50,10 +82,17 @@ public partial class LoginViewModel : ObservableObject
     private async Task LoginAsync()
     {
         ErrorMessage = "";
+        Email = Email.Trim();
 
         if (string.IsNullOrWhiteSpace(Email))
         {
             ErrorMessage = "Please enter your email.";
+            return;
+        }
+
+        if (!IsValidEmail(Email))
+        {
+            ErrorMessage = "Please enter a valid email address (e.g. name@example.com).";
             return;
         }
 
@@ -103,4 +142,16 @@ public partial class LoginViewModel : ObservableObject
     }
 
     public event Action? LoginSucceeded;
+
+    public const int EmailMaxLength = 254;
+
+    private static readonly Regex EmailPattern = new(
+        @"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$",
+        RegexOptions.CultureInvariant);
+
+    public static bool IsValidEmail(string? email)
+    {
+        var value = email?.Trim() ?? "";
+        return value.Length is > 0 and <= EmailMaxLength && EmailPattern.IsMatch(value);
+    }
 }

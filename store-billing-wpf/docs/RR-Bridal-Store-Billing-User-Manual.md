@@ -1,4 +1,6 @@
-# TruBilling — User Manual
+# TruBilling — User Manual (archived v2.0)
+
+> **Superseded.** Use the current manual: [TruBilling-User-Manual.md](./TruBilling-User-Manual.md) (v3.0, 17 September 2026) and the printable [TruBilling-User-Manual.html](./TruBilling-User-Manual.html). This file is kept only as the July 2026 snapshot.
 
 **Application:** TruBilling  
 **Version:** 2.0  

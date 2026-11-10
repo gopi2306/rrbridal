@@ -21,6 +21,9 @@ public sealed class PosBillingSettingsDocument
 
     public bool AllowDuplicatePrint { get; set; } = true;
 
+    /// <summary>When true, the billing screen shows Hold bills and Resume held.</summary>
+    public bool EnableHoldBills { get; set; } = true;
+
     /// <summary>When true, adding an SKU already on the bill asks before increasing its quantity.</summary>
     public bool ConfirmDuplicateProductAdd { get; set; } = true;
 
@@ -71,6 +74,9 @@ public sealed class PosBillingSettingsDocument
 
     /// <summary>When true, Card / Split-with-card payments may add a card processing charge.</summary>
     public bool EnableCardCharge { get; set; }
+
+    /// <summary>When true, GSTIN search fills customer name/address from the GST taxpayer API.</summary>
+    public bool EnableGstinLookup { get; set; }
 
     /// <summary>Percent of card base amount charged when EnableCardCharge is true (0 = none).</summary>
     public decimal CardChargePercent { get; set; }

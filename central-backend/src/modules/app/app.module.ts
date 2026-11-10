@@ -10,6 +10,7 @@ import { SyncModule } from '../sync/sync.module';
 import { ProductsModule } from '../products/products.module';
 import { MediaModule } from '../media/media.module';
 import { CustomersModule } from '../customers/customers.module';
+import { GstLookupModule } from '../gst-lookup/gst-lookup.module';
 import { SalesmenModule } from '../salesmen/salesmen.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
 import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module';
@@ -83,6 +84,7 @@ import { StorePosModule } from '../store-pos/store-pos.module';
     ProductsModule,
     MediaModule,
     CustomersModule,
+    GstLookupModule,
     SalesmenModule,
     SuppliersModule,
     PurchaseOrdersModule,

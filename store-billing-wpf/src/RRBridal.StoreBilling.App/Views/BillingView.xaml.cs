@@ -20,9 +20,11 @@ public partial class BillingView
 
     private BillingViewModel? _wiredVm;
     private bool _snapEntryProductCode;
+    private readonly Action _focusProductSearch;
 
     public BillingView()
     {
+        _focusProductSearch = RequestEntryProductCodeFocus;
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -41,9 +43,28 @@ public partial class BillingView
     {
         if (e.NewValue is true)
         {
+            ClaimProductSearchFocus();
             ApplyLineItemColumnVisibility();
             RequestEntryProductCodeFocus();
         }
+        else
+        {
+            ReleaseProductSearchFocus();
+        }
+    }
+
+    // Several BillingView instances exist at once (main Billing page, embedded in Quotation);
+    // only the visible one may own the shell's F3 / Ctrl+F product-code focus callback.
+    private void ClaimProductSearchFocus()
+    {
+        if (_wiredVm != null && IsVisible)
+            App.Services.FocusBillingProductSearch = _focusProductSearch;
+    }
+
+    private void ReleaseProductSearchFocus()
+    {
+        if (ReferenceEquals(App.Services.FocusBillingProductSearch, _focusProductSearch))
+            App.Services.FocusBillingProductSearch = null;
     }
 
     private void ApplyLineItemColumnVisibility()
@@ -72,7 +93,7 @@ public partial class BillingView
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         UnwireViewModel();
-        App.Services.FocusBillingProductSearch = null;
+        ReleaseProductSearchFocus();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -99,7 +120,7 @@ public partial class BillingView
         _wiredVm = vm;
         vm.Lines.CollectionChanged += OnLinesCollectionChanged;
         vm.RequestFocusEntryProductCode = RequestEntryProductCodeFocus;
-        App.Services.FocusBillingProductSearch = RequestEntryProductCodeFocus;
+        ClaimProductSearchFocus();
     }
 
     private void OnLinesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -181,7 +202,11 @@ public partial class BillingView
             LinesGrid.UpdateLayout();
             LinesGrid.CurrentCell = new DataGridCellInfo(entry, column);
             LinesGrid.ScrollIntoView(entry, column);
-            LinesGrid.Focus();
+            LinesGrid.UpdateLayout();
+            if (column.GetCellContent(entry)?.Parent is DataGridCell cell)
+                cell.Focus();
+            else
+                LinesGrid.Focus();
 
             Dispatcher.BeginInvoke(() =>
             {
@@ -193,6 +218,12 @@ public partial class BillingView
                         && string.Equals(LinesGrid.CurrentCell.Column?.Header as string, header, System.StringComparison.Ordinal))
                     {
                         LinesGrid.BeginEdit();
+                        if (column.GetCellContent(entry) is TextBox box)
+                        {
+                            box.Focus();
+                            Keyboard.Focus(box);
+                            box.SelectAll();
+                        }
                     }
                 }
                 catch (InvalidOperationException) { }
@@ -224,10 +255,14 @@ public partial class BillingView
     {
         if (e.EditingElement is not TextBox box)
             return;
+
+        var header = e.Column.Header as string;
+        if (header == "Qty")
+            AttachNumericQtyFilter(box);
+
         if (e.Row.Item is not BillingLineItem line || !line.IsEntryRow)
             return;
 
-        var header = e.Column.Header as string;
         if (header == "Product code")
         {
             box.PreviewKeyDown -= EntryProductCodeBox_OnPreviewKeyDown;
@@ -242,6 +277,62 @@ public partial class BillingView
         box.PreviewKeyDown += EntryQtyBox_OnPreviewKeyDown;
         box.GotFocus -= EntryQtyBox_OnGotFocus;
         box.GotFocus += EntryQtyBox_OnGotFocus;
+    }
+
+    private static void AttachNumericQtyFilter(TextBox box)
+    {
+        box.PreviewTextInput -= QtyBox_OnPreviewTextInput;
+        box.PreviewTextInput += QtyBox_OnPreviewTextInput;
+        box.PreviewKeyDown -= QtyBox_BlockSpace;
+        box.PreviewKeyDown += QtyBox_BlockSpace;
+        DataObject.RemovePastingHandler(box, QtyBox_OnPasting);
+        DataObject.AddPastingHandler(box, QtyBox_OnPasting);
+    }
+
+    private static void QtyBox_OnPreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (sender is TextBox box)
+            e.Handled = !IsValidQtyText(ProposedText(box, e.Text));
+    }
+
+    private static void QtyBox_BlockSpace(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+            e.Handled = true;
+    }
+
+    private static void QtyBox_OnPasting(object sender, DataObjectPastingEventArgs e)
+    {
+        var pasted = e.DataObject.GetDataPresent(DataFormats.UnicodeText)
+            ? e.DataObject.GetData(DataFormats.UnicodeText) as string
+            : null;
+        if (sender is not TextBox box || pasted == null || !IsValidQtyText(ProposedText(box, pasted.Trim())))
+            e.CancelCommand();
+    }
+
+    private static string ProposedText(TextBox box, string input)
+    {
+        var text = box.Text ?? "";
+        var start = Math.Min(box.SelectionStart, text.Length);
+        var length = Math.Min(box.SelectionLength, text.Length - start);
+        return text.Remove(start, length).Insert(start, input);
+    }
+
+    private static bool IsValidQtyText(string text)
+    {
+        var dotSeen = false;
+        foreach (var ch in text)
+        {
+            if (ch == '.')
+            {
+                if (dotSeen)
+                    return false;
+                dotSeen = true;
+            }
+            else if (!char.IsAsciiDigit(ch))
+                return false;
+        }
+        return true;
     }
 
     private void EntryQtyBox_OnGotFocus(object sender, RoutedEventArgs e)
@@ -381,6 +472,6 @@ public partial class BillingView
     private async void CustomerGstinBox_OnLostFocus(object sender, RoutedEventArgs e)
     {
         if (_wiredVm != null)
-            await _wiredVm.PersistCustomerGstinIfNeededAsync();
+            await _wiredVm.OnCustomerGstinLostFocusAsync();
     }
 }

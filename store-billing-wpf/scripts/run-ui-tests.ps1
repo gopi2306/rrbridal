@@ -17,7 +17,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $appProject = Join-Path $root "src\RRBridal.StoreBilling.App\RRBridal.StoreBilling.App.csproj"
 $existingTestProject = Join-Path $root "src\RRBridal.StoreBilling.Tests\RRBridal.StoreBilling.Tests.csproj"
 $uiTestProject = Join-Path $root "src\RRBridal.StoreBilling.UiTests\RRBridal.StoreBilling.UiTests.csproj"
-$appExe = Join-Path $root "src\RRBridal.StoreBilling.App\bin\$Configuration\net9.0-windows\RRBridal.StoreBilling.App.exe"
+$appExe = Join-Path $root "src\RRBridal.StoreBilling.App\bin\$Configuration\net9.0-windows\trubill.exe"
 
 if ($env:OS -ne "Windows_NT") {
     throw "WPF UI automation requires Windows."

@@ -627,7 +627,11 @@ public partial class ShellViewModel : ObservableObject
         if (value == ShellPage.QuotationManagement)
             _ = QuotationManagement.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.CreditBills)
+        {
+            // Fresh page open: clear leftover filters, then load.
+            CreditBills.ClearFilters();
             _ = CreditBills.RefreshCommand.ExecuteAsync(null);
+        }
         if (value == ShellPage.Ledger)
             _ = Ledger.RefreshCommand.ExecuteAsync(null);
         if (value == ShellPage.OutboundDispatch)
@@ -954,7 +958,7 @@ public partial class ShellViewModel : ObservableObject
                 _ = QuotationManagement.RefreshCommand.ExecuteAsync(null);
                 break;
             case ShellPage.CreditBills:
-                CreditBills.ClearFilters();
+                // Keep filter values — same as Online Sales. Use the Clear button to reset filters.
                 _ = CreditBills.RefreshCommand.ExecuteAsync(null);
                 break;
             case ShellPage.Dashboard:
@@ -1017,6 +1021,8 @@ public partial class ShellViewModel : ObservableObject
     private async Task HoldBill()
     {
         if (!EnsureBillingPage())
+            return;
+        if (!_services.PosBillingSettings.Current.EnableHoldBills)
             return;
         await Billing.HoldBillCommand.ExecuteAsync(null);
     }

@@ -82,6 +82,7 @@
                                  AutomationProperties.Name="Email address"
                                  Style="{StaticResource RoundedTextBox}"
                                  Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="254"
                                  FontSize="14" MinHeight="48" Padding="14,12"
                                  VerticalContentAlignment="Center"
                                  GotFocus="EmailBox_OnGotFocus"

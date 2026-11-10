@@ -16,20 +16,24 @@ async function main() {
   const singleDir = mkdtempSync(join(tmpdir(), 'rr-billing-single-'));
   const previousArtifact = process.env.BILLING_CLIENT_ARTIFACT_DIR;
   const previousSingle = process.env.BILLING_CLIENT_SINGLE_EXE_PATH;
+  const previousSetup = process.env.BILLING_CLIENT_SETUP_EXE_PATH;
   const previousApi = process.env.PUBLIC_CENTRAL_API_BASE;
   const previousOrigin = process.env.API_PUBLIC_ORIGIN;
 
   try {
-    writeFileSync(join(artifactDir, 'RRBridal.StoreBilling.App.exe'), Buffer.from('fake-folder-exe'));
+    writeFileSync(join(artifactDir, 'trubill.exe'), Buffer.from('fake-folder-exe'));
     writeFileSync(join(artifactDir, 'readme.txt'), 'hello');
     mkdirSync(join(artifactDir, 'subdir'));
     writeFileSync(join(artifactDir, 'subdir', 'nested.dll'), Buffer.from('dll'));
 
-    const singleExePath = join(singleDir, 'RRBridal.StoreBilling.App.exe');
+    const singleExePath = join(singleDir, 'trubill.exe');
     writeFileSync(singleExePath, Buffer.from('fake-single-exe'));
+    const setupExePath = join(singleDir, 'setup.exe');
+    writeFileSync(setupExePath, Buffer.from('fake-setup-exe'));
 
     process.env.BILLING_CLIENT_ARTIFACT_DIR = artifactDir;
     process.env.BILLING_CLIENT_SINGLE_EXE_PATH = singleExePath;
+    process.env.BILLING_CLIENT_SETUP_EXE_PATH = setupExePath;
     delete process.env.PUBLIC_CENTRAL_API_BASE;
     process.env.API_PUBLIC_ORIGIN = 'https://bridaldev.rrbazaar.in/';
 
@@ -63,7 +67,7 @@ async function main() {
     // format=zip (default)
     const zipResult = await service.buildPackage('Store-001', 2, 'zip');
     assert(
-      zipResult.filename === 'RRBridal-StoreBilling-store-001-counter-02.zip',
+      zipResult.filename === 'trubill-store-001-counter-02.zip',
       `zip filename=${zipResult.filename}`,
     );
     const zip = readFileSync(zipResult.zipPath);
@@ -78,7 +82,7 @@ async function main() {
     // format=exe
     const exeResult = await service.buildPackage('Store-001', 2, 'exe');
     assert(
-      exeResult.filename === 'RRBridal-StoreBilling-store-001-counter-02-exe.zip',
+      exeResult.filename === 'trubill-store-001-counter-02-exe.zip',
       `exe filename=${exeResult.filename}`,
     );
     const exeZip = readFileSync(exeResult.zipPath);
@@ -90,6 +94,19 @@ async function main() {
     assert(exeZip.includes(Buffer.from('PREFER_CENTRAL_ONLINE=true')), 'prefer online');
     await exeResult.cleanup();
 
+    // format=setup
+    const setupResult = await service.buildPackage('Store-001', 2, 'setup');
+    assert(
+      setupResult.filename === 'trubill-store-001-counter-02-setup.zip',
+      `setup filename=${setupResult.filename}`,
+    );
+    const setupZip = readFileSync(setupResult.zipPath);
+    assert(setupZip.includes(Buffer.from('fake-setup-exe')), 'setup zip should include setup.exe bytes');
+    assert(setupZip.includes(Buffer.from('.env')), 'setup zip should include .env');
+    assert(!setupZip.includes(Buffer.from('nested.dll')), 'setup zip must not include folder DLLs');
+    assert(setupZip.includes(Buffer.from('STORE_ID=store-001')), 'setup store id');
+    await setupResult.cleanup();
+
     console.log('billing-client-package.selftest: ok');
   } finally {
     rmSync(artifactDir, { recursive: true, force: true });
@@ -98,6 +115,8 @@ async function main() {
     else process.env.BILLING_CLIENT_ARTIFACT_DIR = previousArtifact;
     if (previousSingle === undefined) delete process.env.BILLING_CLIENT_SINGLE_EXE_PATH;
     else process.env.BILLING_CLIENT_SINGLE_EXE_PATH = previousSingle;
+    if (previousSetup === undefined) delete process.env.BILLING_CLIENT_SETUP_EXE_PATH;
+    else process.env.BILLING_CLIENT_SETUP_EXE_PATH = previousSetup;
     if (previousApi === undefined) delete process.env.PUBLIC_CENTRAL_API_BASE;
     else process.env.PUBLIC_CENTRAL_API_BASE = previousApi;
     if (previousOrigin === undefined) delete process.env.API_PUBLIC_ORIGIN;

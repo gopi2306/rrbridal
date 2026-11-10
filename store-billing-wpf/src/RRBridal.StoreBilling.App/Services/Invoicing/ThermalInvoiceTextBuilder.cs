@@ -178,7 +178,9 @@ public static class ThermalInvoiceTextBuilder
         foreach (var line in Wrap(s.Address, w))
             sb.AppendLine(line);
         if (!string.IsNullOrWhiteSpace(s.CustomerCarePhone))
-            sb.AppendLine($"Customer Care: {s.CustomerCarePhone}".TrimEnd());
+            sb.AppendLine($"Mobile No. 1: {s.CustomerCarePhone}".TrimEnd());
+        if (!string.IsNullOrWhiteSpace(s.CustomerCarePhone2))
+            sb.AppendLine($"Mobile No. 2: {s.CustomerCarePhone2}".TrimEnd());
         var reg = new List<string>();
         if (!string.IsNullOrWhiteSpace(s.FssaiNo)) reg.Add($"FSSAI: {s.FssaiNo}");
         if (!string.IsNullOrWhiteSpace(s.Gstin)) reg.Add($"GSTIN: {s.Gstin}");

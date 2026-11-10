@@ -129,6 +129,9 @@ internal sealed class FakeCentralServer : IDisposable
         var root = ParseBody(body);
         var domainPayload = UnwrapPayload(root);
 
+        if (method == "PATCH" && path == "/api/company-profile")
+            return Ok(CompanyPayload());
+
         if (method == "POST" && path == "/api/store-pos/next-number")
             return Ok(new { value = State.NextNumber(ReadString(root, "kind") ?? "document") });
         if (method == "POST" && path == "/api/sync/push")
@@ -232,6 +235,22 @@ internal sealed class FakeCentralServer : IDisposable
         if (path is "/api/store-pos/gateway-payments" or "/api/store-pos/credit-note-cashouts"
             or "/api/store-pos/promotions" or "/api/store-pos/transfers/awaiting-intake")
             return Ok(Array.Empty<object>());
+        if (path == "/api/gst/lookup")
+            return Ok(new
+            {
+                gstin = "36AABCU9603R1ZM",
+                name = "RR Bridal",
+                legalName = "RR BRIDAL PRIVATE LIMITED",
+                tradeName = "RR Bridal",
+                status = "Active",
+                isActive = true,
+                doorNo = "12-3",
+                street = "Bridal Plaza, Road No 1",
+                fullAddress = "12-3, Bridal Plaza, Road No 1, Madhapur, Telangana, 500081",
+                city = "Madhapur",
+                state = "Telangana",
+                pincode = "500081",
+            });
         if (path == "/api/customers")
             return Ok(new[] { CustomerPayload() });
         if (path == "/api/salesmen")
